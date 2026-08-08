@@ -18,6 +18,7 @@ manager, no interpreter, and nothing else to execute.
 - [Running the command-line tool](#running-the-command-line-tool)
 - [Registering the MCP servers](#registering-the-mcp-servers)
 - [The workspace and file ownership](#the-workspace-and-file-ownership)
+- [Closing the network](#closing-the-network)
 - [Building the image yourself](#building-the-image-yourself)
 - [Troubleshooting](#troubleshooting)
 
@@ -140,12 +141,16 @@ unchanged. Mount the documents you want it to see at `/work`:
 
 ```bash
 IMAGE=ghcr.io/jakubmelka/exyokioffice:1.0.0
-docker run --rm -v "$PWD:/work" "$IMAGE" exyoki --help
-docker run --rm -v "$PWD:/work" "$IMAGE" exyoki validate report.docx
-docker run --rm -v "$PWD:/work" "$IMAGE" exyoki convert report.docx report.md
+docker run --rm --network none -v "$PWD:/work" "$IMAGE" exyoki --help
+docker run --rm --network none -v "$PWD:/work" "$IMAGE" exyoki validate report.docx
+docker run --rm --network none -v "$PWD:/work" "$IMAGE" \
+  exyoki convert report.docx report.md
 ```
 
 `/work` is the working directory, so relative paths mean what you expect.
+`--network none` is explained under [Closing the
+network](#closing-the-network); nothing in the image ever reaches out, so it
+costs nothing and saves both a risk and a measurable part of the start-up.
 
 ## Registering the MCP servers
 
@@ -158,19 +163,19 @@ needs `-i` and must not be given `-t`. Beyond that the entry is the ordinary
   "mcpServers": {
     "word": {
       "command": "docker",
-      "args": ["run", "--rm", "-i",
+      "args": ["run", "--rm", "-i", "--network", "none",
                "-v", "/path/to/documents:/work",
                "ghcr.io/jakubmelka/exyokioffice:1.0.0", "word"]
     },
     "excel": {
       "command": "docker",
-      "args": ["run", "--rm", "-i",
+      "args": ["run", "--rm", "-i", "--network", "none",
                "-v", "/path/to/documents:/work",
                "ghcr.io/jakubmelka/exyokioffice:1.0.0", "excel"]
     },
     "powerpoint": {
       "command": "docker",
-      "args": ["run", "--rm", "-i",
+      "args": ["run", "--rm", "-i", "--network", "none",
                "-v", "/path/to/documents:/work",
                "ghcr.io/jakubmelka/exyokioffice:1.0.0", "powerpoint"]
     }
@@ -220,6 +225,47 @@ flag belongs in the `args` of an MCP entry whose server saves documents.
 Without any mount, `/work` is a writable directory inside the container and
 everything saved there disappears with it.
 
+## Closing the network
+
+Nothing in this image ever opens a socket. The library has no HTTP client at
+all — a document's external references are resolved by a resolver the embedding
+application supplies, as [External resources](../ExternalResources.md)
+describes, and neither `exyoki` nor the MCP servers supply one; `exyoki
+external` reports those references without following them. The MCP protocol
+itself runs over standard input and output. So the container can be run with no
+network at all:
+
+```bash
+docker run --rm --network none -v "$PWD:/work" "$IMAGE" exyoki validate report.docx
+```
+
+`--network none` gives the container a network namespace containing only
+loopback: no veth pair, no bridge, no address, no NAT rules, no published
+ports. Nothing can reach out and nothing can reach in.
+
+Two things come of it. It is a real boundary — the sandbox the [security
+model](mcp-servers.md#security-model) describes bounds which files a server may
+touch, and this bounds where anything inside could send them, whatever it is.
+And it is faster: setting that networking up and tearing it down again is a
+measurable part of what starting a container costs, and for a program that
+never uses it, all of it is waste.
+
+It is the caller's flag, not a property of the image — a Dockerfile cannot
+demand it, so every command line and every client entry has to carry it. In
+Compose it is `network_mode: "none"`:
+
+```yaml
+services:
+  exyoki:
+    image: ghcr.io/jakubmelka/exyokioffice:1.0.0
+    network_mode: "none"
+    volumes:
+      - ./documents:/work
+```
+
+Kubernetes has no equivalent field; there the same thing is a NetworkPolicy
+that denies the pod all ingress and egress.
+
 ## Building the image yourself
 
 The recipe is [`docker/Dockerfile`](../../docker/Dockerfile). It assembles the
@@ -257,6 +303,7 @@ and the image copies it in one piece. The `Stage the container root` step of
 | Saved documents belong to uid 65532 | The image runs unprivileged and the mount inherited that | Add `--user "$(id -u):$(id -g)"` |
 | `no such file or directory` on start | An `amd64` image on a different architecture | Only `linux/amd64` is published; build from source elsewhere |
 | Unknown command | The first argument is not one of the four programs | Run the image with no arguments for the list |
+| Every `docker run` takes noticeably longer than the work it does | Creating, networking and tearing down a container costs far more than starting these programs, and it is charged once per `docker run` | Add `--network none`, and for a batch run one container over the whole batch — or use the zip archive, where starting the program is all there is |
 
 The MCP servers log to standard error, which docker shows as usual; standard
 output carries the protocol and nothing else. Everything in

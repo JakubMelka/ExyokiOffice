@@ -97,7 +97,10 @@ entry — `command` plus `args` — is the same in all four.
 
 There is also a container image carrying all three servers, where the entry
 becomes `"command": "docker"` and nothing has to be installed on the machine at
-all. See [The container image](docker.md).
+all. Run it with `--network none`: a server reached over standard input and
+output needs no network, and denying it one puts a second boundary under the
+workspace sandbox described below. See [The container image](docker.md) and
+[Closing the network](docker.md#closing-the-network).
 
 To try a server by hand, the reference inspector speaks the same protocol:
 

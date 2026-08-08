@@ -292,7 +292,7 @@ docker pull ghcr.io/jakubmelka/exyokioffice:1.0.0   # or :latest
   "mcpServers": {
     "word": {
       "command": "docker",
-      "args": ["run", "--rm", "-i",
+      "args": ["run", "--rm", "-i", "--network", "none",
                "-v", "/path/to/documents:/work",
                "ghcr.io/jakubmelka/exyokioffice:1.0.0", "word"]
     }
@@ -304,9 +304,12 @@ The same image runs the command line, so a document can be validated or
 converted without installing anything either:
 
 ```bash
-docker run --rm -v "$PWD:/work" \
+docker run --rm --network none -v "$PWD:/work" \
   ghcr.io/jakubmelka/exyokioffice:1.0.0 exyoki convert report.docx report.md
 ```
+
+`--network none` because nothing in the image ever opens a socket — see
+[Closing the network](docs/tools/docker.md#closing-the-network).
 
 ## Building
 
