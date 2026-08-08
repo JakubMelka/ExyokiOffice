@@ -124,6 +124,28 @@ TEST_CASE("Pack rejects a missing input directory [unit] [tools]")
     CHECK(!result.Diagnostics.empty());
 }
 
+TEST_CASE("Pack refuses an existing destination unless told to overwrite [unit] [tools]")
+{
+    const auto docxPath = MakeSampleDocx();
+    const auto outDir = MakeTemporaryPath("exyoki_overwrite_dir");
+    REQUIRE(Unpack(docxPath, outDir).Ok);
+
+    // The destination here is the document the tree was unpacked from, which is
+    // how a careless repack loses the original.
+    const auto refused = Pack(outDir, docxPath);
+    CHECK_FALSE(refused.Ok);
+    CHECK(HasDiagnostic(refused.Diagnostics, ToolSeverity::Error, "already exists"));
+
+    PackOptions options;
+    options.Overwrite = true;
+    const auto allowed = Pack(outDir, docxPath, options);
+    CHECK(allowed.Ok);
+    CHECK(allowed.EntryCount > 0);
+
+    std::filesystem::remove_all(outDir);
+    std::filesystem::remove(docxPath);
+}
+
 TEST_CASE("The Tools layer defaults to the recommended limits [unit] [tools] [limits]")
 {
     // Nothing configured this process, so the module supplies its own default

@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <string_view>
 #include <unordered_map>
 
 namespace ExyokiOffice::Tools
@@ -64,6 +65,21 @@ public:
             return {};
         }
         return Lower(std::string(name.substr(dot + 1)));
+    }
+
+    // Which parts travel as XML is decided the way OpenXmlPackage decides it,
+    // from the content type and the extension, and not by trying to parse the
+    // bytes. The two disagree: a VML drawing is a binary part to the package
+    // layer, but its bytes are well-formed XML, so sniffing sends it through
+    // the DOM and the trip back returns it reserialized - carrying an XML
+    // declaration it never had and with the whitespace inside its start tags
+    // collapsed. Reserializing XML parts is the format's design and the
+    // documented behavior; doing it to a part the package layer never treats
+    // as XML is not, so every binary part comes back byte-for-byte.
+    static bool IsXmlContentType(std::string_view contentType, std::string_view name)
+    {
+        return contentType == "application/xml" || contentType.find("+xml") != std::string_view::npos ||
+               Extension(name) == "xml";
     }
 
     static void LoadContentTypes(const std::vector<Byte>& bytes,
@@ -244,7 +260,8 @@ ToFlatOpcResult ConvertToFlatOpc(std::span<const Byte> packageBytes, const ToFla
         part.append_attribute("pkg:name") = partName.c_str();
         part.append_attribute("pkg:contentType") = contentType.c_str();
         Pugi::xml_document xml;
-        if (xml.load_buffer(bytes.data(), bytes.size(), Xml::ParseOptions::Preserving) && xml.document_element())
+        if (FlatOpcHelpers::IsXmlContentType(contentType, name) &&
+            xml.load_buffer(bytes.data(), bytes.size(), Xml::ParseOptions::Preserving) && xml.document_element())
         {
             auto data = part.append_child("pkg:xmlData");
             data.append_copy(xml.document_element());

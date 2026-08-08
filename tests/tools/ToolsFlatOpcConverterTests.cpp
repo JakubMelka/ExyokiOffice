@@ -97,6 +97,29 @@ public:
         return FinishZip(archive);
     }
 
+    /// A VML drawing shaped the way Excel writes one: no XML declaration, and
+    /// the start tag broken over three lines. The bytes are well-formed XML,
+    /// but the content type makes this a binary part, so the two ways of
+    /// classifying it disagree.
+    static constexpr std::string_view VmlDrawing =
+        "<xml xmlns:v=\"urn:schemas-microsoft-com:vml\"\n"
+        " xmlns:o=\"urn:schemas-microsoft-com:office:office\"\n"
+        " xmlns:x=\"urn:schemas-microsoft-com:office:excel\">\n"
+        " <o:shapelayout v:ext=\"edit\">\n"
+        "  <o:idmap v:ext=\"edit\" data=\"1\"/>\n"
+        " </o:shapelayout>\n"
+        "</xml>\n";
+
+    static Bytes BuildVmlDrawingFixture()
+    {
+        auto* archive = zip_stream_open(nullptr, 0, ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
+        REQUIRE(archive != nullptr);
+        AddZipEntry(archive, "[Content_Types].xml",
+                    R"(<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/></Types>)");
+        AddZipEntry(archive, "xl/drawings/vmlDrawing1.vml", VmlDrawing);
+        return FinishZip(archive);
+    }
+
     static Bytes ReadZipEntry(std::span<const ExyokiOffice::Byte> package, std::string_view name)
     {
         int error = 0;
@@ -187,6 +210,30 @@ TEST_CASE("Flat OPC preserves arbitrary binary bytes through base64 [unit] [tool
           FlatOpcTestHelpers::Bytes({0x00, 0xFF, 0x10, 0x7F}));
     CHECK(FlatOpcTestHelpers::ReadZipEntry(rebuilt.PackageBytes, "unknown.dat") ==
           FlatOpcTestHelpers::Bytes({0x01, 0x02, 0x03}));
+}
+
+TEST_CASE("Flat OPC keeps a binary part that parses as XML byte-for-byte [unit] [tools] [flat-opc]")
+{
+    // Deciding by the bytes rather than by the content type used to send a VML
+    // drawing through the XML DOM, and the trip back returned it reserialized:
+    // an XML declaration it never had, and the newlines inside its start tag
+    // gone. Flat OPC is documented as a byte-level round trip.
+    const auto source = FlatOpcTestHelpers::BuildVmlDrawingFixture();
+    const auto flat = ConvertToFlatOpc(source);
+    REQUIRE(flat.Ok);
+
+    const auto part = flat.FlatOpcXml.find("pkg:name=\"/xl/drawings/vmlDrawing1.vml\"");
+    REQUIRE(part != std::string::npos);
+    const auto partEnd = flat.FlatOpcXml.find("</pkg:part>", part);
+    REQUIRE(partEnd != std::string::npos);
+    const auto element = flat.FlatOpcXml.substr(part, partEnd - part);
+    CHECK(element.find("pkg:binaryData") != std::string::npos);
+    CHECK(element.find("pkg:xmlData") == std::string::npos);
+
+    const auto rebuilt = ConvertFromFlatOpc(flat.FlatOpcXml);
+    REQUIRE(rebuilt.Ok);
+    CHECK(FlatOpcTestHelpers::ReadZipEntry(rebuilt.PackageBytes, "xl/drawings/vmlDrawing1.vml") ==
+          FlatOpcTestHelpers::ReadZipEntry(source, "xl/drawings/vmlDrawing1.vml"));
 }
 
 TEST_CASE("Flat OPC keeps a run that holds nothing but a space [unit] [tools] [flat-opc]")

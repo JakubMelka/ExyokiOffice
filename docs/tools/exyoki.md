@@ -544,7 +544,7 @@ exit code `0`; only a package that fails to load is an error.
 
 ```
 exyoki unpack <package> <outdir> [--pretty] [--overwrite]
-exyoki pack <indir> <outpackage> [--regenerate-content-types] [--validate] [--compression 0-9]
+exyoki pack <indir> <outpackage> [--regenerate-content-types] [--validate] [--compression 0-9] [--overwrite]
 ```
 
 `unpack` extracts every ZIP entry to `<outdir>`, using the entry name as the
@@ -590,6 +590,11 @@ By default `pack` preserves `[Content_Types].xml` from the tree verbatim.
 instead, from a small built-in file-extension table — a best-effort fallback,
 not a full content-type inference engine.
 
+An existing `<outpackage>` is an error; `--overwrite` replaces it. Packing a
+tree back over the document it came from is the normal way to lose the
+original, so it takes the same explicit flag as every other command that
+writes.
+
 ### `to-flat-opc` / `from-flat-opc` — convert to/from a single Flat OPC XML file
 
 ```
@@ -609,8 +614,16 @@ namespace and ignores whitespace in base64 data.
 
 **Fidelity guarantee:** the round-trip is semantically equivalent, not
 byte-identical. XML parts are parsed and serialized again, so formatting and
-attribute quoting can change, while part content types and binary data are
-preserved. Verify semantic equivalence with the default normalized `diff`:
+attribute quoting can change, while part content types are preserved.
+
+Which parts count as XML is decided from the content type and the extension,
+the same way the package layer decides it — not by trying to parse the bytes.
+The difference is visible on a VML drawing: it is a binary part whose bytes
+happen to be well-formed XML, and sniffing would send it through the XML
+serializer and return it with an XML declaration it never had. Every binary
+part therefore comes back byte-for-byte, however XML-shaped its content is.
+
+Verify semantic equivalence with the default normalized `diff`:
 
 ```console
 $ exyoki to-flat-opc report.docx report.flat.xml
@@ -632,7 +645,8 @@ text formats — Markdown, JSON, plain text, semantic XML, and (for workbooks)
 CSV — in **both directions**, through a shared semantic document model. The exact schemas,
 Markdown conventions, and a construct-by-construct fidelity matrix are
 specified in [conversion-formats.md](conversion-formats.md). For a
-byte-level lossless XML round trip use `to-flat-opc`/`from-flat-opc`
+whole-package XML round trip that keeps every part use
+`to-flat-opc`/`from-flat-opc`
 instead; `convert` optimizes for clean, structure-preserving output that AI
 agents and scripts can read and regenerate.
 

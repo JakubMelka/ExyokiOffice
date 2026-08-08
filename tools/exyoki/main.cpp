@@ -251,6 +251,7 @@ int main(int argc, char** argv)
     auto packRegenerateContentTypes = std::make_shared<bool>(false);
     auto packValidate = std::make_shared<bool>(false);
     auto packCompression = std::make_shared<int>(6);
+    auto packOverwrite = std::make_shared<bool>(false);
     auto* packCmd = app.add_subcommand("pack", "Rebuild a package from a directory tree (see unpack)")->fallthrough();
     packCmd->add_option("indir", *packInDir, "Input directory")->required();
     packCmd->add_option("outpackage", *packOutPackage, "Destination package path")->required();
@@ -260,6 +261,7 @@ int main(int argc, char** argv)
     packCmd->add_option("--compression", *packCompression, "Deflate compression level (0-9)")
         ->default_val(6)
         ->check(CLI::Range(0, 9));
+    packCmd->add_flag("--overwrite", *packOverwrite, "Overwrite an existing destination package");
 
     // to-flat-opc / from-flat-opc
     auto toFlatOpcPackage = std::make_shared<std::string>();
@@ -799,6 +801,7 @@ int main(int argc, char** argv)
             packOptions.RegenerateContentTypes = *packRegenerateContentTypes;
             packOptions.ValidateAfterPack = *packValidate;
             packOptions.CompressionLevel = *packCompression;
+            packOptions.Overwrite = *packOverwrite;
             const auto result = Pack(*packInDir, *packOutPackage, packOptions);
             EmitReport(exyoki::AdaptPack(result), *options);
             return result.Ok ? static_cast<int>(ExitCode::Ok) : static_cast<int>(ExitCode::OperationFailed);

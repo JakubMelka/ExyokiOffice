@@ -61,6 +61,8 @@ struct EXYOKIOFFICE_EXPORT PackOptions
     bool RegenerateContentTypes = false;
     /// Runs ValidationRunner::Run() on the freshly written package and reports it in PackResult::Validation.
     bool ValidateAfterPack = false;
+    /// Allows replacing an existing destination package. Without it Pack() refuses rather than overwrite.
+    bool Overwrite = false;
 };
 
 /// Result of a Pack() call.
@@ -105,6 +107,10 @@ EXYOKIOFFICE_EXPORT UnpackResult Unpack(const std::filesystem::path& packagePath
  * unless PackOptions::RegenerateContentTypes is set or the file is missing,
  * in which case a best-effort table (Default entries keyed by file
  * extension) is generated instead.
+ *
+ * An existing @p outPackage is an error unless PackOptions::Overwrite is set,
+ * so packing over a document takes the same deliberate flag every other
+ * writing tool asks for.
  */
 EXYOKIOFFICE_EXPORT PackResult Pack(const std::filesystem::path& inDir,
                                     const std::filesystem::path& outPackage,

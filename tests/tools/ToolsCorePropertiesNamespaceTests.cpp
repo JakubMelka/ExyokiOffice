@@ -328,7 +328,9 @@ TEST_CASE("A Strict conformance package is reported as such [unit] [tools]")
             REQUIRE(output);
             output << rels;
         }
-        REQUIRE(Pack(treeDirectory, path, PackOptions{6, false, false}).Ok);
+        // Replacing the document the tree was unpacked from is the point here,
+        // so this call asks for it rather than relying on Pack to overwrite.
+        REQUIRE(Pack(treeDirectory, path, PackOptions{.CompressionLevel = 6, .Overwrite = true}).Ok);
     }
 
     OpenXmlPackage package;

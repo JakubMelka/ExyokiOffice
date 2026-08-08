@@ -220,6 +220,10 @@ jobs:
     env:
       PRESET: ${{ inputs.build_type == 'Debug' && 'linux-ninja-debug' || 'linux-ninja-release' }}
       BINARY_DIR: ${{ inputs.build_type == 'Debug' && 'build/linux-ninja-debug' || 'build/linux-ninja-release' }}
+      # The provenance half of BUILD-INFO.txt, shared by the zip archive and the
+      # container image. Written by "Describe the package", read again by
+      # "Stage the container root".
+      BUILD_INFO_COMMON: ${{ github.workspace }}/build/build-info-common.txt
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -301,10 +305,15 @@ jobs:
           if [ -d "$PACKAGE_DIR/lib64" ]; then
             libdir="lib64"
           fi
-          cat > "$PACKAGE_DIR/BUILD-INFO.txt" <<EOF
-          ExyokiOffice $VERSION
-
-          Package          $PACKAGE_NAME
+          # Where the binaries came from is the same statement in the zip
+          # archive and in the container image; what the tree around them looks
+          # like is not. The provenance block is therefore written once, and
+          # each package appends the layout it actually has. A BUILD-INFO.txt
+          # that described the zip from inside the image would name an
+          # include/ directory and a CMake package config that are deliberately
+          # not there.
+          mkdir -p "$(dirname "$BUILD_INFO_COMMON")"
+          cat > "$BUILD_INFO_COMMON" <<EOF
           Operating system Linux ($(. /etc/os-release && echo "$PRETTY_NAME"))
           Architecture     $(uname -m)
           glibc            $(ldd --version | head -n 1)
@@ -314,6 +323,12 @@ jobs:
           Ref              $GITHUB_REF
           Built at         $(date -u +%Y-%m-%dT%H:%M:%SZ)
           Workflow run     $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          EOF
+
+          {
+            printf 'ExyokiOffice %s\n\nPackage          %s\n' "$VERSION" "$PACKAGE_NAME"
+            cat "$BUILD_INFO_COMMON"
+            cat <<EOF
 
           Layout
             bin/             exyoki command-line tool and the exyoki-mcp-* servers
@@ -332,6 +347,7 @@ jobs:
           extracted tree can live anywhere. A consuming executable of your own
           needs the library on its RPATH or in LD_LIBRARY_PATH.
           EOF
+          } > "$PACKAGE_DIR/BUILD-INFO.txt"
 
       - name: Verify the staged package
         if: inputs.verify_package
@@ -403,8 +419,34 @@ jobs:
                 "$ctx/rootfs/opt/exyokioffice/share/licenses/"
           cp "$PACKAGE_DIR/share/doc/ExyokiOffice/LICENSE" \
              "$PACKAGE_DIR/share/doc/ExyokiOffice/THIRD-PARTY-LICENSES.md" \
-             "$PACKAGE_DIR/BUILD-INFO.txt" \
              "$ctx/rootfs/opt/exyokioffice/share/"
+
+          # The image gets its own BUILD-INFO.txt rather than the zip's: the
+          # provenance block is the same statement, but the layout is not, and
+          # a file that told the reader to find_package() from lib/cmake would
+          # be describing a directory this image does not carry.
+          {
+            printf 'ExyokiOffice %s\n\nPackage          %s\n' "$VERSION" "$DOCKER_ARTIFACT"
+            cat "$BUILD_INFO_COMMON"
+            cat <<EOF
+
+          Layout
+            bin/             exyoki command-line tool and the exyoki-mcp-* servers
+            $libdir/             libExyokiOffice.so and its soname links
+            share/           LICENSE, THIRD-PARTY-LICENSES.md and this file
+            share/licenses/  notices of every vendored third-party component
+            /work            the working directory and the MCP workspace root
+
+          Only the runtime half of the package is here. The public headers and
+          the CMake package config are in the zip archive of the same run; build
+          your own program against that instead.
+
+          There is no shell in this image to read this file with. The same
+          identity is on the outside as OCI image labels:
+
+            docker image inspect --format '{{json .Config.Labels}}' IMAGE
+          EOF
+          } > "$ctx/rootfs/opt/exyokioffice/share/BUILD-INFO.txt"
           cp docker/Dockerfile docker/entrypoint.c "$ctx/"
           echo "DOCKER_CONTEXT_DIR=$ctx" >> "$GITHUB_ENV"
 
@@ -481,14 +523,18 @@ jobs:
           mkdir -p "$ARTIFACT_DIR"
           docker save "$IMAGE_TAG" | gzip -9 > "$ARTIFACT_DIR/$DOCKER_ARTIFACT.tar.gz"
           (cd "$ARTIFACT_DIR" && sha256sum "$DOCKER_ARTIFACT.tar.gz" > "$DOCKER_ARTIFACT.tar.gz.sha256")
-          # `docker images` is the honest number here. What `docker image
-          # inspect --format '{{.Size}}'` means depends on the image store: with
-          # the containerd one it reports the compressed size, which would make
-          # the summary claim an image four times smaller than it is.
-          image_size="$(docker images "$IMAGE_TAG" --format '{{.Size}}')"
+          # `docker image inspect` reports the size of the image's own content:
+          # the sum of its uncompressed layers, which is what the image occupies
+          # once unpacked. It agrees with `docker save` and `docker export` on
+          # the same image. `docker images` is not that number and must not be
+          # substituted for it — with the containerd image store its column is
+          # disk usage, which counts the compressed blobs and the unpacked
+          # snapshots both and so reports roughly twice the image.
+          image_bytes="$(docker image inspect --format '{{.Size}}' "$IMAGE_TAG")"
+          image_size="$((image_bytes / 1000000))"
           size="$(du -m "$ARTIFACT_DIR/$DOCKER_ARTIFACT.tar.gz" | cut -f1)"
           hash="$(cut -d' ' -f1 "$ARTIFACT_DIR/$DOCKER_ARTIFACT.tar.gz.sha256")"
-          printf '### %s.tar.gz\n\n- image: `%s`, %s on disk\n- download: %s MB\n- sha256: `%s`\n' \
+          printf '### %s.tar.gz\n\n- image: `%s`, %s MB unpacked\n- download: %s MB\n- sha256: `%s`\n' \
             "$DOCKER_ARTIFACT" "$IMAGE_TAG" "$image_size" "$size" "$hash" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the container image

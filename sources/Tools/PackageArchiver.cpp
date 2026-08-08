@@ -589,6 +589,12 @@ PackResult Pack(const std::filesystem::path& inDir, const std::filesystem::path&
         return result;
     }
 
+    if (!options.Overwrite && std::filesystem::exists(outPackage))
+    {
+        AddDiagnostic(result.Diagnostics, ToolSeverity::Error, "Output file already exists", outPackage.string());
+        return result;
+    }
+
     const auto renames = LoadRenameManifest(inDir, result.Diagnostics);
     auto resolveEntryName = [&](const std::filesystem::path& relative) -> std::string
     {

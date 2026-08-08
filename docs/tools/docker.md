@@ -39,9 +39,19 @@ Run it with no arguments and it tells you the rest:
 docker run --rm exyokioffice:1.0.0
 ```
 
-The download is around 27 MB and the image occupies roughly 127 MB once
-unpacked, most of it the shared library. Only `linux/amd64` is built, matching
-the x64-only zip archives.
+The download is a fraction of what it unpacks to: almost all of the image is
+the shared library, and it compresses well. Both figures for a given build are
+in the summary of the run that produced it, and for an image already loaded
+
+```bash
+docker image inspect --format '{{.Size}}' exyokioffice:1.0.0
+```
+
+reports the unpacked size in bytes. Do not read that number off the `docker
+images` listing instead — with the containerd image store its column is disk
+usage, which counts the compressed blobs and the unpacked snapshots both and so
+runs to roughly twice the image. Only `linux/amd64` is built, matching the
+x64-only zip archives.
 
 ## What is inside
 

@@ -11,10 +11,13 @@ Related commands:
 
 - `exyoki convert` — the conversions described here (see
   [exyoki.md](exyoki.md#convert--convert-between-office-and-ai-friendly-formats)).
-- `exyoki to-flat-opc` / `from-flat-opc` — **lossless** XML round trip of the
-  complete package (Microsoft Flat OPC). Use Flat OPC when byte-level
-  fidelity matters; use the formats here when you want clean, semantic,
-  AI-friendly content.
+- `exyoki to-flat-opc` / `from-flat-opc` — **part-preserving** XML round trip
+  of the complete package (Microsoft Flat OPC). Every part comes back, and
+  binary parts come back byte-for-byte; XML parts are reserialized, so their
+  formatting can differ. Use Flat OPC when nothing may be dropped; use the
+  formats here when you want clean, semantic, AI-friendly content. The exact
+  guarantee is stated under
+  [to-flat-opc / from-flat-opc](exyoki.md#to-flat-opc--from-flat-opc--convert-tofrom-a-single-flat-opc-xml-file).
 
 ## Design contract
 
