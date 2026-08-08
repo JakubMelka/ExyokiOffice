@@ -1,0 +1,91 @@
+# Editor defaults for ExyokiOffice.
+#
+# This file is the editor-side counterpart of `.gitattributes`: `.gitattributes`
+# decides what Git stores and checks out, this decides what an editor writes in
+# the first place. Keep the two consistent — in particular `end_of_line` here
+# and the `eol=` attributes there.
+#
+# Formatting of C++ itself is owned by `.clang-format`, not by this file. The
+# values below only mirror it so that an editor without clang-format
+# integration does not fight the formatter.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# C++ sources and headers. Mirrors .clang-format: IndentWidth 4, UseTab Never.
+# ColumnLimit is 0 there, so no max_line_length is imposed here either.
+[*.{cpp,hpp,h,c}]
+indent_size = 4
+
+[*.{cmake,txt}]
+indent_size = 4
+
+[CMakeLists.txt]
+indent_size = 4
+
+[*.py]
+indent_size = 4
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.json]
+indent_size = 4
+
+# Documentation is hard-wrapped; bullet continuations are indented by two.
+[*.md]
+indent_size = 2
+
+# --- Files that must not be normalised ------------------------------------
+
+# Batch files need CRLF, matching the `eol=crlf` attribute in .gitattributes.
+[*.{cmd,bat}]
+end_of_line = crlf
+
+# Fuzzing inputs and committed crash reproducers are byte-exact. Trimming a
+# trailing space or appending a final newline changes the input and can
+# silently invalidate a reproducer. Marked `-text` in .gitattributes for the
+# same reason; the README files next to them are ordinary documentation.
+#
+# Written as one section per root rather than with a brace alternation, because
+# alternations containing a path separator are not handled consistently across
+# EditorConfig implementations.
+[tests/fuzz/corpus/**]
+trim_trailing_whitespace = false
+insert_final_newline = false
+charset = unset
+
+[tests/fuzz/crashes/**]
+trim_trailing_whitespace = false
+insert_final_newline = false
+charset = unset
+
+[tests/fuzz/corpus/**/README.md]
+trim_trailing_whitespace = true
+insert_final_newline = true
+charset = utf-8
+indent_size = 2
+
+[tests/fuzz/crashes/**/README.md]
+trim_trailing_whitespace = true
+insert_final_newline = true
+charset = utf-8
+indent_size = 2
+
+# Imported schema metadata and the generated DOM are produced by tooling, not
+# edited by hand. Fix `gen/` and regenerate instead.
+[data/**]
+trim_trailing_whitespace = false
+
+[include/ExyokiOffice/DOM/**]
+trim_trailing_whitespace = false
+
+[sources/DOM/**]
+trim_trailing_whitespace = false

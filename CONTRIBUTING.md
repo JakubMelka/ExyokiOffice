@@ -113,6 +113,41 @@ affects emitted files.
 - Preserve unsupported package content unless the operation explicitly removes
   it. Avoid partial mutation when validation fails.
 
+### Line endings and encoding
+
+Text files are stored and checked out as LF on every platform, including
+Windows, and are UTF-8 without a BOM. This is enforced by `.gitattributes`, so
+it does not depend on your global `core.autocrlf`; `.editorconfig` carries the
+same settings for editors. Neither file needs any local setup — do not override
+them per repository.
+
+Two groups are deliberately exempt. Batch files (`*.cmd`, `*.bat`) keep CRLF,
+because `cmd.exe` mis-parses multi-line constructs in LF-only files. The
+fuzzing inputs under `tests/fuzz/corpus/` and `tests/fuzz/crashes/` are treated
+as binary and are never converted, trimmed, or given a final newline: a single
+changed byte alters the input and can silently invalidate a crash reproducer.
+
+If a change ever shows a whole file as modified with no visible difference, the
+working copy has the wrong line endings. Verify with `git ls-files --eol`: every
+text path should read `i/lf w/lf`, apart from the batch files noted above, and
+nothing should ever read `i/crlf`. Repair the working tree with:
+
+```powershell
+git add --renormalize .
+```
+
+Should that stage content changes in `tests/fuzz/`, discard them; those files
+must be restored from the index rather than renormalized.
+
+Be careful with non-ASCII characters in C++ sources. The MSVC build does not
+pass `/utf-8`, so without a byte order mark MSVC reads a source file in the
+system ANSI code page rather than as UTF-8. Comments are unaffected in practice,
+but a narrow string literal containing non-ASCII text is re-encoded and no
+longer holds the bytes it looks like it holds — and the result depends on the
+build machine's locale. Prefer ASCII in literals, or escape the bytes
+explicitly, until the build sets `/utf-8`. Do not reintroduce a BOM to work
+around this.
+
 On Windows, run the lint script in check mode before submitting:
 
 ```powershell

@@ -1,0 +1,46 @@
+# Line-ending and content-type policy for the whole repository.
+#
+# The repository must not depend on each contributor's global `core.autocrlf`.
+# Everything below is enforced by Git itself, identically on Windows, Linux and
+# macOS, and identically in CI.
+#
+# Policy: text files are stored LF in the index and checked out LF in the
+# working tree. `generate_openxml` writes the generated DOM trees with LF, so
+# this keeps generated output byte-identical to what Git checks out and avoids
+# spurious "LF will be replaced by CRLF" churn after every build.
+
+# Default: let Git detect text vs. binary, normalise to LF on commit, and check
+# out LF everywhere.
+* text=auto eol=lf
+
+# --- Files that must keep CRLF in the working tree -------------------------
+# cmd.exe mis-parses multi-line batch constructs in LF-only files.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# --- Binary files: never convert, never diff as text -----------------------
+# Office packages (test corpus and fuzz seeds) are ZIP containers.
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.png  binary
+*.bin  binary
+
+# Fuzzing inputs are byte-exact by definition. A single converted byte changes
+# the input and can silently invalidate a reproducer.
+tests/fuzz/corpus/**  -text -diff
+tests/fuzz/crashes/** -text -diff
+
+# ...but the documentation living next to the reproducers is ordinary text.
+tests/fuzz/corpus/**/README.md  text eol=lf diff
+tests/fuzz/crashes/**/README.md text eol=lf diff
+
+# --- Generated and vendored trees ------------------------------------------
+# Excluded from language statistics and collapsed in diffs; they are still
+# tracked, reviewed and normalised like any other text.
+include/ExyokiOffice/DOM/**  linguist-generated=true
+sources/DOM/**               linguist-generated=true
+data/**                      linguist-generated=true
+3rdparty/**                  linguist-vendored=true
+sources/pugixml/**           linguist-vendored=true
+sources/zip/**               linguist-vendored=true

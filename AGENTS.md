@@ -211,6 +211,9 @@ build\ninja-clang-debug\gen\OpenXmlGenerator.exe --data data --out-include inclu
   `Version.hpp`, the Windows resource and both documentation PDFs read it; see
   `docs/ABI.md` for the policy and `RELEASE.md` for the release procedure.
   Never hard-code a version anywhere else.
+- `.gitattributes`, `.editorconfig`: line endings, encoding and editor defaults.
+  `.gitattributes` decides what Git stores and checks out, `.editorconfig` what
+  an editor writes; the two must stay consistent. See "C++ style" below.
 
 Keep vendored code unchanged unless a task explicitly targets it. Put public
 API in `include/ExyokiOffice/` and implementation in `sources/`. Prefer a
@@ -369,3 +372,20 @@ and update compatibility claims in the same change as the implementation.
 Preserve the C++20 baseline and follow `.clang-format`. Write normally expanded
 C++; never compress several statements or complete functions onto one line.
 Use braces for every `if`, `else`, `for`, `while`, and similar control-flow body.
+
+Text files are LF on every platform, including Windows, and UTF-8 without a BOM.
+`.gitattributes` enforces this independently of any global `core.autocrlf`, so
+never rewrite a file's line endings as part of an unrelated change: it turns a
+small diff into a whole-file rewrite and buries the actual edit. When writing
+files, emit `\n`, not `\r\n` — this is what the DOM generator already does.
+
+Two exemptions matter when touching those trees. Batch files (`*.cmd`, `*.bat`)
+keep CRLF. Everything under `tests/fuzz/corpus/` and `tests/fuzz/crashes/` is
+marked `-text` and must stay byte-exact — do not trim trailing whitespace or add
+a final newline there, and never stage a content change to those paths that came
+from a renormalization rather than from a deliberate new seed.
+
+The MSVC build does not pass `/utf-8`. Without a byte order mark MSVC therefore
+reads sources in the system ANSI code page, so a narrow string literal holding
+non-ASCII text compiles to locale-dependent bytes rather than to UTF-8. Keep
+literals ASCII, or escape the bytes explicitly; do not add a BOM to compensate.
