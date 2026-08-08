@@ -23,20 +23,28 @@ manager, no interpreter, and nothing else to execute.
 
 ## Getting the image
 
-There are two ways, and they deliver the same image: the registry copy is
-pushed from the release tarball, not built separately.
-
-From the GitHub Container Registry, if the release you want has been published
-there:
+The image lives in the GitHub Container Registry as
+`ghcr.io/jakubmelka/exyokioffice`, listed under this repository's [package
+page](https://github.com/JakubMelka/ExyokiOffice/pkgs/container/exyokioffice):
 
 ```bash
 docker pull ghcr.io/jakubmelka/exyokioffice:1.0.0
+docker pull ghcr.io/jakubmelka/exyokioffice:latest
 ```
 
-Or from the release itself, which always has it. The image travels as the
+Two tags point at every release. `1.0.0` is that release and nothing else, and
+it never moves; `latest` follows the newest published release, so it means a
+different image after each one. Pin the version in anything reproducible — a
+`docker compose` file, an MCP client configuration, a CI job — and keep
+`latest` for trying the project out.
+
+The same image is also attached to every [GitHub
+release](https://github.com/JakubMelka/ExyokiOffice/releases) as the
 `ExyokiOffice-<version>-docker-amd64` asset, a gzipped `docker save` tarball
-with a `.sha256` next to it; the same artifact is on the page of the
-`create_install` run that produced it. Download it and load it:
+with a `.sha256` next to it, and to the page of the `create_install` run that
+produced it. It is the same image, not a second build — the registry copy is
+pushed from that very tarball — so use it when a machine cannot reach the
+registry, or to keep an archived copy of a version:
 
 ```bash
 sha256sum -c ExyokiOffice-1.0.0-docker-amd64.tar.gz.sha256
@@ -44,29 +52,43 @@ docker load < ExyokiOffice-1.0.0-docker-amd64.tar.gz
 # Loaded image: exyokioffice:1.0.0
 ```
 
-The loaded image is named `exyokioffice:1.0.0`; the pulled one keeps its
-registry name. Substitute whichever you have for the image name in the examples
-below.
+A loaded image is named `exyokioffice:1.0.0`, without the registry prefix. The
+examples below use the registry name; substitute whichever you have.
 
 Run it with no arguments and it tells you the rest:
 
 ```bash
-docker run --rm exyokioffice:1.0.0
+docker run --rm ghcr.io/jakubmelka/exyokioffice:1.0.0
 ```
+
+Only `linux/amd64` is built, matching the x64-only zip archives.
+
+### What the size figures mean
 
 The download is a fraction of what it unpacks to: almost all of the image is
-the shared library, and it compresses well. Both figures for a given build are
-in the summary of the run that produced it, and for an image already loaded
+the shared library, and it compresses well. For 1.0.0 that is about 28 MB of
+compressed layers against roughly 96 MB unpacked, and the summary of the run
+that produced the image reports both.
+
+Locally, neither number is what the tooling shows by default:
 
 ```bash
-docker image inspect --format '{{.Size}}' exyokioffice:1.0.0
+docker image inspect --format '{{.Size}}' ghcr.io/jakubmelka/exyokioffice:1.0.0
 ```
 
-reports the unpacked size in bytes. Do not read that number off the `docker
-images` listing instead — with the containerd image store its column is disk
-usage, which counts the compressed blobs and the unpacked snapshots both and so
-runs to roughly twice the image. Only `linux/amd64` is built, matching the
-x64-only zip archives.
+sums the layer sizes as the descriptors you happen to have record them — the
+compressed sizes for an image that was pulled, the uncompressed ones for an
+image that was loaded from a `docker save` tarball. The same image therefore
+reports about 28 MB after a pull and about 96 MB after a load.
+
+The `docker images` column is a third thing again: with the containerd image
+store it is disk usage. A pulled image occupies roughly its unpacked size,
+while a loaded one occupies about twice that, because `docker save` carries the
+layers uncompressed and loading them keeps that copy alongside the unpacked
+one. Nothing is wrong with either; they are two local spellings of one image,
+and `docker image inspect --format '{{.Id}}'` differing between them is the
+same accounting artefact. What identifies the image across both is its layer
+set and its labels.
 
 ## What is inside
 
@@ -89,10 +111,11 @@ also on the outside, as [OCI image
 labels](https://github.com/opencontainers/image-spec/blob/main/annotations.md):
 
 ```bash
-docker image inspect --format '{{json .Config.Labels}}' exyokioffice:1.0.0
+IMAGE=ghcr.io/jakubmelka/exyokioffice:1.0.0
+docker image inspect --format '{{json .Config.Labels}}' "$IMAGE"
 docker image inspect \
   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' \
-  exyokioffice:1.0.0
+  "$IMAGE"
 ```
 
 `title`, `description`, `licenses`, `vendor`, `authors`, `url`, `source`,
@@ -116,9 +139,10 @@ Name `exyoki` as the first argument; everything after it reaches the tool
 unchanged. Mount the documents you want it to see at `/work`:
 
 ```bash
-docker run --rm -v "$PWD:/work" exyokioffice:1.0.0 exyoki --help
-docker run --rm -v "$PWD:/work" exyokioffice:1.0.0 exyoki validate report.docx
-docker run --rm -v "$PWD:/work" exyokioffice:1.0.0 exyoki convert report.docx report.md
+IMAGE=ghcr.io/jakubmelka/exyokioffice:1.0.0
+docker run --rm -v "$PWD:/work" "$IMAGE" exyoki --help
+docker run --rm -v "$PWD:/work" "$IMAGE" exyoki validate report.docx
+docker run --rm -v "$PWD:/work" "$IMAGE" exyoki convert report.docx report.md
 ```
 
 `/work` is the working directory, so relative paths mean what you expect.
@@ -136,19 +160,19 @@ needs `-i` and must not be given `-t`. Beyond that the entry is the ordinary
       "command": "docker",
       "args": ["run", "--rm", "-i",
                "-v", "/path/to/documents:/work",
-               "exyokioffice:1.0.0", "word"]
+               "ghcr.io/jakubmelka/exyokioffice:1.0.0", "word"]
     },
     "excel": {
       "command": "docker",
       "args": ["run", "--rm", "-i",
                "-v", "/path/to/documents:/work",
-               "exyokioffice:1.0.0", "excel"]
+               "ghcr.io/jakubmelka/exyokioffice:1.0.0", "excel"]
     },
     "powerpoint": {
       "command": "docker",
       "args": ["run", "--rm", "-i",
                "-v", "/path/to/documents:/work",
-               "exyokioffice:1.0.0", "powerpoint"]
+               "ghcr.io/jakubmelka/exyokioffice:1.0.0", "powerpoint"]
     }
   }
 }
@@ -166,10 +190,10 @@ Every option of those servers is passed through after the name, and every one
 of them also reads an environment variable, which `-e` can set:
 
 ```bash
-docker run --rm -i -v "$PWD:/work" exyokioffice:1.0.0 word --read-only
-docker run --rm    -v "$PWD:/work" exyokioffice:1.0.0 word --print-tools
+docker run --rm -i -v "$PWD:/work" "$IMAGE" word --read-only
+docker run --rm    -v "$PWD:/work" "$IMAGE" word --print-tools
 docker run --rm -i -e EXYOKI_MCP_LOG_LEVEL=debug \
-  -v "$PWD:/work" exyokioffice:1.0.0 word
+  -v "$PWD:/work" "$IMAGE" word
 ```
 
 `--workspace` defaults to `/work` through `EXYOKI_MCP_WORKSPACE`, so a mount
@@ -187,7 +211,7 @@ own machine. Pass your own identity instead:
 
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" \
-  -v "$PWD:/work" exyokioffice:1.0.0 exyoki convert report.docx report.md
+  -v "$PWD:/work" "$IMAGE" exyoki convert report.docx report.md
 ```
 
 With `--user`, the container writes as you and the results are yours. The same

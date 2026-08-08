@@ -283,6 +283,10 @@ A distroless [container image](docs/tools/docker.md) carries the library,
 `exyoki` and all three servers, so `"command": "docker"` works instead and
 nothing has to be installed on the machine:
 
+```bash
+docker pull ghcr.io/jakubmelka/exyokioffice:1.0.0   # or :latest
+```
+
 ```jsonc
 {
   "mcpServers": {
@@ -290,10 +294,18 @@ nothing has to be installed on the machine:
       "command": "docker",
       "args": ["run", "--rm", "-i",
                "-v", "/path/to/documents:/work",
-               "exyokioffice:1.0.0", "word"]
+               "ghcr.io/jakubmelka/exyokioffice:1.0.0", "word"]
     }
   }
 }
+```
+
+The same image runs the command line, so a document can be validated or
+converted without installing anything either:
+
+```bash
+docker run --rm -v "$PWD:/work" \
+  ghcr.io/jakubmelka/exyokioffice:1.0.0 exyoki convert report.docx report.md
 ```
 
 ## Building
