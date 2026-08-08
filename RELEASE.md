@@ -254,6 +254,23 @@ gh release upload vX.Y.Z ExyokiOffice-X.Y.Z-linux-x64-gcc.zip ExyokiOffice-X.Y.Z
 gh release upload vX.Y.Z ExyokiOffice-X.Y.Z-docker-amd64.tar.gz ExyokiOffice-X.Y.Z-docker-amd64.tar.gz.sha256
 ```
 
+Then push the container image to the GitHub Container Registry, where it shows
+up under the repository's Packages:
+
+```powershell
+gh workflow run publish_docker.yml -f release=vX.Y.Z
+```
+
+This comes after the release is published, not before: the workflow reads the
+image out of the release itself — it downloads the `-docker-amd64` asset,
+checks its digest and pushes exactly that — and the workflow token does not see
+a draft. It builds nothing, so it takes a minute. See
+[docs/ci.md](docs/ci.md#publishing-the-image-to-the-registry).
+
+The very first run creates the package as **private**. Open Packages →
+`exyokioffice` → Package settings and change the visibility to public; every
+later release inherits that setting.
+
 ## 10. Update the vcpkg port
 
 This step comes after the tag, because the port names the release tarball and
@@ -316,6 +333,7 @@ will download.
 [ ] create_install                   windows and linux zips plus the docker image,
                                      all verified, digests kept
 [ ] tag vX.Y.Z + GitHub release      PDFs and both zips attached
+[ ] publish_docker                   image pushed to ghcr.io, package public
 [ ] vcpkg port                       version, SHA512, x-add-version committed
 [ ] vcpkg\Test-Port.ps1              green against the published tarball
 ```

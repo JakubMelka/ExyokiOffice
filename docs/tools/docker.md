@@ -23,15 +23,30 @@ manager, no interpreter, and nothing else to execute.
 
 ## Getting the image
 
-The image is not pushed to a registry. It is uploaded by the workflow as the
-`ExyokiOffice-<version>-docker-amd64` artifact, a gzipped `docker save`
-tarball with a `.sha256` next to it. Download it from the run page and load it:
+There are two ways, and they deliver the same image: the registry copy is
+pushed from the release tarball, not built separately.
+
+From the GitHub Container Registry, if the release you want has been published
+there:
+
+```bash
+docker pull ghcr.io/jakubmelka/exyokioffice:1.0.0
+```
+
+Or from the release itself, which always has it. The image travels as the
+`ExyokiOffice-<version>-docker-amd64` asset, a gzipped `docker save` tarball
+with a `.sha256` next to it; the same artifact is on the page of the
+`create_install` run that produced it. Download it and load it:
 
 ```bash
 sha256sum -c ExyokiOffice-1.0.0-docker-amd64.tar.gz.sha256
 docker load < ExyokiOffice-1.0.0-docker-amd64.tar.gz
 # Loaded image: exyokioffice:1.0.0
 ```
+
+The loaded image is named `exyokioffice:1.0.0`; the pulled one keeps its
+registry name. Substitute whichever you have for the image name in the examples
+below.
 
 Run it with no arguments and it tells you the rest:
 

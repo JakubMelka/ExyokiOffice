@@ -162,7 +162,10 @@ summary below says what exists, not how far it goes.
   MCP servers can therefore be registered with `"command": "docker"` without
   installing anything. The image carries the standard OCI labels — version,
   revision, creation time, license, source and the rest — which is how it can be
-  identified at all, having no shell to ask. See the [container
+  identified at all, having no shell to ask. A separate `publish_docker`
+  workflow pushes the image a release carries to `ghcr.io`, so it can also be
+  pulled instead of loaded from the tarball; it builds nothing and publishes
+  exactly the artifact the release offers. See the [container
   image](docs/tools/docker.md) chapter.
 - The build honors `BUILD_SHARED_LIBS`, so a static library is what the static
   triplet of a package manager installs, and `EXYOKIOFFICE_RUN_GENERATOR`, on by

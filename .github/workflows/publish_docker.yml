@@ -1,0 +1,164 @@
+# Publishes the container image of an existing release to the GitHub Container
+# Registry, where it appears under the repository's Packages.
+#
+# Manual-only, like every workflow in this repository. It builds nothing: it
+# downloads the ExyokiOffice-<version>-docker-amd64 asset that `create_install`
+# attached to the release, checks its digest, loads it and pushes that image.
+# What lands in the registry is therefore bit for bit the tarball the release
+# offers, and the two can never drift apart.
+#
+# The image name is the repository name in lower case,
+# ghcr.io/<owner>/exyokioffice, and the tag is the version the image's own OCI
+# label reports — never a literal here.
+#
+# A newly created package is private. After the first successful run, open
+# Packages -> exyokioffice -> Package settings and change the visibility to
+# public; that is a one-time step this workflow cannot do for you.
+#
+# The token sees published releases only, so publish the release before running
+# this. Pushing the image of a still-draft release needs `contents: write`
+# below, and means publishing an image for something nobody can download yet.
+
+name: publish_docker
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Release tag whose container image is published, for example v1.0.0"
+        type: string
+        required: true
+      tag_latest:
+        description: "Also move the :latest tag to this image"
+        type: boolean
+        default: true
+      dry_run:
+        description: "Do everything except the push"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-docker
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish the ${{ inputs.release }} image to ghcr.io
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE: ${{ inputs.release }}
+    steps:
+      # The version is not an input: it is read off the image later. Here the
+      # release is only searched for the one asset that is a container image,
+      # and an ambiguous or empty answer stops the run rather than guessing.
+      - name: Find the container image asset of the release
+        run: |
+          mapfile -t assets < <(gh release view "$RELEASE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json assets \
+            --jq '.assets[].name | select(endswith("-docker-amd64.tar.gz"))')
+          if [ "${#assets[@]}" -ne 1 ]; then
+            echo "expected exactly one -docker-amd64.tar.gz asset on $RELEASE," \
+                 "found ${#assets[@]}" >&2
+            printf '  %s\n' "${assets[@]}" >&2
+            exit 1
+          fi
+          echo "ASSET=${assets[0]}" >> "$GITHUB_ENV"
+
+      - name: Download the image and check its digest
+        run: |
+          mkdir -p build/image
+          gh release download "$RELEASE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir build/image \
+            --pattern "$ASSET" \
+            --pattern "$ASSET.sha256" \
+            --clobber
+          (cd build/image && sha256sum -c "$ASSET.sha256")
+
+      - name: Load the image
+        run: |
+          loaded="$(docker load -i "build/image/$ASSET" | sed -n 's/^Loaded image: //p')"
+          test -n "$loaded"
+          echo "LOADED_IMAGE=$loaded" >> "$GITHUB_ENV"
+
+      # There is no shell in the image to ask what it is, so its identity comes
+      # from the OCI labels. The version becomes the registry tag, and two
+      # assertions keep an unrelated tarball from being published under this
+      # package's name: the asset has to be named after the version the image
+      # claims, and the image has to say it came from this repository.
+      - name: Read the identity off the image
+        run: |
+          label() {
+            docker image inspect \
+              --format "{{with .Config.Labels}}{{index . \"org.opencontainers.image.$1\"}}{{end}}" \
+              "$LOADED_IMAGE"
+          }
+          version="$(label version)"
+          revision="$(label revision)"
+          created="$(label created)"
+          source="$(label source)"
+
+          test -n "$version"
+          case "$ASSET" in
+            *"-$version-docker-amd64.tar.gz") ;;
+            *) echo "asset $ASSET does not belong to image version $version" >&2; exit 1 ;;
+          esac
+          if [ "$source" != "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" ]; then
+            echo "image source label is '$source', not this repository" >&2
+            exit 1
+          fi
+
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          printf '### %s\n\n- release: `%s`\n- asset: `%s`\n- version: `%s`\n- revision: `%s`\n- built: %s\n' \
+            "$LOADED_IMAGE" "$RELEASE" "$ASSET" "$version" "$revision" "$created" >> "$GITHUB_STEP_SUMMARY"
+
+      # The same check `create_install` runs on the image it built. Repeating it
+      # here is what makes this workflow independent of that one: the artifact
+      # has travelled through a release since, and a registry tag is far harder
+      # to take back than a failed run.
+      - name: Verify the image runs
+        run: |
+          docker run --rm "$LOADED_IMAGE" > /dev/null
+          docker run --rm "$LOADED_IMAGE" exyoki --version
+          for command in word excel powerpoint; do
+            docker run --rm "$LOADED_IMAGE" "$command" --version
+          done
+
+      - name: Log in to ghcr.io
+        if: ${{ !inputs.dry_run }}
+        run: |
+          echo "${{ github.token }}" | docker login ghcr.io \
+            -u "${{ github.actor }}" --password-stdin
+
+      - name: Push the image
+        run: |
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tags="$repository:$VERSION"
+          if [ "${{ inputs.tag_latest }}" = "true" ]; then
+            tags="$tags $repository:latest"
+          fi
+
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "dry run; would push:"
+            printf '  %s\n' $tags
+            printf '\n**Dry run** — nothing was pushed. Tags:\n\n' >> "$GITHUB_STEP_SUMMARY"
+            printf -- '- `%s`\n' $tags >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          for tag in $tags; do
+            docker tag "$LOADED_IMAGE" "$tag"
+            docker push "$tag"
+          done
+
+          digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$repository:$VERSION")"
+          printf '\nPushed:\n\n' >> "$GITHUB_STEP_SUMMARY"
+          printf -- '- `%s`\n' $tags >> "$GITHUB_STEP_SUMMARY"
+          printf -- '- digest: `%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"

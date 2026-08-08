@@ -12,6 +12,7 @@ whole OpenXML DOM (thousands of translation units), so nothing is wired to
 | `docs-pdf` | `.github/workflows/docs-pdf.yml` | Renders `docs/` into a single hyperlinked PDF manual with pandoc and uploads it as the `ExyokiOffice-manual-<version>` artifact. Chapter order and link preprocessing live in `docs/_pdf/`. |
 | `doxygen-pdf` | `.github/workflows/doxygen-pdf.yml` | Renders the Doxygen API reference for the hand-written public headers (the generated DOM is excluded) into a PDF and uploads it as the `ExyokiOffice-api-reference-<version>` artifact. Configuration lives in `docs/_doxygen/Doxyfile`. |
 | `create_install` | `.github/workflows/create_install.yml` | Builds, installs and zips a binary package for Windows and Linux, uploaded as the `ExyokiOffice-<version>-<os>-x64-<compiler>` artifact. The Linux job additionally packs the same binaries into a distroless container image. |
+| `publish_docker` | `.github/workflows/publish_docker.yml` | Takes the container image a release already carries and pushes it to `ghcr.io`, where it appears under the repository's Packages. Builds nothing. |
 
 ## Running the CI workflow
 
@@ -219,8 +220,9 @@ together, and both carry a comment saying so.
 
 With `build_docker` on, the Linux job packs the staged binaries into a
 distroless image and uploads it as `ExyokiOffice-<version>-docker-amd64`, a
-gzipped `docker save` tarball with a `.sha256` beside it. Nothing is pushed to
-a registry; `docker load` is the whole installation.
+gzipped `docker save` tarball with a `.sha256` beside it. This job pushes
+nothing to a registry; `docker load` is the whole installation, and publishing
+to `ghcr.io` is the separate `publish_docker` workflow below.
 
 Only the runtime half of the package travels: `bin/`, the shared library and
 the license notices. The public headers are thousands of files and most of the
@@ -237,6 +239,47 @@ through a `--replay` file that writes a document into a mounted directory and
 validates it with the CLI from the same image.
 
 [The container image](tools/docker.md) documents the result from a user's side.
+
+### Publishing the image to the registry
+
+`create_install` pushes nothing. Getting an image into the GitHub Container
+Registry is a separate, deliberate act, and `publish_docker` is the workflow
+that performs it:
+
+```powershell
+gh workflow run publish_docker.yml -f release=v1.0.0
+gh workflow run publish_docker.yml -f release=v1.0.0 -f dry_run=true
+```
+
+| Input | Default | Meaning |
+|---|---|---|
+| `release` | — | Tag of the release whose image is published, for example `v1.0.0`. |
+| `tag_latest` | `true` | Also move `:latest` to this image. |
+| `dry_run` | `false` | Do everything except the push. |
+
+It builds nothing. It downloads the `ExyokiOffice-<version>-docker-amd64` asset
+the release already carries, verifies its `.sha256`, loads it and pushes that
+image to `ghcr.io/<owner>/exyokioffice`. What ends up in the registry is
+therefore bit for bit the tarball the release offers, so the two cannot drift
+apart, and the workflow does not depend on a `create_install` run still being
+around.
+
+The registry tag is not an input either: it is the version the image's own
+`org.opencontainers.image.version` label reports. Two assertions guard the
+package name before anything is pushed — the asset must be named after the
+version the image claims, and the image's `source` label must point at this
+repository — and the image is then run the same way `create_install` runs it,
+because a registry tag is much harder to take back than a failed run.
+
+Two things the workflow cannot do for you:
+
+- A newly created package is private. After the first successful run, open
+  **Packages → exyokioffice → Package settings** and change its visibility to
+  public. The package is linked to this repository automatically, through the
+  `org.opencontainers.image.source` label the image already carries.
+- The token sees published releases only, so publish the release first. Pushing
+  the image of a still-draft release would need `contents: write` in the
+  workflow, and would advertise an image for something nobody can download yet.
 
 ## What is not covered yet
 
