@@ -1,0 +1,78 @@
+{
+    "Comment": [
+        "Content-model additions this repository owns, applied on top of the imported",
+        "schema metadata in 'schemas' after it is loaded. Like the other",
+        "'exyokioffice_' files here, it is meant to survive a re-import of everything",
+        "else.",
+        "",
+        "An entry names an existing type and a list of particle items to append to its",
+        "top-level content model. The generator fails the build when the type is gone",
+        "or has no content model to extend, so a rename in the imported metadata is",
+        "caught rather than silently ignored.",
+        "",
+        "Only add an entry for markup a released Office application actually writes,",
+        "and say which one in 'Reason'."
+    ],
+    "Types": [
+        {
+            "Type": "w:CT_RPrBaseStyleable/w:rPr",
+            "Reason": "Word writes the 2010 run-property extensions into w:docDefaults/w:rPrDefault/w:rPr - every document it saves carries at least w14:ligatures there. The imported model declares them on w:CT_RPr only.",
+            "AppendItems": [
+                {
+                    "Kind": "Group",
+                    "InitialVersion": "Office2010",
+                    "Occurs": [{ "Max": 1 }],
+                    "Items": [
+                        {
+                            "Kind": "Sequence",
+                            "Items": [
+                                { "Name": "w14:CT_Glow/w14:glow", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Shadow/w14:shadow", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Reflection/w14:reflection", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_TextOutlineEffect/w14:textOutline", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_FillTextEffect/w14:textFill", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Scene3D/w14:scene3d", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Props3D/w14:props3d", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Ligatures/w14:ligatures", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_NumForm/w14:numForm", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_NumSpacing/w14:numSpacing", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_StylisticSets/w14:stylisticSets", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_OnOff/w14:cntxtAlts", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "Type": "w:CT_RPrStyle/w:rPr",
+            "Reason": "The same 2010 run-property extensions reach a style definition's w:rPr whenever the style overrides them; w:CT_RPr and w:CT_RPrStyle differ only in w:rPrChange.",
+            "AppendItems": [
+                {
+                    "Kind": "Group",
+                    "InitialVersion": "Office2010",
+                    "Occurs": [{ "Max": 1 }],
+                    "Items": [
+                        {
+                            "Kind": "Sequence",
+                            "Items": [
+                                { "Name": "w14:CT_Glow/w14:glow", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Shadow/w14:shadow", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Reflection/w14:reflection", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_TextOutlineEffect/w14:textOutline", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_FillTextEffect/w14:textFill", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Scene3D/w14:scene3d", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Props3D/w14:props3d", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_Ligatures/w14:ligatures", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_NumForm/w14:numForm", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_NumSpacing/w14:numSpacing", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_StylisticSets/w14:stylisticSets", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" },
+                                { "Name": "w14:CT_OnOff/w14:cntxtAlts", "Occurs": [{ "Max": 1 }], "InitialVersion": "Office2010" }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

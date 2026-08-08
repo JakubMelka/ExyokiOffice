@@ -1,0 +1,73 @@
+# libFuzzer dictionary for the flatopc target.
+#
+# Tokens the mutator would otherwise have to discover byte by byte. Flat OPC is
+# namespace-prefixed XML, so the prefixes and the package element names matter
+# far more than any individual character.
+
+"<pkg:package"
+"</pkg:package>"
+"<pkg:part"
+"</pkg:part>"
+"<pkg:xmlData>"
+"</pkg:xmlData>"
+"<pkg:binaryData>"
+"</pkg:binaryData>"
+"pkg:name="
+"pkg:contentType="
+"pkg:padding="
+"xmlns:pkg=\"http://schemas.microsoft.com/office/2006/xmlPackage\""
+
+# Part names the loader recognizes.
+"/[Content_Types].xml"
+"/_rels/.rels"
+"/word/document.xml"
+"/word/_rels/document.xml.rels"
+"/word/styles.xml"
+"/word/media/image1.png"
+"/xl/workbook.xml"
+"/xl/worksheets/sheet1.xml"
+"/xl/sharedStrings.xml"
+"/ppt/presentation.xml"
+"/ppt/slides/slide1.xml"
+"/docProps/core.xml"
+
+# Relationship markup.
+"<Relationships"
+"<Relationship"
+"Id=\"rId1\""
+"Type="
+"Target="
+"TargetMode=\"External\""
+"xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\""
+"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+
+# Content types.
+"<Types"
+"<Default"
+"<Override"
+"PartName="
+"ContentType="
+"application/vnd.openxmlformats-package.relationships+xml"
+"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"
+
+# Document roots.
+"<w:document"
+"<w:body"
+"<worksheet"
+"<workbook"
+"<p:presentation"
+"xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\""
+"xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\""
+
+# Generic XML shapes worth reaching.
+"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+"<![CDATA["
+"]]>"
+"<!DOCTYPE"
+"<!--"
+"-->"
+"&amp;"
+"&#x0;"

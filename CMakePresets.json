@@ -1,0 +1,320 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "cacheVariables": {
+                "EXYOKIOFFICE_BUILD_EXAMPLE_WORD": "ON",
+                "EXYOKIOFFICE_BUILD_UNIT_TESTS": "ON",
+                "EXYOKIOFFICE_BUILD_TOOL": "ON"
+            }
+        },
+        {
+            "name": "windows-vs",
+            "displayName": "Windows x64 (Visual Studio 2026)",
+            "inherits": "base",
+            "generator": "Visual Studio 18 2026",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/build/vs",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-ninja-debug",
+            "displayName": "Windows x64 Debug (Ninja)",
+            "inherits": "base",
+            "generator": "Ninja",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "binaryDir": "${sourceDir}/build/ninja-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-ninja-release",
+            "displayName": "Windows x64 Release (Ninja)",
+            "inherits": "windows-ninja-debug",
+            "binaryDir": "${sourceDir}/build/ninja-release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "windows-ninja-clang-debug",
+            "displayName": "Windows x64 Debug (Ninja, VS Clang)",
+            "inherits": "windows-ninja-debug",
+            "binaryDir": "${sourceDir}/build/ninja-clang-debug",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang-cl",
+                "CMAKE_CXX_COMPILER": "clang-cl"
+            }
+        },
+        {
+            "name": "windows-ninja-clang-release",
+            "displayName": "Windows x64 Release (Ninja, VS Clang)",
+            "inherits": "windows-ninja-clang-debug",
+            "binaryDir": "${sourceDir}/build/ninja-clang-release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "windows-vs-asan",
+            "displayName": "Windows x64 AddressSanitizer (Visual Studio 2026)",
+            "inherits": "windows-vs",
+            "binaryDir": "${sourceDir}/build/vs-asan",
+            "cacheVariables": {
+                "EXYOKIOFFICE_SANITIZER": "address"
+            }
+        },
+        {
+            "name": "windows-ninja-asan",
+            "displayName": "Windows x64 AddressSanitizer (Ninja, MSVC)",
+            "inherits": "windows-ninja-release",
+            "binaryDir": "${sourceDir}/build/ninja-asan",
+            "cacheVariables": {
+                "EXYOKIOFFICE_SANITIZER": "address"
+            }
+        },
+        {
+            "name": "windows-ninja-clang-fuzz",
+            "displayName": "Windows x64 libFuzzer (Ninja, VS Clang)",
+            "inherits": "windows-ninja-clang-release",
+            "binaryDir": "${sourceDir}/build/ninja-clang-fuzz",
+            "cacheVariables": {
+                "EXYOKIOFFICE_BUILD_FUZZERS": "ON",
+                "EXYOKIOFFICE_SANITIZER": "address",
+                "EXYOKIOFFICE_BUILD_UNIT_TESTS": "OFF",
+                "EXYOKIOFFICE_BUILD_TOOL": "OFF",
+                "EXYOKIOFFICE_BUILD_MCP": "ON",
+                "EXYOKIOFFICE_BUILD_EXAMPLE_WORD": "OFF",
+                "EXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDITOR": "OFF",
+                "EXYOKIOFFICE_BUILD_EXAMPLE_EXCEL_EDITOR": "OFF",
+                "EXYOKIOFFICE_BUILD_EXAMPLE_POWERPOINT_EDITOR": "OFF"
+            }
+        },
+        {
+            "name": "windows-ninja-fuzz",
+            "displayName": "Windows x64 libFuzzer (Ninja, MSVC)",
+            "inherits": "windows-ninja-clang-fuzz",
+            "binaryDir": "${sourceDir}/build/ninja-fuzz",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl"
+            }
+        },
+        {
+            "name": "linux-ninja-debug",
+            "displayName": "Linux x64 Debug (Ninja)",
+            "inherits": "base",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/linux-ninja-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "linux-ninja-release",
+            "displayName": "Linux x64 Release (Ninja)",
+            "inherits": "linux-ninja-debug",
+            "binaryDir": "${sourceDir}/build/linux-ninja-release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "linux-ninja-clang-debug",
+            "displayName": "Linux x64 Debug (Ninja, Clang)",
+            "inherits": "linux-ninja-debug",
+            "binaryDir": "${sourceDir}/build/linux-ninja-clang-debug",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "linux-ninja-clang-release",
+            "displayName": "Linux x64 Release (Ninja, Clang)",
+            "inherits": "linux-ninja-clang-debug",
+            "binaryDir": "${sourceDir}/build/linux-ninja-clang-release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "linux-ninja-asan",
+            "displayName": "Linux x64 ASan+UBSan (Ninja, Clang)",
+            "inherits": "linux-ninja-clang-release",
+            "binaryDir": "${sourceDir}/build/linux-ninja-asan",
+            "cacheVariables": {
+                "EXYOKIOFFICE_SANITIZER": "address+undefined"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "configurePreset": "windows-vs",
+            "configuration": "Debug"
+        },
+        {
+            "name": "release",
+            "configurePreset": "windows-vs",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "ninja-debug",
+            "configurePreset": "windows-ninja-debug"
+        },
+        {
+            "name": "ninja-release",
+            "configurePreset": "windows-ninja-release"
+        },
+        {
+            "name": "ninja-clang-debug",
+            "configurePreset": "windows-ninja-clang-debug"
+        },
+        {
+            "name": "ninja-clang-release",
+            "configurePreset": "windows-ninja-clang-release"
+        },
+        {
+            "name": "asan-debug",
+            "configurePreset": "windows-vs-asan",
+            "configuration": "Debug"
+        },
+        {
+            "name": "asan-release",
+            "configurePreset": "windows-vs-asan",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "ninja-asan",
+            "configurePreset": "windows-ninja-asan"
+        },
+        {
+            "name": "ninja-clang-fuzz",
+            "configurePreset": "windows-ninja-clang-fuzz"
+        },
+        {
+            "name": "ninja-fuzz",
+            "configurePreset": "windows-ninja-fuzz"
+        },
+        {
+            "name": "linux-ninja-debug",
+            "configurePreset": "linux-ninja-debug"
+        },
+        {
+            "name": "linux-ninja-release",
+            "configurePreset": "linux-ninja-release"
+        },
+        {
+            "name": "linux-ninja-clang-debug",
+            "configurePreset": "linux-ninja-clang-debug"
+        },
+        {
+            "name": "linux-ninja-clang-release",
+            "configurePreset": "linux-ninja-clang-release"
+        },
+        {
+            "name": "linux-ninja-asan",
+            "configurePreset": "linux-ninja-asan"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "test-base",
+            "hidden": true,
+            "output": { "outputOnFailure": true },
+            "execution": { "jobs": 8 }
+        },
+        {
+            "name": "test-base-sanitizer",
+            "hidden": true,
+            "inherits": "test-base",
+            "execution": { "jobs": 4 }
+        },
+        {
+            "name": "debug",
+            "inherits": "test-base",
+            "configurePreset": "windows-vs",
+            "configuration": "Debug"
+        },
+        {
+            "name": "release",
+            "inherits": "test-base",
+            "configurePreset": "windows-vs",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "ninja-debug",
+            "inherits": "test-base",
+            "configurePreset": "windows-ninja-debug"
+        },
+        {
+            "name": "ninja-release",
+            "inherits": "test-base",
+            "configurePreset": "windows-ninja-release"
+        },
+        {
+            "name": "asan-debug",
+            "inherits": "test-base-sanitizer",
+            "configurePreset": "windows-vs-asan",
+            "configuration": "Debug"
+        },
+        {
+            "name": "asan-release",
+            "inherits": "test-base-sanitizer",
+            "configurePreset": "windows-vs-asan",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "ninja-asan",
+            "inherits": "test-base-sanitizer",
+            "configurePreset": "windows-ninja-asan"
+        },
+        {
+            "name": "linux-ninja-debug",
+            "inherits": "test-base",
+            "configurePreset": "linux-ninja-debug"
+        },
+        {
+            "name": "linux-ninja-release",
+            "inherits": "test-base",
+            "configurePreset": "linux-ninja-release"
+        },
+        {
+            "name": "linux-ninja-clang-debug",
+            "inherits": "test-base",
+            "configurePreset": "linux-ninja-clang-debug"
+        },
+        {
+            "name": "linux-ninja-clang-release",
+            "inherits": "test-base",
+            "configurePreset": "linux-ninja-clang-release"
+        },
+        {
+            "name": "linux-ninja-asan",
+            "inherits": "test-base-sanitizer",
+            "configurePreset": "linux-ninja-asan"
+        }
+    ]
+}

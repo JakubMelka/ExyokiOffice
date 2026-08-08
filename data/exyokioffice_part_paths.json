@@ -1,0 +1,33 @@
+{
+  "Comment": [
+    "ExyokiOffice-owned overlay on the imported part metadata under data/parts.",
+    "A part descriptor there carries one folder for every parent it can be attached to, which cannot",
+    "describe the parts Office keeps in one fixed place per document family. 'theme' resolves against",
+    "the parent, so a slide master in /ppt/slideMasters would put its theme in /ppt/slideMasters/theme",
+    "instead of /ppt/theme; '../media' resolves to /media for the Word main document, which sits in",
+    "/word itself, instead of /word/media. The paths below are absolute and therefore independent of",
+    "the parent part. Keys are part names from data/parts; unknown names fail the build."
+  ],
+  "Parts": {
+    "ImagePart": {
+      "Word": "/word/media",
+      "Excel": "/xl/media",
+      "PowerPoint": "/ppt/media"
+    },
+    "Model3DReferenceRelationshipPart": {
+      "Word": "/word/media",
+      "Excel": "/xl/media",
+      "PowerPoint": "/ppt/media"
+    },
+    "ThemePart": {
+      "Word": "/word/theme",
+      "Excel": "/xl/theme",
+      "PowerPoint": "/ppt/theme"
+    },
+    "ChartPart": {
+      "Word": "/word/charts",
+      "Excel": "/xl/charts",
+      "PowerPoint": "/ppt/charts"
+    }
+  }
+}

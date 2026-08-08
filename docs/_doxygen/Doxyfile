@@ -1,0 +1,50 @@
+# Doxygen configuration for the PDF API reference.
+#
+# Used by .github/workflows/doxygen-pdf.yml, which runs from the repository
+# root and appends PROJECT_NUMBER (read from VERSION.txt) to this file.
+# Only the hand-written public headers are documented: the generated DOM
+# tree (include/ExyokiOffice/DOM, GeneratedParts.hpp) is excluded because
+# it would add tens of thousands of reference pages and drown the API that
+# people actually call. Settings not listed here keep Doxygen's defaults.
+
+PROJECT_NAME           = "ExyokiOffice"
+PROJECT_BRIEF          = "C++20 library for creating, editing, and saving Office Open XML documents"
+
+OUTPUT_DIRECTORY       = build/doxygen
+INPUT                  = include/ExyokiOffice
+RECURSIVE              = YES
+EXCLUDE                = include/ExyokiOffice/DOM \
+                         include/ExyokiOffice/Packaging/GeneratedParts.hpp
+STRIP_FROM_PATH        = .
+STRIP_FROM_INC_PATH    = include
+
+EXTRACT_ALL            = YES
+BUILTIN_STL_SUPPORT    = YES
+DISTRIBUTE_GROUP_DOC   = YES
+
+# The export macro carries platform attributes that would otherwise confuse
+# the parser; expand it to nothing.
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = EXYOKIOFFICE_EXPORT=
+
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO
+
+GENERATE_HTML          = NO
+GENERATE_LATEX         = YES
+USE_PDFLATEX           = YES
+PDF_HYPERLINKS         = YES
+LATEX_BATCHMODE        = YES
+PAPER_TYPE             = a4
+
+# Puts logo.png on the title page; see the comment in titlelogo.sty.
+LATEX_EXTRA_STYLESHEET = docs/_doxygen/titlelogo.sty
+
+# Class inheritance diagrams only; collaboration/include graphs multiply the
+# page count without adding much for a reference manual.
+HAVE_DOT               = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = NO
+INCLUDE_GRAPH          = NO
+INCLUDED_BY_GRAPH      = NO

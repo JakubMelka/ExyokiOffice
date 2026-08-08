@@ -1,0 +1,417 @@
+# ExyokiOffice full AI context
+
+> ExyokiOffice is a C++20 shared library for creating, opening, editing, and
+> saving `.docx`, `.xlsx`, and `.pptx` Office Open XML packages. It directly
+> reads and writes ZIP/XML packages and does not require Microsoft Office or
+> .NET. This file is a self-contained orientation for AI systems; consult the
+> linked source documentation for detailed feature contracts.
+
+## Fast decision guide
+
+Use the highest-level API that represents the task:
+
+| Goal | Primary entry point | Main guide | Runnable example |
+| --- | --- | --- | --- |
+| Create or edit Word | `ExyokiOffice::Word::WordDocumentEditor` | `docs/Word.md`, `docs/word/` | `examples/ExampleWordEditor/main.cpp` |
+| Modify an existing Word file | `WordDocumentEditor::Open`, `BodyCursor` | `docs/word/documents.md`, `docs/word/text.md` | `examples/ExampleWordEdit/main.cpp` |
+| Create or edit Excel | `ExyokiOffice::Excel::ExcelDocumentEditor` | `docs/Excel.md`, `docs/excel/` | `examples/ExampleExcelEditor/main.cpp` |
+| Create or edit PowerPoint | `ExyokiOffice::PowerPoint::PowerPointDocumentEditor` | `docs/PowerPoint.md`, `docs/powerpoint/` | `examples/ExamplePowerPointEditor/main.cpp` |
+| Work with exact OpenXML elements | `OpenXmlElement` and generated DOM types | `docs/introduction.md` | `examples/ExampleWord/main.cpp` |
+| Manipulate parts and relationships | `OpenXmlPackage`, `OpenXmlPackagePart`, `Packaging::*Document` | `docs/introduction.md` | `examples/ExampleWord/main.cpp` |
+| Inspect, validate, convert, diff, or query | `ExyokiOffice::Tools`, `ExyokiOffice::Xml`, `exyoki` | `docs/tools/exyoki.md` | `tools/exyoki/main.cpp` |
+| Signatures and external resources | `ExyokiOffice::Security` | `docs/Signatures.md`, `docs/ExternalResources.md` | focused unit tests |
+| Change generated DOM behavior | generator under `gen/` | `gen/README.md`, `data/README.md` | generator unit tests |
+
+Do not start with the generated DOM merely because Office Open XML is an XML
+format. The hand-written editors preserve package invariants and provide safer,
+shorter operations for modeled features.
+
+## Product scope
+
+ExyokiOffice supports three related but distinct layers:
+
+1. Hand-written high-level editing APIs for Word, Excel, and PowerPoint.
+2. Strongly typed OpenXML element classes generated from schema metadata.
+3. Open Packaging Conventions infrastructure for ZIP parts, relationships,
+   content types, and document lifecycle.
+
+The `exyoki` executable is a thin command-line adapter over reusable library
+modules. It can inspect packages, list parts and relationships, read properties,
+validate (several files at once, expanding `*`/`?` wildcards itself), unpack
+and repack, convert to and from Flat OPC, convert documents to semantic
+Markdown/JSON/XML/text (plus CSV for workbooks), export media, search and
+replace text across Word, Excel, and PowerPoint, redact comments, tracked
+revisions, hidden text and identity metadata, fill Word mail-merge templates
+from JSON, recalculate workbook formulas, compare Word documents into tracked
+revisions, query XPath, extract text, split, merge, diff, inspect external
+resources and signatures, and print shell completion scripts.
+`exyoki commands --format json` describes the whole interface — commands,
+options, value constraints and exit codes — so it can be discovered without
+parsing `--help`. `exyoki schema` does the same for the data: it prints the
+draft-07 JSON Schema of the semantic `convert` envelope (published as
+`docs/schemas/exyokioffice-document-v1.schema.json`), and
+`exyoki schema --check <file>` validates a generated document against it,
+exiting `3` with one diagnostic per violation, each carrying the JSON pointer
+of the offending value.
+
+The library does not render documents, paginate text, calculate Word layout,
+run VBA, automate Microsoft Office, or convert to PDF/HTML through a rendering
+engine. Semantic conversions are deliberately lossy and report unsupported
+content. Consult `docs/Compatibility.md` for precise feature depth and Office
+version support.
+
+## Main public classes
+
+### Word
+
+`ExyokiOffice::Word::WordDocumentEditor`, declared in
+`include/ExyokiOffice/Word/WordDocument.hpp`, is the normal Word entry point.
+It covers document lifecycle, paragraphs, runs, formatting, styles, headings,
+lists, tables, images, hyperlinks, bookmarks, fields, sections, headers and
+footers, notes, comments, content controls, revisions, protection, charts, and
+document insertion or merging.
+
+Body insertion uses cursors such as `Body()`, `Before(...)`, and `After(...)`.
+Use these instead of manually finding and inserting WordprocessingML nodes when
+the high-level operation exists.
+
+```cpp
+#include "ExyokiOffice/Word/WordDocument.hpp"
+
+using namespace ExyokiOffice::Word;
+
+auto editor = WordDocumentEditor::CreateNew();
+if (!editor)
+{
+    return 1;
+}
+
+editor->AddHeading("Quarterly report");
+editor->AddParagraph("Created by ExyokiOffice.");
+if (!editor->SaveToFile("report.docx"))
+{
+    return 1;
+}
+```
+
+Use `WordDocumentEditor::Open(...)` to modify an existing file. The
+`examples/ExampleWordEdit/main.cpp` example demonstrates placeholders spanning
+multiple runs, insertion next to existing blocks, and extending a table.
+
+The lower-level `ExyokiOffice::Packaging::WordDocument` handles package
+lifecycle and Word parts. It is re-exported as `ExyokiOffice::Word::WordDocument`.
+
+### Excel
+
+`ExyokiOffice::Excel::ExcelDocumentEditor`, declared in
+`include/ExyokiOffice/Excel/ExcelDocument.hpp`, is the normal workbook entry
+point. It covers worksheets, cells and ranges, shared strings, formulas and
+recalculation, named ranges, styles and number formats, tables, auto-filters,
+charts, pivot tables, slicers, validation, conditional formatting, structural
+row and column edits, comments, images, and print layout.
+
+```cpp
+#include "ExyokiOffice/Excel/ExcelDocument.hpp"
+
+using namespace ExyokiOffice::Excel;
+
+auto editor = ExcelDocumentEditor::CreateNew();
+if (!editor)
+{
+    return 1;
+}
+
+auto sheet = editor->FirstWorksheet();
+sheet->SetCellText(1, 1, "Item");
+sheet->SetCellText(1, 2, "Amount");
+sheet->SetCellText(2, 1, "Example");
+sheet->SetCellNumber(2, 2, 42.0);
+if (!editor->SaveToFile("report.xlsx"))
+{
+    return 1;
+}
+```
+
+The lower-level `ExyokiOffice::Packaging::ExcelDocument` handles workbook
+package lifecycle and is re-exported in the Excel namespace.
+
+### PowerPoint
+
+`ExyokiOffice::PowerPoint::PowerPointDocumentEditor`, declared in
+`include/ExyokiOffice/PowerPoint/PowerPointDocument.hpp`, is the normal
+presentation entry point. It covers slides, masters, layouts, placeholders,
+shape trees, geometry, transforms, fills, outlines, effects, text, pictures,
+media, DrawingML tables, charts, transitions, animations, speaker notes,
+comments, sections, and custom shows.
+
+PowerPoint has an explicit master-layout-slide hierarchy. A new presentation
+must provide a layout and master before associating a slide with that layout.
+`CreateSlideBuilder()` offers a higher-level path for common title, text, and
+shape construction.
+
+The lower-level `ExyokiOffice::Packaging::PowerPointDocument` handles
+presentation package lifecycle and is re-exported in the PowerPoint namespace.
+
+## Cross-cutting API conventions
+
+- Packages are loaded completely into memory. Editing mutates the in-memory
+  model. Nothing reaches disk until `SaveToFile` or `SaveToMemory`.
+- File saving is atomic by default: the old file is replaced only after the new
+  package has been written successfully.
+- Factories including `CreateNew`, `Open`, and many `Add...` methods return a
+  null smart pointer when input cannot be read or an operation is invalid.
+- More complex fallible operations return structured result types with an
+  error code and message. Check `Succeeded()` or boolean conversion.
+- Validating mutations should reject bad input before changing the document.
+- Lengths use `MeasuringUnits` and explicit units. Angles use
+  `MeasuringAngle`. General colors use `ExyokiOffice::Color`; formats may add
+  their own color wrappers.
+- Public declarations use integer, floating-point, size, and byte aliases from
+  `ExyokiOffice/StandardTypes.hpp`.
+- Preserve content that the high-level API does not interpret. An edit to one
+  modeled feature must not silently discard unrelated parts or markup.
+- `OpenSettings` controls validation and package safety limits for untrusted
+  inputs. Do not assume unlimited package sizes are appropriate for a service.
+- External resources are never fetched automatically. An application must
+  explicitly install both a resolver and an allow policy.
+
+One package and its complete object graph form one synchronization domain.
+Editors, packages, parts, DOM elements, worksheets, slides, cursors, wrappers,
+and borrowed views from that graph are not thread-safe. Confine the graph to
+one thread or serialize every access with one application-owned mutex. Distinct
+packages may be processed concurrently, provided they do not race on shared
+application state or the same output path. See `docs/Threading.md` for the full
+contract, cancellation pattern, and callback requirements.
+
+## Typed DOM and packaging
+
+The typed DOM namespace begins at
+`ExyokiOffice::DocumentFormat::OpenXml`. Generated classes model elements,
+attributes, enums, and content models for WordprocessingML, SpreadsheetML, and
+PresentationML. `OpenXmlElement` supplies common tree operations. Use targeted
+symbol searches rather than reading the full generated tree.
+
+The packaging layer models an Office file as an OPC ZIP package containing
+parts. Relationships connect packages or parts to other parts and to external
+targets; content types tell consumers how each part is interpreted. A new
+feature may require all of the following:
+
+1. A correctly named and typed part.
+2. A relationship from the correct owner.
+3. A content-type registration.
+4. Valid XML in the part.
+5. Save, reopen, and preservation behavior.
+
+The low-level `examples/ExampleWord/main.cpp` demonstrates creating a package,
+styles part, typed WordprocessingML body, table, section properties, save, and
+reopen without using the high-level editor.
+
+## Tools, XML, and security
+
+The public `ExyokiOffice::Tools` module provides reusable behavior behind
+`exyoki`, including package inspection, validation, archive operations, Flat
+OPC conversion, semantic document conversion, document statistics, diffing,
+media export, text extraction, replacements, splitting, merging, and resource
+deduplication.
+
+`ExyokiOffice::Xml` provides namespace-precise XPath 1.0 queries over package
+parts. Prefer it for dynamic queries that do not justify adding a typed
+high-level feature.
+
+The three MCP servers under `tools/mcp/` (`exyoki-mcp-word`,
+`exyoki-mcp-excel`, `exyoki-mcp-power-point`) expose the same behavior to AI
+agents as typed JSON-RPC tools over stdio. They add no library capability: they
+are adapters over the editors and `ExyokiOffice::Tools`, with a workspace
+sandbox, document sessions with undo, a transactional `batch`, and one result
+envelope. New agent-facing behavior belongs in the library or in
+`ExyokiOffice::Tools`, not in a server. See `docs/tools/mcp-servers.md`.
+
+`ExyokiOffice::Security` covers signature inspection and verification plus
+policy-controlled linked resources. Cryptographic verification depends on an
+installed provider. External resolvers may be invoked concurrently and should
+be thread-safe. See `docs/Signatures.md` and `docs/ExternalResources.md` before
+changing security behavior.
+
+## Repository navigation
+
+| Path | Meaning |
+| --- | --- |
+| `include/ExyokiOffice/Word/` | Public high-level Word API |
+| `include/ExyokiOffice/Excel/` | Public high-level Excel API |
+| `include/ExyokiOffice/PowerPoint/` | Public high-level PowerPoint API |
+| `include/ExyokiOffice/Packaging/` | Document parts and lifecycle |
+| `include/ExyokiOffice/Tools/` | Reusable package tools |
+| `include/ExyokiOffice/Xml/` | Dynamic XPath/query API |
+| `include/ExyokiOffice/Security/` | Signatures and external resources |
+| `include/ExyokiOffice/DOM/` | Large generated public DOM headers |
+| `sources/` | Hand-written implementations plus vendored pugixml and ZIP code |
+| `sources/DOM/` | Large generated DOM implementations |
+| `gen/` | Native OpenXML source generator |
+| `data/` | Imported Open-XML-SDK metadata and local overlays |
+| `tools/exyoki/` | Command-line adapter |
+| `tools/mcp/` | MCP servers for AI agents and their shared static core |
+| `examples/` | Runnable, round-tripping examples |
+| `tests/unit/` | doctest tests and regressions |
+| `tests/mcp/` | MCP protocol, schema, and per-family tool tests |
+| `tests/fuzz/` | fuzz harnesses, curated seeds, and committed crashes |
+| `docs/` | User manual and project policies |
+
+## Generated-code rules
+
+Do not edit a file carrying an `<auto-generated>` banner. The main generated
+trees are `include/ExyokiOffice/DOM` and `sources/DOM`; several packaging
+files are generated as well. Fix generator behavior under `gen/` and regenerate
+through the normal CMake build.
+
+Most JSON under `data/` is an imported metadata snapshot. Two overlays are
+owned by this repository and must survive imports:
+
+- `data/exyokioffice_part_paths.json` defines absolute per-family folders for
+  parts such as media, themes, and charts.
+- `data/exyokioffice_ambiguous_elements.json` selects the factory class for
+  element names declared by multiple generated classes.
+
+The generator writes to tracked source directories. Inspect `git diff` after a
+build. Output must be deterministic across MSVC, GCC, and Clang; explicitly
+sort any data whose order affects generated output.
+
+Generated public types must be reachable from a consumer of the shared
+library: element and part classes are `EXYOKIOFFICE_EXPORT`, and an enum
+class exports `GetMetaEnum()` only, because exporting the class over the
+non-exported `OpenXmlEnum` base raises C4275 in the warnings-as-errors
+build. An unexported out-of-line member compiles and fails only at link
+time outside `sources/`.
+
+For ordinary exploration, exclude generated, metadata, and build trees:
+
+```powershell
+rg --files -g '!include/ExyokiOffice/DOM/**' -g '!sources/DOM/**' `
+    -g '!data/**' -g '!build/**' -g '!gen/build/**'
+```
+
+For one generated symbol, use a targeted search:
+
+```powershell
+rg -n "class Paragraph" include/ExyokiOffice/DOM/DocumentFormat/OpenXml/Wordprocessing.hpp
+rg -l "SomeOpenXmlType" include/ExyokiOffice/DOM sources/DOM
+```
+
+## Build, test, and install
+
+Use checked-in CMake presets. On Windows, `WinBuild.ps1` discovers Visual Studio
+with `vswhere`, initializes the developer environment, configures, builds, and
+optionally tests or installs:
+
+```powershell
+.\WinBuild.ps1 -Configuration Debug -Test
+.\WinBuild.ps1 -Clean -Configuration RelWithDebInfo -Test
+.\WinBuild.ps1 -Sanitizer Address -Configuration Debug -Test
+.\WinBuild.ps1 -Configuration RelWithDebInfo -Install
+.\WinBuild.ps1 -Configuration RelWithDebInfo -Install -InstallPrefix C:\ExyokiOffice
+```
+
+The default install prefix used with `-Install` is `build/install`. Installation
+contains the shared library, public and generated headers, exported CMake
+package, `exyoki`, license and project files, and the Markdown documentation.
+
+On Linux:
+
+```bash
+cmake --preset linux-ninja-debug
+cmake --build --preset linux-ninja-debug
+ctest --preset linux-ninja-debug
+```
+
+Consumers use the installed target:
+
+```cmake
+find_package(ExyokiOffice 1.0 CONFIG REQUIRED)
+target_link_libraries(MyApplication PRIVATE ExyokiOffice::ExyokiOffice)
+```
+
+Set `CMAKE_PREFIX_PATH` when the installation prefix is outside CMake's normal
+search locations.
+
+The generated translation units make clean builds slow and memory-heavy. Limit
+parallel jobs when necessary. On restricted Windows agents, Visual Studio
+compiler detection may fail with `MSB4018`, `FileTracker`, and `E_ACCESSDENIED`;
+rerun the same preset-based build with sandbox escalation instead of switching
+generators.
+
+## Verification expectations
+
+Behavioral changes require focused doctest coverage under `tests/unit`. For
+document behavior, test create/open, mutation, save, reopen, and assertions on
+the reopened package. This detects missing relationships, content types, and
+serialization persistence.
+
+Windows lint commands:
+
+```powershell
+.\WinLint.ps1 -Changed -Check
+.\WinLint.ps1 -Check
+```
+
+Fuzz commands:
+
+```powershell
+.\WinFuzz.ps1 -Target flatopc -Seconds 300
+.\WinFuzz.ps1 -Replay
+.\WinFuzz.ps1 -Target formula -Minimize
+```
+
+The growing working corpus stays under `build/<preset>/fuzz-corpus` and is safe
+to delete. Curated seeds are under `tests/fuzz/corpus`; `-Minimize` deliberately
+updates them. Crash artifacts are stored under `tests/fuzz/crashes` and are
+replayed by ordinary unit tests, so committed crashes must not be deleted after
+a fix.
+
+## Documentation map
+
+- `README.md`: concise product, quickstart, build, and installation overview.
+- `docs/README.md`: complete manual index and required reading order.
+- `docs/introduction.md`: scope, architecture, conventions, and package model.
+- `docs/Word.md`, `docs/Excel.md`, `docs/PowerPoint.md`: format quickstarts.
+- `docs/word/`, `docs/excel/`, `docs/powerpoint/`: task-specific chapters.
+- `docs/Compatibility.md`: authoritative feature support and limitations.
+- `docs/tools/exyoki.md`: complete CLI reference.
+- `docs/tools/conversion-formats.md`: semantic conversion contracts.
+- `docs/tools/mcp-servers.md`: the MCP servers, their security model, and the tool catalog of each family.
+- `docs/schemas/`: machine-readable contracts, generated by the tool
+  (`exyoki schema`) and checked against the library by the test suite.
+- `docs/ExternalResources.md`, `docs/Signatures.md`: security-sensitive APIs.
+- `docs/Threading.md`: thread-safety, ownership, locking, and cancellation.
+- `docs/ABI.md`: versioning and binary compatibility.
+- `docs/ci.md`, `docs/fuzzing.md`: verification infrastructure.
+- `CONTRIBUTING.md`: contributor workflow and pull-request checklist.
+- `AGENTS.md`: operational source guide for coding agents.
+
+When adding a documentation chapter, update both `docs/README.md` and
+`docs/_pdf/chapters.txt`. When feature coverage changes, update
+`docs/Compatibility.md` in the same change.
+
+## Contribution constraints
+
+- Public declarations go in `include/ExyokiOffice`; implementations go in
+  `sources`.
+- Keep `tools/exyoki` thin; reusable logic belongs in the public Tools module.
+- Do not modify vendored code unless the task explicitly targets it.
+- Preserve C++20, `.clang-format`, strict warnings, and braces on every
+  control-flow body.
+- Prefer a private helper class with static methods for file-local helpers; do
+  not add an anonymous namespace solely for free helper functions.
+- Do not commit build products, generated example documents, working fuzz
+  corpora, or IDE-local files.
+- Update tests, user documentation, compatibility claims, and AI navigation
+  files when public behavior or project structure changes.
+
+## Canonical links
+
+- [Repository guide](AGENTS.md)
+- [Project overview](README.md)
+- [Documentation index](docs/README.md)
+- [Compatibility matrix](docs/Compatibility.md)
+- [Contributing](CONTRIBUTING.md)
+- [Generator guide](gen/README.md)
+- [Metadata guide](data/README.md)
+- [exyoki guide](docs/tools/exyoki.md)

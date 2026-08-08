@@ -1,0 +1,28 @@
+[project]
+name = "exyokioffice-mcp-interoperability-tests"
+version = "0.1.0"
+description = "Black-box interoperability tests for ExyokiOffice MCP servers"
+requires-python = ">=3.10"
+dependencies = [
+    "jsonschema>=4.23,<5",
+    "mcp>=2,<3",
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.25,<1",
+    "pytest-timeout>=2.3,<3",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+timeout = 60
+filterwarnings = [
+    "ignore:ping is removed as of 2026-07-28:mcp.shared.exceptions.MCPDeprecationWarning",
+]
+markers = [
+    "catalog: tool discovery and schema contract tests",
+    "conformance: MCP protocol and lifecycle conformance tests",
+    "workflow: end-to-end document editing workflows",
+    "security: workspace and mutation safety tests",
+    "slow: tests that perform many tool calls or process large documents",
+]

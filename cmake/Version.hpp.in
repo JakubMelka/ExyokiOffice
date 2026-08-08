@@ -1,0 +1,33 @@
+#pragma once
+
+#include "ExyokiOffice/Export.hpp"
+
+#include <string_view>
+
+namespace ExyokiOffice
+{
+
+struct Version final
+{
+    static constexpr int Major = @PROJECT_VERSION_MAJOR@;
+    static constexpr int Minor = @PROJECT_VERSION_MINOR@;
+    static constexpr int Patch = @PROJECT_VERSION_PATCH@;
+    static constexpr std::string_view String = "@PROJECT_VERSION@";
+
+    /**
+     * @brief ABI identity of this build, as `MAJOR.MINOR`.
+     *
+     * Only patch releases promise an unchanged ABI, so two builds are binary
+     * compatible exactly when this string matches. It is not an integer
+     * because a minor release changes it just as a major release does.
+     */
+    static constexpr std::string_view Abi = "@ExyokiOfficeAbiVersion@";
+};
+
+/** @brief Returns the linked ExyokiOffice library version. */
+EXYOKIOFFICE_EXPORT std::string_view GetVersion() noexcept;
+
+/** @brief Returns the ABI identity of the linked library; see Version::Abi. */
+EXYOKIOFFICE_EXPORT std::string_view GetAbiVersion() noexcept;
+
+} // namespace ExyokiOffice

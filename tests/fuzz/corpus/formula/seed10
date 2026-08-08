@@ -1,0 +1,1 @@
+Sheet1=IF(A1>0,"yes","no")

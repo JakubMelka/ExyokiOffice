@@ -1,0 +1,7 @@
+# LeakSanitizer suppressions for the manually triggered ASan CI job.
+#
+# Only add entries here for leaks that are provably outside ExyokiOffice
+# (toolchain or system libraries). Leaks in ExyokiOffice code are bugs and
+# must be fixed, not suppressed.
+#
+# Syntax: leak:<substring matched against a frame in the stack trace>

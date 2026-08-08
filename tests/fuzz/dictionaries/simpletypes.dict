@@ -1,0 +1,62 @@
+# libFuzzer dictionary for the simpletypes target.
+
+# Boolean spellings across the OOXML variants.
+"true"
+"false"
+"1"
+"0"
+"on"
+"off"
+"t"
+"f"
+
+# Numeric edges, where overflow and sign handling live.
+"-1"
+"127"
+"-128"
+"255"
+"32767"
+"-32768"
+"65535"
+"2147483647"
+"-2147483648"
+"4294967295"
+"9223372036854775807"
+"-9223372036854775808"
+"18446744073709551615"
+"+42"
+"0x1F"
+"007"
+
+# Floating point.
+"0.0"
+"-0.0"
+"1e308"
+"-1e-308"
+"NaN"
+"INF"
+"-INF"
+".5"
+"5."
+"1E+2"
+
+# xsd:dateTime.
+"2026-07-27T12:34:56Z"
+"2026-07-27T12:34:56.789+02:00"
+"0001-01-01T00:00:00Z"
+"9999-12-31T23:59:59Z"
+"2026-02-29T00:00:00Z"
+
+# base64 and hex payloads.
+"RXZlcnlkYXlPZmZpY2U="
+"===="
+"DEADBEEF"
+"0F1E2D"
+
+# Whitespace, which the list parser splits on. libFuzzer's dictionary parser
+# understands \xAB escapes but not \t or \n, hence the hex spelling.
+" "
+"\x09"
+"\x0a"
+"\x0d\x0a"
+"  a  b  "

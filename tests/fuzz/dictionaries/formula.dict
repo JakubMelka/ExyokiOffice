@@ -1,0 +1,66 @@
+# libFuzzer dictionary for the formula target.
+#
+# The payload is short ASCII, so a dictionary matters more here than a corpus:
+# function names and reference punctuation are what open new parser paths.
+
+# Reference punctuation.
+"$"
+":"
+"!"
+","
+";"
+"'"
+"[]"
+"#REF!"
+"#NAME?"
+"#VALUE!"
+"#DIV/0!"
+"#N/A"
+
+# Extremes of the worksheet grid.
+"A1"
+"XFD1048576"
+"$A$1:$XFD$1048576"
+"R1C1"
+"R[-1]C[1]"
+"A:A"
+"1:1"
+
+# Sheet qualifiers.
+"Sheet1!"
+"'My Data'!"
+"'It''s'!"
+"[Book.xlsx]Sheet1!"
+
+# Operators.
+"="
+"<>"
+">="
+"<="
+"&"
+"^"
+"%"
+
+# Function names, including the variadic and lookup families where argument
+# handling is most intricate.
+"SUM("
+"IF("
+"VLOOKUP("
+"INDEX("
+"MATCH("
+"OFFSET("
+"INDIRECT("
+"SUMIFS("
+"COUNTIF("
+"TEXT("
+"CONCATENATE("
+"IFERROR("
+"SUBTOTAL("
+"ROW("
+"COLUMN("
+
+# Structured table references.
+"Table1[Column1]"
+"[#Headers]"
+"[#All]"
+"[@]"

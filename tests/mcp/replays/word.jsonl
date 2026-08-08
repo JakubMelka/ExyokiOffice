@@ -1,0 +1,9 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"replay","version":"1"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/list"}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"create_document","arguments":{"path":"replay.docx","overwrite":true}}}
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"insert_paragraph","arguments":{"documentId":"doc-1","anchor":{"position":"end"},"text":"Replay heading","heading_level":1}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"insert_paragraph","arguments":{"documentId":"doc-1","anchor":{"position":"end"},"text":"Replay body text."}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"save_document","arguments":{"documentId":"doc-1","overwrite":true,"force":true}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"validate_document","arguments":{"documentId":"doc-1"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"close_document","arguments":{"documentId":"doc-1"}}}

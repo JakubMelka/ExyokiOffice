@@ -1,0 +1,20 @@
+# libFuzzer dictionary for the packageload target.
+#
+# ZIP is a binary container with fixed signatures; without these the mutator
+# spends its whole budget failing to produce a recognizable header.
+
+"PK\x03\x04"
+"PK\x01\x02"
+"PK\x05\x06"
+"PK\x06\x06"
+"PK\x06\x07"
+"PK\x07\x08"
+
+# Entry names the OPC loader looks for.
+"[Content_Types].xml"
+"_rels/.rels"
+"word/document.xml"
+"word/_rels/document.xml.rels"
+"xl/workbook.xml"
+"ppt/presentation.xml"
+"docProps/core.xml"

@@ -1,0 +1,3 @@
+{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1}}
+{"jsonrpc":"2.0","method":"tools/list"}
+{"jsonrpc":"2.0","id":9,"method":"ping","params":{}}

@@ -1,0 +1,10 @@
+[
+  {
+    "Name": "w:CT_CustomXmlElement/",
+    "ClassName": "CustomXmlElement"
+  },
+  {
+    "Name": "w:CT_SdtElement/",
+    "ClassName": "SdtElement"
+  }
+]

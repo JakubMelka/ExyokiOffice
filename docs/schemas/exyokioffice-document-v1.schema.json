@@ -1,0 +1,1365 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "exyokioffice-document-v1.schema.json",
+  "title": "ExyokiOffice semantic document envelope",
+  "description": "Canonical JSON serialization of the ExyokiOffice semantic document model, produced and consumed by `exyoki convert` and by ExyokiOffice::Tools::SerializeModelJson / ParseModelJson. The prose specification is docs/tools/conversion-formats.md.",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "family",
+    "document"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "exyokioffice-document",
+      "description": "Envelope format identifier."
+    },
+    "version": {
+      "const": 1,
+      "description": "Model version this schema describes."
+    },
+    "family": {
+      "type": "string",
+      "description": "Document family; selects the shape of `document`.",
+      "enum": [
+        "word",
+        "excel",
+        "powerpoint"
+      ]
+    },
+    "properties": {
+      "$ref": "#/definitions/coreProperties"
+    },
+    "media": {
+      "type": "array",
+      "description": "Media payloads referenced from content by id.",
+      "items": {
+        "$ref": "#/definitions/mediaItem"
+      }
+    },
+    "document": {
+      "type": "object",
+      "description": "Family-specific payload; see the allOf branches and the family definitions."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "word"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "document": {
+            "$ref": "#/definitions/wordDocument"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "excel"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "document": {
+            "$ref": "#/definitions/excelDocument"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "family": {
+            "const": "powerpoint"
+          }
+        },
+        "required": [
+          "family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "document": {
+            "$ref": "#/definitions/powerPointDocument"
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "coreProperties": {
+      "type": "object",
+      "description": "OPC core and extended properties; empty values are omitted.",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "dc:title."
+        },
+        "subject": {
+          "type": "string",
+          "description": "dc:subject."
+        },
+        "creator": {
+          "type": "string",
+          "description": "dc:creator."
+        },
+        "keywords": {
+          "type": "string",
+          "description": "cp:keywords."
+        },
+        "description": {
+          "type": "string",
+          "description": "dc:description."
+        },
+        "lastModifiedBy": {
+          "type": "string",
+          "description": "cp:lastModifiedBy."
+        },
+        "category": {
+          "type": "string",
+          "description": "cp:category."
+        },
+        "created": {
+          "type": "string",
+          "description": "dcterms:created, ISO-8601."
+        },
+        "modified": {
+          "type": "string",
+          "description": "dcterms:modified, ISO-8601."
+        },
+        "application": {
+          "type": "string",
+          "description": "Extended property Application."
+        },
+        "company": {
+          "type": "string",
+          "description": "Extended property Company."
+        }
+      }
+    },
+    "mediaItem": {
+      "type": "object",
+      "description": "One media payload referenced from document content.",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identifier content refers to (\"media1\", \"media2\", ...)."
+        },
+        "file": {
+          "type": "string",
+          "description": "Path relative to the envelope file, written when media stays external."
+        },
+        "contentType": {
+          "type": "string",
+          "description": "MIME type, e.g. \"image/png\"."
+        },
+        "data": {
+          "type": "string",
+          "description": "Base64 payload, written by --embed-media instead of `file`."
+        }
+      }
+    },
+    "wordDocument": {
+      "type": "object",
+      "description": "Word payload of the envelope.",
+      "required": [
+        "body"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "type": "array",
+          "description": "Top-level document content in reading order.",
+          "items": {
+            "$ref": "#/definitions/wordBlock"
+          }
+        },
+        "lists": {
+          "type": "array",
+          "description": "Numbering definitions referenced by paragraphs.",
+          "items": {
+            "$ref": "#/definitions/wordListDefinition"
+          }
+        },
+        "footnotes": {
+          "type": "array",
+          "description": "Footnote entries referenced by footnoteRef.",
+          "items": {
+            "$ref": "#/definitions/wordNote"
+          }
+        },
+        "endnotes": {
+          "type": "array",
+          "description": "Endnote entries referenced by endnoteRef.",
+          "items": {
+            "$ref": "#/definitions/wordNote"
+          }
+        },
+        "comments": {
+          "type": "array",
+          "description": "Comment entries referenced by commentRef.",
+          "items": {
+            "$ref": "#/definitions/wordComment"
+          }
+        },
+        "headers": {
+          "type": "array",
+          "description": "Header content per kind.",
+          "items": {
+            "$ref": "#/definitions/wordHeaderFooter"
+          }
+        },
+        "footers": {
+          "type": "array",
+          "description": "Footer content per kind.",
+          "items": {
+            "$ref": "#/definitions/wordHeaderFooter"
+          }
+        }
+      }
+    },
+    "wordBlock": {
+      "type": "object",
+      "description": "One block of Word content, tagged by `type`.",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Discriminator selecting one of the variants below.",
+          "enum": [
+            "paragraph",
+            "table",
+            "sectionBreak"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "paragraph"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordParagraphBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "table"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordTableBlock"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "sectionBreak"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordSectionBreakBlock"
+          }
+        }
+      ]
+    },
+    "wordParagraphBlock": {
+      "type": "object",
+      "description": "A paragraph.",
+      "required": [
+        "type",
+        "content"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "paragraph",
+          "description": "Block discriminator."
+        },
+        "style": {
+          "type": "string",
+          "description": "Paragraph style ID."
+        },
+        "heading": {
+          "type": "integer",
+          "description": "Heading level derived from a Heading<N> style.",
+          "minimum": 1,
+          "maximum": 9
+        },
+        "align": {
+          "type": "string",
+          "description": "Justification token (left, center, right, both, ...)."
+        },
+        "list": {
+          "$ref": "#/definitions/wordListReference"
+        },
+        "content": {
+          "type": "array",
+          "description": "Inline content in reading order.",
+          "items": {
+            "$ref": "#/definitions/wordInline"
+          }
+        }
+      }
+    },
+    "wordListReference": {
+      "type": "object",
+      "description": "Numbering reference of a list paragraph.",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Numbering instance ID; matches an entry of `lists`."
+        },
+        "level": {
+          "type": "integer",
+          "description": "Zero-based list level; omitted when 0."
+        }
+      }
+    },
+    "wordTableBlock": {
+      "type": "object",
+      "description": "A table.",
+      "required": [
+        "type",
+        "rows"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "table",
+          "description": "Block discriminator."
+        },
+        "style": {
+          "type": "string",
+          "description": "Table style ID."
+        },
+        "rows": {
+          "type": "array",
+          "description": "Table rows in document order.",
+          "items": {
+            "$ref": "#/definitions/wordTableRow"
+          }
+        }
+      }
+    },
+    "wordTableRow": {
+      "type": "object",
+      "description": "One table row.",
+      "required": [
+        "cells"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cells": {
+          "type": "array",
+          "description": "Logical-grid cells, left to right.",
+          "items": {
+            "$ref": "#/definitions/wordTableCell"
+          }
+        }
+      }
+    },
+    "wordTableCell": {
+      "type": "object",
+      "description": "One logical-grid table cell.",
+      "additionalProperties": false,
+      "properties": {
+        "rowSpan": {
+          "type": "integer",
+          "description": "Vertical span; omitted when 1."
+        },
+        "colSpan": {
+          "type": "integer",
+          "description": "Horizontal span; omitted when 1."
+        },
+        "covered": {
+          "type": "boolean",
+          "description": "True for a grid position covered by another cell's span; then no content."
+        },
+        "blocks": {
+          "type": "array",
+          "description": "Cell content; may nest further tables.",
+          "items": {
+            "$ref": "#/definitions/wordBlock"
+          }
+        }
+      }
+    },
+    "wordSectionBreakBlock": {
+      "type": "object",
+      "description": "A section break.",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "sectionBreak",
+          "description": "Block discriminator."
+        }
+      }
+    },
+    "wordInline": {
+      "type": "object",
+      "description": "One inline element of a Word paragraph, tagged by `type`.",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Discriminator selecting one of the variants below.",
+          "enum": [
+            "text",
+            "link",
+            "image",
+            "footnoteRef",
+            "endnoteRef",
+            "commentRef",
+            "field",
+            "break"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "text"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordTextInline"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "link"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordLinkInline"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "image"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordImageInline"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "footnoteRef"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordFootnoteRefInline"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "endnoteRef"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordEndnoteRefInline"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "commentRef"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordCommentRefInline"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "field"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordFieldInline"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "break"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/definitions/wordBreakInline"
+          }
+        }
+      ]
+    },
+    "wordTextInline": {
+      "type": "object",
+      "description": "Text with character formatting.",
+      "required": [
+        "type",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "text",
+          "description": "Inline discriminator."
+        },
+        "text": {
+          "type": "string",
+          "description": "Text content."
+        },
+        "bold": {
+          "type": "boolean",
+          "description": "Bold; omitted when false."
+        },
+        "italic": {
+          "type": "boolean",
+          "description": "Italic; omitted when false."
+        },
+        "underline": {
+          "type": "boolean",
+          "description": "Underline; omitted when false."
+        },
+        "strike": {
+          "type": "boolean",
+          "description": "Strikethrough; omitted when false."
+        },
+        "caps": {
+          "type": "boolean",
+          "description": "All capitals; omitted when false."
+        },
+        "smallCaps": {
+          "type": "boolean",
+          "description": "Small capitals; omitted when false."
+        },
+        "color": {
+          "type": "string",
+          "description": "Run color, usually RRGGBB (\"auto\" is also valid Word)."
+        },
+        "highlight": {
+          "type": "string",
+          "description": "Highlight token, e.g. \"yellow\"."
+        },
+        "font": {
+          "type": "string",
+          "description": "ASCII font family."
+        },
+        "style": {
+          "type": "string",
+          "description": "Character style ID."
+        },
+        "sizePt": {
+          "type": "number",
+          "description": "Font size in points."
+        }
+      }
+    },
+    "wordLinkInline": {
+      "type": "object",
+      "description": "A hyperlink.",
+      "required": [
+        "type",
+        "content"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "link",
+          "description": "Inline discriminator."
+        },
+        "target": {
+          "type": "string",
+          "description": "External URL; empty for internal links."
+        },
+        "anchor": {
+          "type": "string",
+          "description": "Bookmark name for an internal link."
+        },
+        "tooltip": {
+          "type": "string",
+          "description": "Hyperlink tooltip."
+        },
+        "content": {
+          "type": "array",
+          "description": "The link text.",
+          "items": {
+            "$ref": "#/definitions/wordInline"
+          }
+        }
+      }
+    },
+    "wordImageInline": {
+      "type": "object",
+      "description": "An inline image.",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "image",
+          "description": "Inline discriminator."
+        },
+        "media": {
+          "type": "string",
+          "description": "Media ID; matches an entry of the envelope `media`."
+        },
+        "alt": {
+          "type": "string",
+          "description": "Alternative text."
+        },
+        "widthEmu": {
+          "type": "integer",
+          "description": "Width in EMU (914400 EMU = 1 inch)."
+        },
+        "heightEmu": {
+          "type": "integer",
+          "description": "Height in EMU."
+        }
+      }
+    },
+    "wordFootnoteRefInline": {
+      "type": "object",
+      "description": "Reference to an entry of `footnotes`.",
+      "required": [
+        "type",
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "footnoteRef",
+          "description": "Inline discriminator."
+        },
+        "id": {
+          "type": "integer",
+          "description": "Identifier of the referenced entry."
+        }
+      }
+    },
+    "wordEndnoteRefInline": {
+      "type": "object",
+      "description": "Reference to an entry of `endnotes`.",
+      "required": [
+        "type",
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "endnoteRef",
+          "description": "Inline discriminator."
+        },
+        "id": {
+          "type": "integer",
+          "description": "Identifier of the referenced entry."
+        }
+      }
+    },
+    "wordCommentRefInline": {
+      "type": "object",
+      "description": "Reference to an entry of `comments`.",
+      "required": [
+        "type",
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "commentRef",
+          "description": "Inline discriminator."
+        },
+        "id": {
+          "type": "integer",
+          "description": "Identifier of the referenced entry."
+        }
+      }
+    },
+    "wordFieldInline": {
+      "type": "object",
+      "description": "A field with its cached result.",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "field",
+          "description": "Inline discriminator."
+        },
+        "code": {
+          "type": "string",
+          "description": "Field instruction, e.g. \"PAGE\"."
+        },
+        "text": {
+          "type": "string",
+          "description": "Cached result; fields are never evaluated."
+        }
+      }
+    },
+    "wordBreakInline": {
+      "type": "object",
+      "description": "A line, page, or column break.",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "break",
+          "description": "Inline discriminator."
+        },
+        "kind": {
+          "type": "string",
+          "description": "Break kind; defaults to line.",
+          "enum": [
+            "line",
+            "page",
+            "column"
+          ]
+        }
+      }
+    },
+    "wordListDefinition": {
+      "type": "object",
+      "description": "One numbering definition.",
+      "required": [
+        "id",
+        "levels"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Numbering instance ID paragraphs refer to."
+        },
+        "levels": {
+          "type": "array",
+          "description": "Level definitions, outermost first.",
+          "items": {
+            "$ref": "#/definitions/wordListLevel"
+          }
+        }
+      }
+    },
+    "wordListLevel": {
+      "type": "object",
+      "description": "One level of a numbering definition.",
+      "required": [
+        "format"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "type": "string",
+          "description": "Numbering format token (decimal, bullet, lowerLetter, upperRoman, ...)."
+        },
+        "text": {
+          "type": "string",
+          "description": "Level text pattern such as \"%1.\", or the bullet glyph."
+        },
+        "start": {
+          "type": "integer",
+          "description": "First number of the level; omitted when 1."
+        }
+      }
+    },
+    "wordNote": {
+      "type": "object",
+      "description": "One footnote or endnote.",
+      "required": [
+        "id",
+        "blocks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Note ID referenced by footnoteRef/endnoteRef."
+        },
+        "blocks": {
+          "type": "array",
+          "description": "Note content.",
+          "items": {
+            "$ref": "#/definitions/wordBlock"
+          }
+        }
+      }
+    },
+    "wordComment": {
+      "type": "object",
+      "description": "One comment.",
+      "required": [
+        "id",
+        "blocks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Comment ID referenced by commentRef."
+        },
+        "author": {
+          "type": "string",
+          "description": "Comment author."
+        },
+        "initials": {
+          "type": "string",
+          "description": "Author initials."
+        },
+        "date": {
+          "type": "string",
+          "description": "ISO-8601 timestamp."
+        },
+        "blocks": {
+          "type": "array",
+          "description": "Comment content.",
+          "items": {
+            "$ref": "#/definitions/wordBlock"
+          }
+        }
+      }
+    },
+    "wordHeaderFooter": {
+      "type": "object",
+      "description": "Content of one header or footer.",
+      "required": [
+        "kind",
+        "blocks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Which pages the entry covers.",
+          "enum": [
+            "default",
+            "first",
+            "even"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "description": "Header or footer content.",
+          "items": {
+            "$ref": "#/definitions/wordBlock"
+          }
+        }
+      }
+    },
+    "excelDocument": {
+      "type": "object",
+      "description": "Excel payload of the envelope.",
+      "required": [
+        "sheets"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sheets": {
+          "type": "array",
+          "description": "Worksheets in workbook order.",
+          "items": {
+            "$ref": "#/definitions/excelSheet"
+          }
+        }
+      }
+    },
+    "excelSheet": {
+      "type": "object",
+      "description": "One worksheet.",
+      "required": [
+        "name",
+        "cells"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Worksheet name."
+        },
+        "cells": {
+          "type": "array",
+          "description": "Stored cells, sparse and row-major.",
+          "items": {
+            "$ref": "#/definitions/excelCell"
+          }
+        },
+        "merges": {
+          "type": "array",
+          "description": "Merged ranges.",
+          "items": {
+            "type": "string",
+            "description": "Merged range in A1 form, e.g. \"A1:B2\"."
+          }
+        },
+        "tables": {
+          "type": "array",
+          "description": "Worksheet tables (ListObjects).",
+          "items": {
+            "$ref": "#/definitions/excelTable"
+          }
+        },
+        "hyperlinks": {
+          "type": "array",
+          "description": "Cell hyperlinks.",
+          "items": {
+            "$ref": "#/definitions/excelHyperlink"
+          }
+        }
+      }
+    },
+    "excelCell": {
+      "type": "object",
+      "description": "One stored worksheet cell.",
+      "required": [
+        "cell",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cell": {
+          "type": "string",
+          "description": "A1-style address, e.g. \"B2\"."
+        },
+        "type": {
+          "type": "string",
+          "description": "How to interpret the cell.",
+          "enum": [
+            "string",
+            "number",
+            "bool",
+            "error",
+            "datetime",
+            "formula"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "description": "Canonical value text; absent on formula cells."
+        },
+        "formula": {
+          "type": "string",
+          "description": "Formula text without the leading '='."
+        },
+        "cached": {
+          "$ref": "#/definitions/excelCachedValue"
+        }
+      }
+    },
+    "excelCachedValue": {
+      "type": "object",
+      "description": "Cached formula result stored in the package.",
+      "required": [
+        "type",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Type of the cached result."
+        },
+        "value": {
+          "type": "string",
+          "description": "Cached result text; never recomputed."
+        }
+      }
+    },
+    "excelTable": {
+      "type": "object",
+      "description": "One worksheet table.",
+      "required": [
+        "name",
+        "range"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Table name."
+        },
+        "range": {
+          "type": "string",
+          "description": "A1-style range, e.g. \"A1:C4\"."
+        }
+      }
+    },
+    "excelHyperlink": {
+      "type": "object",
+      "description": "One cell hyperlink.",
+      "required": [
+        "cell",
+        "target"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cell": {
+          "type": "string",
+          "description": "A1-style anchor cell."
+        },
+        "target": {
+          "type": "string",
+          "description": "Link target."
+        },
+        "tooltip": {
+          "type": "string",
+          "description": "Link tooltip."
+        }
+      }
+    },
+    "powerPointDocument": {
+      "type": "object",
+      "description": "PowerPoint payload of the envelope.",
+      "required": [
+        "slides"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "slides": {
+          "type": "array",
+          "description": "Slides in presentation order.",
+          "items": {
+            "$ref": "#/definitions/powerPointSlide"
+          }
+        }
+      }
+    },
+    "powerPointSlide": {
+      "type": "object",
+      "description": "One slide.",
+      "required": [
+        "shapes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "layout": {
+          "type": "string",
+          "description": "Layout display name; informational on import."
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "Slide is hidden; omitted when false."
+        },
+        "shapes": {
+          "type": "array",
+          "description": "Shapes in z-order.",
+          "items": {
+            "$ref": "#/definitions/powerPointShape"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "description": "Speaker notes as plain text."
+        },
+        "comments": {
+          "type": "array",
+          "description": "Slide comments; informational on import.",
+          "items": {
+            "$ref": "#/definitions/powerPointComment"
+          }
+        }
+      }
+    },
+    "powerPointShape": {
+      "type": "object",
+      "description": "One slide shape.",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Shape kind; `other` is unsupported content exported empty.",
+          "enum": [
+            "textBox",
+            "placeholder",
+            "picture",
+            "table",
+            "group",
+            "other"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "description": "Shape name."
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "Placeholder token (title, ctrTitle, subTitle, body, ftr, sldNum, dt, ...)."
+        },
+        "transform": {
+          "$ref": "#/definitions/powerPointTransform"
+        },
+        "text": {
+          "$ref": "#/definitions/powerPointTextFrame"
+        },
+        "rows": {
+          "type": "array",
+          "description": "Table rows; table shapes only.",
+          "items": {
+            "$ref": "#/definitions/powerPointTableRow"
+          }
+        },
+        "media": {
+          "type": "string",
+          "description": "Media ID; matches an entry of the envelope `media`."
+        },
+        "alt": {
+          "type": "string",
+          "description": "Alternative text."
+        },
+        "children": {
+          "type": "array",
+          "description": "Child shapes; group shapes only.",
+          "items": {
+            "$ref": "#/definitions/powerPointShape"
+          }
+        }
+      }
+    },
+    "powerPointTransform": {
+      "type": "object",
+      "description": "Shape placement in EMU; omitted when the shape has no explicit transform.",
+      "required": [
+        "x",
+        "y",
+        "cx",
+        "cy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "integer",
+          "description": "Offset X in EMU."
+        },
+        "y": {
+          "type": "integer",
+          "description": "Offset Y in EMU."
+        },
+        "cx": {
+          "type": "integer",
+          "description": "Width in EMU."
+        },
+        "cy": {
+          "type": "integer",
+          "description": "Height in EMU."
+        }
+      }
+    },
+    "powerPointTextFrame": {
+      "type": "array",
+      "description": "A text frame: its paragraphs in order.",
+      "items": {
+        "$ref": "#/definitions/powerPointParagraph"
+      }
+    },
+    "powerPointParagraph": {
+      "type": "object",
+      "description": "One paragraph of a text frame.",
+      "required": [
+        "runs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "integer",
+          "description": "Indent/outline level; omitted when 0.",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "runs": {
+          "type": "array",
+          "description": "Formatted runs in order.",
+          "items": {
+            "$ref": "#/definitions/powerPointRun"
+          }
+        }
+      }
+    },
+    "powerPointRun": {
+      "type": "object",
+      "description": "One formatted text run.",
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Run text."
+        },
+        "bold": {
+          "type": "boolean",
+          "description": "Bold; omitted when false."
+        },
+        "italic": {
+          "type": "boolean",
+          "description": "Italic; omitted when false."
+        },
+        "underline": {
+          "type": "boolean",
+          "description": "Underline; omitted when false."
+        },
+        "sizePt": {
+          "type": "number",
+          "description": "Font size in points."
+        },
+        "color": {
+          "type": "string",
+          "description": "Run color as RRGGBB."
+        },
+        "link": {
+          "type": "string",
+          "description": "Hyperlink URL."
+        }
+      }
+    },
+    "powerPointTableRow": {
+      "type": "array",
+      "description": "One table row: its cells, left to right.",
+      "items": {
+        "$ref": "#/definitions/powerPointTableCell"
+      }
+    },
+    "powerPointTableCell": {
+      "type": "object",
+      "description": "One table cell.",
+      "additionalProperties": false,
+      "properties": {
+        "rowSpan": {
+          "type": "integer",
+          "description": "Vertical span; omitted when 1."
+        },
+        "colSpan": {
+          "type": "integer",
+          "description": "Horizontal span; omitted when 1."
+        },
+        "covered": {
+          "type": "boolean",
+          "description": "True for a grid position covered by another cell's span; then no content."
+        },
+        "text": {
+          "$ref": "#/definitions/powerPointTextFrame"
+        }
+      }
+    },
+    "powerPointComment": {
+      "type": "object",
+      "description": "One slide comment.",
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "type": "string",
+          "description": "Comment author."
+        },
+        "text": {
+          "type": "string",
+          "description": "Comment text."
+        }
+      }
+    }
+  }
+}

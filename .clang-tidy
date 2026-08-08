@@ -1,0 +1,22 @@
+---
+# The value below is a folded block scalar, so '#' inside it is text rather than a
+# comment; notes on individual checks belong here.
+#
+# bugprone-forward-declaration-namespace: public headers forward-declare
+# Wordprocessing types whose definitions the translation unit need not include,
+# and the check then reports every one of them against the same-named type in
+# another OpenXML namespace.
+Checks: >
+  -*,
+  readability-braces-around-statements,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  -bugprone-derived-method-shadowing-base-method,
+  -bugprone-forward-declaration-namespace,
+  clang-analyzer-*
+CheckOptions:
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: '0'
+FormatStyle: file
+WarningsAsErrors: ''

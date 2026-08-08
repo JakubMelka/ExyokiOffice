@@ -1,0 +1,24 @@
+% Puts the project logo at the top of the generated API reference title page.
+%
+% Doxygen inserts PROJECT_LOGO into its HTML output only; the LaTeX title page
+% comes from a built-in template that never references it. Rather than pinning
+% a full custom LATEX_HEADER to one Doxygen version, this extra stylesheet
+% hooks the title page environment that template opens.
+%
+% Referenced by LATEX_EXTRA_STYLESHEET in Doxyfile. Doxygen copies this file
+% next to refman.tex and loads it from the preamble; the doxygen-pdf workflow
+% copies logo.png into the same directory, which is where LaTeX runs.
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{titlelogo}[2026/08/01 ExyokiOffice API reference title logo]
+
+\RequirePackage{graphicx}
+\RequirePackage{etoolbox}
+
+\AtBeginEnvironment{titlepage}{%
+  \begin{center}%
+  \includegraphics[width=70mm]{logo.png}%
+  \end{center}%
+}
+
+\endinput

@@ -1,0 +1,42 @@
+name: clang-format
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format-18
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
+
+      - name: Run clang-format
+        run: |
+          git ls-files '*.cpp' '*.hpp' '*.h' \
+            | grep -vE '^(include/ExyokiOffice/DOM/|sources/DOM/|sources/pugixml/|sources/zip/|3rdparty/)' \
+            | xargs -r clang-format -i --style=file
+
+      - name: Create pull request with fixes
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "Apply clang-format"
+          title: "Automated clang-format fixes"
+          body: |
+            Automated formatting run via the `clang-format` workflow (manual trigger).
+
+            Generated/vendored trees (`include/ExyokiOffice/DOM`, `sources/DOM`,
+            `sources/pugixml`, `sources/zip`, `3rdparty/`) are excluded, matching
+            repository conventions.
+          branch: chore/clang-format
+          delete-branch: true
+          labels: automated

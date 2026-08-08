@@ -1,0 +1,9 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"replay","version":"1"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/list"}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"create_document","arguments":{"path":"replay.xlsx","overwrite":true}}}
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"write_range","arguments":{"documentId":"doc-1","origin":"A1","values":[["Region","Revenue"],["North",1200]]}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"format_range","arguments":{"documentId":"doc-1","range":"A1:B1","font":{"bold":true}}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"save_document","arguments":{"documentId":"doc-1","overwrite":true,"force":true}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"validate_document","arguments":{"documentId":"doc-1"}}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"close_document","arguments":{"documentId":"doc-1"}}}

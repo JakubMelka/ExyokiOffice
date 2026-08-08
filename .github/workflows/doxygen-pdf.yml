@@ -1,0 +1,54 @@
+# Renders the Doxygen API reference for the hand-written public headers
+# into a single hyperlinked PDF.
+#
+# Manual-only, like every workflow in this repository. Trigger it from the
+# Actions tab and download the ExyokiOffice-api-reference-<version>
+# artifact. The Doxygen configuration lives in docs/_doxygen/Doxyfile; the
+# generated DOM tree is deliberately excluded there. The version comes from the
+# VERSION.txt file in the repository root, never from a literal here.
+
+name: doxygen-pdf
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-api-pdf:
+    name: Build the API reference PDF
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Install Doxygen, Graphviz, and TeX Live
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            doxygen \
+            doxygen-latex \
+            graphviz
+
+      - name: Resolve the library version
+        run: echo "VERSION=$(tr -d '[:space:]' < VERSION.txt)" >> "$GITHUB_ENV"
+
+      - name: Run Doxygen
+        run: |
+          echo "Documenting ExyokiOffice ${VERSION}"
+          mkdir -p build/doxygen
+          ( cat docs/_doxygen/Doxyfile ; echo "PROJECT_NUMBER = ${VERSION}" ) | doxygen -
+
+      - name: Render the PDF
+        run: |
+          # titlelogo.sty includes logo.png from the directory LaTeX runs in;
+          # the repository file is LOGO.png, so rename it while copying.
+          cp LOGO.png build/doxygen/latex/logo.png
+          make -C build/doxygen/latex
+          mv build/doxygen/latex/refman.pdf \
+             "build/doxygen/ExyokiOffice-api-reference-${VERSION}.pdf"
+
+      - name: Upload the API reference artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ExyokiOffice-api-reference-${{ env.VERSION }}
+          path: build/doxygen/ExyokiOffice-api-reference-${{ env.VERSION }}.pdf
+          if-no-files-found: error

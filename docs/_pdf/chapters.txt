@@ -1,0 +1,67 @@
+# Chapter order for the PDF manual. Paths are relative to docs/.
+# Lines starting with '#' are comments; lines starting with ':: ' emit an
+# unnumbered part-divider page with the given title.
+
+introduction.md
+comparison.md
+
+:: Word
+Word.md
+word/documents.md
+word/text.md
+word/styles.md
+word/tables.md
+word/images.md
+word/hyperlinks.md
+word/fields.md
+word/charts.md
+word/sections.md
+word/notes.md
+word/revisions.md
+word/protection.md
+
+:: Excel
+Excel.md
+excel/workbooks.md
+excel/worksheets.md
+excel/cells.md
+excel/styles.md
+excel/named-ranges.md
+excel/formulas.md
+excel/tables.md
+excel/charts.md
+excel/pivot-tables.md
+excel/slicers.md
+excel/validation.md
+excel/layout.md
+excel/printing.md
+
+:: PowerPoint
+PowerPoint.md
+powerpoint/presentations.md
+powerpoint/slides.md
+powerpoint/shapes.md
+powerpoint/text.md
+powerpoint/pictures-and-media.md
+powerpoint/charts.md
+powerpoint/masters.md
+powerpoint/transitions.md
+powerpoint/animations.md
+powerpoint/notes-and-comments.md
+
+:: Cross-cutting subsystems
+Threading.md
+Signatures.md
+ExternalResources.md
+
+:: Tooling
+tools/exyoki.md
+tools/conversion-formats.md
+tools/mcp-servers.md
+tools/docker.md
+
+:: Project policies
+Compatibility.md
+ABI.md
+ci.md
+fuzzing.md

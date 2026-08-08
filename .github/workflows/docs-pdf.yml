@@ -1,0 +1,57 @@
+# Renders docs/ into a single hyperlinked PDF manual with pandoc.
+#
+# Manual-only, like every workflow in this repository. Trigger it from the
+# Actions tab and download the ExyokiOffice-manual-<version> artifact. The
+# chapter order and link preprocessing live in docs/_pdf/. The version comes
+# from the VERSION.txt file in the repository root, never from a literal here.
+
+name: docs-pdf
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-pdf:
+    name: Build the PDF manual
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Install pandoc and TeX Live
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pandoc \
+            texlive-xetex \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-fonts-recommended \
+            fonts-texgyre \
+            fonts-dejavu-core \
+            lmodern
+
+      - name: Verify the fonts are visible to fontconfig
+        run: |
+          fc-list | grep -i "TeX Gyre Pagella"
+          fc-list | grep -i "TeX Gyre Heros"
+          fc-list | grep -i "DejaVu Sans Mono"
+
+      - name: Resolve the library version
+        run: echo "VERSION=$(python3 docs/_pdf/build.py --print-version)" >> "$GITHUB_ENV"
+
+      - name: Assemble the manual
+        run: python3 docs/_pdf/build.py --out build/docs-pdf
+
+      - name: Render the PDF
+        run: |
+          pandoc --defaults docs/_pdf/defaults.yaml \
+            build/docs-pdf/manual.md \
+            -o "build/docs-pdf/ExyokiOffice-manual-${VERSION}.pdf"
+
+      - name: Upload the manual artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ExyokiOffice-manual-${{ env.VERSION }}
+          path: build/docs-pdf/ExyokiOffice-manual-${{ env.VERSION }}.pdf
+          if-no-files-found: error

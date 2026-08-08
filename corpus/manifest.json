@@ -1,0 +1,429 @@
+{
+    "FormatVersion": 1,
+    "Documents": [
+        {
+            "File": "excel/Dashboard.xlsx",
+            "Family": "excel",
+            "DocumentType": "Workbook",
+            "Producer": "Microsoft Excel",
+            "Purpose": "Workbook whose sheet hosts a drawing with a chart, plus a table and a calculation chain.",
+            "Features": [
+                "charts",
+                "drawings",
+                "tables",
+                "shared-strings",
+                "calc-chain"
+            ],
+            "MainPart": "/xl/workbook.xml",
+            "PartCount": 15,
+            "RelationshipCount": 15,
+            "ContentTypeCount": 14,
+            "FileSize": 20065,
+            "Sha256": "2bec60904ce33594c91db0d58bfbbbd54c90fb111297929440189e6bccc6a91f",
+            "RequiredParts": [
+                "/xl/workbook.xml",
+                "/xl/charts/chart1.xml",
+                "/xl/drawings/drawing1.xml",
+                "/xl/tables/table1.xml",
+                "/xl/calcChain.xml"
+            ]
+        },
+        {
+            "File": "excel/Formulas.xlsx",
+            "Family": "excel",
+            "DocumentType": "Workbook",
+            "Producer": "Microsoft Excel",
+            "Purpose": "Formula-heavy workbook with legacy VML comments alongside modern threaded comments, cell metadata, and a calculation chain whose cells carry l or s but never both - which is what the mutual-exclusion reading of that rule rests on.",
+            "Features": [
+                "formulas",
+                "comments-legacy",
+                "comments-threaded",
+                "vml",
+                "cell-metadata",
+                "calc-chain"
+            ],
+            "MainPart": "/xl/workbook.xml",
+            "PartCount": 20,
+            "RelationshipCount": 20,
+            "ContentTypeCount": 14,
+            "FileSize": 26253,
+            "Sha256": "abde10b1c9d04d5432fa7447b49376af9f0328a3d930ebd327c25d0b22aef062",
+            "RequiredParts": [
+                "/xl/workbook.xml",
+                "/xl/calcChain.xml",
+                "/xl/comments1.xml",
+                "/xl/drawings/vmlDrawing1.vml",
+                "/xl/threadedComments/threadedComment1.xml",
+                "/xl/metadata.xml"
+            ]
+        },
+        {
+            "File": "excel/Graphs.xlsx",
+            "Family": "excel",
+            "DocumentType": "Workbook",
+            "Producer": "Microsoft Excel",
+            "Purpose": "Fourteen charts, ten classic and four chartEx, each with its own style and colour part. The largest part graph in the corpus and the one that exercises chart extension lists.",
+            "Features": [
+                "charts",
+                "charts-extended",
+                "chart-styles",
+                "drawings",
+                "extension-lists"
+            ],
+            "MainPart": "/xl/workbook.xml",
+            "PartCount": 62,
+            "RelationshipCount": 62,
+            "ContentTypeCount": 14,
+            "FileSize": 80948,
+            "Sha256": "36f5d909b543db15323f44a095b9573897824eee0cd6bc86adeb52341480d43f",
+            "RequiredParts": [
+                "/xl/workbook.xml",
+                "/xl/charts/chart1.xml",
+                "/xl/charts/chartEx1.xml",
+                "/xl/charts/style1.xml",
+                "/xl/charts/colors1.xml"
+            ]
+        },
+        {
+            "File": "excel/PivotTable.xlsx",
+            "Family": "excel",
+            "DocumentType": "Workbook",
+            "Producer": "Microsoft Excel",
+            "Purpose": "Two pivot tables over one shared pivot cache, which is the only place a part has more relationships pointing at it than parts referencing it once.",
+            "Features": [
+                "pivot-tables",
+                "pivot-cache",
+                "tables",
+                "shared-parts"
+            ],
+            "MainPart": "/xl/workbook.xml",
+            "PartCount": 13,
+            "RelationshipCount": 15,
+            "ContentTypeCount": 12,
+            "FileSize": 17704,
+            "Sha256": "01d6c5cba8cf096da35736c734512ea86cd16f2141019f1e6830a8d55ad2bc19",
+            "RequiredParts": [
+                "/xl/workbook.xml",
+                "/xl/pivotCache/pivotCacheDefinition1.xml",
+                "/xl/pivotCache/pivotCacheRecords1.xml",
+                "/xl/pivotTables/pivotTable1.xml",
+                "/xl/pivotTables/pivotTable2.xml"
+            ]
+        },
+        {
+            "File": "excel/TimeSchedule.xlsx",
+            "Family": "excel",
+            "DocumentType": "Workbook",
+            "Producer": "Microsoft Excel",
+            "Purpose": "Four worksheets with two tables, conditional formatting carried in x14 extension lists and date-formatted styles.",
+            "Features": [
+                "tables",
+                "conditional-formatting",
+                "extension-lists",
+                "styles",
+                "multiple-sheets"
+            ],
+            "MainPart": "/xl/workbook.xml",
+            "PartCount": 14,
+            "RelationshipCount": 14,
+            "ContentTypeCount": 10,
+            "FileSize": 22499,
+            "Sha256": "f458a55f5a28b3fbbfd08422af57ce8ba583ff21f9e2b511796d6fdbcba4722c",
+            "RequiredParts": [
+                "/xl/workbook.xml",
+                "/xl/tables/table1.xml",
+                "/xl/tables/table2.xml",
+                "/xl/styles.xml",
+                "/xl/worksheets/sheet1.xml"
+            ]
+        },
+        {
+            "File": "powerpoint/Architecture_of_Modern_LLM_Systems.pptx",
+            "Family": "powerpoint",
+            "DocumentType": "Presentation",
+            "Producer": "Microsoft Office PowerPoint",
+            "Purpose": "Ten text-only slides over three layouts, every one with a notes slide. No media, so it isolates the master/layout/notes-master graph.",
+            "Features": [
+                "slides",
+                "layouts",
+                "masters",
+                "notes",
+                "notes-master",
+                "themes"
+            ],
+            "MainPart": "/ppt/presentation.xml",
+            "PartCount": 34,
+            "RelationshipCount": 68,
+            "ContentTypeCount": 13,
+            "FileSize": 57553,
+            "Sha256": "531cbf5eb817ed8962b32f8cac4868ea3cf53a128fdb293f3496ebc72cdea50d",
+            "RequiredParts": [
+                "/ppt/presentation.xml",
+                "/ppt/slideMasters/slideMaster1.xml",
+                "/ppt/slideLayouts/slideLayout1.xml",
+                "/ppt/notesMasters/notesMaster1.xml",
+                "/ppt/notesSlides/notesSlide1.xml"
+            ]
+        },
+        {
+            "File": "powerpoint/HerbertWells.pptx",
+            "Family": "powerpoint",
+            "DocumentType": "Presentation",
+            "Producer": "Microsoft Office PowerPoint",
+            "Purpose": "Fourteen slides with notes and a thumbnail, and the presentation with the most relationships per part after La Herreria.",
+            "Features": [
+                "slides",
+                "layouts",
+                "masters",
+                "notes",
+                "thumbnail",
+                "themes"
+            ],
+            "MainPart": "/ppt/presentation.xml",
+            "PartCount": 42,
+            "RelationshipCount": 88,
+            "ContentTypeCount": 13,
+            "FileSize": 74443,
+            "Sha256": "9efb7377c3d5c8ee1550fd488a3bd746a53c490384f886aa6787b0bbc784df35",
+            "RequiredParts": [
+                "/ppt/presentation.xml",
+                "/ppt/slideMasters/slideMaster1.xml",
+                "/ppt/notesMasters/notesMaster1.xml",
+                "/docProps/thumbnail.jpeg"
+            ]
+        },
+        {
+            "File": "powerpoint/La_Herreria_en_Japon.pptx",
+            "Family": "powerpoint",
+            "DocumentType": "Presentation",
+            "Producer": "Microsoft Office PowerPoint",
+            "Purpose": "Largest presentation: fourteen JPEG images across thirteen slides, each with notes.",
+            "Features": [
+                "slides",
+                "media-jpeg",
+                "notes",
+                "layouts",
+                "masters",
+                "themes"
+            ],
+            "MainPart": "/ppt/presentation.xml",
+            "PartCount": 54,
+            "RelationshipCount": 98,
+            "ContentTypeCount": 14,
+            "FileSize": 8289413,
+            "Sha256": "ab6fdf0bac4aa5e4a7db8ec9ad75946c91822ab6f0f04fdd4330a2ca65904386",
+            "RequiredParts": [
+                "/ppt/presentation.xml",
+                "/ppt/media/image1.jpeg",
+                "/ppt/slideMasters/slideMaster1.xml",
+                "/ppt/notesSlides/notesSlide1.xml"
+            ]
+        },
+        {
+            "File": "powerpoint/Ostiepok.pptx",
+            "Family": "powerpoint",
+            "DocumentType": "Presentation",
+            "Producer": "Microsoft Office PowerPoint",
+            "Purpose": "Twelve picture slides sharing a single layout, so several slides point at the same layout part.",
+            "Features": [
+                "slides",
+                "media-jpeg",
+                "notes",
+                "shared-parts",
+                "masters"
+            ],
+            "MainPart": "/ppt/presentation.xml",
+            "PartCount": 46,
+            "RelationshipCount": 84,
+            "ContentTypeCount": 14,
+            "FileSize": 9710503,
+            "Sha256": "e031af24e13a9497ee9e4680a6509e1286d9319ece076f0bde57cedf07b3d5de",
+            "RequiredParts": [
+                "/ppt/presentation.xml",
+                "/ppt/slideLayouts/slideLayout1.xml",
+                "/ppt/media/image1.jpg"
+            ]
+        },
+        {
+            "File": "powerpoint/Yellowstone.pptx",
+            "Family": "powerpoint",
+            "DocumentType": "Presentation",
+            "Producer": "Microsoft Office PowerPoint",
+            "Purpose": "Nine picture slides over four layouts with notes and a table style part.",
+            "Features": [
+                "slides",
+                "media-jpeg",
+                "notes",
+                "layouts",
+                "table-styles",
+                "themes"
+            ],
+            "MainPart": "/ppt/presentation.xml",
+            "PartCount": 41,
+            "RelationshipCount": 75,
+            "ContentTypeCount": 14,
+            "FileSize": 7153753,
+            "Sha256": "76ed82530a1fa51d828406cd353f5b22c2ec874a8010477322a1537c23674b51",
+            "RequiredParts": [
+                "/ppt/presentation.xml",
+                "/ppt/tableStyles.xml",
+                "/ppt/media/image1.jpg",
+                "/ppt/slideLayouts/slideLayout4.xml"
+            ]
+        },
+        {
+            "File": "word/DigitalSignature.docx",
+            "Family": "word",
+            "DocumentType": "Document",
+            "Producer": "Microsoft Office Word",
+            "Purpose": "Signed by Word with an XML digital signature, so verification is measured against a signature this library did not write: XAdES SignedProperties, an ECDSA-SHA384 signature value and a Manifest covering every part.",
+            "Features": [
+                "digital-signature",
+                "xades",
+                "numbering",
+                "styles",
+                "images",
+                "theme"
+            ],
+            "MainPart": "/word/document.xml",
+            "PartCount": 12,
+            "RelationshipCount": 12,
+            "ContentTypeCount": 12,
+            "FileSize": 22024,
+            "Sha256": "f94adf4a6f62fed1bbf41feb7459f4860a5898017fd8aec006b90c41314501c0",
+            "RequiredParts": [
+                "/word/document.xml",
+                "/_xmlsignatures/sig1.xml",
+                "/_xmlsignatures/origin.sigs",
+                "/word/media/image1.emf"
+            ]
+        },
+        {
+            "File": "word/Language_Learning_Across_Countries_and_CEFR_Proficiency_Levels.docx",
+            "Family": "word",
+            "DocumentType": "Document",
+            "Producer": "Microsoft Office Word",
+            "Purpose": "Smallest Word fixture: body text and a table, no media and no numbering. Establishes the minimum part set every DOCX carries.",
+            "Features": [
+                "tables",
+                "styles",
+                "theme",
+                "w14-run-properties"
+            ],
+            "MainPart": "/word/document.xml",
+            "PartCount": 8,
+            "RelationshipCount": 8,
+            "ContentTypeCount": 8,
+            "FileSize": 19324,
+            "Sha256": "1f92486397ec0c0fbf1faf9853721b61e03479950ba2954e635f5d8f51971179",
+            "RequiredParts": [
+                "/word/document.xml",
+                "/word/styles.xml",
+                "/word/settings.xml",
+                "/word/theme/theme1.xml"
+            ]
+        },
+        {
+            "File": "word/Mass_Email_Template.docx",
+            "Family": "word",
+            "DocumentType": "Document",
+            "Producer": "Microsoft Office Word",
+            "Purpose": "Mail-merge style template: MERGEFIELD instructions and multi-level numbering.",
+            "Features": [
+                "fields",
+                "numbering",
+                "styles"
+            ],
+            "MainPart": "/word/document.xml",
+            "PartCount": 9,
+            "RelationshipCount": 9,
+            "ContentTypeCount": 9,
+            "FileSize": 17077,
+            "Sha256": "ba44ae23d0317376642d755248ff9ffcc2f803149d8533464efba5741d6ac3ea",
+            "RequiredParts": [
+                "/word/document.xml",
+                "/word/numbering.xml",
+                "/word/styles.xml"
+            ]
+        },
+        {
+            "File": "word/Open_Source_Software.docx",
+            "Family": "word",
+            "DocumentType": "Document",
+            "Producer": "Microsoft Office Word",
+            "Purpose": "Prose document with a PNG illustration and list numbering.",
+            "Features": [
+                "images-png",
+                "numbering",
+                "hyperlinks"
+            ],
+            "MainPart": "/word/document.xml",
+            "PartCount": 10,
+            "RelationshipCount": 10,
+            "ContentTypeCount": 10,
+            "FileSize": 813755,
+            "Sha256": "4a51127919ec4ced8060076decb638c2b8ce224039d9d37aa0103e97d3f9323b",
+            "RequiredParts": [
+                "/word/document.xml",
+                "/word/media/image1.png",
+                "/word/numbering.xml"
+            ]
+        },
+        {
+            "File": "word/The_United_States_of_America.docx",
+            "Family": "word",
+            "DocumentType": "Document",
+            "Producer": "Microsoft Office Word",
+            "Purpose": "Two JPEG images in one document, so a change that collapses or reorders media parts is visible.",
+            "Features": [
+                "images-jpeg",
+                "numbering",
+                "hyperlinks"
+            ],
+            "MainPart": "/word/document.xml",
+            "PartCount": 11,
+            "RelationshipCount": 11,
+            "ContentTypeCount": 10,
+            "FileSize": 1344395,
+            "Sha256": "b25b7fbab3b4681181107e085cbbe0f3a1ad030873c9ec7d12478084316ac728",
+            "RequiredParts": [
+                "/word/document.xml",
+                "/word/media/image1.jpeg",
+                "/word/media/image2.jpeg"
+            ]
+        },
+        {
+            "File": "word/Word_Demonstration_Document.docx",
+            "Family": "word",
+            "DocumentType": "Document",
+            "Producer": "Microsoft Office Word",
+            "Purpose": "Widest Word fixture: three section-scoped header/footer pairs, footnotes, endnotes, numbering and an image. Covers the parts a single-section document never reaches.",
+            "Features": [
+                "headers",
+                "footers",
+                "footnotes",
+                "endnotes",
+                "sections",
+                "numbering",
+                "images-png"
+            ],
+            "MainPart": "/word/document.xml",
+            "PartCount": 18,
+            "RelationshipCount": 18,
+            "ContentTypeCount": 14,
+            "FileSize": 895051,
+            "Sha256": "144042bf1249a175e506a1bba9a18b1735867464826e930955e18441d6e99c7a",
+            "RequiredParts": [
+                "/word/document.xml",
+                "/word/header1.xml",
+                "/word/header2.xml",
+                "/word/header3.xml",
+                "/word/footer1.xml",
+                "/word/footer2.xml",
+                "/word/footer3.xml",
+                "/word/footnotes.xml",
+                "/word/endnotes.xml"
+            ]
+        }
+    ]
+}

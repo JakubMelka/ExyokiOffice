@@ -1,0 +1,502 @@
+# Builds ExyokiOffice, runs `cmake --install` into a staging directory and
+# packs the result into a versioned zip archive, one per operating system.
+#
+# Manual-only, like every workflow in this repository. Trigger it from the
+# Actions tab and download the ExyokiOffice-<version>-<os>-x64-<compiler>
+# artifact. The version comes from VERSION.txt in the repository root, never
+# from a literal here.
+#
+# The archive is a relocatable install tree: bin/ (exyoki and the exyoki-mcp-*
+# servers, plus the shared library on Windows), lib/ (the shared library and
+# the CMake package config on Linux), include/ and share/doc. BUILD-INFO.txt at
+# its root records the platform, the toolchain and the commit the binaries came
+# from.
+#
+# The Linux job additionally packs the same binaries into a distroless container
+# image and uploads it as ExyokiOffice-<version>-docker-amd64, a gzipped
+# `docker save` tarball. See docs/tools/docker.md.
+
+name: create_install
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: "CMake configuration the packaged binaries are built with"
+        type: choice
+        default: RelWithDebInfo
+        options:
+          - RelWithDebInfo
+          - Debug
+      run_windows:
+        description: "Build the Windows x64 (MSVC) package"
+        type: boolean
+        default: true
+      run_linux:
+        description: "Build the Linux x64 (GCC) package"
+        type: boolean
+        default: true
+      package_suffix:
+        description: "Optional extra tag in the package name, for example rc1"
+        type: string
+        default: ""
+      verify_package:
+        description: "Configure and run tests/install against the staged package"
+        type: boolean
+        default: true
+      build_docker:
+        description: "Also pack the Linux binaries into a distroless container image"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: create-install-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-package:
+    name: Windows x64 package (${{ inputs.build_type }})
+    if: inputs.run_windows
+    runs-on: windows-latest
+    timeout-minutes: 180
+    env:
+      CONFIGURE_PRESET: ${{ inputs.build_type == 'Debug' && 'windows-ninja-debug' || 'windows-ninja-release' }}
+      BUILD_PRESET: ${{ inputs.build_type == 'Debug' && 'ninja-debug' || 'ninja-release' }}
+      BINARY_DIR: ${{ inputs.build_type == 'Debug' && 'build/ninja-debug' || 'build/ninja-release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Ninja
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+            choco install ninja -y --no-progress
+          }
+          ninja --version
+
+      # The suffix arrives through the environment rather than through string
+      # interpolation, so a value with quotes in it cannot rewrite the script.
+      - name: Resolve the package name
+        shell: pwsh
+        env:
+          PACKAGE_SUFFIX: ${{ inputs.package_suffix }}
+        run: |
+          $version = (Get-Content VERSION.txt -TotalCount 1).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "VERSION.txt must contain a MAJOR.MINOR.PATCH number, got '$version'"
+          }
+          $suffix = "$env:PACKAGE_SUFFIX".Trim()
+          $name = "ExyokiOffice-$version-windows-x64-msvc"
+          if ($suffix) { $name = "$name-$suffix" }
+          "VERSION=$version"                                            >> $env:GITHUB_ENV
+          "PACKAGE_NAME=$name"                                          >> $env:GITHUB_ENV
+          "PACKAGE_DIR=$env:GITHUB_WORKSPACE\build\package\$name"       >> $env:GITHUB_ENV
+          "STAGING_DIR=$env:GITHUB_WORKSPACE\build\package"             >> $env:GITHUB_ENV
+          "ARTIFACT_DIR=$env:GITHUB_WORKSPACE\build\artifacts"          >> $env:GITHUB_ENV
+
+      # Tests and examples are never installed, so building them would only
+      # lengthen a packaging run. The tool is the one artifact besides the
+      # library that install(TARGETS) ships.
+      - name: Build and install
+        shell: cmd
+        run: |
+          call "%GITHUB_WORKSPACE%\.github\workflows\vcvars.cmd" || exit /b 1
+          cmake --preset %CONFIGURE_PRESET% ^
+            -DEXYOKIOFFICE_BUILD_JOBS=1 ^
+            -DEXYOKIOFFICE_BUILD_UNIT_TESTS=OFF ^
+            -DEXYOKIOFFICE_BUILD_TOOL=ON ^
+            -DEXYOKIOFFICE_BUILD_MCP=ON ^
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_WORD=OFF ^
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDITOR=OFF ^
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDIT=OFF ^
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_EXCEL_EDITOR=OFF ^
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_POWERPOINT_EDITOR=OFF || exit /b 1
+          cmake --build --preset %BUILD_PRESET% || exit /b 1
+          cmake --install "%BINARY_DIR%" --prefix "%PACKAGE_DIR%" || exit /b 1
+
+      - name: Describe the package
+        shell: pwsh
+        run: |
+          $compilerFile = Get-ChildItem -Path "$env:BINARY_DIR/CMakeFiles" -Recurse -Filter CMakeCXXCompiler.cmake |
+            Select-Object -First 1
+          $compiler = 'unknown'
+          if ($compilerFile) {
+            $text = Get-Content $compilerFile.FullName -Raw
+            $id = [regex]::Match($text, 'set\(CMAKE_CXX_COMPILER_ID "([^"]*)"\)').Groups[1].Value
+            $ver = [regex]::Match($text, 'set\(CMAKE_CXX_COMPILER_VERSION "([^"]*)"\)').Groups[1].Value
+            if ($id) { $compiler = "$id $ver".Trim() }
+          }
+          $info = @"
+          ExyokiOffice $env:VERSION
+
+          Package          $env:PACKAGE_NAME
+          Operating system Windows
+          Architecture     x64
+          Compiler         $compiler
+          Build type       ${{ inputs.build_type }}
+          Commit           $env:GITHUB_SHA
+          Ref              $env:GITHUB_REF
+          Built at         $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))
+          Workflow run     $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID
+
+          Layout
+            bin\             exyoki, the exyoki-mcp-* servers and ExyokiOffice.dll
+            lib\             import library and the CMake package config
+            include\         public headers
+            share\doc\       LICENSE, README, CHANGELOG, SECURITY and the manual
+            share\doc\licenses\  notices of every vendored third-party component
+
+          Consuming the package from CMake:
+
+            find_package(ExyokiOffice 1.0 CONFIG REQUIRED
+                         PATHS "<extracted>/lib/cmake/ExyokiOffice")
+            target_link_libraries(app PRIVATE ExyokiOffice::ExyokiOffice)
+
+          ExyokiOffice.dll must sit next to the consuming executable or on PATH.
+          "@
+          Set-Content -Path "$env:PACKAGE_DIR\BUILD-INFO.txt" -Value $info -Encoding utf8
+
+      - name: Verify the staged package
+        if: inputs.verify_package
+        shell: cmd
+        run: |
+          call "%GITHUB_WORKSPACE%\.github\workflows\vcvars.cmd" || exit /b 1
+          cmake -S tests\install -B build\install-smoke -G Ninja ^
+            -DCMAKE_BUILD_TYPE=${{ inputs.build_type }} ^
+            -DCMAKE_PREFIX_PATH="%PACKAGE_DIR%" || exit /b 1
+          cmake --build build\install-smoke || exit /b 1
+          set "PATH=%PACKAGE_DIR%\bin;%PATH%"
+          build\install-smoke\ExyokiOfficeInstallSmoke.exe || exit /b 1
+          "%PACKAGE_DIR%\bin\exyoki.exe" --version || exit /b 1
+          "%PACKAGE_DIR%\bin\exyoki-mcp-word.exe" --version || exit /b 1
+          "%PACKAGE_DIR%\bin\exyoki-mcp-excel.exe" --version || exit /b 1
+          "%PACKAGE_DIR%\bin\exyoki-mcp-power-point.exe" --version || exit /b 1
+
+      # Zipping from the staging directory keeps the versioned folder as the
+      # archive's single root entry, so extracting never scatters files into
+      # the current directory.
+      #
+      # 7-Zip is preinstalled on GitHub's Windows runners. It replaces
+      # Compress-Archive here because the install tree carries thousands of
+      # generated headers with deep paths, which the .NET zip writer refuses
+      # once they cross the classic 260 character limit.
+      - name: Create the zip archive
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:ARTIFACT_DIR | Out-Null
+          $zip = Join-Path $env:ARTIFACT_DIR "$env:PACKAGE_NAME.zip"
+          Push-Location $env:STAGING_DIR
+          & 7z a -tzip -mx=9 -bso0 -bsp0 $zip $env:PACKAGE_NAME
+          if ($LASTEXITCODE -ne 0) { throw "7z failed with exit code $LASTEXITCODE" }
+          Pop-Location
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $env:PACKAGE_NAME.zip" | Set-Content -Path "$zip.sha256" -Encoding ascii
+          $size = [math]::Round((Get-Item $zip).Length / 1MB, 1)
+          "### $env:PACKAGE_NAME.zip`n`n- size: $size MB`n- sha256: ``$hash``" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload the package
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: |
+            build/artifacts/${{ env.PACKAGE_NAME }}.zip
+            build/artifacts/${{ env.PACKAGE_NAME }}.zip.sha256
+          if-no-files-found: error
+
+  linux-package:
+    name: Linux x64 package (${{ inputs.build_type }})
+    if: inputs.run_linux
+    # Pinned rather than ubuntu-latest, because the runner's glibc is the floor
+    # of both artifacts. The zip needs it no higher than the oldest distribution
+    # the project supports, and the container image needs it no higher than the
+    # glibc of its runtime base (gcr.io/distroless/cc-debian13, 2.41). Ubuntu
+    # 24.04 gives 2.39, which satisfies both; a floating label would not.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      PRESET: ${{ inputs.build_type == 'Debug' && 'linux-ninja-debug' || 'linux-ninja-release' }}
+      BINARY_DIR: ${{ inputs.build_type == 'Debug' && 'build/linux-ninja-debug' || 'build/linux-ninja-release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++ zip
+
+      # The suffix arrives through the environment rather than through string
+      # interpolation, so a value with quotes in it cannot rewrite the script.
+      - name: Resolve the package name
+        env:
+          PACKAGE_SUFFIX: ${{ inputs.package_suffix }}
+        run: |
+          version="$(head -n 1 VERSION.txt | tr -d '[:space:]')"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION.txt must contain a MAJOR.MINOR.PATCH number, got '$version'" >&2
+            exit 1
+          fi
+          suffix="$(echo "$PACKAGE_SUFFIX" | tr -d '[:space:]')"
+          name="ExyokiOffice-$version-linux-x64-gcc"
+          if [ -n "$suffix" ]; then
+            name="$name-$suffix"
+          fi
+          docker_artifact="ExyokiOffice-$version-docker-amd64"
+          if [ -n "$suffix" ]; then
+            docker_artifact="$docker_artifact-$suffix"
+          fi
+          {
+            echo "VERSION=$version"
+            echo "PACKAGE_NAME=$name"
+            echo "PACKAGE_DIR=$GITHUB_WORKSPACE/build/package/$name"
+            echo "STAGING_DIR=$GITHUB_WORKSPACE/build/package"
+            echo "ARTIFACT_DIR=$GITHUB_WORKSPACE/build/artifacts"
+            echo "DOCKER_ARTIFACT=$docker_artifact"
+            echo "IMAGE_TAG=exyokioffice:$version"
+          } >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: |
+          cmake --preset "$PRESET" \
+            -DEXYOKIOFFICE_BUILD_UNIT_TESTS=OFF \
+            -DEXYOKIOFFICE_BUILD_TOOL=ON \
+            -DEXYOKIOFFICE_BUILD_MCP=ON \
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_WORD=OFF \
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDITOR=OFF \
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDIT=OFF \
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_EXCEL_EDITOR=OFF \
+            -DEXYOKIOFFICE_BUILD_EXAMPLE_POWERPOINT_EDITOR=OFF
+
+      - name: Build
+        run: cmake --build --preset "$PRESET"
+
+      # GCC embeds the debug information of a RelWithDebInfo build straight
+      # into the ELF file, where it dwarfs the code: 557 MB of .debug_* next to
+      # 23 MB of .text. Stripping it leaves a 54 MB library. A Debug package is
+      # shipped to be debugged, so that one keeps its symbols.
+      - name: Install
+        run: |
+          strip_arg=""
+          if [ "${{ inputs.build_type }}" != "Debug" ]; then
+            strip_arg="--strip"
+          fi
+          cmake --install "$BINARY_DIR" --prefix "$PACKAGE_DIR" $strip_arg
+
+      - name: Describe the package
+        run: |
+          compiler_file="$(find "$BINARY_DIR/CMakeFiles" -name CMakeCXXCompiler.cmake -print -quit)"
+          compiler="unknown"
+          if [ -n "$compiler_file" ]; then
+            id="$(sed -n 's/^set(CMAKE_CXX_COMPILER_ID "\(.*\)")$/\1/p' "$compiler_file")"
+            ver="$(sed -n 's/^set(CMAKE_CXX_COMPILER_VERSION "\(.*\)")$/\1/p' "$compiler_file")"
+            if [ -n "$id" ]; then
+              compiler="$id $ver"
+            fi
+          fi
+          libdir="lib"
+          if [ -d "$PACKAGE_DIR/lib64" ]; then
+            libdir="lib64"
+          fi
+          cat > "$PACKAGE_DIR/BUILD-INFO.txt" <<EOF
+          ExyokiOffice $VERSION
+
+          Package          $PACKAGE_NAME
+          Operating system Linux ($(. /etc/os-release && echo "$PRETTY_NAME"))
+          Architecture     $(uname -m)
+          glibc            $(ldd --version | head -n 1)
+          Compiler         $compiler
+          Build type       ${{ inputs.build_type }}
+          Commit           $GITHUB_SHA
+          Ref              $GITHUB_REF
+          Built at         $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          Workflow run     $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+
+          Layout
+            bin/             exyoki command-line tool and the exyoki-mcp-* servers
+            $libdir/             libExyokiOffice.so and the CMake package config
+            include/         public headers
+            share/doc/       LICENSE, README, CHANGELOG, SECURITY and the manual
+            share/doc/licenses/  notices of every vendored third-party component
+
+          Consuming the package from CMake:
+
+            find_package(ExyokiOffice 1.0 CONFIG REQUIRED
+                         PATHS "<extracted>/$libdir/cmake/ExyokiOffice")
+            target_link_libraries(app PRIVATE ExyokiOffice::ExyokiOffice)
+
+          bin/exyoki finds the shared library through a relative RPATH, so the
+          extracted tree can live anywhere. A consuming executable of your own
+          needs the library on its RPATH or in LD_LIBRARY_PATH.
+          EOF
+
+      - name: Verify the staged package
+        if: inputs.verify_package
+        run: |
+          cmake -S tests/install -B build/install-smoke -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build_type }} \
+            -DCMAKE_PREFIX_PATH="$PACKAGE_DIR"
+          cmake --build build/install-smoke
+          ./build/install-smoke/ExyokiOfficeInstallSmoke
+          "$PACKAGE_DIR/bin/exyoki" --version
+          for server in word excel power-point; do
+            "$PACKAGE_DIR/bin/exyoki-mcp-$server" --version
+          done
+
+      # Zipping from the staging directory keeps the versioned folder as the
+      # archive's single root entry, so extracting never scatters files into
+      # the current directory.
+      #
+      # -y stores the soname symlinks as symlinks. Without it zip follows them
+      # and the archive carries three identical copies of the library.
+      - name: Create the zip archive
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          (cd "$STAGING_DIR" && zip -r -y -9 -q "$ARTIFACT_DIR/$PACKAGE_NAME.zip" "$PACKAGE_NAME")
+          (cd "$ARTIFACT_DIR" && sha256sum "$PACKAGE_NAME.zip" > "$PACKAGE_NAME.zip.sha256")
+          size="$(du -m "$ARTIFACT_DIR/$PACKAGE_NAME.zip" | cut -f1)"
+          hash="$(cut -d' ' -f1 "$ARTIFACT_DIR/$PACKAGE_NAME.zip.sha256")"
+          printf '### %s.zip\n\n- size: %s MB\n- sha256: `%s`\n' \
+            "$PACKAGE_NAME" "$size" "$hash" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the package
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: |
+            build/artifacts/${{ env.PACKAGE_NAME }}.zip
+            build/artifacts/${{ env.PACKAGE_NAME }}.zip.sha256
+          if-no-files-found: error
+
+      # A distroless image has no shell, so nothing can be arranged inside it
+      # with RUN. The final layout is assembled here, where there is a shell,
+      # and the Dockerfile copies it in one piece.
+      #
+      # Only the runtime half of the package travels: the headers alone are
+      # thousands of files and most of the archive's bulk, and nothing in the
+      # image compiles against them. bin/ and the library directory stay
+      # siblings, which is the relation the binaries' built-in RPATH already
+      # describes, so no path has to be patched.
+      #
+      # cp -a keeps the soname symlinks as symlinks, for the same reason zip -y
+      # does above.
+      - name: Stage the container root
+        if: inputs.build_docker
+        run: |
+          libdir="lib"
+          if [ -d "$PACKAGE_DIR/lib64" ]; then
+            libdir="lib64"
+          fi
+          ctx="$GITHUB_WORKSPACE/build/docker-context"
+          rm -rf "$ctx"
+          mkdir -p "$ctx/rootfs/opt/exyokioffice/bin" \
+                   "$ctx/rootfs/opt/exyokioffice/$libdir" \
+                   "$ctx/rootfs/opt/exyokioffice/share/licenses" \
+                   "$ctx/rootfs/work"
+          cp -a "$PACKAGE_DIR/bin/." "$ctx/rootfs/opt/exyokioffice/bin/"
+          cp -a "$PACKAGE_DIR/$libdir/"libExyokiOffice.so* \
+                "$ctx/rootfs/opt/exyokioffice/$libdir/"
+          cp -a "$PACKAGE_DIR/share/doc/ExyokiOffice/licenses/." \
+                "$ctx/rootfs/opt/exyokioffice/share/licenses/"
+          cp "$PACKAGE_DIR/share/doc/ExyokiOffice/LICENSE" \
+             "$PACKAGE_DIR/share/doc/ExyokiOffice/THIRD-PARTY-LICENSES.md" \
+             "$PACKAGE_DIR/BUILD-INFO.txt" \
+             "$ctx/rootfs/opt/exyokioffice/share/"
+          cp docker/Dockerfile docker/entrypoint.c "$ctx/"
+          echo "DOCKER_CONTEXT_DIR=$ctx" >> "$GITHUB_ENV"
+
+      # The Dockerfile carries the labels that are the same in every build; the
+      # three that describe this particular run are passed here, where the run
+      # is known. A default baked into the Dockerfile could only ever be wrong.
+      #
+      # An image with no labels is indistinguishable from any other from the
+      # outside — there is no shell in it to ask — so the build asserts they
+      # arrived instead of trusting that they did.
+      - name: Build the container image
+        if: inputs.build_docker
+        run: |
+          docker build \
+            -f "$DOCKER_CONTEXT_DIR/Dockerfile" \
+            --build-arg EXYOKI_VERSION="$VERSION" \
+            --label org.opencontainers.image.version="$VERSION" \
+            --label org.opencontainers.image.revision="$GITHUB_SHA" \
+            --label org.opencontainers.image.created="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -t "$IMAGE_TAG" \
+            "$DOCKER_CONTEXT_DIR"
+
+          missing=0
+          for label in title description version revision created licenses \
+                       vendor authors url source documentation base.name; do
+            key="org.opencontainers.image.$label"
+            value="$(docker image inspect \
+              --format "{{with .Config.Labels}}{{index . \"$key\"}}{{end}}" \
+              "$IMAGE_TAG")"
+            if [ -z "$value" ] || [ "$value" = "<no value>" ]; then
+              echo "image label $key is missing or empty" >&2
+              missing=1
+            else
+              printf '%-13s %s\n' "$label" "$value"
+            fi
+          done
+          test "$missing" -eq 0
+
+      # There is no shell to inspect the image with, so it is checked by being
+      # used. The replay file is the mechanism docs/tools/mcp-servers.md
+      # documents for smoke-testing a server by hand: the MCP server writes a
+      # document into the mounted directory and the CLI validates it, which
+      # exercises the library, both front ends and the workspace sandbox in one
+      # pass.
+      - name: Verify the container image
+        if: inputs.build_docker && inputs.verify_package
+        run: |
+          docker run --rm "$IMAGE_TAG" > /dev/null
+          docker run --rm "$IMAGE_TAG" exyoki --version
+          for command in word excel powerpoint; do
+            docker run --rm "$IMAGE_TAG" "$command" --version
+          done
+
+          smoke="$GITHUB_WORKSPACE/build/docker-smoke"
+          rm -rf "$smoke"
+          mkdir -p "$smoke"
+          cat > "$smoke/smoke.jsonl" <<'EOF'
+          {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"docker-smoke","version":"1"}}}
+          {"jsonrpc":"2.0","method":"notifications/initialized"}
+          {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_document","arguments":{"path":"smoke.docx","overwrite":true}}}
+          {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"insert_paragraph","arguments":{"documentId":"doc-1","anchor":{"position":"end"},"text":"Hello from the container."}}}
+          {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"save_document","arguments":{"documentId":"doc-1"}}}
+          EOF
+
+          docker run --rm -i --user "$(id -u):$(id -g)" \
+            -v "$smoke:/work" "$IMAGE_TAG" word --replay /work/smoke.jsonl
+          test -s "$smoke/smoke.docx"
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -v "$smoke:/work" "$IMAGE_TAG" exyoki validate smoke.docx
+
+      - name: Save the container image
+        if: inputs.build_docker
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          docker save "$IMAGE_TAG" | gzip -9 > "$ARTIFACT_DIR/$DOCKER_ARTIFACT.tar.gz"
+          (cd "$ARTIFACT_DIR" && sha256sum "$DOCKER_ARTIFACT.tar.gz" > "$DOCKER_ARTIFACT.tar.gz.sha256")
+          # `docker images` is the honest number here. What `docker image
+          # inspect --format '{{.Size}}'` means depends on the image store: with
+          # the containerd one it reports the compressed size, which would make
+          # the summary claim an image four times smaller than it is.
+          image_size="$(docker images "$IMAGE_TAG" --format '{{.Size}}')"
+          size="$(du -m "$ARTIFACT_DIR/$DOCKER_ARTIFACT.tar.gz" | cut -f1)"
+          hash="$(cut -d' ' -f1 "$ARTIFACT_DIR/$DOCKER_ARTIFACT.tar.gz.sha256")"
+          printf '### %s.tar.gz\n\n- image: `%s`, %s on disk\n- download: %s MB\n- sha256: `%s`\n' \
+            "$DOCKER_ARTIFACT" "$IMAGE_TAG" "$image_size" "$size" "$hash" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the container image
+        if: inputs.build_docker
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.DOCKER_ARTIFACT }}
+          path: |
+            build/artifacts/${{ env.DOCKER_ARTIFACT }}.tar.gz
+            build/artifacts/${{ env.DOCKER_ARTIFACT }}.tar.gz.sha256
+          if-no-files-found: error

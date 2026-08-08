@@ -1,0 +1,238 @@
+# How ExyokiOffice compares
+
+There are many ways to produce a `.docx`, `.xlsx`, or `.pptx`, and most
+projects that reach this manual have already tried at least one of them. This
+chapter says where ExyokiOffice sits among them: what it does that the
+alternatives do not, what the alternatives do that it does not, and which
+tool a given project should actually pick.
+
+It is written to be useful rather than flattering. The
+[compatibility matrix](Compatibility.md) is the authoritative statement of
+what this library supports; this page only puts that statement next to the
+other options. Every "not supported" below is a deliberate boundary described
+in [Out of scope](Compatibility.md#out-of-scope), not a gap waiting to close.
+
+Comparisons age. Everything here describes the landscape as of August 2026,
+and the claims about other projects come from their own documentation.
+Verify anything a decision depends on against the current upstream project.
+
+## The short answer
+
+ExyokiOffice occupies a specific position: **a native C++ library that
+covers all three OOXML families with both a friendly editing API and a typed
+schema DOM, and that treats content it does not model as data to preserve
+rather than data to drop.**
+
+Nothing else in the C++ ecosystem is in that position. The comparable
+libraries either target a single format, or require a managed runtime
+(.NET, the JVM, Python), or are commercial products, or are entire office
+suites embedded as a dependency.
+
+| | ExyokiOffice | Open XML SDK | Apache POI | python-docx / openpyxl / python-pptx | OpenXLSX / xlnt / libxlsxwriter |
+| --- | --- | --- | --- | --- | --- |
+| Language | C++20 | C# / .NET | Java | Python | C++ / C |
+| Runtime dependency | none | .NET | JVM | CPython | none |
+| Word / Excel / PowerPoint | all three | all three | all three | three separate projects | Excel only |
+| High-level editing API | yes | no — typed DOM only | yes | yes | yes |
+| Typed schema DOM | yes | yes | yes | no | no |
+| Schema and semantic validation | yes | yes | no | no | no |
+| Command-line front end | `exyoki` | no | no | no | no |
+| MCP servers for AI agents | three | no | no | no | no |
+| Rendering, PDF export | no | no | no | no | no |
+| License | MIT | MIT | Apache-2.0 | MIT / MIT / MIT | MIT / MIT / BSD-2 |
+
+## Against Open XML SDK
+
+Microsoft's [Open XML SDK](https://github.com/dotnet/Open-XML-SDK) is the
+closest architectural relative, and the honest disclosure is that
+ExyokiOffice reads the same schema metadata: the JSON under `data/` is
+imported from that repository and drives the code generator. No source code
+is shared — the C++ implementation is written from scratch — and both
+projects are MIT-licensed. The full provenance note is in the repository
+README.
+
+What the two have in common is the typed DOM: an element class per schema
+element, a validator that knows which construct arrived in which Office
+release, and a packaging layer underneath.
+
+What ExyokiOffice adds:
+
+- **High-level editors for all three families.** Open XML SDK stops at the
+  DOM. Producing a numbered list, a merged table cell, or a pivot table means
+  assembling the elements yourself, and the shape of that code is the shape
+  of the schema. `WordDocumentEditor`, `ExcelDocumentEditor`, and
+  `PowerPointDocumentEditor` model the task instead.
+- **A command line.** [`exyoki`](tools/exyoki.md) validates, converts,
+  diffs, redacts, merges, splits, and queries packages from a shell or a
+  script.
+- **MCP servers.** [Three of them](tools/mcp-servers.md), so an agent edits
+  documents through typed tools rather than by writing code.
+- **No managed runtime.** The library links into a native process with no
+  .NET present.
+
+Choose Open XML SDK when the project is already .NET. Choose ExyokiOffice
+when it is C++, or when the editing API, the CLI, or the MCP servers are
+what you are actually after.
+
+## Against Apache POI
+
+[Apache POI](https://poi.apache.org/) is the broadest open-source
+implementation of Office formats in existence, and any comparison should
+start by saying so. It covers what ExyokiOffice does not: the legacy binary
+formats `.doc`, `.xls`, and `.ppt`, and OOXML package encryption.
+
+The differences that matter when choosing:
+
+- **Runtime.** POI needs a JVM. ExyokiOffice is a native shared library. For
+  a C++ application, embedding a JVM to write a spreadsheet is a large
+  architectural commitment.
+- **Validation.** POI has no schema validator. ExyokiOffice validates
+  against the schemas and against a target Office release, with positional
+  diagnostics; see the `validation` row of the
+  [compatibility matrix](Compatibility.md#cross-cutting-subsystems).
+- **Preservation as a tested contract.** ExyokiOffice states, per feature
+  area, whether a construct is created, edited, or merely preserved, and
+  [`tests/compat/`](../tests/compat/) requires an open–save cycle to return
+  the package byte for byte. That is a stronger and more checkable promise
+  than "we try not to break things", and it is the reason the `Preserved`
+  grade exists in the matrix at all.
+
+Choose POI when the project is on the JVM, or when legacy binary formats or
+encrypted packages are required. Choose ExyokiOffice for native code, for
+validation, or when round-trip fidelity has to be a guarantee you can point
+at a test for.
+
+## Against the Python libraries
+
+[python-docx](https://python-docx.readthedocs.io/),
+[openpyxl](https://openpyxl.readthedocs.io/), and
+[python-pptx](https://python-pptx.readthedocs.io/) are the fastest way to
+get a document out of a script, and for a one-off report that is usually the
+right call. They are three independent projects with three independent
+models; there is no shared packaging layer, no schema validation, and no
+stated guarantee about content the library does not model.
+
+The three reasons to reach for ExyokiOffice instead:
+
+- **Round-trip safety.** When a pipeline opens documents it did not author —
+  customer files, templates from a design team, anything with charts,
+  SmartArt, or vendor extensions — the question stops being "can I write
+  this" and becomes "what did I lose". ExyokiOffice answers that question in
+  a table, per feature area.
+- **Throughput.** A native library processing thousands of packages in a
+  batch is a different order of performance from an interpreted one.
+- **One model for all three formats.** Packages, parts, relationships,
+  content types, and validation work identically whether the file is a
+  `.docx`, an `.xlsx`, or a `.pptx`.
+
+Choose the Python libraries for scripting, notebooks, and glue. Choose
+ExyokiOffice for a service or an application where the documents are inputs
+as often as they are outputs.
+
+## Against the single-format C++ libraries
+
+Several good C++ and C libraries cover spreadsheets specifically:
+
+| Library | Scope | Notes |
+| --- | --- | --- |
+| [OpenXLSX](https://github.com/troldal/OpenXLSX) | `.xlsx` read and write | Actively maintained, few dependencies, designed for very large sheets. |
+| [xlnt](https://github.com/tfussell/xlnt) | `.xlsx` read and write | C++14, wider spreadsheet feature coverage. |
+| [libxlsxwriter](https://libxlsxwriter.github.io/) | `.xlsx` write only | C, streaming, very fast; cannot read or modify. |
+| [QXlsx](https://qtexcel.github.io/QXlsx/) | `.xlsx` read and write | Requires Qt. |
+| [DuckX](https://github.com/amiremohamadi/DuckX) | `.docx` | Small scope: paragraphs, runs, tables, images. |
+
+These are not competitors so much as a different size of tool. If a program
+needs to emit a spreadsheet and nothing else, a focused library is a smaller
+dependency, a shorter build, and less to learn — and that is a good reason to
+use one.
+
+ExyokiOffice is the choice when the requirement outgrows that: a second
+format, an existing document that must survive editing, pivot tables and
+slicers, digital signatures, validation, or access to raw OOXML underneath
+the editor when the modelled API stops.
+
+## Against the commercial suites
+
+Products such as Aspose.Words / Aspose.Cells / Aspose.Slides, Syncfusion,
+GemBox, and Spire cover a superset of what any open-source OOXML library
+does. They render. They export PDF. They read the legacy binary formats,
+open encrypted packages, and convert between OOXML, ODF, RTF, and HTML.
+
+There is no point pretending otherwise: **if a project needs to turn a
+document into a PDF or an image, ExyokiOffice cannot do it and never will.**
+Rendering is a permanent non-goal, listed as such in
+[Out of scope](Compatibility.md#out-of-scope), because layout and pagination
+are a different discipline from markup editing.
+
+What a commercial suite costs is a per-developer licence, renewed, per
+product, plus a closed implementation you cannot read, patch, or audit.
+ExyokiOffice is MIT-licensed with the full source in the repository,
+including the code generator that produces the DOM.
+
+Choose a commercial suite for rendering, conversion, and legacy formats.
+Choose ExyokiOffice when the work is authoring and editing OOXML, and pair
+it with a headless converter if a PDF is needed at the end of the pipeline.
+
+## Against embedding an office suite
+
+Running LibreOffice headless, embedding the ONLYOFFICE Document Builder, or
+driving Word through COM automation all work, and all three convert to PDF,
+which is usually why they get chosen.
+
+The costs are structural rather than functional. An office suite is hundreds
+of megabytes and a process to supervise, not a library to link. COM
+automation requires Windows with Office installed, which rules out
+containers and most servers, and Microsoft advises against server-side
+Office automation. Licensing differs too: ExyokiOffice is MIT, while these
+carry MPL/LGPL, AGPL, or a proprietary EULA.
+
+For a C++ application that needs to *edit* documents, linking a shared
+library is the proportionate answer. Reach for a suite when you need it to
+*render* them.
+
+## Against the other MCP servers
+
+Office MCP servers appeared quickly and there are now many. Most are built
+on one of two foundations: COM automation, which requires Windows with
+Microsoft Office installed, or the Python libraries above, which inherit
+their round-trip behaviour.
+
+The [ExyokiOffice servers](tools/mcp-servers.md) are built on this library,
+which gives them three properties that are hard to retrofit:
+
+- **No Office, no Windows, no interpreter.** Native executables, and a
+  [distroless container image](tools/docker.md) that runs anywhere.
+- **No code-execution escape hatch.** An agent calls named tools with
+  published JSON schemas, validated before they run. It never gets to
+  execute arbitrary code, and every path is confined to a configured
+  workspace.
+- **Validation in the loop.** The agent can validate the document it just
+  edited against the schemas before saving it.
+
+## When not to choose ExyokiOffice
+
+The short list, so nobody discovers it three weeks in:
+
+- **You need PDF, images, page counts, or anything that requires layout.**
+  Not supported, permanently.
+- **You need `.doc`, `.xls`, or `.ppt`.** Not read, not written.
+- **You need ODF, RTF, or HTML.** Out of scope. (Markdown, JSON, semantic
+  XML, plain text, and CSV *are* supported — see
+  [Conversion formats](tools/conversion-formats.md).)
+- **You need to open password-encrypted packages.** An encrypted OOXML file
+  is a compound-file container rather than a ZIP package, and the library
+  cannot open it at all.
+- **You have ISO 29500 Strict documents.** Only the Transitional conformance
+  class is implemented; see
+  [Conformance class](Compatibility.md#conformance-class-transitional-only).
+  `File ▸ Save As` in Office converts one to the other.
+- **You are not writing C++.** There are no language bindings today.
+
+## Keeping this page current
+
+This chapter names other projects, so it decays faster than the rest of the
+manual. Two rules keep it honest: every claim about ExyokiOffice must be
+traceable to a row of the [compatibility matrix](Compatibility.md), and
+every claim about another project must be something that project documents
+about itself. A comparison that cannot meet both is better deleted than
+defended.

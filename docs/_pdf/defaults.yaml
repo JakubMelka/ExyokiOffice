@@ -1,0 +1,27 @@
+# Pandoc defaults for the PDF manual. Used by .github/workflows/docs-pdf.yml:
+#   python3 docs/_pdf/build.py --out build/docs-pdf
+#   pandoc --defaults docs/_pdf/defaults.yaml build/docs-pdf/manual.md \
+#          -o build/docs-pdf/ExyokiOffice-manual.pdf
+#
+# gfm_auto_identifiers makes heading anchors match GitHub's slugs, so
+# hand-written fragment links (e.g. exyoki.md#exit-codes) keep working.
+
+from: markdown+gfm_auto_identifiers
+pdf-engine: xelatex
+toc: true
+toc-depth: 2
+number-sections: true
+highlight-style: tango
+variables:
+  documentclass: report
+  colorlinks: true
+  linkcolor: NavyBlue
+  urlcolor: NavyBlue
+  toccolor: NavyBlue
+  geometry: margin=2.5cm
+  fontsize: 10pt
+  mainfont: TeX Gyre Pagella
+  sansfont: TeX Gyre Heros
+  monofont: DejaVu Sans Mono
+  monofontoptions: Scale=0.85
+  linestretch: 1.05

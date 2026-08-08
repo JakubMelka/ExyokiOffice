@@ -1,0 +1,22 @@
+---
+BasedOnStyle: Microsoft
+Language: Cpp
+Standard: c++20
+IndentWidth: 4
+# Access specifiers sit at the class indentation, not indented under it.
+AccessModifierOffset: -4
+# 'case' labels are indented inside the switch, their bodies one level deeper.
+IndentCaseLabels: true
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 0
+NamespaceIndentation: None
+BreakBeforeBraces: Allman
+PointerAlignment: Left
+ReferenceAlignment: Left
+SpaceBeforeAssignmentOperators: true
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+SortIncludes: false

@@ -1,0 +1,257 @@
+{
+  "Comment": [
+    "ExyokiOffice-owned overlay on the imported schema metadata under data/schemas.",
+    "Several element classes can declare one qualified element name - w:rPr is the run properties of a",
+    "paragraph mark and the run properties of a style, x:sheetData is a worksheet's cell table and an",
+    "Office2010 extension - so the element factory, which resolves a name without knowing the parent, has",
+    "to be told which class a bare name creates. Parsing that walks the parent's content model keeps",
+    "resolving the name through the particle tree and is unaffected. Without this file the winner would be",
+    "whatever an unstable sort left in front, which differs between standard library implementations and",
+    "made the same package parse into different classes on Windows and Linux. Keys are namespace URIs and",
+    "local names from data/schemas; a name the schemas no longer declare ambiguously fails the build, and",
+    "an ambiguous name missing here is reported as a generator warning."
+  ],
+  "Elements": {
+    "http://schemas.microsoft.com/office/2006/01/customui": {
+      "button": "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomUI::UnsizedButton",
+      "control": "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomUI::UnsizedControlClone",
+      "dynamicMenu": "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomUI::DynamicMenu",
+      "gallery": "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomUI::UnsizedGallery",
+      "menu": "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomUI::MenuRoot",
+      "splitButton": "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomUI::SplitButton",
+      "toggleButton": "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomUI::VisibleToggleButton"
+    },
+    "http://schemas.microsoft.com/office/2009/07/customui": {
+      "button": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton",
+      "category": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskFormGroupCategory",
+      "checkBox": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox",
+      "comboBox": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ComboBox",
+      "control": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlClone",
+      "dropDown": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DropDownRegular",
+      "dynamicMenu": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenu",
+      "editBox": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::EditBox",
+      "gallery": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular",
+      "group": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroup",
+      "item": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ItemBackstageItem",
+      "labelControl": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LabelControl",
+      "menu": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Menu",
+      "menuSeparator": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparatorNoTitle",
+      "splitButton": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular",
+      "tab": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Tab",
+      "task": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskGroupTask",
+      "toggleButton": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButton"
+    },
+    "http://schemas.microsoft.com/office/drawing/2012/chart": {
+      "ser": "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::Chart::BubbleChartSeries"
+    },
+    "http://schemas.microsoft.com/office/drawing/2012/chartStyle": {
+      "categoryAxis": "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::ChartStyle::CategoryAxisProperties",
+      "dataTable": "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::ChartStyle::DataTableStyle",
+      "legend": "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::ChartStyle::LegendStyle",
+      "seriesAxis": "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::ChartStyle::SeriesAxis",
+      "title": "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::ChartStyle::TitleStyle",
+      "trendline": "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::ChartStyle::TrendlineStyle",
+      "valueAxis": "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::ChartStyle::ValueAxisProperties"
+    },
+    "http://schemas.microsoft.com/office/drawing/2013/main/command": {
+      "blipFill": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::ResetBlipFillProperties",
+      "cNvCxnSpPr": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::ModifyNonVisualConnectorProps",
+      "cNvGrpSpPr": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::NonVisualGroupDrawingShapeProps",
+      "cNvPicPr": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::ModifyNonVisualPictureProps",
+      "cNvPr": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::ModifyNonVisualDrawingProps",
+      "endCxn": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::EndCxnEmpty",
+      "grpSpPr": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::ResetGroupShapeProperties",
+      "hlink": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::ModifyHyperlinkProps",
+      "hlinkClick": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::HlinkClickHyperlinkProps",
+      "hlinkHover": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::HlinkHoverHyperlinkProps",
+      "spMkLst": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::ShapePropsMonikerList",
+      "spPr": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::ResetShapeProperties",
+      "srcRect": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::SrcRectEmpty",
+      "stCxn": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::StCxnEmpty",
+      "xfrm": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::Transform2D"
+    },
+    "http://schemas.microsoft.com/office/drawing/2014/chart": {
+      "filteredLitCache": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Charts::StrFilteredLiteralCache"
+    },
+    "http://schemas.microsoft.com/office/drawing/2014/chartex": {
+      "chart": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::ChartDrawing::Chart",
+      "lvl": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::ChartDrawing::NumericLevel",
+      "pt": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::ChartDrawing::ChartStringValue",
+      "title": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::ChartDrawing::ChartTitle",
+      "visibility": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::ChartDrawing::SeriesElementVisibilities"
+    },
+    "http://schemas.microsoft.com/office/drawing/2017/model3d": {
+      "extLst": "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Drawing::Model3D::OfficeArtExtensionList",
+      "sz": "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Drawing::Model3D::SzRatio"
+    },
+    "http://schemas.microsoft.com/office/powerpoint/2010/main": {
+      "extLst": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::PowerPoint::ExtensionList",
+      "section": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::PowerPoint::SectionOld"
+    },
+    "http://schemas.microsoft.com/office/powerpoint/2018/8/main": {
+      "extLst": "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::ExtensionList"
+    },
+    "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main": {
+      "extLst": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SlicerCacheDefinitionExtensionList",
+      "i": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::TabularSlicerCacheItem",
+      "slicer": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SlicerRef"
+    },
+    "http://schemas.microsoft.com/office/spreadsheetml/2014/revision": {
+      "hdr": "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Excel::RevExHeader"
+    },
+    "http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2": {
+      "a": "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::Array",
+      "v": "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagValue"
+    },
+    "http://schemas.microsoft.com/office/spreadsheetml/2022/featurepropertybag": {
+      "b": "ExyokiOffice::DocumentFormat::OpenXml::Office::Y2022::FeaturePropertyBag::Xsdboolean",
+      "bagId": "ExyokiOffice::DocumentFormat::OpenXml::Office::Y2022::FeaturePropertyBag::XsdunsignedInt",
+      "d": "ExyokiOffice::DocumentFormat::OpenXml::Office::Y2022::FeaturePropertyBag::DecimalFeatureProperty",
+      "i": "ExyokiOffice::DocumentFormat::OpenXml::Office::Y2022::FeaturePropertyBag::IntFeatureProperty",
+      "rel": "ExyokiOffice::DocumentFormat::OpenXml::Office::Y2022::FeaturePropertyBag::RelXsdstring",
+      "s": "ExyokiOffice::DocumentFormat::OpenXml::Office::Y2022::FeaturePropertyBag::StringFeatureProperty"
+    },
+    "http://schemas.microsoft.com/office/spreadsheetml/2023/pivot2023Calculation": {
+      "subtotal": "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2023::Pivot2023Calculation::PivotSubtotalType"
+    },
+    "http://schemas.microsoft.com/office/word/2006/wordml": {
+      "acd": "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::AllocatedCommandKeyboardCustomization"
+    },
+    "http://schemas.microsoft.com/office/word/2010/wordml": {
+      "conflictDel": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Word::RunConflictDeletion",
+      "conflictIns": "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Word::RunConflictInsertion"
+    },
+    "http://schemas.openxmlformats.org/drawingml/2006/chart": {
+      "chart": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::Chart",
+      "ext": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::StockChartExtension",
+      "extLst": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::RadarSerExtensionList",
+      "grouping": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::Grouping",
+      "marker": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::Marker",
+      "name": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::PivotTableName",
+      "order": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::Order",
+      "pt": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::NumericPoint",
+      "ser": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::AreaChartSeries",
+      "spPr": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::ShapeProperties",
+      "tx": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::ChartText",
+      "userShapes": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::UserShapesReference",
+      "val": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::Values"
+    },
+    "http://schemas.openxmlformats.org/drawingml/2006/diagram": {
+      "cat": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::Category",
+      "catLst": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::StyleDisplayCategories",
+      "dataModel": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::DataModelRoot",
+      "desc": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::StyleLabelDescription",
+      "extLst": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::DiagramDefinitionExtensionList",
+      "styleLbl": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::ColorTransformStyleLabel",
+      "title": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::Title"
+    },
+    "http://schemas.openxmlformats.org/drawingml/2006/main": {
+      "alphaMod": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::AlphaModulationEffect",
+      "bevel": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::LineJoinBevel",
+      "effect": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Effect",
+      "ext": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::GvmlGroupShapeExtension",
+      "extLst": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::ConnectorLockingExtensionList",
+      "fill": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Fill",
+      "font": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Fonts",
+      "lum": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Luminance",
+      "path": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Path",
+      "tint": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Tint",
+      "xfrm": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D"
+    },
+    "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing": {
+      "align": "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignment"
+    },
+    "http://schemas.openxmlformats.org/officeDocument/2006/bibliography": {
+      "Author": "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Author"
+    },
+    "http://schemas.openxmlformats.org/presentationml/2006/main": {
+      "bg": "ExyokiOffice::DocumentFormat::OpenXml::Presentation::Background",
+      "by": "ExyokiOffice::DocumentFormat::OpenXml::Presentation::ByPosition",
+      "custShow": "ExyokiOffice::DocumentFormat::OpenXml::Presentation::CustomShowReference",
+      "ext": "ExyokiOffice::DocumentFormat::OpenXml::Presentation::NotesMasterExtension",
+      "extLst": "ExyokiOffice::DocumentFormat::OpenXml::Presentation::CommentExtensionList",
+      "from": "ExyokiOffice::DocumentFormat::OpenXml::Presentation::FromColor",
+      "sld": "ExyokiOffice::DocumentFormat::OpenXml::Presentation::Slide",
+      "sldLst": "ExyokiOffice::DocumentFormat::OpenXml::Presentation::SlideList",
+      "to": "ExyokiOffice::DocumentFormat::OpenXml::Presentation::ToPosition"
+    },
+    "http://schemas.openxmlformats.org/spreadsheetml/2006/main": {
+      "b": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Bold",
+      "bk": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MetadataBlock",
+      "c": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Cell",
+      "charset": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FontCharSet",
+      "customSheetView": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CustomChartsheetView",
+      "customSheetViews": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CustomSheetViews",
+      "definedName": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExternalDefinedName",
+      "definedNames": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DefinedNames",
+      "dimension": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Dimension",
+      "ext": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::QueryTableExtension",
+      "extLst": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotFilterExtensionList",
+      "family": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FontFamilyNumbering",
+      "filter": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Filter",
+      "filters": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Filters",
+      "i": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Italic",
+      "m": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingTable",
+      "n": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberItem",
+      "pageSetup": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ChartSheetPageSetup",
+      "r": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Run",
+      "row": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Row",
+      "s": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CharacterValue",
+      "sheetData": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetData",
+      "sheetPr": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ChartSheetProperties",
+      "sheetProtection": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetProtection",
+      "sheetView": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetView",
+      "sheetViews": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetViews",
+      "t": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MdxTuple",
+      "v": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Xstring",
+      "x": "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldItem"
+    },
+    "http://schemas.openxmlformats.org/wordprocessingml/2006/main": {
+      "bottom": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomMargin",
+      "customXml": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CustomXmlRun",
+      "default": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DefaultCheckBoxFormFieldState",
+      "del": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DeletedMathControl",
+      "docPart": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DocPart",
+      "end": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndBorder",
+      "endnote": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndnoteSpecialReference",
+      "endnotePr": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndnoteProperties",
+      "fldSimple": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SimpleFieldRuby",
+      "footnote": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Footnote",
+      "footnotePr": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteDocumentWideProperties",
+      "hidden": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleHidden",
+      "hyperlink": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HyperlinkRuby",
+      "ins": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsertedMathControl",
+      "jc": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Justification",
+      "left": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftBorder",
+      "moveFrom": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MoveFromMathControl",
+      "moveTo": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MoveToMathControl",
+      "name": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DocPartName",
+      "pPr": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphPropertiesBaseStyle",
+      "pStyle": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId",
+      "pict": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PictureBulletBase",
+      "placeholder": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CustomXmlPlaceholder",
+      "pos": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndnotePosition",
+      "rPr": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphMarkRunProperties",
+      "rPrChange": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunPropertiesChange",
+      "recipientData": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RecipientData",
+      "right": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightBorder",
+      "sdt": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SdtCell",
+      "sdtContent": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SdtContentBlock",
+      "sectPr": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PreviousSectionProperties",
+      "spacing": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SpacingBetweenLines",
+      "start": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StartNumberingValue",
+      "style": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style",
+      "sz": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FontSize",
+      "tab": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TabStop",
+      "tblGrid": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableGrid",
+      "tblPr": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PreviousTableProperties",
+      "tblPrEx": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PreviousTablePropertyExceptions",
+      "tcPr": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties",
+      "top": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopMargin",
+      "trPr": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PreviousTableRowProperties",
+      "type": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DocPartType",
+      "vAlign": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::VerticalTextAlignmentOnPage",
+      "w": "ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CharacterScale"
+    }
+  }
+}

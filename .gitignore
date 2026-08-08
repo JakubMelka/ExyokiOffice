@@ -1,0 +1,18 @@
+# Local build directories
+/build/**
+/build-*/
+/gen/build/**
+
+# User-specific CMake cache
+/CMakeLists.txt.user
+**/CMakeLists.txt.user
+
+# IDE-local settings
+/.vscode/
+
+# libFuzzer names every corpus unit it discovers after the SHA-1 of its
+# contents, and a single short run produces thousands of them. WinFuzz.ps1 keeps
+# the growing corpus under build/ so it never reaches the source tree; this is a
+# safety net for a fuzzer invoked by hand with the wrong output directory.
+# Committed seeds and crash artifacts have readable names and are unaffected.
+/tests/fuzz/corpus/*/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]

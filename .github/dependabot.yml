@@ -1,0 +1,25 @@
+# Keeps the GitHub Actions used by the workflows in .github/workflows current.
+#
+# This is the only ecosystem Dependabot can serve here: the library has no
+# package manifest of its own, and the third-party libraries in 3rdparty/ are
+# vendored as single headers, which Dependabot cannot track. Those still have
+# to be refreshed by hand.
+#
+# Every workflow in this repository is manual (`workflow_dispatch`), so an
+# update pull request does not build anything by itself. Run the CI workflow
+# from the Actions tab against the branch before merging one.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    # One pull request for all action bumps rather than one per action.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"

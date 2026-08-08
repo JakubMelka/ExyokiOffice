@@ -1,0 +1,66 @@
+# ExyokiOffice
+
+> ExyokiOffice is a C++20 library and command-line toolkit for creating,
+> opening, editing, validating, converting, and saving Microsoft Office Open XML
+> packages (`.docx`, `.xlsx`, `.pptx`) without requiring Microsoft Office or
+> .NET. Prefer its high-level Word, Excel, and PowerPoint editors; use the typed
+> OpenXML DOM or OPC packaging layer only when lower-level control is needed.
+
+The repository contains very large generated DOM and imported metadata trees.
+Agents working with the source should read `AGENTS.md` before exploring and
+should not enumerate `include/ExyokiOffice/DOM`, `sources/DOM`, or `data`
+wholesale. `docs/Compatibility.md` is authoritative for feature support.
+`llms-full.txt` provides a self-contained technical orientation when following
+individual links is inconvenient.
+
+## Essential orientation
+
+- [Repository guide](AGENTS.md): Architecture, task-to-API map, source-code navigation, generated-code boundaries, and exact verification workflows for AI agents.
+- [Project README](README.md): Product overview, Word/Excel/PowerPoint quickstarts, examples, build, install, and consumer CMake usage.
+- [Full AI context](llms-full.txt): Standalone technical summary of architecture, APIs, conventions, repository layout, and development workflows.
+- [Documentation index](docs/README.md): Complete ordered user-manual index.
+- [Introduction](docs/introduction.md): Scope, non-goals, three-layer architecture, API conventions, package model, and linking.
+- [Compatibility matrix](docs/Compatibility.md): Authoritative create/edit/preserve support by format and feature.
+
+## High-level document APIs
+
+- [Word quickstart](docs/Word.md): `WordDocumentEditor` lifecycle and feature tour.
+- [Word chapters](docs/README.md#word): Documents, text, styles, tables, images, links, fields, charts, sections, notes, revisions, and protection.
+- [Word editing example](examples/ExampleWordEditor/main.cpp): Complete document authored with the public high-level API.
+- [Existing Word document example](examples/ExampleWordEdit/main.cpp): Open, find placeholders across runs, insert with cursors, extend tables, and save.
+- [Excel quickstart](docs/Excel.md): `ExcelDocumentEditor` lifecycle and feature tour.
+- [Excel chapters](docs/README.md#excel): Workbooks, worksheets, cells, formulas, styles, tables, charts, pivots, slicers, validation, layout, and printing.
+- [Excel example](examples/ExampleExcelEditor/main.cpp): Complete two-sheet workbook using the public high-level API.
+- [PowerPoint quickstart](docs/PowerPoint.md): `PowerPointDocumentEditor` lifecycle and feature tour.
+- [PowerPoint chapters](docs/README.md#powerpoint): Presentations, slides, shapes, text, pictures, charts, tables, masters, transitions, animations, and notes.
+- [PowerPoint example](examples/ExamplePowerPointEditor/main.cpp): Complete presentation using the public high-level API.
+
+## Lower-level APIs and tools
+
+- [Architecture and package model](docs/introduction.md#architecture-three-layers): When to use editors, typed DOM, or packaging.
+- [Typed DOM example](examples/ExampleWord/main.cpp): Build and round-trip a `.docx` element by element.
+- [exyoki guide](docs/tools/exyoki.md): CLI for inspection, validation (batch with wildcards), conversion (Markdown/JSON/text/XML, CSV for workbooks), archiving, querying, all-family search/replace, redaction, JSON mail merge (`fill`), formula recalculation (`recalc`), tracked-revision comparison (`compare`), diffing, editing, and shell completions; `exyoki commands --format json` describes every command, option and exit code.
+- [Conversion formats](docs/tools/conversion-formats.md): Semantic JSON, XML, Markdown, and text conversion contracts and loss behavior.
+- [MCP servers](docs/tools/mcp-servers.md): Three Model Context Protocol servers (`exyoki-mcp-word`, `exyoki-mcp-excel`, `exyoki-mcp-power-point`) that expose document creation, reading, editing, validation, and the `exyoki` utilities to AI agents as typed tools over stdio; workspace sandbox, `--read-only`, sessions with undo, transactional `batch`, one result envelope with machine-readable error codes.
+- [MCP tool catalogs](docs/schemas/mcp-word-tools.json): Exactly what `tools/list` returns per server, plus each tool's group and a validated example; regenerate with `<server> --print-tools`.
+- [Document model JSON Schema](docs/schemas/exyokioffice-document-v1.schema.json): Draft-07 schema of the `exyokioffice-document` envelope; `exyoki schema` prints it, `exyoki schema --check <file>` validates against it (exit 3 on violations).
+- [Threading and concurrency](docs/Threading.md): Thread-safety contract, independent-document parallelism, external locking, cancellation, callbacks, and transactions.
+- [External resources](docs/ExternalResources.md): Resolver and policy model; external access is off by default.
+- [Digital signatures](docs/Signatures.md): Signature inspection, verification providers, and save policy.
+
+## Development and contribution
+
+- [Contributing](CONTRIBUTING.md): Setup, implementation boundaries, style, tests, documentation, and pull-request checklist.
+- [CI and sanitizers](docs/ci.md): Supported compiler matrix, manual workflows, and sanitizer configurations.
+- [Fuzzing](docs/fuzzing.md): Targets, corpus placement, invariants, replay, minimization, and crash regressions.
+- [Generator guide](gen/README.md): How OpenXML C++ sources are produced.
+- [Metadata guide](data/README.md): Imported metadata provenance and repository-owned overlays.
+- [Versioning and ABI](docs/ABI.md): Public API, SemVer, and installed shared-library guarantees.
+
+## Optional
+
+- [exyoki source](tools/exyoki/main.cpp): CLI command wiring; reusable behavior should normally live in `ExyokiOffice::Tools` instead.
+- [MCP server source](tools/mcp/): `exyoki-mcp-core` implements the protocol, sessions, workspace, and shared tools; `word/`, `excel/`, and `powerpoint/` add only the family adapter and toolset.
+- [CMake presets](CMakePresets.json): Machine-readable configure, build, and test presets.
+- [Changelog](CHANGELOG.md): Released and pending user-visible changes.
+- [Release manual](RELEASE.md): Step-by-step checklist for cutting a release, including every file a version literal appears in.

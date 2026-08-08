@@ -1,0 +1,77 @@
+{
+  "TargetNamespace": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+  "Types": [
+    {
+      "Name": "w:CT_CustomXmlElement/",
+      "ClassName": "CustomXmlElement",
+      "Summary": "Base class for the customXml elements.",
+      "CompositeType": "OneSequence",
+      "BaseClass": "OpenXmlCompositeElement",
+      "IsAbstract": true,
+      "Attributes": [
+        {
+          "QName": "w:uri",
+          "PropertyName": "Uri",
+          "Type": "StringValue",
+          "PropertyComments": "custom XML markup namespace"
+        },
+        {
+          "QName": "w:element",
+          "PropertyName": "Element",
+          "Type": "StringValue",
+          "PropertyComments": "element name",
+          "Validators": [
+            {
+              "Name": "StringValidator",
+              "Arguments": [
+                {
+                  "Type": "Boolean",
+                  "Name": "IsNcName",
+                  "Value": "True"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "Children": [
+        {
+          "Name": "w:CT_CustomXmlPr/w:customXmlPr",
+          "Occurs": [
+            {
+              "Min": 0,
+              "Max": 1
+            }
+          ]
+        }
+      ],
+      "Particle": {
+        "Kind": "Sequence",
+        "Occurs": [
+          {
+            "Min": 0,
+            "Max": 1
+          }
+        ],
+        "Items": [
+          {
+            "Name": "w:CT_CustomXmlPr/w:customXmlPr",
+            "Occurs": [
+              {
+                "Min": 0,
+                "Max": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "Name": "w:CT_SdtElement/",
+      "ClassName": "SdtElement",
+      "Summary": "Base class for the sdt elements.",
+      "BaseClass": "OpenXmlCompositeElement",
+      "IsAbstract": true
+    }
+  ]
+}
