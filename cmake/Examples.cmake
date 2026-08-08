@@ -29,7 +29,7 @@ function(exyokioffice_add_example target)
     # Shared example helpers are included as "Common/SampleImage.hpp".
     target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/examples)
 
-    if(WIN32)
+    if(WIN32 AND EXYOKIOFFICE_LIBRARY_KIND STREQUAL "SHARED")
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     $<TARGET_FILE:ExyokiOffice>

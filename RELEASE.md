@@ -61,6 +61,8 @@ longer matches the installed version.
 
 - [tests/install/CMakeLists.txt](tests/install/CMakeLists.txt) — functional,
   the installed-package smoke test
+- [vcpkg/test/CMakeLists.txt](vcpkg/test/CMakeLists.txt) — functional, the same
+  test for the vcpkg package
 - [README.md](README.md) — the consuming-the-package section
 - [docs/introduction.md](docs/introduction.md) — the same snippet in the manual
 - [llms-full.txt](llms-full.txt) — the same snippet in the AI documentation
@@ -252,7 +254,38 @@ gh release upload vX.Y.Z ExyokiOffice-X.Y.Z-linux-x64-gcc.zip ExyokiOffice-X.Y.Z
 gh release upload vX.Y.Z ExyokiOffice-X.Y.Z-docker-amd64.tar.gz ExyokiOffice-X.Y.Z-docker-amd64.tar.gz.sha256
 ```
 
-## 10. After the release
+## 10. Update the vcpkg port
+
+This step comes after the tag, because the port names the release tarball and
+verifies its hash — neither exists before step 9. The port lives in a clone of
+microsoft/vcpkg, not in this repository; [vcpkg/README.md](vcpkg/README.md)
+says where and why.
+
+```powershell
+cd $env:VCPKG_ROOT
+# version in ports/exyokioffice/vcpkg.json must equal VERSION.txt
+# SHA512 in ports/exyokioffice/portfile.cmake must be the new tarball's:
+.\vcpkg.exe install exyokioffice     # the mismatch error prints the actual hash
+.\vcpkg.exe format-manifest ports/exyokioffice/vcpkg.json
+git add ports/exyokioffice
+git commit -m "[exyokioffice] Update to X.Y.Z"
+.\vcpkg.exe x-add-version exyokioffice
+git commit -am "[exyokioffice] Update version database"
+```
+
+`x-add-version` generates both `versions/e-/exyokioffice.json` and the
+`versions/baseline.json` entry from the committed port, so the port is committed
+first and neither file is written by hand. Then prove the published package
+works from the outside:
+
+```powershell
+.\vcpkg\Test-Port.ps1
+```
+
+No `-Head` and no `-LocalSource`: what is being tested is the tarball a consumer
+will download.
+
+## 11. After the release
 
 - Confirm `## [Unreleased]` is back at the top of the changelog and empty.
 - If any step above turned out to be wrong or incomplete, fix this file in the
@@ -265,6 +298,7 @@ gh release upload vX.Y.Z ExyokiOffice-X.Y.Z-docker-amd64.tar.gz ExyokiOffice-X.Y
 [ ] VERSION.txt                      bumped to X.Y.Z
 [ ] version level honest about ABI   only a patch release may keep the soname
 [ ] tests/install/CMakeLists.txt     find_package minimum (major/minor)
+[ ] vcpkg/test/CMakeLists.txt        find_package minimum (major/minor)
 [ ] README.md                        find_package minimum (major/minor)
 [ ] docs/introduction.md             find_package minimum (major/minor)
 [ ] llms-full.txt                    find_package minimum (major/minor)
@@ -282,4 +316,6 @@ gh release upload vX.Y.Z ExyokiOffice-X.Y.Z-docker-amd64.tar.gz ExyokiOffice-X.Y
 [ ] create_install                   windows and linux zips plus the docker image,
                                      all verified, digests kept
 [ ] tag vX.Y.Z + GitHub release      PDFs and both zips attached
+[ ] vcpkg port                       version, SHA512, x-add-version committed
+[ ] vcpkg\Test-Port.ps1              green against the published tarball
 ```

@@ -65,10 +65,12 @@ function(exyokioffice_add_test_executable target)
         ${PROJECT_SOURCE_DIR}/sources/zip)
 
     # The working directory of a CTest entry is not on the DLL search path.
-    add_custom_command(TARGET ${target} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_FILE:ExyokiOffice>
-                $<TARGET_FILE_DIR:${target}>)
+    if(EXYOKIOFFICE_LIBRARY_KIND STREQUAL "SHARED")
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    $<TARGET_FILE:ExyokiOffice>
+                    $<TARGET_FILE_DIR:${target}>)
+    endif()
 
     set_property(GLOBAL PROPERTY EXYOKIOFFICE_TEST_LAYER_${arg_LAYER}_TARGET ${target})
     set_property(GLOBAL PROPERTY EXYOKIOFFICE_TEST_LAYER_${arg_LAYER}_PREFIX ${arg_PREFIX})

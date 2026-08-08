@@ -2,6 +2,10 @@
 /build/**
 /build-*/
 /gen/build/**
+/vcpkg/test/build/**
+
+# Manifest-mode vcpkg trees, produced by the CMake preset in vcpkg/test.
+vcpkg_installed/
 
 # User-specific CMake cache
 /CMakeLists.txt.user

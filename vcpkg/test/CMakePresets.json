@@ -1,0 +1,36 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "vcpkg",
+      "displayName": "vcpkg manifest mode",
+      "description": "Resolves exyokioffice from vcpkg.json using the vcpkg toolchain in VCPKG_ROOT",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/vcpkg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "vcpkg",
+      "configurePreset": "vcpkg"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "vcpkg",
+      "configurePreset": "vcpkg",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

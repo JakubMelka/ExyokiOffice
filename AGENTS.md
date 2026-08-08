@@ -198,6 +198,12 @@ build\ninja-clang-debug\gen\OpenXmlGenerator.exe --data data --out-include inclu
   round-trip sweeps are registered as one CTest entry per document, so adding a
   described fixture adds its entries with no CMake change.
 - `tests/fuzz/`: fuzz targets, curated seeds, and committed crash regressions.
+- `vcpkg/`: the consumer side of the vcpkg package — `test/`, a standalone
+  project that installs the port and uses it through `find_package` only, and
+  `Test-Port.ps1`, which drives that end to end. The port itself is not here: a
+  vcpkg port is a directory in a vcpkg registry, so it is maintained in a clone
+  of microsoft/vcpkg. `vcpkg/README.md` says where, what it configures, and how
+  a release updates it.
 - `docker/`: the container image the `create_install` workflow builds —
   `Dockerfile` (the distroless runtime image) and `entrypoint.c` (the dispatcher
   that prints the usage page or runs one of the four programs). `Dockerfile` is

@@ -53,6 +53,13 @@ option(EXYOKIOFFICE_BUILD_MCP "Build the exyoki MCP servers" ON)
 # the entry at an interpreter of your own.
 option(EXYOKIOFFICE_BUILD_MCP_PYTHON_TESTS "Register tests/mcp_python as the Mcp.Python CTest entry" OFF)
 option(EXYOKIOFFICE_BUILD_FUZZERS "Build libFuzzer targets (needs Clang or MSVC plus EXYOKIOFFICE_SANITIZER=address)" OFF)
+# The generated sources are committed, so a build does not need the generator to
+# produce them - it reruns it to keep them in step with data/ and gen/. Two kinds
+# of build want the committed files taken as they are: a package build must not
+# write into the source tree it was handed, and a cross build cannot run a
+# generator it just compiled for the target architecture. Both turn this off.
+option(EXYOKIOFFICE_RUN_GENERATOR
+    "Run OpenXmlGenerator during the build and refresh the committed generated sources" ON)
 
 include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)
@@ -87,7 +94,11 @@ if(MSVC)
     endif()
 endif()
 
-add_subdirectory(gen)
+# tests/generator links generator_support, so the directory is still needed when
+# the generator itself is not run.
+if(EXYOKIOFFICE_RUN_GENERATOR OR EXYOKIOFFICE_BUILD_UNIT_TESTS)
+    add_subdirectory(gen)
+endif()
 
 set(GENERATED_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/ExyokiOffice/DOM)
 set(GENERATED_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/sources/DOM)
@@ -101,24 +112,33 @@ file(GLOB GENERATED_PACKAGING_SOURCES CONFIGURE_DEPENDS "${GENERATED_PACKAGING_S
 message(STATUS "Generated headers: " ${GENERATED_HEADERS})
 message(STATUS "Generated sources: " ${GENERATED_SOURCES})
 
-set(GENERATED_STAMP ${CMAKE_CURRENT_BINARY_DIR}/OpenXmlGenerated.stamp)
-set(GENERATOR_WARNING_REPORT ${CMAKE_CURRENT_BINARY_DIR}/OpenXmlGeneratorWarnings.json)
-add_custom_command(
-    OUTPUT ${GENERATED_STAMP}
-    BYPRODUCTS ${GENERATOR_WARNING_REPORT}
-    COMMAND $<TARGET_FILE:openxml_generator>
-            --data "${CMAKE_CURRENT_SOURCE_DIR}/data"
-            --out-include "${CMAKE_CURRENT_SOURCE_DIR}/include"
-            --out-source "${CMAKE_CURRENT_SOURCE_DIR}/sources"
-            --out-tests "${CMAKE_CURRENT_SOURCE_DIR}/tests/dom"
-            --warning-report "${GENERATOR_WARNING_REPORT}"
-    COMMAND ${CMAKE_COMMAND} -E touch ${GENERATED_STAMP}
-    DEPENDS openxml_generator
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Generating ExyokiOffice OpenXML sources"
-)
+if(EXYOKIOFFICE_RUN_GENERATOR)
+    set(GENERATED_STAMP ${CMAKE_CURRENT_BINARY_DIR}/OpenXmlGenerated.stamp)
+    set(GENERATOR_WARNING_REPORT ${CMAKE_CURRENT_BINARY_DIR}/OpenXmlGeneratorWarnings.json)
+    add_custom_command(
+        OUTPUT ${GENERATED_STAMP}
+        BYPRODUCTS ${GENERATOR_WARNING_REPORT}
+        COMMAND $<TARGET_FILE:openxml_generator>
+                --data "${CMAKE_CURRENT_SOURCE_DIR}/data"
+                --out-include "${CMAKE_CURRENT_SOURCE_DIR}/include"
+                --out-source "${CMAKE_CURRENT_SOURCE_DIR}/sources"
+                --out-tests "${CMAKE_CURRENT_SOURCE_DIR}/tests/dom"
+                --warning-report "${GENERATOR_WARNING_REPORT}"
+        COMMAND ${CMAKE_COMMAND} -E touch ${GENERATED_STAMP}
+        DEPENDS openxml_generator
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Generating ExyokiOffice OpenXML sources"
+    )
 
-add_custom_target(generate_openxml ALL DEPENDS ${GENERATED_STAMP})
+    add_custom_target(generate_openxml ALL DEPENDS ${GENERATED_STAMP})
+elseif(NOT GENERATED_SOURCES OR NOT GENERATED_PACKAGING_SOURCES)
+    # The library is assembled from a glob, so an absent generated tree would
+    # otherwise produce a library that links and is missing most of its API.
+    message(FATAL_ERROR
+        "EXYOKIOFFICE_RUN_GENERATOR is OFF but the committed generated sources are "
+        "missing from ${GENERATED_SOURCE_DIR} and ${GENERATED_PACKAGING_SOURCE_DIR}. "
+        "Build from a complete checkout, or turn the option on to generate them.")
+endif()
 
 # A fuzz build links the library statically. libFuzzer keeps its coverage
 # counters and its runtime state in one instance per process; with the library
@@ -126,7 +146,13 @@ add_custom_target(generate_openxml ALL DEPENDS ${GENERATED_STAMP})
 # module boundary, and on Windows the sanitizer coverage symbols then fail to
 # resolve at all. Linking statically puts the whole fuzzed surface into the fuzz
 # executable, which is also how the coverage feedback is meant to work.
+#
+# Otherwise BUILD_SHARED_LIBS decides, which is what package managers set. It is
+# read rather than passed to add_library() directly so that leaving it undefined
+# keeps the shared library the presets, WinBuild.ps1 and docs/ABI.md all describe.
 if(EXYOKIOFFICE_BUILD_FUZZERS)
+    set(EXYOKIOFFICE_LIBRARY_KIND STATIC)
+elseif(DEFINED BUILD_SHARED_LIBS AND NOT BUILD_SHARED_LIBS)
     set(EXYOKIOFFICE_LIBRARY_KIND STATIC)
 else()
     set(EXYOKIOFFICE_LIBRARY_KIND SHARED)
@@ -342,7 +368,9 @@ target_sources(ExyokiOffice PRIVATE
     ${GENERATED_HEADERS}
     ${GENERATED_PACKAGING_SOURCES}
     ${GENERATED_PACKAGING_HEADERS})
-add_dependencies(ExyokiOffice generate_openxml)
+if(EXYOKIOFFICE_RUN_GENERATOR)
+    add_dependencies(ExyokiOffice generate_openxml)
+endif()
 
 exyokioffice_enable_strict_warnings(ExyokiOffice)
 
@@ -380,9 +408,14 @@ exyokioffice_enable_fuzzing_instrumentation(ExyokiOffice)
 
 if(WIN32)
     set(RC_FILE_DESCRIPTION "ExyokiOffice OpenXML library")
-    set(RC_ORIGINAL_FILENAME "ExyokiOffice.dll")
     set(RC_INTERNAL_NAME "ExyokiOffice")
-    set(RC_FILE_TYPE "VFT_DLL")
+    if(EXYOKIOFFICE_LIBRARY_KIND STREQUAL "SHARED")
+        set(RC_ORIGINAL_FILENAME "ExyokiOffice.dll")
+        set(RC_FILE_TYPE "VFT_DLL")
+    else()
+        set(RC_ORIGINAL_FILENAME "ExyokiOffice.lib")
+        set(RC_FILE_TYPE "VFT_STATIC_LIB")
+    endif()
     configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VersionInfo.rc.in
         ${CMAKE_CURRENT_BINARY_DIR}/ExyokiOffice/ExyokiOffice.rc

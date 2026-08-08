@@ -332,6 +332,12 @@ target_link_libraries(MyApplication PRIVATE ExyokiOffice::ExyokiOffice)
 Set `CMAKE_PREFIX_PATH` when the installation prefix is outside CMake's normal
 search locations.
 
+The library is also a vcpkg port. `vcpkg install exyokioffice` installs the
+library alone; `exyoki` and the MCP servers are the optional features `tools`
+and `mcp`. Consumers use the same `find_package` call. The port sources live in
+a vcpkg registry clone rather than in this repository; `vcpkg/README.md`
+describes the layout and `vcpkg/Test-Port.ps1` verifies the package end to end.
+
 The generated translation units make clean builds slow and memory-heavy. Limit
 parallel jobs when necessary. On restricted Windows agents, Visual Studio
 compiler detection may fail with `MSB4018`, `FileTracker`, and `E_ACCESSDENIED`;

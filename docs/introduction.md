@@ -319,6 +319,14 @@ The installed package contains all public and generated headers, the shared
 library, and its CMake target files. Versioning follows semantic versioning
 with a documented ABI policy; see [Versioning and ABI](ABI.md).
 
+The library is also packaged for [vcpkg](https://vcpkg.io), where the same
+`find_package` call applies:
+
+```powershell
+vcpkg install exyokioffice              # the library alone
+vcpkg install "exyokioffice[tools,mcp]" # with exyoki and the MCP servers
+```
+
 ## How this manual is organized
 
 The manual reads front to back, but every chapter also stands on its own:

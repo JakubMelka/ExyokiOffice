@@ -11,6 +11,20 @@ and `Security`, and describe user-visible changes rather than commits.
 
 ### Added
 
+- A vcpkg port, `exyokioffice`, so the library can be installed with
+  `vcpkg install exyokioffice` and consumed with the same
+  `find_package(ExyokiOffice 1.0 CONFIG REQUIRED)` an installed prefix uses. It
+  has no dependencies to resolve — everything third-party is vendored — and it
+  offers `tools` and `mcp` as optional features, neither on by default, so
+  installing the library does not build the `exyoki` utility or the three MCP
+  servers. A vcpkg port belongs to a vcpkg registry rather than to the project
+  it packages, so the port sources are maintained in a clone of
+  microsoft/vcpkg; what this repository carries is the consumer side of the
+  package, in the new [vcpkg/](vcpkg/README.md) directory: a standalone project
+  that reaches only for the installed headers and the exported target, and the
+  `Test-Port.ps1` script that installs the port and runs that project against
+  it, on any triplet and either from the released tag, the tip of master, or
+  the working tree.
 - A container image, built by the `create_install` workflow next to the zip
   archives and uploaded as `ExyokiOffice-<version>-docker-amd64`, a gzipped
   `docker save` tarball. It is distroless — the shared library, `exyoki`, the
@@ -25,6 +39,17 @@ and `Security`, and describe user-visible changes rather than commits.
 
 ### Changed
 
+- The library honors `BUILD_SHARED_LIBS`. It was hardwired to a shared library,
+  with a static one reachable only as a side effect of the fuzzing flag, which
+  left the static triplets of any package manager with nothing to install.
+  Leaving the variable undefined still builds the shared library the presets and
+  `docs/ABI.md` describe, so nothing changes for an existing build.
+- A new `EXYOKIOFFICE_RUN_GENERATOR` option, on by default, controls whether the
+  build reruns `OpenXmlGenerator`. The generated sources are committed, so
+  turning it off builds from them as they are. That is what a packaging build
+  needs, since it must not write into the source tree it was handed, and it is
+  what makes cross compilation possible at all: the generator would otherwise be
+  built for the target architecture and then run on the host.
 - The Linux packaging job pins its runner to `ubuntu-24.04` instead of
   following `ubuntu-latest`. The runner's glibc is the floor of both the zip
   archive and the container image, and the image's runtime base cannot start a
