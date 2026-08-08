@@ -9,82 +9,9 @@ and `Security`, and describe user-visible changes rather than commits.
 
 ## [Unreleased]
 
-### Added
+Nothing yet.
 
-- A vcpkg port, `exyokioffice`, so the library can be installed with
-  `vcpkg install exyokioffice` and consumed with the same
-  `find_package(ExyokiOffice 1.0 CONFIG REQUIRED)` an installed prefix uses. It
-  has no dependencies to resolve — everything third-party is vendored — and it
-  offers `tools` and `mcp` as optional features, neither on by default, so
-  installing the library does not build the `exyoki` utility or the three MCP
-  servers. A vcpkg port belongs to a vcpkg registry rather than to the project
-  it packages, so the port sources are maintained in a clone of
-  microsoft/vcpkg; what this repository carries is the consumer side of the
-  package, in the new [vcpkg/](vcpkg/README.md) directory: a standalone project
-  that reaches only for the installed headers and the exported target, and the
-  `Test-Port.ps1` script that installs the port and runs that project against
-  it, on any triplet and either from the released tag, the tip of master, or
-  the working tree.
-- A container image, built by the `create_install` workflow next to the zip
-  archives and uploaded as `ExyokiOffice-<version>-docker-amd64`, a gzipped
-  `docker save` tarball. It is distroless — the shared library, `exyoki`, the
-  three MCP servers, the third-party license notices, and nothing else, no
-  shell and no package manager. Running it with no arguments prints how to use
-  it; naming `exyoki`, `word`, `excel`, or `powerpoint` runs that program. The
-  MCP servers can therefore be registered with `"command": "docker"` without
-  installing anything. The image carries the standard OCI labels — version,
-  revision, creation time, license, source and the rest — which is how it can
-  be identified at all, having no shell to ask. See the new [container
-  image](docs/tools/docker.md) chapter.
-
-### Changed
-
-- The library honors `BUILD_SHARED_LIBS`. It was hardwired to a shared library,
-  with a static one reachable only as a side effect of the fuzzing flag, which
-  left the static triplets of any package manager with nothing to install.
-  Leaving the variable undefined still builds the shared library the presets and
-  `docs/ABI.md` describe, so nothing changes for an existing build.
-- A new `EXYOKIOFFICE_RUN_GENERATOR` option, on by default, controls whether the
-  build reruns `OpenXmlGenerator`. The generated sources are committed, so
-  turning it off builds from them as they are. That is what a packaging build
-  needs, since it must not write into the source tree it was handed, and it is
-  what makes cross compilation possible at all: the generator would otherwise be
-  built for the target architecture and then run on the host.
-- The Linux packaging job pins its runner to `ubuntu-24.04` instead of
-  following `ubuntu-latest`. The runner's glibc is the floor of both the zip
-  archive and the container image, and the image's runtime base cannot start a
-  binary linked against a newer one, so that version is now a deliberate choice
-  rather than whatever the label pointed at that week.
-
-### Fixed
-
-- Whitespace-only text is no longer dropped when a package is read. A run that
-  carries nothing but a space — `<w:t xml:space="preserve"> </w:t>`, which is
-  how OOXML separates two words — was parsed as an empty element and written
-  back as one, so most of the spacing in a document was lost by any operation
-  that re-serializes a part: the Flat OPC conversion in both directions, and
-  every open-and-save through `OpenXmlPackage`, the Word/Excel/PowerPoint
-  editors and the `exyoki` tools.
-- Signature verification resolves a same-document reference to any element that
-  carries the id, not only to an `Object`. Office signs its XAdES
-  `SignedProperties` that way, so every signature Word writes was rejected with
-  "the signature references an object it does not contain" and no digest in it
-  was ever checked.
-- A signature part is written back byte for byte instead of being re-serialized.
-  Saving used to re-indent it and rewrite its XML declaration, which replaced
-  the characters the `SignedInfo` digest was computed over — the signature this
-  library wrote could not be checked by a conforming verifier, and one Word
-  wrote stopped being checkable the moment the package was saved.
-- Canonicalization keeps whitespace-only text, as XML-C14N requires.
-
-### Known limitations
-
-- Saving a signed package still breaks the digests over its *content* parts,
-  because those are re-serialized from their trees rather than written as
-  stored. This is what `SignatureSavePolicy` warns about; the signature part
-  itself now survives a save unchanged.
-
-## [1.0.0] - 2026-08-07
+## [1.0.0] - 2026-08-08
 
 First public release. Everything below is new, because there is no earlier
 release to compare against; later versions will list only what changed.
@@ -213,6 +140,36 @@ summary below says what exists, not how far it goes.
 - Installs as a CMake package: `find_package(ExyokiOffice 1.0 CONFIG REQUIRED)`
   and link `ExyokiOffice::ExyokiOffice`. `tests/install` is the smoke test that
   the installed package really configures, links and runs.
+- A vcpkg port, `exyokioffice`, so the library can be installed with
+  `vcpkg install exyokioffice` and consumed with the same `find_package` call an
+  installed prefix uses. It has no dependencies to resolve — everything
+  third-party is vendored — and it offers `tools` and `mcp` as optional
+  features, neither on by default, so installing the library does not build the
+  `exyoki` utility or the three MCP servers. A vcpkg port belongs to a vcpkg
+  registry rather than to the project it packages, so the port sources are
+  maintained in a clone of microsoft/vcpkg; what this repository carries is the
+  consumer side of the package, in [vcpkg/](vcpkg/README.md): a standalone
+  project that reaches only for the installed headers and the exported target,
+  and the `Test-Port.ps1` script that installs the port and runs that project
+  against it, on any triplet and either from the released tag, the tip of
+  master, or the working tree.
+- A container image, built by the `create_install` workflow next to the zip
+  archives and uploaded as `ExyokiOffice-<version>-docker-amd64`, a gzipped
+  `docker save` tarball. It is distroless — the shared library, `exyoki`, the
+  three MCP servers, the third-party license notices, and nothing else, no
+  shell and no package manager. Running it with no arguments prints how to use
+  it; naming `exyoki`, `word`, `excel`, or `powerpoint` runs that program. The
+  MCP servers can therefore be registered with `"command": "docker"` without
+  installing anything. The image carries the standard OCI labels — version,
+  revision, creation time, license, source and the rest — which is how it can be
+  identified at all, having no shell to ask. See the [container
+  image](docs/tools/docker.md) chapter.
+- The build honors `BUILD_SHARED_LIBS`, so a static library is what the static
+  triplet of a package manager installs, and `EXYOKIOFFICE_RUN_GENERATOR`, on by
+  default, controls whether it reruns `OpenXmlGenerator`. The generated sources
+  are committed, so turning that off builds from them as they are — which is
+  what a packaging build needs, since it must not write into the source tree it
+  was handed, and what makes cross compilation possible at all.
 - The versioning and ABI policy is written down in [docs/ABI.md](docs/ABI.md):
   the ABI identity is `MAJOR.MINOR`, derived from `VERSION.txt`, and only a
   patch release promises an unchanged ABI.
@@ -247,3 +204,10 @@ summary below says what exists, not how far it goes.
 - The library is fuzzed with libFuzzer under AddressSanitizer, and every input
   that ever crashed a target is kept under `tests/fuzz/crashes/` and replayed
   by the ordinary unit test build. See [docs/fuzzing.md](docs/fuzzing.md).
+
+### Known limitations
+
+- Saving a signed package breaks the digests over its *content* parts, because
+  those are re-serialized from their trees rather than written as stored. This
+  is what `SignatureSavePolicy` warns about; the signature part itself survives
+  a save unchanged.
