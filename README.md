@@ -270,6 +270,13 @@ root [CMakeLists.txt](CMakeLists.txt).
 - [CONTRIBUTING.md](CONTRIBUTING.md) contains the contributor workflow and
   review checklist.
 
+## Development approach
+
+ExyokiOffice is a human-directed, AI-assisted open-source project. Claude Code
+and OpenAI Codex have been used extensively during implementation,
+documentation, testing, and review. Design decisions, release responsibility,
+and final acceptance remain with the project maintainer.
+
 ## License
 
 ExyokiOffice is released under the [MIT License](LICENSE). Vendored dependencies
