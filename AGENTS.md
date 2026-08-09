@@ -40,7 +40,7 @@ right implementation layer.
 | Handle signatures or linked resources | `ExyokiOffice::Security` | `docs/Signatures.md`, `docs/ExternalResources.md` | focused unit tests under `tests/package/` |
 | Design application concurrency | One document graph per worker, or one external mutex per graph | `docs/Threading.md` | locking and cancellation examples in the guide |
 | Change generated OpenXML behavior | `gen/` and its metadata readers | `gen/README.md`, `data/README.md` | generator tests under `tests/generator/` |
-| Build, test, lint, sanitize, or fuzz | CMake presets and Windows scripts | `README.md`, `docs/ci.md`, `docs/fuzzing.md` | `WinBuild.ps1`, `WinLint.ps1`, `WinFuzz.ps1` |
+| Build, test, lint, sanitize, fuzz, or measure coverage | CMake presets and Windows scripts | `README.md`, `docs/ci.md`, `docs/fuzzing.md`, `docs/coverage.md` | `WinBuild.ps1`, `WinLint.ps1`, `WinFuzz.ps1`, `WinCoverage.ps1` |
 
 ## Architecture and main API classes
 
@@ -355,6 +355,24 @@ minutes.
 `build/<preset>/fuzz-corpus`; `-Minimize` deliberately replaces the committed
 seed subset under `tests/fuzz/corpus`. Crash artifacts belong under
 `tests/fuzz/crashes` and become ordinary regression-test inputs.
+
+## Coverage
+
+```powershell
+.\WinCoverage.ps1
+.\WinCoverage.ps1 -Label word, spreadsheet -LabelExclude slow
+.\WinCoverage.ps1 -AllTests
+.\WinCoverage.ps1 -AllTests -Mcdc
+```
+
+`WinCoverage.ps1` measures which lines and regions of the library a CTest
+selection reaches, using LLVM source-based coverage through the clang-cl
+toolchain bundled with Visual Studio. It builds the
+`windows-ninja-clang-coverage` preset into its own directory, runs the selected
+labels with the raw profiles redirected under `build/coverage`, and writes a
+summary table and an HTML report there. Nothing in CI runs it. See
+`docs/coverage.md` for what the report includes, why the coverage build keeps
+the library shared, and the OpenCppCoverage alternative for an MSVC build.
 
 ## Documentation responsibilities
 

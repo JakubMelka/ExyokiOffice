@@ -63,6 +63,9 @@ option(EXYOKIOFFICE_RUN_GENERATOR
 
 include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)
+# After Sanitizers.cmake: the coverage runtime is located with the
+# exyokioffice_clang_runtime_dir helper defined there.
+include(cmake/Coverage.cmake)
 include(cmake/Fuzzing.cmake)
 include(cmake/Examples.cmake)
 
@@ -70,6 +73,11 @@ include(cmake/Examples.cmake)
 # scoped and have to reach the generator, the library, the examples and the
 # tests alike.
 exyokioffice_apply_sanitizers()
+
+# Directory scoped for the same reason, and for the additional one that a
+# translation unit compiled without the coverage mapping is missing from the
+# report rather than reported as uncovered.
+exyokioffice_apply_coverage()
 
 # Fuzzing instrumentation is applied per target, not directory wide, so the
 # check only validates the configuration here.

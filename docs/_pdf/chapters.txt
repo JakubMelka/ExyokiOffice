@@ -65,3 +65,4 @@ Compatibility.md
 ABI.md
 ci.md
 fuzzing.md
+coverage.md

@@ -72,6 +72,43 @@
             }
         },
         {
+            "name": "windows-ninja-clang-coverage",
+            "displayName": "Windows x64 coverage (Ninja, VS Clang)",
+            "inherits": "windows-ninja-clang-release",
+            "binaryDir": "${sourceDir}/build/ninja-clang-coverage",
+            "cacheVariables": {
+                "EXYOKIOFFICE_COVERAGE": "ON",
+                "EXYOKIOFFICE_RUN_GENERATOR": "OFF"
+            }
+        },
+        {
+            "name": "windows-ninja-clang-coverage-debug",
+            "displayName": "Windows x64 coverage, unoptimized (Ninja, VS Clang)",
+            "inherits": "windows-ninja-clang-coverage",
+            "binaryDir": "${sourceDir}/build/ninja-clang-coverage-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "windows-ninja-clang-coverage-mcdc",
+            "displayName": "Windows x64 coverage with MC/DC (Ninja, VS Clang)",
+            "inherits": "windows-ninja-clang-coverage",
+            "binaryDir": "${sourceDir}/build/ninja-clang-coverage-mcdc",
+            "cacheVariables": {
+                "EXYOKIOFFICE_COVERAGE_MCDC": "ON"
+            }
+        },
+        {
+            "name": "windows-ninja-clang-coverage-mcdc-debug",
+            "displayName": "Windows x64 coverage with MC/DC, unoptimized (Ninja, VS Clang)",
+            "inherits": "windows-ninja-clang-coverage-mcdc",
+            "binaryDir": "${sourceDir}/build/ninja-clang-coverage-mcdc-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
             "name": "windows-vs-asan",
             "displayName": "Windows x64 AddressSanitizer (Visual Studio 2026)",
             "inherits": "windows-vs",
@@ -197,6 +234,22 @@
             "configurePreset": "windows-ninja-clang-release"
         },
         {
+            "name": "ninja-clang-coverage",
+            "configurePreset": "windows-ninja-clang-coverage"
+        },
+        {
+            "name": "ninja-clang-coverage-debug",
+            "configurePreset": "windows-ninja-clang-coverage-debug"
+        },
+        {
+            "name": "ninja-clang-coverage-mcdc",
+            "configurePreset": "windows-ninja-clang-coverage-mcdc"
+        },
+        {
+            "name": "ninja-clang-coverage-mcdc-debug",
+            "configurePreset": "windows-ninja-clang-coverage-mcdc-debug"
+        },
+        {
             "name": "asan-debug",
             "configurePreset": "windows-vs-asan",
             "configuration": "Debug"
@@ -273,6 +326,26 @@
             "name": "ninja-release",
             "inherits": "test-base",
             "configurePreset": "windows-ninja-release"
+        },
+        {
+            "name": "ninja-clang-coverage",
+            "inherits": "test-base",
+            "configurePreset": "windows-ninja-clang-coverage"
+        },
+        {
+            "name": "ninja-clang-coverage-debug",
+            "inherits": "test-base",
+            "configurePreset": "windows-ninja-clang-coverage-debug"
+        },
+        {
+            "name": "ninja-clang-coverage-mcdc",
+            "inherits": "test-base",
+            "configurePreset": "windows-ninja-clang-coverage-mcdc"
+        },
+        {
+            "name": "ninja-clang-coverage-mcdc-debug",
+            "inherits": "test-base",
+            "configurePreset": "windows-ninja-clang-coverage-mcdc-debug"
         },
         {
             "name": "asan-debug",

@@ -187,6 +187,17 @@ At minimum, run the affected test target and its matching CTest preset. Run
 Debug and RelWithDebInfo when behavior may depend on assertions, optimization,
 or configuration. Use AddressSanitizer for memory-safety-sensitive work.
 
+To find out what a layer actually reaches before adding tests to it, measure it:
+
+```powershell
+.\WinCoverage.ps1 -Label word
+```
+
+`WinCoverage.ps1` builds an instrumented clang-cl tree of its own and writes a
+summary table and an HTML report under `build\coverage`. It is a way of finding
+untested code, not a gate — no threshold is enforced and nothing in CI runs it.
+See [docs/coverage.md](docs/coverage.md).
+
 ## Documentation and compatibility
 
 Public behavior is not complete until it is documented. In the same change:

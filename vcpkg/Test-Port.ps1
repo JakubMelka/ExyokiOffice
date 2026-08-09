@@ -48,7 +48,13 @@ function Invoke-CheckedCommand {
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $testDirectory = Join-Path $PSScriptRoot 'test'
-$buildDirectory = Join-Path $testDirectory 'build\port'
+$buildRoot = Join-Path $testDirectory 'build\port'
+
+# One CMake build tree per triplet. A single shared tree would carry the previous
+# run's cache, and both find_package and the find_program calls in test are
+# cached, so a run for another triplet would silently link the package it found
+# the last time - a static one against the dynamic runtime, for instance.
+$buildDirectory = Join-Path $buildRoot $Triplet
 $installRoot = Join-Path $testDirectory 'build\installed'
 $overlayRoot = Join-Path $testDirectory 'build\overlay'
 
@@ -91,16 +97,21 @@ foreach ($requiredPath in @($cmakeExe, $ctestExe)) {
 }
 
 if ($Clean) {
-    foreach ($stalePath in @($buildDirectory, $installRoot, $overlayRoot)) {
+    foreach ($stalePath in @($buildRoot, $installRoot, $overlayRoot)) {
         if (Test-Path -LiteralPath $stalePath) {
             Remove-Item -LiteralPath $stalePath -Recurse -Force
         }
     }
 }
 
+# --classic because vcpkg otherwise decides between classic and manifest mode by
+# searching the working directory and its parents for a vcpkg.json, and this
+# script installs a named port with --head or an overlay - none of which manifest
+# mode accepts. Run from vcpkg/test, it would find that project's own manifest.
 $installArguments = @(
     'install',
     "exyokioffice[tools,mcp]:$Triplet",
+    '--classic',
     "--x-install-root=$installRoot"
 )
 

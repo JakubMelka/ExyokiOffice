@@ -9,7 +9,17 @@ and `Security`, and describe user-visible changes rather than commits.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- Code coverage measurement: the `EXYOKIOFFICE_COVERAGE` build option, the
+  `windows-ninja-clang-coverage` presets, and `WinCoverage.ps1`, which runs a
+  chosen set of CTest labels against an instrumented clang-cl build and writes
+  a summary table and an HTML report under `build/coverage`. Documented in
+  [docs/coverage.md](docs/coverage.md). Nothing in CI runs it.
+- MC/DC coverage as part of the same tooling: the `EXYOKIOFFICE_COVERAGE_MCDC`
+  option, the `windows-ninja-clang-coverage-mcdc` presets, and the `-Mcdc`
+  switch on `WinCoverage.ps1`, which builds a tree of its own and reports into
+  `build/coverage-mcdc`.
 
 ## [1.0.0] - 2026-08-08
 

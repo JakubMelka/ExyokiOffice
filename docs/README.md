@@ -96,6 +96,7 @@ documentation generated from the headers under `include/ExyokiOffice`.
 | [Versioning and ABI](ABI.md) | Semantic versioning, why only patch releases keep the ABI, and what the installed shared library guarantees. |
 | [Continuous integration](ci.md) | The manual-only workflows and what each one builds. |
 | [Fuzzing](fuzzing.md) | The libFuzzer targets, `WinFuzz.ps1`, the corpus, and how crash artifacts become regression tests. |
+| [Code coverage](coverage.md) | Measuring what the test suite reaches with LLVM source-based coverage and `WinCoverage.ps1`, and the OpenCppCoverage alternative for an MSVC build. |
 
 ## Runnable examples
 
