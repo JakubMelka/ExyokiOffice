@@ -65,12 +65,7 @@ function(exyokioffice_add_test_executable target)
         ${PROJECT_SOURCE_DIR}/sources/zip)
 
     # The working directory of a CTest entry is not on the DLL search path.
-    if(EXYOKIOFFICE_LIBRARY_KIND STREQUAL "SHARED")
-        add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    $<TARGET_FILE:ExyokiOffice>
-                    $<TARGET_FILE_DIR:${target}>)
-    endif()
+    exyokioffice_copy_runtime_library(${target})
 
     set_property(GLOBAL PROPERTY EXYOKIOFFICE_TEST_LAYER_${arg_LAYER}_TARGET ${target})
     set_property(GLOBAL PROPERTY EXYOKIOFFICE_TEST_LAYER_${arg_LAYER}_PREFIX ${arg_PREFIX})
@@ -235,4 +230,166 @@ function(exyokioffice_finalize_test_layer layer)
         -DEXCLUDE_FILTER=${excludeFilter}
         -P ${PROJECT_SOURCE_DIR}/cmake/CheckTestPartition.cmake)
     set_tests_properties(${prefix}.Partition PROPERTIES LABELS "${layerLabels};partition")
+endfunction()
+
+# Builds the whole library and every registered test layer into one
+# executable, ExyokiOfficeMonolithTests. Must be called from the root scope
+# after every layer has been added.
+#
+# The target exists for coverage measurement. Coverage of a function belongs
+# to the binary that compiled it, and the same inline function hashes
+# differently across this project's modules, so a multi-binary report
+# (llvm-cov with several -object arguments) drops a large share of records as
+# mismatched. One binary has no seams: header code instantiated by tests is
+# attributed exactly, and the whole suite produces a single raw profile. See
+# docs/coverage.md for the workflow and WinCoverage.ps1 -Monolith for the
+# driver.
+#
+# The library's translation units are compiled into the executable rather
+# than linked as a library: a shared library would reintroduce the module
+# seam, and whole-archiving the static one trips the linker over the .rc
+# resource member. The version resource is left out for the same reason -
+# a coverage harness needs no version stamp.
+#
+# No CTest entry is registered on purpose: the layers already cover the suite
+# for a plain `ctest`, and a second, serial sweep of everything would double
+# every run. The executable is meant to be run directly, once.
+#
+# The assembly mirrors targets by property (SOURCES, INCLUDE_DIRECTORIES,
+# COMPILE_DEFINITIONS) rather than consuming a shared build definition, so
+# target-level COMPILE_OPTIONS, per-source properties, and the SYSTEM marking
+# of include directories deliberately do not transfer: the monolith compiles
+# with the toolchain's default warnings, which is what lets the vendored
+# sources build without the strict-warning exemptions the ordinary targets
+# arrange. A property the build later starts to rely on for correctness has
+# to be added to the mirror loop below.
+function(exyokioffice_add_test_monolith)
+    get_property(layers GLOBAL PROPERTY EXYOKIOFFICE_TEST_LAYERS)
+    if(NOT layers)
+        message(FATAL_ERROR "exyokioffice_add_test_monolith: no test layers are registered")
+    endif()
+
+    # A shared library cannot back the monolith: the import library's thunks
+    # would collide with the same definitions compiled into the executable.
+    if(EXYOKIOFFICE_LIBRARY_KIND STREQUAL "SHARED")
+        message(FATAL_ERROR
+            "EXYOKIOFFICE_TEST_MONOLITH needs a static library build; configure with "
+            "BUILD_SHARED_LIBS=OFF (the windows-ninja-clang-coverage-monolith preset "
+            "does).")
+    endif()
+
+    set(monolithSources)
+    _exyokioffice_append_target_sources(ExyokiOffice TRUE monolithSources)
+
+    set(layerTargets)
+    set(candidateLibraries)
+    foreach(layer IN LISTS layers)
+        get_property(layerTarget GLOBAL PROPERTY EXYOKIOFFICE_TEST_LAYER_${layer}_TARGET)
+        list(APPEND layerTargets ${layerTarget})
+        _exyokioffice_append_target_sources(${layerTarget} FALSE monolithSources)
+        get_target_property(layerLibraries ${layerTarget} LINK_LIBRARIES)
+        if(layerLibraries)
+            list(APPEND candidateLibraries ${layerLibraries})
+        endif()
+    endforeach()
+
+    # The helper archives (test support, MCP core, fuzz targets) name
+    # ExyokiOffice in their link interface. Linking them would drag the whole
+    # static library onto the build and the link line - every translation
+    # unit compiled a second time for an archive no member is ever pulled
+    # from, since the executable already defines every symbol. Their sources
+    # are folded into the executable instead, and only link entries free of
+    # the library (system libraries, generator_support) stay on the line.
+    set(foldedLibraries)
+    set(keptLibraries)
+    list(REMOVE_DUPLICATES candidateLibraries)
+    while(candidateLibraries)
+        list(POP_FRONT candidateLibraries candidate)
+        if(candidate STREQUAL "ExyokiOffice"
+           OR candidate IN_LIST foldedLibraries
+           OR candidate IN_LIST keptLibraries)
+            continue()
+        endif()
+        if(TARGET ${candidate})
+            get_target_property(candidateType ${candidate} TYPE)
+            get_target_property(candidateLinks ${candidate} LINK_LIBRARIES)
+            if(candidateType STREQUAL "STATIC_LIBRARY" AND "ExyokiOffice" IN_LIST candidateLinks)
+                list(APPEND foldedLibraries ${candidate})
+                _exyokioffice_append_target_sources(${candidate} TRUE monolithSources)
+                list(APPEND candidateLibraries ${candidateLinks})
+                continue()
+            endif()
+        endif()
+        list(APPEND keptLibraries ${candidate})
+    endwhile()
+
+    # TestMain.cpp arrives once per layer, and the folded archives share
+    # vendored translation units with the library; each is compiled once.
+    list(REMOVE_DUPLICATES monolithSources)
+
+    add_executable(ExyokiOfficeMonolithTests ${monolithSources})
+    target_link_libraries(ExyokiOfficeMonolithTests PRIVATE ${keptLibraries})
+
+    # The library's dependency on the generator does not travel with its
+    # source list, and the generated sources are compiled here directly.
+    if(TARGET generate_openxml)
+        add_dependencies(ExyokiOfficeMonolithTests generate_openxml)
+    endif()
+
+    # The union of the compile environment of the library, the folded helper
+    # archives, and every layer - the MCP layer, for one, adds the toolset
+    # headers on top of the shared set.
+    foreach(mirrored ExyokiOffice ${foldedLibraries} ${layerTargets})
+        target_include_directories(ExyokiOfficeMonolithTests PRIVATE
+            $<TARGET_PROPERTY:${mirrored},INCLUDE_DIRECTORIES>)
+        target_compile_definitions(ExyokiOfficeMonolithTests PRIVATE
+            $<TARGET_PROPERTY:${mirrored},COMPILE_DEFINITIONS>)
+    endforeach()
+
+    # The library sources see an empty EXYOKIOFFICE_EXPORT: they are neither
+    # exported from a DLL nor imported from one, whatever the library kind of
+    # the surrounding build is.
+    target_compile_definitions(ExyokiOfficeMonolithTests PRIVATE EXYOKIOFFICE_STATIC_DEFINE)
+
+    # The report's denominator is the whole library. cmake/Coverage.cmake
+    # keeps the ordinary coverage build shared for exactly this reason; the
+    # static monolith states it as linker options, so a function no test
+    # calls stays in the binary as an uncovered row instead of being dropped
+    # from the population by reference elimination or identical folding.
+    if(MSVC)
+        target_link_options(ExyokiOfficeMonolithTests PRIVATE /OPT:NOREF /OPT:NOICF)
+    endif()
+
+    # System libraries the library itself links; the library and the folded
+    # archives are already part of the executable.
+    get_target_property(libraryLinkLibraries ExyokiOffice LINK_LIBRARIES)
+    if(libraryLinkLibraries)
+        foreach(entry IN LISTS libraryLinkLibraries)
+            if(NOT entry STREQUAL "ExyokiOffice" AND NOT entry IN_LIST foldedLibraries)
+                target_link_libraries(ExyokiOfficeMonolithTests PRIVATE ${entry})
+            endif()
+        endforeach()
+    endif()
+endfunction()
+
+# Appends @p target's SOURCES to the list variable @p outputVariable, made
+# absolute against the target's source directory - the monolith references
+# them from another directory. Resource scripts are skipped when
+# @p skipResources is true: the coverage harness carries no version stamp,
+# and whole-archiving a resource member is what broke the archive route.
+function(_exyokioffice_append_target_sources target skipResources outputVariable)
+    get_target_property(sources ${target} SOURCES)
+    get_target_property(sourceDirectory ${target} SOURCE_DIR)
+    set(collected ${${outputVariable}})
+    foreach(source IN LISTS sources)
+        if(skipResources AND source MATCHES "\\.(rc|res)$")
+            continue()
+        endif()
+        if(IS_ABSOLUTE "${source}")
+            list(APPEND collected "${source}")
+        else()
+            list(APPEND collected "${sourceDirectory}/${source}")
+        endif()
+    endforeach()
+    set(${outputVariable} ${collected} PARENT_SCOPE)
 endfunction()

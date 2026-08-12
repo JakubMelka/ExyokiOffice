@@ -179,4 +179,145 @@ TEST_SUITE("WordRevisionTests")
         CHECK(rejectedParagraphs[1]->PlainText() == "Beta");
     }
 
+    // Moves are the pair of tracked changes Word records when content is
+    // dragged to a new place with change tracking on: the source becomes
+    // `w:moveFrom` (deleted-style content) and the destination `w:moveTo`
+    // (inserted-style content). Accepting keeps the destination and drops the
+    // source; rejecting does the reverse. Either way the text must exist
+    // exactly once afterwards - twice would duplicate the moved content, zero
+    // times would lose it.
+    TEST_CASE("Move revisions resolve to exactly one copy of the moved text [unit] [word] [word-revision]")
+    {
+        const auto build = []
+        {
+            auto editor = WordDocumentEditor::CreateNew();
+            REQUIRE(editor != nullptr);
+
+            auto source = editor->AddParagraph();
+            REQUIRE(source != nullptr);
+            auto moveFrom = source->GetLowLevelApi()->AppendChild<W::MoveFromRun>();
+            REQUIRE(moveFrom != nullptr);
+            moveFrom->SetId(ExyokiOffice::StringValue("10"));
+            moveFrom->SetAuthor(ExyokiOffice::StringValue("Carol"));
+            auto sourceRun = moveFrom->AppendChild<W::Run>();
+            REQUIRE(sourceRun != nullptr);
+            auto sourceText = sourceRun->AppendChild<W::DeletedText>();
+            REQUIRE(sourceText != nullptr);
+            sourceText->SetText("moved sentence");
+
+            auto destination = editor->AddParagraph();
+            REQUIRE(destination != nullptr);
+            auto moveTo = destination->GetLowLevelApi()->AppendChild<W::MoveToRun>();
+            REQUIRE(moveTo != nullptr);
+            moveTo->SetId(ExyokiOffice::StringValue("11"));
+            moveTo->SetAuthor(ExyokiOffice::StringValue("Carol"));
+            auto destinationRun = moveTo->AppendChild<W::Run>();
+            REQUIRE(destinationRun != nullptr);
+            auto destinationText = destinationRun->AppendChild<W::Text>();
+            REQUIRE(destinationText != nullptr);
+            destinationText->SetText("moved sentence");
+
+            return editor;
+        };
+
+        SUBCASE("both halves are enumerated with their metadata")
+        {
+            auto editor = build();
+            auto revisions = editor->Revisions();
+            REQUIRE(revisions.size() == 2);
+            CHECK(revisions[0]->Type() == RevisionType::MoveFrom);
+            CHECK(revisions[0]->GetAuthor() == "Carol");
+            // The source half stores its text as w:delText, like a deletion.
+            CHECK(revisions[0]->Text() == "moved sentence");
+            CHECK(revisions[1]->Type() == RevisionType::MoveTo);
+            CHECK(revisions[1]->Text() == "moved sentence");
+        }
+
+        // A paragraph whose only content was the removed half of the move is
+        // removed with it, so the resolved document holds one paragraph, not
+        // an empty leftover.
+        SUBCASE("accepting keeps the destination copy only")
+        {
+            auto editor = build();
+            CHECK(editor->AcceptAllRevisions() == 2);
+            CHECK(editor->Revisions().empty());
+
+            auto reopened = Reopen(editor);
+            auto paragraphs = reopened->Paragraphs();
+            REQUIRE(paragraphs.size() == 1);
+            CHECK(paragraphs.front()->PlainText() == "moved sentence");
+        }
+
+        SUBCASE("rejecting restores the source copy only")
+        {
+            auto editor = build();
+            CHECK(editor->RejectAllRevisions() == 2);
+            CHECK(editor->Revisions().empty());
+
+            auto reopened = Reopen(editor);
+            auto paragraphs = reopened->Paragraphs();
+            REQUIRE(paragraphs.size() == 1);
+            CHECK(paragraphs.front()->PlainText() == "moved sentence");
+        }
+    }
+
+    // Formatting revisions (`w:pPrChange`, `w:rPrChange`) appear whenever a
+    // style, alignment or run property is edited with tracking on. They carry
+    // the previous properties as their payload, contain no body text, and both
+    // resolutions drop the record while leaving the current formatting alone.
+    // A reader that missed them would report a reviewed document as clean.
+    TEST_CASE("Formatting change records are enumerated and resolved without touching content [unit] [word] [word-revision]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+
+        auto paragraph = editor->AddParagraph("Styled text");
+        REQUIRE(paragraph != nullptr);
+        paragraph->SetAlignment(W::JustificationValues::Center);
+
+        auto lowParagraph = paragraph->GetLowLevelApi();
+        REQUIRE(lowParagraph != nullptr);
+        auto properties = lowParagraph->GetFirstChildOfType<W::ParagraphProperties>();
+        REQUIRE(properties != nullptr);
+        auto paragraphChange = properties->AppendChild<W::ParagraphPropertiesChange>();
+        REQUIRE(paragraphChange != nullptr);
+        paragraphChange->SetAuthor(ExyokiOffice::StringValue("Dave"));
+        paragraphChange->SetId(ExyokiOffice::StringValue("21"));
+
+        auto runs = paragraph->Runs();
+        REQUIRE_FALSE(runs.empty());
+        runs.front()->SetBold(true);
+        auto runProperties = runs.front()->GetLowLevelApi()->GetFirstChildOfType<W::RunProperties>();
+        REQUIRE(runProperties != nullptr);
+        auto runChange = runProperties->AppendChild<W::RunPropertiesChange>();
+        REQUIRE(runChange != nullptr);
+        runChange->SetAuthor(ExyokiOffice::StringValue("Dave"));
+        runChange->SetId(ExyokiOffice::StringValue("22"));
+
+        auto revisions = editor->Revisions();
+        REQUIRE(revisions.size() == 2);
+        for (const auto& revision : revisions)
+        {
+            CHECK(revision->GetAuthor() == "Dave");
+            // A formatting record wraps properties, never body text.
+            CHECK(revision->Text().empty());
+        }
+
+        CHECK(editor->AcceptAllRevisions() == 2);
+        CHECK(editor->Revisions().empty());
+
+        auto reopened = Reopen(editor);
+        CHECK(reopened->Revisions().empty());
+        auto reopenedParagraphs = reopened->Paragraphs();
+        REQUIRE(reopenedParagraphs.size() == 1);
+        // The tracked-change records are gone; the formatting they described
+        // as changed stays in force.
+        CHECK(reopenedParagraphs.front()->PlainText() == "Styled text");
+        auto reopenedRuns = reopenedParagraphs.front()->Runs();
+        REQUIRE_FALSE(reopenedRuns.empty());
+        const auto bold = reopenedRuns.front()->GetBold();
+        REQUIRE(bold.has_value());
+        CHECK(*bold);
+    }
+
 } // TEST_SUITE("WordRevisionTests")

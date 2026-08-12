@@ -363,6 +363,7 @@ seed subset under `tests/fuzz/corpus`. Crash artifacts belong under
 .\WinCoverage.ps1 -Label word, spreadsheet -LabelExclude slow
 .\WinCoverage.ps1 -AllTests
 .\WinCoverage.ps1 -AllTests -Mcdc
+.\WinCoverage.ps1 -Monolith
 ```
 
 `WinCoverage.ps1` measures which lines and regions of the library a CTest
@@ -370,9 +371,12 @@ selection reaches, using LLVM source-based coverage through the clang-cl
 toolchain bundled with Visual Studio. It builds the
 `windows-ninja-clang-coverage` preset into its own directory, runs the selected
 labels with the raw profiles redirected under `build/coverage`, and writes a
-summary table and an HTML report there. Nothing in CI runs it. See
-`docs/coverage.md` for what the report includes, why the coverage build keeps
-the library shared, and the OpenCppCoverage alternative for an MSVC build.
+summary table and an HTML report there. `-Mcdc` adds MC/DC in a second tree;
+`-Monolith` measures against one executable holding the library and every test
+layer, the only mode that attributes header code instantiated by tests.
+Nothing in CI runs it. See `docs/coverage.md` for what each report includes,
+why the coverage build keeps the library shared, and the OpenCppCoverage
+alternative for an MSVC build.
 
 ## Documentation responsibilities
 
@@ -384,6 +388,8 @@ the library shared, and the OpenCppCoverage alternative for an MSVC build.
 - `CONTRIBUTING.md` is the contributor workflow and review checklist.
 - `llms.txt` is the compact AI documentation index; `llms-full.txt` is the
   self-contained AI context.
+- `MARKETING.md` is the plan for making the library known; it carries no
+  project knowledge a code change would need to keep in step.
 - `docs/Compatibility.md` is authoritative for feature support.
 - `docs/Threading.md` defines the runtime concurrency contract.
 

@@ -54,14 +54,8 @@ if(NOT WIN32)
 endif()
 
 # Only a shared build has a runtime file to place next to the executable; a
-# static one links it in and $<TARGET_FILE:ExyokiOffice> is then the import
-# library, which has no business sitting in the output directory.
-if(EXYOKIOFFICE_LIBRARY_KIND STREQUAL "SHARED")
-    add_custom_command(TARGET exyoki POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_FILE:ExyokiOffice>
-                $<TARGET_FILE_DIR:exyoki>)
-endif()
+# static one links it in, and the helper is a no-op there.
+exyokioffice_copy_runtime_library(exyoki)
 
 # `exyoki commands` is the machine-readable description of this interface, so it
 # has to stay complete on its own. See cmake/CheckCommandCatalog.cmake for what

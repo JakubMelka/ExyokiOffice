@@ -53,6 +53,12 @@ option(EXYOKIOFFICE_BUILD_MCP "Build the exyoki MCP servers" ON)
 # the entry at an interpreter of your own.
 option(EXYOKIOFFICE_BUILD_MCP_PYTHON_TESTS "Register tests/mcp_python as the Mcp.Python CTest entry" OFF)
 option(EXYOKIOFFICE_BUILD_FUZZERS "Build libFuzzer targets (needs Clang or MSVC plus EXYOKIOFFICE_SANITIZER=address)" OFF)
+# One executable holding the library and every test layer, for coverage
+# measurement without module seams; see exyokioffice_add_test_monolith in
+# cmake/Tests.cmake. Off by default because it roughly doubles what a full
+# build compiles.
+option(EXYOKIOFFICE_TEST_MONOLITH
+    "Build ExyokiOfficeMonolithTests, the single-executable coverage target" OFF)
 # The generated sources are committed, so a build does not need the generator to
 # produce them - it reruns it to keep them in step with data/ and gen/. Two kinds
 # of build want the committed files taken as they are: a package build must not
@@ -62,6 +68,7 @@ option(EXYOKIOFFICE_RUN_GENERATOR
     "Run OpenXmlGenerator during the build and refresh the committed generated sources" ON)
 
 include(cmake/CompilerWarnings.cmake)
+include(cmake/RuntimeLibraryCopy.cmake)
 include(cmake/Sanitizers.cmake)
 # After Sanitizers.cmake: the coverage runtime is located with the
 # exyokioffice_clang_runtime_dir helper defined there.
@@ -599,4 +606,15 @@ if(EXYOKIOFFICE_BUILD_MCP)
     if(EXYOKIOFFICE_BUILD_UNIT_TESTS)
         add_subdirectory(tests/mcp)
     endif()
+endif()
+
+# Last on purpose: the monolith folds in every layer registered above,
+# including tests/mcp.
+if(EXYOKIOFFICE_TEST_MONOLITH)
+    if(NOT EXYOKIOFFICE_BUILD_UNIT_TESTS)
+        message(FATAL_ERROR
+            "EXYOKIOFFICE_TEST_MONOLITH=ON needs EXYOKIOFFICE_BUILD_UNIT_TESTS=ON; "
+            "the monolith is assembled from the test layers.")
+    endif()
+    exyokioffice_add_test_monolith()
 endif()

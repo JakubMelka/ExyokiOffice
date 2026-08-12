@@ -7,6 +7,7 @@
 #include "ExyokiOffice/DOM/OpenXmlElementFactory.hpp"
 #include "ExyokiOffice/XmlLocationCache.hpp"
 #include "MarkupCompatibilityInternal.hpp"
+#include "OpenXmlContentModel.hpp"
 #include "OpenXmlDomInternal.hpp"
 #include "XmlNamespaceResolver.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
@@ -384,41 +385,6 @@ public:
     }
 
 private:
-    static bool WildcardMatches(std::string_view wildcard,
-                                std::string_view namespaceUri,
-                                std::string_view targetNamespace)
-    {
-        if (wildcard.empty() || wildcard == "##any")
-        {
-            return true;
-        }
-        Size start = 0;
-        while (start < wildcard.size())
-        {
-            while (start < wildcard.size() && wildcard[start] == ' ')
-            {
-                ++start;
-            }
-            const auto end = wildcard.find(' ', start);
-            const auto token = wildcard.substr(start, end == std::string_view::npos
-                                                          ? wildcard.size() - start
-                                                          : end - start);
-            if ((token == "##local" && namespaceUri.empty()) ||
-                (token == "##targetNamespace" && namespaceUri == targetNamespace) ||
-                (token == "##other" && !namespaceUri.empty() && namespaceUri != targetNamespace) ||
-                token == namespaceUri)
-            {
-                return true;
-            }
-            if (end == std::string_view::npos)
-            {
-                break;
-            }
-            start = end + 1;
-        }
-        return false;
-    }
-
     static std::optional<Size> MultiplyCapacity(std::optional<Size> value,
                                                 const MetadataParticle& particle)
     {
@@ -453,9 +419,9 @@ private:
         }
         if (particle->Kind() == MetadataParticleKind::Any)
         {
-            if (!WildcardMatches(static_cast<const MetadataAnyParticle&>(*particle).Wildcard(),
-                                 childName.namespaceUri(),
-                                 targetNamespace))
+            if (!ContentModelWildcardMatches(
+                    static_cast<const MetadataAnyParticle&>(*particle).Wildcard(),
+                    childName.namespaceUri(), targetNamespace))
             {
                 return 0;
             }

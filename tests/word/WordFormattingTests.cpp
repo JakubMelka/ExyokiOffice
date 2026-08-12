@@ -26,6 +26,9 @@ using ExyokiOffice::Word::ParagraphSpacing;
 using ExyokiOffice::Word::ParagraphSpacingLines;
 using ExyokiOffice::Word::WordDocumentEditor;
 
+constexpr std::string_view kWordNamespace =
+    "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
 int Twips(const MeasuringUnits& value)
 {
     return static_cast<int>(std::lround(value.ToTw().GetValue()));
@@ -331,6 +334,170 @@ TEST_SUITE("WordFormattingTests")
 
         auto saved = editor->SaveToMemory();
         REQUIRE_FALSE(saved.empty());
+    }
+
+    // ST_OnOff admits `1`/`true`/`on` and `0`/`false`/`off`, Word itself writes
+    // the numeric pair, and other producers (LibreOffice, legacy exporters) use
+    // the word pairs in either case. The library's own writer emits one canonical
+    // spelling, so reading the others can only be exercised by planting the raw
+    // attribute under the canonical element and round-tripping the package.
+    TEST_CASE("On/off run properties accept every producer spelling of ST_OnOff [unit] [word] [word-formatting]")
+    {
+        struct Spelling
+        {
+            std::string_view Value;
+            bool Expected;
+            bool Qualified; // w:val versus a bare val attribute
+        };
+
+        // The unqualified `val` rows mirror non-conformant producers that drop
+        // the attribute namespace; the reader accepts both.
+        const Spelling spellings[] = {
+            {"1", true, true},
+            {"true", true, true},
+            {"on", true, true},
+            {"0", false, true},
+            {"false", false, true},
+            {"off", false, true},
+            {"True", true, true},
+            {"ON", true, true},
+            {"FALSE", false, true},
+            {"Off", false, true},
+            {"on", true, false},
+            {"OFF", false, false},
+        };
+
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+
+        for (const auto& spelling : spellings)
+        {
+            auto paragraph = editor->AddParagraph();
+            REQUIRE(paragraph != nullptr);
+            auto run = paragraph->AddRun();
+            REQUIRE(run != nullptr);
+            const std::string text =
+                std::string(spelling.Value) + (spelling.Qualified ? "/w" : "/bare");
+            REQUIRE(run->AddText(text) != nullptr);
+
+            // SetBold writes the canonical element; the raw attribute then
+            // replaces whatever spelling the writer chose.
+            run->SetBold(true);
+            auto properties = run->GetLowLevelApi()
+                                  ->GetFirstChildOfType<W::RunProperties>();
+            REQUIRE(properties != nullptr);
+            auto bold = properties->GetFirstChildOfType<W::Bold>();
+            REQUIRE(bold != nullptr);
+            const auto name = spelling.Qualified
+                                  ? ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "val")
+                                  : ExyokiOffice::OpenXmlQualifiedName({}, "val");
+            if (!spelling.Qualified)
+            {
+                // Drop the canonical attribute the writer may have produced, so
+                // only the unqualified one remains to be found.
+                bold->RemoveAttribute(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "val"));
+            }
+            bold->SetAttribute(name, spelling.Value);
+        }
+
+        auto reopened = WordDocumentEditor::Open(editor->SaveToMemory());
+        REQUIRE(reopened != nullptr);
+        const auto reopenedParagraphs = reopened->Paragraphs();
+
+        for (const auto& spelling : spellings)
+        {
+            const std::string text =
+                std::string(spelling.Value) + (spelling.Qualified ? "/w" : "/bare");
+            bool found = false;
+            for (const auto& paragraph : reopenedParagraphs)
+            {
+                if (!paragraph || paragraph->PlainText() != text)
+                {
+                    continue;
+                }
+                auto runs = paragraph->Runs();
+                REQUIRE_FALSE(runs.empty());
+                const auto bold = runs.front()->GetBold();
+                REQUIRE_MESSAGE(bold.has_value(), "spelling: ", text);
+                CHECK_MESSAGE(*bold == spelling.Expected, "spelling: ", text);
+                found = true;
+                break;
+            }
+            CHECK_MESSAGE(found, "paragraph for spelling not found: ", text);
+        }
+    }
+
+    TEST_CASE("An on/off element with an unreadable value still means on [unit] [word] [word-formatting]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto paragraph = editor->AddParagraph();
+        REQUIRE(paragraph != nullptr);
+        auto run = paragraph->AddRun();
+        REQUIRE(run != nullptr);
+        REQUIRE(run->AddText("presence semantics") != nullptr);
+
+        // `<w:i w:val="maybe"/>`: not a member of ST_OnOff in either casing.
+        // The element being present at all is what turns the property on, so a
+        // reader must fall back to true rather than dropping the formatting.
+        run->SetItalic(true);
+        auto properties = run->GetLowLevelApi()->GetFirstChildOfType<W::RunProperties>();
+        REQUIRE(properties != nullptr);
+        auto italic = properties->GetFirstChildOfType<W::Italic>();
+        REQUIRE(italic != nullptr);
+        italic->SetAttribute(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "val"), "maybe");
+
+        // `<w:caps w:val=""/>`: the empty string is not a value of ST_OnOff
+        // either (unlike ST_TrueFalseBlank), so presence again means on.
+        run->SetCaps(true);
+        auto caps = properties->GetFirstChildOfType<W::Caps>();
+        REQUIRE(caps != nullptr);
+        caps->SetAttribute(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "val"), "");
+
+        // Keep the whole struct: the Run wrapper holds only the DOM element,
+        // so the reopened editor must outlive every access below.
+        const auto reopened = ReopenFirstRunByText(editor, "presence semantics");
+        const auto& reopenedRun = reopened.Run;
+        REQUIRE(reopenedRun != nullptr);
+        const auto italicValue = reopenedRun->GetItalic();
+        REQUIRE(italicValue.has_value());
+        CHECK(*italicValue == true);
+        const auto capsValue = reopenedRun->GetCaps();
+        REQUIRE(capsValue.has_value());
+        CHECK(*capsValue == true);
+    }
+
+    TEST_CASE("Paragraph pagination flags read foreign on/off spellings [unit] [word] [word-formatting]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto paragraph = editor->AddParagraph();
+        REQUIRE(paragraph != nullptr);
+        auto run = paragraph->AddRun();
+        REQUIRE(run != nullptr);
+        REQUIRE(run->AddText("pagination") != nullptr);
+
+        paragraph->SetKeepWithNext(true).SetWidowControl(true);
+        auto lowParagraph = paragraph->GetLowLevelApi();
+        REQUIRE(lowParagraph != nullptr);
+        auto properties = lowParagraph->GetFirstChildOfType<W::ParagraphProperties>();
+        REQUIRE(properties != nullptr);
+        auto keepNext = properties->GetFirstChildOfType<W::KeepNext>();
+        REQUIRE(keepNext != nullptr);
+        keepNext->SetAttribute(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "val"), "Off");
+        auto widowControl = properties->GetFirstChildOfType<W::WidowControl>();
+        REQUIRE(widowControl != nullptr);
+        widowControl->SetAttribute(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "val"),
+                                   "TRUE");
+
+        auto reopened = ReopenParagraphByText(editor, "pagination");
+        REQUIRE(reopened.Paragraph != nullptr);
+        const auto keepWithNext = reopened.Paragraph->GetKeepWithNext();
+        REQUIRE(keepWithNext.has_value());
+        CHECK(*keepWithNext == false);
+        const auto widow = reopened.Paragraph->GetWidowControl();
+        REQUIRE(widow.has_value());
+        CHECK(*widow == true);
     }
 
 } // TEST_SUITE("WordFormattingTests")

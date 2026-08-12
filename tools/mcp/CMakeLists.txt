@@ -105,12 +105,7 @@ function(exyokioffice_add_mcp_server target)
             INSTALL_RPATH "${MCP_LOADER_ORIGIN}/${MCP_INSTALLED_LIBRARY_PATH}")
     endif()
 
-    if(EXYOKIOFFICE_LIBRARY_KIND STREQUAL "SHARED")
-        add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    $<TARGET_FILE:ExyokiOffice>
-                    $<TARGET_FILE_DIR:${target}>)
-    endif()
+    exyokioffice_copy_runtime_library(${target})
 endfunction()
 
 # A fuzz build wants the core library for the mcprpc target, not the servers:

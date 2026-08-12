@@ -1088,4 +1088,246 @@ TEST_SUITE("ExcelFormulaEngineTests")
         CHECK(result.Status.Error == FormulaEngineError::InvalidDocument);
     }
 
+    // Excel's worksheet functions answer bad input with a worksheet error, not
+    // with an exception or a wrong number, and a workbook that recalculates to
+    // a different error than Excel shows is silently wrong. Each case below
+    // pins one domain rule next to a nearby success, so the test documents the
+    // boundary rather than just the failure.
+    TEST_CASE("Logarithms reject their whole invalid domain [unit] [excel] [excel-formula-engine]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        // LN and LOG10: zero and negative arguments have no logarithm.
+        CHECK(H::Number(engine, "=LN(EXP(2))") == doctest::Approx(2.0));
+        CHECK(H::Error(engine, "=LN(0)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=LN(-1)") == FormulaErrorCode::Num);
+        CHECK(H::Number(engine, "=LOG10(1000)") == doctest::Approx(3.0));
+        CHECK(H::Error(engine, "=LOG10(0)") == FormulaErrorCode::Num);
+
+        // LOG: the argument, the base and the degenerate base 1 fail
+        // independently of one another. Base 1 is Excel's division by
+        // ln(1) = 0, so it answers #DIV/0!, not #NUM!.
+        CHECK(H::Number(engine, "=LOG(100)") == doctest::Approx(2.0));
+        CHECK(H::Number(engine, "=LOG(8,2)") == doctest::Approx(3.0));
+        CHECK(H::Error(engine, "=LOG(0,2)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=LOG(-10,2)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=LOG(10,0)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=LOG(10,-2)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=LOG(10,1)") == FormulaErrorCode::Div0);
+
+        // An error in either argument wins over the domain check.
+        CHECK(H::Error(engine, "=LOG(1/0,2)") == FormulaErrorCode::Div0);
+        CHECK(H::Error(engine, "=LOG(10,1/0)") == FormulaErrorCode::Div0);
+    }
+
+    TEST_CASE("LARGE and SMALL enforce the rank against the population [unit] [excel] [excel-formula-engine]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        auto sheet = editor->FirstWorksheet();
+        REQUIRE(sheet->SetCellNumber(1, 1, 5.0)); // A1
+        REQUIRE(sheet->SetCellNumber(2, 1, 3.0)); // A2
+        REQUIRE(sheet->SetCellNumber(3, 1, 9.0)); // A3
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Number(engine, "=LARGE(A1:A3,1)") == doctest::Approx(9.0));
+        CHECK(H::Number(engine, "=SMALL(A1:A3,1)") == doctest::Approx(3.0));
+        // The rank is floored, so 2.9 still means the second value.
+        CHECK(H::Number(engine, "=LARGE(A1:A3,2.9)") == doctest::Approx(5.0));
+
+        // Rank below one, rank beyond the population, and an empty population
+        // are three different ways to ask for a value that is not there.
+        CHECK(H::Error(engine, "=LARGE(A1:A3,0)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=SMALL(A1:A3,0.5)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=LARGE(A1:A3,4)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=SMALL(C1:C9,1)") == FormulaErrorCode::Num);
+
+        // An error rank propagates instead of being floored.
+        CHECK(H::Error(engine, "=LARGE(A1:A3,1/0)") == FormulaErrorCode::Div0);
+    }
+
+    TEST_CASE("Criteria aggregates validate their references and pairs [unit] [excel] [excel-formula-engine]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        auto sheet = editor->FirstWorksheet();
+        // A1:A4 = 1, 5, 10, text; B1:B4 = 2, 4, 8, 16
+        REQUIRE(sheet->SetCellNumber(1, 1, 1.0));
+        REQUIRE(sheet->SetCellNumber(2, 1, 5.0));
+        REQUIRE(sheet->SetCellNumber(3, 1, 10.0));
+        REQUIRE(sheet->SetCellText(4, 1, "text"));
+        REQUIRE(sheet->SetCellNumber(1, 2, 2.0));
+        REQUIRE(sheet->SetCellNumber(2, 2, 4.0));
+        REQUIRE(sheet->SetCellNumber(3, 2, 8.0));
+        REQUIRE(sheet->SetCellNumber(4, 2, 16.0));
+        FormulaEngine engine(editor->GetDocument());
+
+        // The happy paths the failure cases below contrast against.
+        CHECK(H::Number(engine, "=COUNTIF(A1:A4,\">2\")") == doctest::Approx(2.0));
+        CHECK(H::Number(engine, "=SUMIF(A1:A3,\">2\",B1:B3)") == doctest::Approx(12.0));
+        CHECK(H::Number(engine, "=SUMIFS(B1:B3,A1:A3,\">2\")") == doctest::Approx(12.0));
+        CHECK(H::Number(engine, "=COUNTIFS(A1:A3,\">2\",B1:B3,\">4\")") == doctest::Approx(1.0));
+
+        // The criteria range must be exactly one reference area.
+        CHECK(H::Error(engine, "=COUNTIF(5,\">2\")") == FormulaErrorCode::Value);
+        CHECK(H::Error(engine, "=COUNTIF((A1:A2,B1:B2),\">2\")") == FormulaErrorCode::Value);
+        CHECK(H::Error(engine, "=SUMIF(A1:A3,\">2\",7)") == FormulaErrorCode::Value);
+
+        // *IFS pairs: a criteria range without its criterion is malformed, and
+        // every range must share the shape of the first one. SUMIF is the
+        // contrast: there the value range is realigned, not rejected.
+        CHECK(H::Error(engine, "=COUNTIFS(A1:A3,\">2\",B1:B3)") == FormulaErrorCode::Value);
+        CHECK(H::Error(engine, "=COUNTIFS(A1:A3,\">2\",B1:B2,\">0\")") == FormulaErrorCode::Value);
+        CHECK(H::Error(engine, "=SUMIFS(B1:B2,A1:A3,\">2\")") == FormulaErrorCode::Value);
+        CHECK(H::Number(engine, "=SUMIF(A1:A3,\">2\",B1:B1)") == doctest::Approx(12.0));
+
+        // An error criterion propagates - except #N/A, which is a matchable
+        // value: Excel lets a criterion select #N/A cells, so it must pass
+        // through here and simply match nothing in an error-free sheet.
+        CHECK(H::Error(engine, "=COUNTIF(A1:A3,1/0)") == FormulaErrorCode::Div0);
+        CHECK(H::Error(engine, "=SUMIFS(B1:B3,A1:A3,#REF!)") == FormulaErrorCode::Ref);
+        CHECK(H::Number(engine, "=COUNTIF(A1:A3,NA())") == doctest::Approx(0.0));
+
+        // Whole-column and whole-row references clip to stored content instead
+        // of iterating a million rows.
+        CHECK(H::Number(engine, "=COUNTIF(A:A,\">2\")") == doctest::Approx(2.0));
+        CHECK(H::Number(engine, "=COUNTIF(1:1,\">0\")") == doctest::Approx(2.0));
+
+        // No match: COUNT answers zero, AVERAGE has nothing to divide.
+        CHECK(H::Number(engine, "=COUNTIF(A1:A4,\">99\")") == doctest::Approx(0.0));
+        CHECK(H::Error(engine, "=AVERAGEIF(A1:A4,\">99\")") == FormulaErrorCode::Div0);
+    }
+
+    TEST_CASE("Rounding survives extreme digit counts [unit] [excel] [excel-formula-engine]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Number(engine, "=ROUND(2.5,0)") == doctest::Approx(3.0));
+        CHECK(H::Number(engine, "=ROUND(-2.5,0)") == doctest::Approx(-3.0));
+        CHECK(H::Number(engine, "=ROUND(15,-1)") == doctest::Approx(20.0));
+        // A digit count so large that 10^digits overflows must not destroy the
+        // value: the scale guard hands the number back unchanged.
+        CHECK(H::Number(engine, "=ROUND(2.5,400)") == doctest::Approx(2.5));
+        CHECK(H::Number(engine, "=ROUNDDOWN(2.9,400)") == doctest::Approx(2.9));
+        // The band where 10^digits is still finite but value * 10^digits
+        // overflows behaves the same: the rounding unit is below one ulp.
+        CHECK(H::Number(engine, "=ROUND(2.5,308)") == doctest::Approx(2.5));
+        CHECK(H::Number(engine, "=ROUNDDOWN(2.9,308)") == doctest::Approx(2.9));
+        CHECK(H::Number(engine, "=ROUNDUP(2.9,308)") == doctest::Approx(2.9));
+        // A hugely negative digit count rounds to a multiple of a power of
+        // ten beyond the double range: to nearest and toward zero that is 0,
+        // away from zero it overflows into #NUM! - continuously with the
+        // subnormal scale band just above -324, which already behaves so.
+        CHECK(H::Number(engine, "=ROUND(2.9,-400)") == doctest::Approx(0.0));
+        CHECK(H::Number(engine, "=ROUND(-2.9,-400)") == doctest::Approx(0.0));
+        CHECK(H::Number(engine, "=ROUNDDOWN(2.9,-400)") == doctest::Approx(0.0));
+        CHECK(H::Number(engine, "=TRUNC(2.9,-400)") == doctest::Approx(0.0));
+        CHECK(H::Error(engine, "=ROUNDUP(2.9,-400)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=ROUNDUP(-2.9,-400)") == FormulaErrorCode::Num);
+        CHECK(H::Number(engine, "=ROUNDUP(0,-400)") == doctest::Approx(0.0));
+        CHECK(H::Number(engine, "=ROUND(2.9,-310)") == doctest::Approx(0.0));
+        CHECK(H::Error(engine, "=ROUNDUP(2.9,-310)") == FormulaErrorCode::Num);
+    }
+
+    // A result Excel cannot represent is a visible #NUM!, never an infinity
+    // or NaN smuggled into a cell: every accumulator and product path has to
+    // end in the same finiteness check the scalar functions already use.
+    TEST_CASE("Aggregates answer overflow with #NUM! instead of infinities [unit] [excel] [excel-formula-engine]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        auto sheet = editor->FirstWorksheet();
+        REQUIRE(sheet->SetCellNumber(1, 1, 9e307)); // A1
+        REQUIRE(sheet->SetCellNumber(2, 1, 9e307)); // A2
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Error(engine, "=SUM(9E307,9E307)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=PRODUCT(1E200,1E200)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=AVERAGE(9E307,9E307)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=MEDIAN(9E307,1.6E308)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=VARP(1E200,-1E200)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=STDEVP(1E200,-1E200)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=SUMPRODUCT({1E200},{1E200})") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=DEGREES(9E307)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=SUMIF(A1:A2,\">0\")") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=SUMIFS(A1:A2,A1:A2,\">0\")") == FormulaErrorCode::Num);
+
+        // The same inputs at half the magnitude stay ordinary numbers.
+        CHECK(H::Number(engine, "=SUM(4E307,4E307)") == doctest::Approx(8e307));
+    }
+
+    TEST_CASE("Scalar function domains follow Excel's limits [unit] [excel] [excel-formula-engine]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        // Excel refuses trigonometric arguments at 2^27 and above.
+        CHECK(H::Number(engine, "=SIN(134217727)") == doctest::Approx(std::sin(134217727.0)));
+        CHECK(H::Error(engine, "=SIN(134217728)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=COS(-134217728)") == FormulaErrorCode::Num);
+        CHECK(H::Error(engine, "=TAN(1E300)") == FormulaErrorCode::Num);
+
+        // A direct text argument of AVERAGEA follows scalar coercion: numeric
+        // text contributes its value, unreadable text is #VALUE!. Text inside
+        // a range or array constant still counts as zero.
+        CHECK(H::Number(engine, "=AVERAGEA(\"3\")") == doctest::Approx(3.0));
+        CHECK(H::Error(engine, "=AVERAGEA(\"abc\")") == FormulaErrorCode::Value);
+        CHECK(H::Number(engine, "=AVERAGEA({1,\"abc\"})") == doctest::Approx(0.5));
+
+        // Text inside an array constant is ignored by the logical aggregates,
+        // exactly like text inside a range; only direct text is coerced.
+        CHECK(H::Boolean(engine, "=AND({1,\"abc\"})") == true);
+        CHECK(H::Boolean(engine, "=OR({0,\"abc\"})") == false);
+        CHECK(H::Boolean(engine, "=AND(\"TRUE\",1)") == true);
+
+        // RANDBETWEEN bounds beyond 2^53 draw in the real domain instead of
+        // overflowing the integer distribution.
+        const std::string huge = "=RANDBETWEEN(1,1E19)";
+        for (int i = 0; i < 8; ++i)
+        {
+            const ExyokiOffice::Real drawn = H::Number(engine, huge);
+            CHECK(drawn >= 1.0);
+            CHECK(drawn <= 1e19);
+            CHECK(drawn == std::floor(drawn));
+        }
+    }
+
+    TEST_CASE("Custom function names follow the documented lexical rule [unit] [excel] [excel-formula-engine]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        FormulaFunctionSpec spec;
+        spec.MinimumArgumentCount = 0;
+        spec.MaximumArgumentCount = 0;
+        const auto constant = [](FormulaFunctionContext&, std::span<const FormulaValue>)
+        {
+            return FormulaValue::Number(1.0);
+        };
+
+        // ASCII letters, digits, `.` and `_`, not starting with a digit - the
+        // shape of real add-in names such as MY.UDF or _xll helpers.
+        for (const std::string_view accepted :
+             {"MY.FUNC", "_private", "A", "z9", "R2.D2_", "_1"})
+        {
+            CHECK_MESSAGE(engine.RegisterFunction(accepted, spec, constant),
+                          "expected accepted: ", accepted);
+            CHECK(engine.IsFunctionRegistered(accepted));
+        }
+
+        // A name Excel would refuse must be refused here too, or the workbook
+        // this engine writes stops opening elsewhere.
+        // "\xC5\xA1" is UTF-8 for a non-ASCII letter; kept escaped so the file
+        // stays ASCII (see the encoding note in CONTRIBUTING.md).
+        for (const std::string_view rejected :
+             {"1BAD", "9", ".dotfirst", "has-dash", "has space", "BAD!", "\xC5\xA1", "A#1"})
+        {
+            CHECK_MESSAGE(!engine.RegisterFunction(rejected, spec, constant),
+                          "expected rejected: ", rejected);
+        }
+
+        // The accepted registrations evaluate through the parser as well.
+        CHECK(H::Number(engine, "=MY.FUNC()") == doctest::Approx(1.0));
+        CHECK(H::Number(engine, "=_PRIVATE()") == doctest::Approx(1.0));
+    }
+
 } // TEST_SUITE

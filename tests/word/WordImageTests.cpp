@@ -4,6 +4,7 @@
 
 #include "doctest.h"
 
+#include "ImageFixtures.hpp"
 #include "TestSupport.hpp"
 
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
@@ -23,146 +24,19 @@ using ExyokiOffice::MeasurementUnit;
 using ExyokiOffice::MeasuringUnits;
 using ExyokiOffice::Word::Image;
 using ExyokiOffice::Word::ImageCrop;
+using ExyokiOffice::Word::ImageDistanceFromText;
 using ExyokiOffice::Word::ImageFormatInfo;
 using ExyokiOffice::Word::ImageHyperlink;
 using ExyokiOffice::Word::ImageLayout;
 using ExyokiOffice::Word::ImageWrap;
 using ExyokiOffice::Word::WordDocumentEditor;
 
-void PushU16BE(std::vector<ExyokiOffice::Byte>& data, ExyokiOffice::UInt16 value)
-{
-    data.push_back(static_cast<ExyokiOffice::UInt8>((value >> 8) & 0xFF));
-    data.push_back(static_cast<ExyokiOffice::UInt8>(value & 0xFF));
-}
-
-void PushU32BE(std::vector<ExyokiOffice::Byte>& data, ExyokiOffice::UInt32 value)
-{
-    data.push_back(static_cast<ExyokiOffice::UInt8>((value >> 24) & 0xFF));
-    data.push_back(static_cast<ExyokiOffice::UInt8>((value >> 16) & 0xFF));
-    data.push_back(static_cast<ExyokiOffice::UInt8>((value >> 8) & 0xFF));
-    data.push_back(static_cast<ExyokiOffice::UInt8>(value & 0xFF));
-}
-
-void PushFourCC(std::vector<ExyokiOffice::Byte>& data, const char (&fourCc)[5])
-{
-    for (int i = 0; i < 4; ++i)
-    {
-        data.push_back(static_cast<ExyokiOffice::UInt8>(fourCc[i]));
-    }
-}
-
-/// Builds a minimal, syntactically valid PNG payload (fake CRCs; DetectImageFormat
-/// does not validate them). An optional pHYs chunk carries physical pixel density.
-std::vector<ExyokiOffice::Byte> BuildPng(ExyokiOffice::UInt32 width,
-                                         ExyokiOffice::UInt32 height,
-                                         std::optional<std::pair<ExyokiOffice::UInt32, ExyokiOffice::UInt32>> pixelsPerMeter = std::nullopt)
-{
-    std::vector<ExyokiOffice::Byte> data;
-    static constexpr ExyokiOffice::UInt8 kSignature[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
-    data.insert(data.end(), std::begin(kSignature), std::end(kSignature));
-
-    // IHDR
-    PushU32BE(data, 13);
-    PushFourCC(data, "IHDR");
-    PushU32BE(data, width);
-    PushU32BE(data, height);
-    data.push_back(8);  // bit depth
-    data.push_back(6);  // color type (RGBA)
-    data.push_back(0);  // compression
-    data.push_back(0);  // filter
-    data.push_back(0);  // interlace
-    PushU32BE(data, 0); // fake CRC
-
-    if (pixelsPerMeter)
-    {
-        PushU32BE(data, 9);
-        PushFourCC(data, "pHYs");
-        PushU32BE(data, pixelsPerMeter->first);
-        PushU32BE(data, pixelsPerMeter->second);
-        data.push_back(1);  // unit: meters
-        PushU32BE(data, 0); // fake CRC
-    }
-
-    // IEND
-    PushU32BE(data, 0);
-    PushFourCC(data, "IEND");
-    PushU32BE(data, 0); // fake CRC
-    return data;
-}
-
-/// Builds a minimal JPEG payload: SOI, optional JFIF APP0 (for DPI), SOF0, EOI.
-/// No entropy-coded scan data is included since DetectImageFormat only reads headers.
-std::vector<ExyokiOffice::Byte> BuildJpeg(ExyokiOffice::UInt16 width, ExyokiOffice::UInt16 height, ExyokiOffice::UInt16 dpi = 0)
-{
-    std::vector<ExyokiOffice::Byte> data;
-    data.push_back(0xFF);
-    data.push_back(0xD8); // SOI
-
-    data.push_back(0xFF);
-    data.push_back(0xE0); // APP0
-    PushU16BE(data, 16);  // segment length
-    data.push_back('J');
-    data.push_back('F');
-    data.push_back('I');
-    data.push_back('F');
-    data.push_back(0x00);
-    data.push_back(1);               // version major
-    data.push_back(2);               // version minor
-    data.push_back(dpi > 0 ? 1 : 0); // units: 1 = dots per inch
-    PushU16BE(data, dpi);
-    PushU16BE(data, dpi);
-    data.push_back(0); // thumbnail width
-    data.push_back(0); // thumbnail height
-
-    data.push_back(0xFF);
-    data.push_back(0xC0); // SOF0
-    PushU16BE(data, 11);  // segment length
-    data.push_back(8);    // sample precision
-    PushU16BE(data, height);
-    PushU16BE(data, width);
-    data.push_back(1);    // number of components
-    data.push_back(1);    // component id
-    data.push_back(0x11); // sampling factors
-    data.push_back(0);    // quantization table id
-
-    data.push_back(0xFF);
-    data.push_back(0xD9); // EOI
-    return data;
-}
-
-std::vector<ExyokiOffice::Byte> BuildGif(ExyokiOffice::UInt16 width, ExyokiOffice::UInt16 height)
-{
-    std::vector<ExyokiOffice::Byte> data = {'G', 'I', 'F', '8', '9', 'a'};
-    data.push_back(static_cast<ExyokiOffice::UInt8>(width & 0xFF));
-    data.push_back(static_cast<ExyokiOffice::UInt8>((width >> 8) & 0xFF));
-    data.push_back(static_cast<ExyokiOffice::UInt8>(height & 0xFF));
-    data.push_back(static_cast<ExyokiOffice::UInt8>((height >> 8) & 0xFF));
-    data.push_back(0); // packed fields
-    data.push_back(0); // background color index
-    data.push_back(0); // pixel aspect ratio
-    return data;
-}
-
-std::vector<ExyokiOffice::Byte> BuildBmp(ExyokiOffice::Int32 width, ExyokiOffice::Int32 height, ExyokiOffice::Int32 pixelsPerMeterX = 0, ExyokiOffice::Int32 pixelsPerMeterY = 0)
-{
-    std::vector<ExyokiOffice::Byte> data(54, 0);
-    data[0] = 'B';
-    data[1] = 'M';
-
-    const auto writeS32LE = [&data](ExyokiOffice::Size offset, ExyokiOffice::Int32 value)
-    {
-        const auto unsignedValue = static_cast<ExyokiOffice::UInt32>(value);
-        data[offset] = static_cast<ExyokiOffice::UInt8>(unsignedValue & 0xFF);
-        data[offset + 1] = static_cast<ExyokiOffice::UInt8>((unsignedValue >> 8) & 0xFF);
-        data[offset + 2] = static_cast<ExyokiOffice::UInt8>((unsignedValue >> 16) & 0xFF);
-        data[offset + 3] = static_cast<ExyokiOffice::UInt8>((unsignedValue >> 24) & 0xFF);
-    };
-    writeS32LE(18, width);
-    writeS32LE(22, height);
-    writeS32LE(38, pixelsPerMeterX);
-    writeS32LE(42, pixelsPerMeterY);
-    return data;
-}
+// The payload builders live in tests/support/ImageFixtures.hpp, shared with
+// the unit layer's DetectImageFormat tests.
+using ExyokiOfficeTests::BuildBmp;
+using ExyokiOfficeTests::BuildGif;
+using ExyokiOfficeTests::BuildJpeg;
+using ExyokiOfficeTests::BuildPng;
 
 bool ApproximatelyEqual(ExyokiOffice::Real lhs, ExyokiOffice::Real rhs, ExyokiOffice::Real tolerance)
 {
@@ -485,6 +359,91 @@ TEST_SUITE("WordImageTests")
 
         ImageHyperlink hyperlink;
         CHECK_FALSE(detached.front()->TryGetHyperlink(hyperlink));
+    }
+
+    // wp:inline and wp:anchor both carry distT/distB/distL/distR - the gap Word
+    // keeps between the image edge and the surrounding text. Losing them on a
+    // round trip or a layout switch reflows the document the next time Word
+    // opens it, which is exactly the kind of silent damage a library must not do.
+    TEST_CASE("Image distance from text survives round trip and layout conversion [unit] [word] [word-image]")
+    {
+        constexpr ExyokiOffice::Real kEmuPerMillimeter = 36000.0;
+        const auto emu = [](const MeasuringUnits& value)
+        { return value.ToEmu().GetValue(); };
+
+        SUBCASE("distances set on an inline image round-trip through the package")
+        {
+            auto editor = WordDocumentEditor::CreateNew();
+            REQUIRE(editor != nullptr);
+            auto image = editor->AddImageFromData(BuildPng(32, 32), ImageLayout::Inline,
+                                                  ImageWrap::Square);
+            REQUIRE(image != nullptr);
+
+            image->SetDistanceFromText(MeasuringUnits(2.0, MeasurementUnit::Millimeter),
+                                       MeasuringUnits(1.0, MeasurementUnit::Millimeter),
+                                       MeasuringUnits(3.0, MeasurementUnit::Millimeter),
+                                       MeasuringUnits(4.0, MeasurementUnit::Millimeter));
+
+            auto reopened = WordDocumentEditor::Open(editor->SaveToMemory());
+            REQUIRE(reopened != nullptr);
+            const auto paragraphs = reopened->Paragraphs();
+            REQUIRE_FALSE(paragraphs.empty());
+            auto images = paragraphs.front()->Images();
+            REQUIRE(images.size() == 1);
+
+            ImageDistanceFromText distances;
+            REQUIRE(images.front()->TryGetDistanceFromText(distances));
+            CHECK(emu(distances.Left) == doctest::Approx(2.0 * kEmuPerMillimeter));
+            CHECK(emu(distances.Top) == doctest::Approx(1.0 * kEmuPerMillimeter));
+            CHECK(emu(distances.Right) == doctest::Approx(3.0 * kEmuPerMillimeter));
+            CHECK(emu(distances.Bottom) == doctest::Approx(4.0 * kEmuPerMillimeter));
+        }
+
+        SUBCASE("switching to floating layout carries the distances onto the anchor")
+        {
+            auto editor = WordDocumentEditor::CreateNew();
+            REQUIRE(editor != nullptr);
+            auto image = editor->AddImageFromData(BuildPng(32, 32), ImageLayout::Inline,
+                                                  ImageWrap::Square);
+            REQUIRE(image != nullptr);
+            image->SetDistanceFromText(MeasuringUnits(2.0, MeasurementUnit::Millimeter),
+                                       MeasuringUnits(0.0, MeasurementUnit::Millimeter),
+                                       MeasuringUnits(0.0, MeasurementUnit::Millimeter),
+                                       MeasuringUnits(0.0, MeasurementUnit::Millimeter));
+
+            image->SetLayout(ImageLayout::Floating);
+            CHECK(image->GetLayout() == ImageLayout::Floating);
+
+            ImageDistanceFromText distances;
+            REQUIRE(image->TryGetDistanceFromText(distances));
+            CHECK(emu(distances.Left) == doctest::Approx(2.0 * kEmuPerMillimeter));
+            CHECK(emu(distances.Top) == doctest::Approx(0.0));
+
+            // And back: the anchor's distances return to the inline element.
+            image->SetLayout(ImageLayout::Inline);
+            CHECK(image->GetLayout() == ImageLayout::Inline);
+            REQUIRE(image->TryGetDistanceFromText(distances));
+            CHECK(emu(distances.Left) == doctest::Approx(2.0 * kEmuPerMillimeter));
+            CHECK(emu(distances.Right) == doctest::Approx(0.0));
+        }
+
+        SUBCASE("a floating image without distances converts without inventing them")
+        {
+            auto editor = WordDocumentEditor::CreateNew();
+            REQUIRE(editor != nullptr);
+            auto image = editor->AddImageFromData(BuildPng(16, 16), ImageLayout::Floating,
+                                                  ImageWrap::Square);
+            REQUIRE(image != nullptr);
+
+            image->SetLayout(ImageLayout::Inline);
+
+            ImageDistanceFromText distances;
+            REQUIRE(image->TryGetDistanceFromText(distances));
+            CHECK(emu(distances.Left) == doctest::Approx(0.0));
+            CHECK(emu(distances.Top) == doctest::Approx(0.0));
+            CHECK(emu(distances.Right) == doctest::Approx(0.0));
+            CHECK(emu(distances.Bottom) == doctest::Approx(0.0));
+        }
     }
 
 } // TEST_SUITE("WordImageTests")

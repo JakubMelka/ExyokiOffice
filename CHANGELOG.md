@@ -20,6 +20,43 @@ and `Security`, and describe user-visible changes rather than commits.
   option, the `windows-ninja-clang-coverage-mcdc` presets, and the `-Mcdc`
   switch on `WinCoverage.ps1`, which builds a tree of its own and reports into
   `build/coverage-mcdc`.
+- A seam-free coverage mode: `EXYOKIOFFICE_TEST_MONOLITH` builds
+  `ExyokiOfficeMonolithTests`, one executable holding the library's sources
+  and every test layer, and `WinCoverage.ps1 -Monolith` measures against it.
+  One binary means no cross-module attribution loss, so inline code in
+  headers is counted wherever a test instantiated it.
+
+### Fixed
+
+- The `ROUND` family survives every extreme digit count. A digit count whose
+  scale factor overflows (`=ROUNDDOWN(2.9,400)`), and equally one where only
+  the scaled value overflows (`=ROUNDDOWN(2.9,308)`), returns the value
+  unchanged instead of `#NUM!`; a hugely negative digit count
+  (`=ROUNDDOWN(2.9,-400)`, `=TRUNC(2.9,-400)`) rounds to 0 as Excel does,
+  and `ROUNDUP` reports the unrepresentable magnitude as `#NUM!`.
+- Aggregates report overflow as `#NUM!` instead of returning an infinity:
+  `SUM`, `PRODUCT`, `AVERAGE`, `AVERAGEA`, `MEDIAN`, `SUMPRODUCT`, `SUMIF`,
+  `AVERAGEIF`, `SUMIFS`, `AVERAGEIFS`, the `STDEV`/`VAR` family, and
+  `DEGREES`.
+- `LOG` with base 1 answers `#DIV/0!` - Excel's division by `ln(1) = 0` -
+  instead of `#NUM!`.
+- `SIN`, `COS`, and `TAN` refuse arguments of magnitude 2^27 and above with
+  `#NUM!`, matching Excel's domain limit.
+- `AVERAGEA` follows Excel's direct-argument coercion: numeric text passed
+  directly contributes its value and unreadable direct text is `#VALUE!`,
+  while text inside ranges and arrays still counts as zero.
+- `AND`, `OR`, and `XOR` ignore text inside array constants the way they
+  ignore text inside ranges instead of failing with `#VALUE!`.
+- `RANDBETWEEN` with bounds beyond 2^53 no longer casts them into an integer
+  distribution (undefined behavior); such ranges draw in the real domain.
+- The DLL copies placed next to the test, tool, and example executables are now
+  files that depend on the library rather than POST_BUILD steps of the copying
+  targets. Under Ninja, a library change that left the export surface alone did
+  not relink those targets, and an incremental test run then silently exercised
+  the previous library. Each output directory gets one copy rule - shared
+  directories no longer race - every executable depends on its directory's
+  copy, so a target-scoped build still places the DLL, and the copied file
+  itself is the tracked output, so a deleted copy is restored.
 
 ## [1.0.0] - 2026-08-08
 

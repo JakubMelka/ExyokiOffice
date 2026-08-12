@@ -171,6 +171,66 @@ llvm-cov show build\ninja-clang-coverage\ExyokiOffice.dll `
     -name-regex=".*FormulaParser.*"
 ```
 
+## Inline code in headers
+
+Coverage of a function is attributed to the binary that compiled it. For the
+library's `.cpp` files - nearly all of its mass - that is always the DLL. An
+inline function defined in a header is different: each binary that instantiates
+it carries its own copy, and the DLL-scoped report above only sees the DLL's.
+A test that exercises, say, a generated enum's `IsValid()` purely from test
+code improves the test executable's copy, which this report does not measure.
+
+Two remedies suggest themselves, and neither works:
+
+- **Moving such functions out of the header** would make them attributable,
+  but the generated enum accessors are `constexpr` two-instruction bodies on
+  hot validation paths; out-of-line definitions would cost the `constexpr`,
+  add an exported symbol per enum class, and turn an inlined compare into a
+  cross-DLL call.
+- **Reporting across every binary** (`llvm-cov` accepts repeated `-object`
+  arguments) does count header code instantiated anywhere. In this tree it
+  also reports thousands of *functions have mismatched data*: the same inline
+  function hashes differently across modules - measurably even between two
+  test executables, and identically so on a fully clean build - so a
+  meaningful share of records cannot be attributed cleanly and the combined
+  numbers carry an error bar that is hard to state.
+
+What does work is removing the seams altogether: `-Monolith` below. Short of
+that, treat the layered report as authoritative for everything the DLL
+compiles, and expect header-only code to be under-attributed by however much
+of it only tests instantiate.
+
+## The monolith
+
+```powershell
+.\WinCoverage.ps1 -Monolith
+```
+
+`ExyokiOfficeMonolithTests` is the library's translation units and every test
+layer compiled into a single executable (`EXYOKIOFFICE_TEST_MONOLITH`, built
+by the `windows-ninja-clang-coverage-monolith` preset, which also switches to
+a static-library configuration; the assembly lives in
+`exyokioffice_add_test_monolith` in [`cmake/Tests.cmake`](../cmake/Tests.cmake)).
+One binary means one coverage map and one raw profile: no records are dropped
+as mismatched, and inline code in headers is attributed no matter which test
+instantiated it. MC/DC is always on, and the report is pinned to the
+`include/`, `sources/` and `3rdparty/` trees so the test code compiled into
+the same binary does not pad the numbers.
+
+The mode's costs are the reasons it is not the default. The suite runs as one
+serial process instead of a parallel CTest schedule, and the executable is a
+second full compilation of the library and every test layer. The selection
+switches do not apply and the script says so: `-Label`, `-LabelExclude`, and
+`-AllTests` are refused with an error under `-Monolith`, and `-Configuration
+Debug` is refused as well because no Debug monolith preset exists. The
+subprocess-driven CTest entries - the tool catalog checks, the MCP replay,
+the example smoke runs - stay outside the executable, so the sliver of
+coverage only they produce is absent.
+
+The totals differ slightly from the layered report in both directions, and
+that is not an error: header code instantiated only by tests joins the
+population, while duplicate per-module instantiations collapse into one.
+
 ## The MSVC alternative
 
 Source-based coverage has no cl.exe equivalent, so `EXYOKIOFFICE_COVERAGE=ON`

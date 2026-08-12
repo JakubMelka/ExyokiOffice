@@ -256,3 +256,86 @@ TEST_CASE("Hyperlink, comment, and threaded comment text round-trip XML special 
     REQUIRE(sheet->ThreadedComments().size() == 1);
     CHECK(sheet->ThreadedComments().front().Text == "Thread & reply");
 }
+
+TEST_CASE("A hyperlink needs a destination and a valid cell [unit] [excel] [layout]")
+{
+    auto editor = ExcelDocumentEditor::CreateNew();
+    auto sheet = editor->FirstWorksheet();
+    const auto a1 = *CellAddress::ParseA1("A1");
+
+    // Neither an external target nor a workbook location: there is nowhere to
+    // go, so the link must be refused rather than written as a dead entry.
+    CHECK_FALSE(sheet->SetHyperlink({a1, {}, {}, "Nowhere", {}}));
+    CHECK(sheet->Hyperlinks().empty());
+
+    // A default-constructed address is not a cell.
+    CHECK_FALSE(sheet->SetHyperlink({CellAddress{}, "https://example.com", {}, {}, {}}));
+    CHECK(sheet->Hyperlinks().empty());
+
+    // Both at once is Excel's shape for an external link that lands on a spot
+    // inside the target workbook: r:id carries the file, location the anchor.
+    CHECK(sheet->SetHyperlink({a1, "https://example.com/data.xlsx", "Prices!B2", {}, {}}));
+    const auto reopened = ExcelDocumentEditor::Open(editor->SaveToMemory());
+    REQUIRE(reopened != nullptr);
+    const auto link = reopened->FirstWorksheet()->GetHyperlink(a1);
+    REQUIRE(link);
+    CHECK(link->Target == "https://example.com/data.xlsx");
+    CHECK(link->Location == "Prices!B2");
+}
+
+TEST_CASE("A threaded comment is accepted only with an author it can resolve [unit] [excel] [layout]")
+{
+    auto editor = ExcelDocumentEditor::CreateNew();
+    auto sheet = editor->FirstWorksheet();
+    const auto address = *CellAddress::ParseA1("E5");
+
+    // No name and no person id: there is nobody to attribute the comment to.
+    ExcelThreadedComment anonymous;
+    anonymous.Address = address;
+    anonymous.Text = "Who wrote this?";
+    CHECK_FALSE(sheet->AddThreadedComment(anonymous));
+
+    // An id the workbook has never seen is how a comment pasted from another
+    // workbook arrives; without a display name it cannot mint a person record.
+    ExcelThreadedComment foreign;
+    foreign.Address = address;
+    foreign.PersonId = "{11111111-2222-3333-4444-555555555555}";
+    foreign.Text = "Pasted from elsewhere";
+    CHECK_FALSE(sheet->AddThreadedComment(foreign));
+    CHECK(sheet->ThreadedComments().empty());
+
+    // A reply carrying only the id of an already-known person is the shape
+    // ThreadedComments() itself hands back, and must round-trip.
+    ExcelThreadedComment root;
+    root.Address = address;
+    root.PersonName = "Ada";
+    root.Text = "Please check";
+    const auto rootId = sheet->AddThreadedComment(root);
+    REQUIRE(rootId);
+    const auto stored = sheet->ThreadedComments();
+    REQUIRE(stored.size() == 1);
+    REQUIRE_FALSE(stored.front().PersonId.empty());
+
+    ExcelThreadedComment reply;
+    reply.Address = address;
+    reply.PersonId = stored.front().PersonId;
+    reply.ParentId = *rootId;
+    reply.Text = "Checked";
+    REQUIRE(sheet->AddThreadedComment(reply));
+
+    const auto reopened = ExcelDocumentEditor::Open(editor->SaveToMemory());
+    REQUIRE(reopened != nullptr);
+    const auto items = reopened->FirstWorksheet()->ThreadedComments();
+    REQUIRE(items.size() == 2);
+    // The reply resolves to the same person the root minted.
+    CHECK(items[0].PersonName == "Ada");
+    CHECK(items[1].PersonName == "Ada");
+
+    // A duplicate comment id is refused instead of silently forking the thread.
+    ExcelThreadedComment duplicate;
+    duplicate.Address = address;
+    duplicate.Id = *rootId;
+    duplicate.PersonName = "Ada";
+    duplicate.Text = "Copy";
+    CHECK_FALSE(sheet->AddThreadedComment(duplicate));
+}

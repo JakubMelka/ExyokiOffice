@@ -12,6 +12,7 @@ exyokioffice_add_test_executable(ExyokiOfficeUnitTests
         VersionTests.cpp
         GuidTests.cpp
         MeasuringAngleTests.cpp
+        ImageFormatTests.cpp
         OpenXmlSimpleTypesTests.cpp
         GeneratedEnumMetadataTests.cpp
         OpenXmlElementNodeTests.cpp
@@ -66,5 +67,10 @@ exyokioffice_add_test_area(unit
     NAME Unit.EnumMetadata
     LABELS enum-metadata
     TAGS "[enum-metadata]")
+
+exyokioffice_add_test_area(unit
+    NAME Unit.ImageFormat
+    LABELS image-format
+    TAGS "[image-format]")
 
 exyokioffice_finalize_test_layer(unit)

@@ -8,14 +8,19 @@
     coverage, using the clang-cl toolchain that ships with Visual Studio.
 
 .DESCRIPTION
-    Configures and builds the windows-ninja-clang-coverage preset, runs a
-    selection of the CTest suite with the raw profiles redirected into the
-    output directory, and turns them into a summary table and an HTML report.
+    Configures and builds a coverage preset, runs the tests with the raw
+    profiles redirected into the output directory, and turns them into a
+    summary table and an HTML report.
 
     The report covers the ExyokiOffice library, not the test executables: what
     it answers is how much of the library a given selection of tests reaches.
     The whole library is in the report whether or not any test calls into it,
     because the coverage build keeps the library shared - see cmake/Coverage.cmake.
+
+    Three modes share that contract: the default layered run (a CTest label
+    selection against the instrumented DLL), -Mcdc (the same plus MC/DC), and
+    -Monolith (the whole suite and the whole library in one executable, the
+    only mode that attributes header code instantiated by tests).
 
 .EXAMPLE
     .\WinCoverage.ps1
@@ -33,6 +38,13 @@
     .\WinCoverage.ps1 -AllTests -Mcdc
     The same, plus modified condition/decision coverage, into build\coverage-mcdc.
     Builds a second instrumented tree of its own.
+
+.EXAMPLE
+    .\WinCoverage.ps1 -Monolith
+    The whole suite and the whole library in one executable, into
+    build\coverage-monolith. The most exact measurement this script offers:
+    no module seams, so inline code in headers is attributed wherever a test
+    instantiated it, and MC/DC is always on. The suite runs serially.
 #>
 [CmdletBinding()]
 param(
@@ -50,6 +62,14 @@ param(
     # separate tree, because the instrumentation differs, and both the run and
     # the raw profiles cost more than they do without it.
     [switch] $Mcdc,
+
+    # Measure against ExyokiOfficeMonolithTests: the library and every test
+    # layer compiled into one executable (see exyokioffice_add_test_monolith
+    # in cmake/Tests.cmake). One binary means no attribution seams - header
+    # code instantiated only by tests is counted, which the library-scoped
+    # report cannot do. Implies MC/DC and the whole suite; the run is one
+    # serial process, so -Label does not apply.
+    [switch] $Monolith,
 
     # CTest labels to measure. The default is the unit layer; see
     # docs/Compatibility.md for what the labels select.
@@ -203,12 +223,28 @@ try {
     # clang-cl by name rather than by path.
     $env:PATH = "$llvmBin;$env:PATH"
 
-    $preset = 'ninja-clang-coverage'
-    if ($Mcdc) {
-        $preset += '-mcdc'
+    if ($Monolith) {
+        foreach ($unsupported in @('Label', 'LabelExclude', 'AllTests')) {
+            if ($PSBoundParameters.ContainsKey($unsupported)) {
+                throw ("-$unsupported does not apply to -Monolith: the monolith is one " +
+                    'process running the whole suite.')
+            }
+        }
+        if ($Configuration -eq 'Debug') {
+            throw 'No Debug monolith preset exists; drop -Configuration Debug.'
+        }
+        # The monolith preset instruments MC/DC, so the report shows it.
+        $Mcdc = $true
+        $preset = 'ninja-clang-coverage-monolith'
     }
-    if ($Configuration -eq 'Debug') {
-        $preset += '-debug'
+    else {
+        $preset = 'ninja-clang-coverage'
+        if ($Mcdc) {
+            $preset += '-mcdc'
+        }
+        if ($Configuration -eq 'Debug') {
+            $preset += '-debug'
+        }
     }
 
     $configurePreset = "windows-$preset"
@@ -216,10 +252,15 @@ try {
 
     $buildDirectory = Join-Path $repositoryRoot $buildSubdirectory
 
-    # An MC/DC run writes beside the ordinary one rather than over it, so the
-    # two reports can be read together. An explicit -OutputDirectory wins.
-    if ($Mcdc -and -not $PSBoundParameters.ContainsKey('OutputDirectory')) {
-        $OutputDirectory += '-mcdc'
+    # Each mode writes beside the others rather than over them, so the reports
+    # can be read together. An explicit -OutputDirectory wins.
+    if (-not $PSBoundParameters.ContainsKey('OutputDirectory')) {
+        if ($Monolith) {
+            $OutputDirectory += '-monolith'
+        }
+        elseif ($Mcdc) {
+            $OutputDirectory += '-mcdc'
+        }
     }
 
     $resolvedOutput = if ([System.IO.Path]::IsPathRooted($OutputDirectory)) {
@@ -243,9 +284,16 @@ try {
             '--build', '--preset', $preset, '--parallel', $Jobs)
     }
 
-    $library = Join-Path $buildDirectory 'ExyokiOffice.dll'
-    if (-not (Test-Path -LiteralPath $library -PathType Leaf)) {
-        throw "The instrumented library was not found: $library. Run without -NoBuild."
+    # What the report is generated against: the library, or in monolith mode
+    # the one executable that contains it.
+    $coveredBinary = if ($Monolith) {
+        Join-Path $buildDirectory 'ExyokiOfficeMonolithTests.exe'
+    }
+    else {
+        Join-Path $buildDirectory 'ExyokiOffice.dll'
+    }
+    if (-not (Test-Path -LiteralPath $coveredBinary -PathType Leaf)) {
+        throw "The instrumented binary was not found: $coveredBinary. Run without -NoBuild."
     }
 
     # A previous run's raw profiles would be merged into this one, so the
@@ -267,22 +315,31 @@ try {
     $env:LLVM_PROFILE_FILE = Join-Path $profileDirectory '%8m.profraw'
 
     try {
-        $ctestArguments = @('--preset', $preset, '--parallel', $Jobs)
-        if (-not $AllTests) {
-            # One alternation rather than one -L per label: repeated -L
-            # arguments are combined with AND, and no CTest entry carries two
-            # layer labels at once.
-            $ctestArguments += @('--label-regex', ('^(' + ($Label -join '|') + ')$'))
-        }
-        foreach ($excludedLabel in $LabelExclude) {
-            $ctestArguments += @('--label-exclude', $excludedLabel)
-        }
-
         # Test failures must not stop the run: a report of what the suite did
         # reach is still the thing being asked for, and the failure is visible
-        # in CTest's own output above.
-        & $ctestExe @ctestArguments
-        $ctestExitCode = $LASTEXITCODE
+        # in the test output above.
+        if ($Monolith) {
+            # No CTest here: the monolith is meant to run exactly once, in one
+            # process, and the layer entries would sweep everything a second
+            # time.
+            & $coveredBinary
+            $testExitCode = $LASTEXITCODE
+        }
+        else {
+            $ctestArguments = @('--preset', $preset, '--parallel', $Jobs)
+            if (-not $AllTests) {
+                # One alternation rather than one -L per label: repeated -L
+                # arguments are combined with AND, and no CTest entry carries
+                # two layer labels at once.
+                $ctestArguments += @('--label-regex', ('^(' + ($Label -join '|') + ')$'))
+            }
+            foreach ($excludedLabel in $LabelExclude) {
+                $ctestArguments += @('--label-exclude', $excludedLabel)
+            }
+
+            & $ctestExe @ctestArguments
+            $testExitCode = $LASTEXITCODE
+        }
     }
     finally {
         $env:LLVM_PROFILE_FILE = $previousProfileFile
@@ -294,22 +351,24 @@ try {
             'Either the selected labels matched no test, or the build is not instrumented.')
     }
 
-    # Only the library's own raw profiles are merged. The test executables are
-    # instrumented too and their profiles sit in the same directory; merging
-    # them in makes llvm-cov report "functions have mismatched data" for every
-    # inline function the two modules compiled differently, and silently drop
-    # those functions from the report. Falling back to everything keeps the run
+    # Only the covered binary's own raw profiles are merged. In the layered
+    # mode the test executables are instrumented too and their profiles sit in
+    # the same directory; merging them in makes llvm-cov report "functions
+    # have mismatched data" for every inline function two modules compiled
+    # differently, and silently drop those functions from the report. In
+    # monolith mode there is only one module and the selection is a no-op
+    # safeguard against leftovers. Falling back to everything keeps the run
     # working if a future toolchain stops emitting binary IDs.
     $libraryProfiles = @()
-    $libraryBinaryId = Get-CoffBinaryId -Image $library -ReadObjPath $readobjExe
+    $libraryBinaryId = Get-CoffBinaryId -Image $coveredBinary -ReadObjPath $readobjExe
     if ($libraryBinaryId) {
         $libraryProfiles = @(Select-ProfilesForBinaryId -Profiles $rawProfiles `
                 -BinaryId $libraryBinaryId -ProfDataPath $profdataExe)
     }
 
     if ($libraryProfiles.Count -eq 0) {
-        Write-Warning ('Could not tell the library''s raw profiles apart from the test ' +
-            'executables''; merging all of them. Expect llvm-cov to report mismatched ' +
+        Write-Warning ('Could not tell the covered binary''s raw profiles apart from the ' +
+            'others''; merging all of them. Expect llvm-cov to report mismatched ' +
             'functions.')
         $libraryProfiles = $rawProfiles
     }
@@ -346,9 +405,21 @@ try {
             '[\\/]Packaging[\\/]OpenXmlPackageFactory\.cpp$')
     }
 
-    $covCommonArguments = @($library, "-instr-profile=$profileData")
+    $covCommonArguments = @($coveredBinary, "-instr-profile=$profileData")
     foreach ($pattern in $ignoredPatterns) {
         $covCommonArguments += "--ignore-filename-regex=$pattern"
+    }
+
+    # The monolith compiles the test sources into the covered binary, so the
+    # report has to be pinned to the library's own trees or the tests would
+    # pad it. The layered report needs no restriction: the DLL holds nothing
+    # but library code.
+    $sourceRestriction = @()
+    if ($Monolith) {
+        $sourceRestriction = @(
+            (Join-Path $repositoryRoot 'include'),
+            (Join-Path $repositoryRoot 'sources'),
+            (Join-Path $repositoryRoot '3rdparty'))
     }
 
     # llvm-cov omits the MC/DC columns unless asked, even when the profile
@@ -359,6 +430,7 @@ try {
         $reportArguments += '--show-mcdc-summary'
         $showArguments += '--show-mcdc'
     }
+    $reportArguments += $sourceRestriction
 
     $reportFile = Join-Path $resolvedOutput 'report.txt'
     $report = & $covExe report @reportArguments
@@ -375,7 +447,7 @@ try {
             '-show-branches=count',
             '-show-line-counts-or-regions',
             '-show-instantiation-summary',
-            "-Xdemangler=$(Join-Path $llvmBin 'llvm-cxxfilt.exe')"))
+            "-Xdemangler=$(Join-Path $llvmBin 'llvm-cxxfilt.exe')") + $sourceRestriction)
 
     $report | Write-Output
 
@@ -384,9 +456,9 @@ try {
     Write-Output "HTML:      $(Join-Path $htmlDirectory 'index.html')"
     Write-Output "Profile:   $profileData"
 
-    if ($ctestExitCode -ne 0) {
-        Write-Warning ("CTest exited with code $ctestExitCode; the report covers the tests " +
-            'that ran, failures included.')
+    if ($testExitCode -ne 0) {
+        Write-Warning ("The test run exited with code $testExitCode; the report covers the " +
+            'tests that ran, failures included.')
     }
 }
 finally {

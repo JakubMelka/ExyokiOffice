@@ -109,6 +109,16 @@
             }
         },
         {
+            "name": "windows-ninja-clang-coverage-monolith",
+            "displayName": "Windows x64 coverage monolith with MC/DC (Ninja, VS Clang)",
+            "inherits": "windows-ninja-clang-coverage-mcdc",
+            "binaryDir": "${sourceDir}/build/ninja-clang-coverage-monolith",
+            "cacheVariables": {
+                "EXYOKIOFFICE_TEST_MONOLITH": "ON",
+                "BUILD_SHARED_LIBS": "OFF"
+            }
+        },
+        {
             "name": "windows-vs-asan",
             "displayName": "Windows x64 AddressSanitizer (Visual Studio 2026)",
             "inherits": "windows-vs",
@@ -248,6 +258,11 @@
         {
             "name": "ninja-clang-coverage-mcdc-debug",
             "configurePreset": "windows-ninja-clang-coverage-mcdc-debug"
+        },
+        {
+            "name": "ninja-clang-coverage-monolith",
+            "configurePreset": "windows-ninja-clang-coverage-monolith",
+            "targets": ["ExyokiOfficeMonolithTests"]
         },
         {
             "name": "asan-debug",

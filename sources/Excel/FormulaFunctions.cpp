@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <map>
 #include <random>
 #include <utility>
@@ -113,30 +114,74 @@ FormulaValue FiniteNumber(Real value)
     return FormulaValue::Number(value);
 }
 
-/** Excel ROUND: half away from zero at the given decimal digit count. */
-Real RoundHalfAwayFromZero(Real value, Real digits)
+/** The direction the ROUND family carries a scaled value to an integer. */
+enum class RoundingMode
+{
+    HalfAwayFromZero, // ROUND
+    TowardZero,       // ROUNDDOWN, TRUNC
+    AwayFromZero,     // ROUNDUP
+};
+
+/**
+ * Rounds @p value at 10^digits the way Excel's ROUND family does, including
+ * the digit counts whose scale factor leaves the double range:
+ *
+ * - 10^digits overflows to infinity, or value * 10^digits overflows: the
+ *   rounding unit 10^-digits is below one ulp of the value, so rounding
+ *   cannot change it and the value is returned unchanged rather than turned
+ *   into #NUM! by way of inf/scale.
+ * - 10^digits underflows to zero (digits <= about -324): the rounding unit
+ *   exceeds the double range. Rounding toward zero or to nearest therefore
+ *   reaches 0, while rounding a nonzero value away from zero would need a
+ *   magnitude of at least 10^324 and reports overflow (#NUM! through
+ *   FiniteNumber), continuing what the digit counts just above -324 produce.
+ */
+Real RoundAtScale(Real value, Real digits, RoundingMode mode)
 {
     const Real scale = std::pow(10.0, std::floor(digits));
-    if (!std::isfinite(scale) || scale == 0.0)
+    if (scale == 0.0)
+    {
+        if (mode == RoundingMode::AwayFromZero && value != 0.0)
+        {
+            return std::copysign(std::numeric_limits<Real>::infinity(), value);
+        }
+        return 0.0;
+    }
+    const Real scaled = value * scale;
+    if (!std::isfinite(scaled))
     {
         return value;
     }
-    const Real scaled = value * scale;
-    return (scaled >= 0.0 ? std::floor(scaled + 0.5) : std::ceil(scaled - 0.5)) / scale;
+    Real rounded = 0.0;
+    switch (mode)
+    {
+        case RoundingMode::HalfAwayFromZero:
+            rounded = scaled >= 0.0 ? std::floor(scaled + 0.5) : std::ceil(scaled - 0.5);
+            break;
+        case RoundingMode::TowardZero:
+            rounded = scaled >= 0.0 ? std::floor(scaled) : std::ceil(scaled);
+            break;
+        case RoundingMode::AwayFromZero:
+            rounded = scaled >= 0.0 ? std::ceil(scaled) : std::floor(scaled);
+            break;
+    }
+    return rounded / scale;
+}
+
+/** Excel ROUND: half away from zero at the given decimal digit count. */
+Real RoundHalfAwayFromZero(Real value, Real digits)
+{
+    return RoundAtScale(value, digits, RoundingMode::HalfAwayFromZero);
 }
 
 Real RoundTowardZero(Real value, Real digits)
 {
-    const Real scale = std::pow(10.0, std::floor(digits));
-    const Real scaled = value * scale;
-    return (scaled >= 0.0 ? std::floor(scaled) : std::ceil(scaled)) / scale;
+    return RoundAtScale(value, digits, RoundingMode::TowardZero);
 }
 
 Real RoundAwayFromZero(Real value, Real digits)
 {
-    const Real scale = std::pow(10.0, std::floor(digits));
-    const Real scaled = value * scale;
-    return (scaled >= 0.0 ? std::ceil(scaled) : std::floor(scaled)) / scale;
+    return RoundAtScale(value, digits, RoundingMode::AwayFromZero);
 }
 
 /** Collects every aggregated number into a vector. */
@@ -288,13 +333,13 @@ FormulaValue EvaluateSingleCriteria(FormulaEvaluationSession& session,
         case SingleCriteriaMode::Count:
             return FormulaValue::Number(static_cast<Real>(matchCount));
         case SingleCriteriaMode::Sum:
-            return FormulaValue::Number(sum);
+            return FiniteNumber(sum);
         case SingleCriteriaMode::Average:
             if (matchCount == 0)
             {
                 return FormulaValue::Error(FormulaErrorCode::Div0);
             }
-            return FormulaValue::Number(sum / static_cast<Real>(matchCount));
+            return FiniteNumber(sum / static_cast<Real>(matchCount));
     }
     return FormulaValue::Error(FormulaErrorCode::Value);
 }
@@ -450,13 +495,13 @@ FormulaValue EvaluateMultiCriteria(FormulaEvaluationSession& session,
         case MultiCriteriaMode::Count:
             return FormulaValue::Number(static_cast<Real>(matchCount));
         case MultiCriteriaMode::Sum:
-            return FormulaValue::Number(sum);
+            return FiniteNumber(sum);
         case MultiCriteriaMode::Average:
             if (matchCount == 0)
             {
                 return FormulaValue::Error(FormulaErrorCode::Div0);
             }
-            return FormulaValue::Number(sum / static_cast<Real>(matchCount));
+            return FiniteNumber(sum / static_cast<Real>(matchCount));
     }
     return FormulaValue::Error(FormulaErrorCode::Value);
 }
@@ -925,7 +970,7 @@ void FormulaFunctionLibrary::RegisterMathFunctions(FunctionMap& functions)
             {
                 return *error;
             }
-            return FormulaValue::Number(sum);
+            return FiniteNumber(sum);
         });
 
     Add(functions, "PRODUCT", 1, 255,
@@ -940,7 +985,7 @@ void FormulaFunctionLibrary::RegisterMathFunctions(FunctionMap& functions)
             {
                 return *error;
             }
-            return FormulaValue::Number(any ? product : 0.0);
+            return FiniteNumber(any ? product : 0.0);
         });
 
     Add(functions, "ABS", 1, 1, Unary([](Real x)
@@ -992,9 +1037,14 @@ void FormulaFunctionLibrary::RegisterMathFunctions(FunctionMap& functions)
                 base = *baseValue.NumberValue();
             }
             const Real x = *number.NumberValue();
-            if (x <= 0.0 || base <= 0.0 || base == 1.0)
+            if (x <= 0.0 || base <= 0.0)
             {
                 return FormulaValue::Error(FormulaErrorCode::Num);
+            }
+            // Base 1 is Excel's division by ln(1) = 0, not a domain error.
+            if (base == 1.0)
+            {
+                return FormulaValue::Error(FormulaErrorCode::Div0);
             }
             return FormulaValue::Number(std::log(x) / std::log(base));
         });
@@ -1003,12 +1053,31 @@ void FormulaFunctionLibrary::RegisterMathFunctions(FunctionMap& functions)
         {
             return FormulaValue::Number(3.14159265358979323846);
         });
+    // Excel refuses trigonometric arguments of magnitude 2^27 and above with
+    // #NUM!: beyond that the double's ulp exceeds the period and the result
+    // would be numerically meaningless.
+    constexpr Real kTrigonometricArgumentLimit = 134217728.0; // 2^27
     Add(functions, "SIN", 1, 1, Unary([](Real x)
-                                      { return FiniteNumber(std::sin(x)); }));
+                                      {
+            if (std::fabs(x) >= kTrigonometricArgumentLimit)
+            {
+                return FormulaValue::Error(FormulaErrorCode::Num);
+            }
+            return FiniteNumber(std::sin(x)); }));
     Add(functions, "COS", 1, 1, Unary([](Real x)
-                                      { return FiniteNumber(std::cos(x)); }));
+                                      {
+            if (std::fabs(x) >= kTrigonometricArgumentLimit)
+            {
+                return FormulaValue::Error(FormulaErrorCode::Num);
+            }
+            return FiniteNumber(std::cos(x)); }));
     Add(functions, "TAN", 1, 1, Unary([](Real x)
-                                      { return FiniteNumber(std::tan(x)); }));
+                                      {
+            if (std::fabs(x) >= kTrigonometricArgumentLimit)
+            {
+                return FormulaValue::Error(FormulaErrorCode::Num);
+            }
+            return FiniteNumber(std::tan(x)); }));
     Add(functions, "ASIN", 1, 1, Unary([](Real x)
                                        {
             if (x < -1.0 || x > 1.0)
@@ -1034,7 +1103,7 @@ void FormulaFunctionLibrary::RegisterMathFunctions(FunctionMap& functions)
             return FormulaValue::Number(std::atan2(y, x)); }));
     Add(functions, "DEGREES", 1, 1,
         Unary([](Real x)
-              { return FormulaValue::Number(x * 180.0 / 3.14159265358979323846); }));
+              { return FiniteNumber(x * 180.0 / 3.14159265358979323846); }));
     Add(functions, "RADIANS", 1, 1,
         Unary([](Real x)
               { return FormulaValue::Number(x * 3.14159265358979323846 / 180.0); }));
@@ -1144,6 +1213,16 @@ void FormulaFunctionLibrary::RegisterMathFunctions(FunctionMap& functions)
             {
                 return FormulaValue::Error(FormulaErrorCode::Num);
             }
+            // Bounds beyond the exactly representable integer range must not
+            // reach the Int64 cast (undefined behavior); Excel's own integer
+            // precision ends at 2^53, so such ranges draw in the real domain.
+            constexpr Real kExactIntegerLimit = 9007199254740992.0; // 2^53
+            if (low < -kExactIntegerLimit || high > kExactIntegerLimit)
+            {
+                std::uniform_real_distribution<Real> unit(0.0, 1.0);
+                const Real drawn = low + std::floor(unit(RandomEngine()) * (high - low + 1.0));
+                return FormulaValue::Number(std::min(drawn, high));
+            }
             std::uniform_int_distribution<Int64> distribution(static_cast<Int64>(low),
                                                                   static_cast<Int64>(high));
             return FormulaValue::Number(static_cast<Real>(distribution(RandomEngine()))); }, true);
@@ -1189,7 +1268,7 @@ void FormulaFunctionLibrary::RegisterMathFunctions(FunctionMap& functions)
                     sum += product;
                 }
             }
-            return FormulaValue::Number(sum);
+            return FiniteNumber(sum);
         });
 }
 
@@ -1251,7 +1330,11 @@ void FormulaFunctionLibrary::RegisterLogicalFunctions(FunctionMap& functions)
                         trueCount += truth ? 1 : 0;
                         any = true;
                     }
-                    else if (!argument.isReference && value.Kind() == FormulaValueKind::Text)
+                    // Text inside arrays is ignored like text inside ranges;
+                    // only a direct scalar text argument is coerced.
+                    else if (!argument.isReference &&
+                             argument.value.Kind() != FormulaValueKind::Array &&
+                             value.Kind() == FormulaValueKind::Text)
                     {
                         const FormulaValue coerced = FormulaCoercion::ToBoolean(value);
                         if (coerced.IsError())
@@ -1412,7 +1495,7 @@ void FormulaFunctionLibrary::RegisterStatisticalFunctions(FunctionMap& functions
             {
                 return FormulaValue::Error(FormulaErrorCode::Div0);
             }
-            return FormulaValue::Number(sum / static_cast<Real>(count));
+            return FiniteNumber(sum / static_cast<Real>(count));
         });
 
     Add(functions, "AVERAGEA", 1, 255,
@@ -1445,7 +1528,27 @@ void FormulaFunctionLibrary::RegisterStatisticalFunctions(FunctionMap& functions
                             ++count;
                             break;
                         case FormulaValueKind::Text:
-                            ++count; // text counts as zero
+                            // Text in a reference or array counts as zero; a
+                            // direct text argument follows the scalar rules -
+                            // numeric text contributes its value, anything
+                            // else is #VALUE!.
+                            if (!argument.isReference &&
+                                argument.value.Kind() != FormulaValueKind::Array)
+                            {
+                                if (const auto parsed =
+                                        FormulaCoercion::ParseNumberText(value.TextValue()))
+                                {
+                                    sum += *parsed;
+                                    ++count;
+                                }
+                                else
+                                {
+                                    error = FormulaValue::Error(FormulaErrorCode::Value);
+                                    hasError = true;
+                                }
+                                break;
+                            }
+                            ++count;
                             break;
                         default: break;
                     } });
@@ -1462,7 +1565,7 @@ void FormulaFunctionLibrary::RegisterStatisticalFunctions(FunctionMap& functions
             {
                 return FormulaValue::Error(FormulaErrorCode::Div0);
             }
-            return FormulaValue::Number(sum / static_cast<Real>(count));
+            return FiniteNumber(sum / static_cast<Real>(count));
         });
 
     Add(functions, "COUNT", 1, 255,
@@ -1591,7 +1694,7 @@ void FormulaFunctionLibrary::RegisterStatisticalFunctions(FunctionMap& functions
             {
                 return FormulaValue::Number(numbers[middle]);
             }
-            return FormulaValue::Number((numbers[middle - 1] + numbers[middle]) / 2.0);
+            return FiniteNumber((numbers[middle - 1] + numbers[middle]) / 2.0);
         });
 
     Add(functions, "MODE", 1, 255,
@@ -1691,7 +1794,7 @@ void FormulaFunctionLibrary::RegisterStatisticalFunctions(FunctionMap& functions
             const Real divisor = static_cast<Real>(sample ? numbers.size() - 1 : numbers.size());
             const Real variance = sumOfSquares / divisor;
             const bool stdDev = mode == SpreadMode::SampleStdDev || mode == SpreadMode::PopulationStdDev;
-            return FormulaValue::Number(stdDev ? std::sqrt(variance) : variance);
+            return FiniteNumber(stdDev ? std::sqrt(variance) : variance);
         };
     };
     Add(functions, "STDEV", 1, 255, spread(SpreadMode::SampleStdDev));

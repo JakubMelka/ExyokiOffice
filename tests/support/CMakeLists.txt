@@ -15,7 +15,7 @@
 # second copy in would put two definitions of the same entities in one process,
 # each with its own static state; AddressSanitizer reports that as an
 # odr-violation and aborts every test binary that pulls the objects in.
-set(supportSources TestSupport.cpp)
+set(supportSources TestSupport.cpp ImageFixtures.cpp)
 if(WIN32)
     list(APPEND supportSources
         ${PROJECT_SOURCE_DIR}/sources/zip/zip.cpp
