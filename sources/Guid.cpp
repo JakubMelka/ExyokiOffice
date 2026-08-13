@@ -14,16 +14,18 @@ namespace ExyokiOffice
 
 std::string Guid::New()
 {
-    thread_local std::mt19937_64 generator = []
+    // Drawn straight from the operating system's entropy source. A GUID is
+    // minted rarely and needs uniqueness above all, and taking the bits per
+    // call keeps the shared library free of generator state - no global,
+    // no thread-local storage.
+    std::random_device device;
+    const auto randomWord = [&device]
     {
-        std::random_device device;
-        std::seed_seq seed{device(), device(), device(), device()};
-        return std::mt19937_64(seed);
-    }();
-    std::uniform_int_distribution<UInt64> distribution;
+        return (static_cast<UInt64>(device()) << 32) | static_cast<UInt64>(device());
+    };
 
-    auto high = distribution(generator);
-    auto low = distribution(generator);
+    auto high = randomWord();
+    auto low = randomWord();
     high = (high & 0xffffffffffff0fffULL) | 0x0000000000004000ULL;
     low = (low & 0x3fffffffffffffffULL) | 0x8000000000000000ULL;
 

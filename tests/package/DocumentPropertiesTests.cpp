@@ -4,6 +4,7 @@
 
 #include "doctest.h"
 
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/ExtendedProperties.hpp"
 #include "ExyokiOffice/Excel/ExcelDocument.hpp"
 #include "ExyokiOffice/Packaging/DocumentProperties.hpp"
 #include "ExyokiOffice/PowerPoint/PowerPointDocument.hpp"
@@ -18,6 +19,8 @@
 
 namespace
 {
+
+namespace Ap = ExyokiOffice::DocumentFormat::OpenXml::ExtendedProperties;
 
 using ExyokiOffice::Excel::ExcelDocumentEditor;
 using ExyokiOffice::Packaging::DocumentCustomPropertyValue;
@@ -343,6 +346,96 @@ TEST_SUITE("DocumentPropertiesTests")
         // Removing a value on a document without parts must not create the part.
         CHECK(properties.SetTitle(""));
         CHECK(document->GetCoreFilePropertiesPart() == nullptr);
+    }
+
+    TEST_CASE("Application statistics written by the producing application are read back [unit] [shared] [properties]")
+    {
+        // These are read-only: ExyokiOffice never computes a page or line count,
+        // so the only way they carry a value is that another application wrote
+        // one. The document below stands in for that application - the elements
+        // are placed in `docProps/app.xml` directly, which is exactly what Word
+        // leaves behind.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+
+        // Template is the one extended value this library does write, so it goes
+        // through the setter and the rest through the part.
+        CHECK(editor->Properties().SetTemplate("Report.dotx"));
+
+        auto extendedPart = editor->GetDocument()->GetExtendedFilePropertiesPart();
+        REQUIRE(extendedPart != nullptr);
+        auto root = extendedPart->GetTypedRootElement();
+        REQUIRE(root != nullptr);
+
+        root->AppendChild<Ap::Pages>()->SetText("12");
+        root->AppendChild<Ap::Words>()->SetText("3400");
+        root->AppendChild<Ap::Characters>()->SetText("19000");
+        root->AppendChild<Ap::CharactersWithSpaces>()->SetText("22400");
+        root->AppendChild<Ap::Lines>()->SetText("290");
+        root->AppendChild<Ap::Paragraphs>()->SetText("84");
+        root->AppendChild<Ap::TotalTime>()->SetText("45");
+
+        const auto bytes = editor->SaveToMemory();
+        REQUIRE_FALSE(bytes.empty());
+        auto reopened = WordDocumentEditor::Open(bytes);
+        REQUIRE(reopened != nullptr);
+        auto reloaded = reopened->Properties();
+
+        CHECK(reloaded.GetTemplate() == "Report.dotx");
+        REQUIRE(reloaded.GetPages().has_value());
+        CHECK(*reloaded.GetPages() == 12);
+        REQUIRE(reloaded.GetWords().has_value());
+        CHECK(*reloaded.GetWords() == 3400);
+        REQUIRE(reloaded.GetCharacters().has_value());
+        CHECK(*reloaded.GetCharacters() == 19000);
+        REQUIRE(reloaded.GetCharactersWithSpaces().has_value());
+        CHECK(*reloaded.GetCharactersWithSpaces() == 22400);
+        REQUIRE(reloaded.GetLines().has_value());
+        CHECK(*reloaded.GetLines() == 290);
+        REQUIRE(reloaded.GetParagraphs().has_value());
+        CHECK(*reloaded.GetParagraphs() == 84);
+        REQUIRE(reloaded.GetTotalTime().has_value());
+        CHECK(*reloaded.GetTotalTime() == 45);
+
+        // A presentation-only statistic is absent from a Word document rather
+        // than defaulting to zero.
+        CHECK_FALSE(reloaded.GetSlides().has_value());
+        CHECK_FALSE(reloaded.GetNotes().has_value());
+        CHECK_FALSE(reloaded.GetHiddenSlides().has_value());
+
+        // Clearing the template removes the element instead of storing an empty
+        // one, which is what the core setters do as well.
+        CHECK(reopened->Properties().SetTemplate(""));
+        CHECK(reopened->Properties().GetTemplate().empty());
+    }
+
+    TEST_CASE("A statistic that is not a 32-bit number reads as absent [unit] [shared] [properties]")
+    {
+        // `ap:Words` is xsd:int in the schema, but the reader is pointed at
+        // files this library did not produce. Text that is not a number, and a
+        // number that does not fit, both have to come back as "no value" - the
+        // alternative is a truncated count presented as fact.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        CHECK(editor->Properties().SetTemplate("Normal.dotm"));
+
+        auto root = editor->GetDocument()->GetExtendedFilePropertiesPart()->GetTypedRootElement();
+        REQUIRE(root != nullptr);
+        root->AppendChild<Ap::Words>()->SetText("many");
+        root->AppendChild<Ap::Lines>()->SetText("3000000000");
+        root->AppendChild<Ap::Characters>()->SetText("");
+        root->AppendChild<Ap::Paragraphs>()->SetText("-17");
+
+        auto reopened = WordDocumentEditor::Open(editor->SaveToMemory());
+        REQUIRE(reopened != nullptr);
+        auto reloaded = reopened->Properties();
+
+        CHECK_FALSE(reloaded.GetWords().has_value());
+        CHECK_FALSE(reloaded.GetLines().has_value());
+        CHECK_FALSE(reloaded.GetCharacters().has_value());
+        // A negative count is still a number the file states, so it is reported.
+        REQUIRE(reloaded.GetParagraphs().has_value());
+        CHECK(*reloaded.GetParagraphs() == -17);
     }
 
 } // TEST_SUITE("DocumentPropertiesTests")

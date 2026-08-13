@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -279,6 +280,16 @@ public:
 
     const FormulaFunctionRegistry& Registry() const noexcept { return m_registry; }
 
+    /**
+     * @brief The random engine the volatile RAND family draws from.
+     *
+     * The session owns it, so there is no global or thread-local state: a
+     * session belongs to one evaluation on one thread by construction, and
+     * the engine lives exactly as long as the evaluation that may use it.
+     * Seeded on first use - most sessions never draw a random number.
+     */
+    std::mt19937& RandomEngine();
+
 private:
     struct SheetCache
     {
@@ -342,6 +353,8 @@ private:
     std::vector<std::string> m_nameStack;
     /** Recursion guard for deeply nested expressions. */
     int m_depth = 0;
+    /** Lazily seeded; see RandomEngine(). */
+    std::optional<std::mt19937> m_randomEngine;
 
     friend class FormulaFunctionHelpers;
 };

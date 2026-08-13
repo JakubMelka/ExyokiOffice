@@ -20,6 +20,8 @@
 
 namespace
 {
+namespace Wp = ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing;
+
 using ExyokiOffice::MeasurementUnit;
 using ExyokiOffice::MeasuringUnits;
 using ExyokiOffice::Word::Image;
@@ -444,6 +446,227 @@ TEST_SUITE("WordImageTests")
             CHECK(emu(distances.Right) == doctest::Approx(0.0));
             CHECK(emu(distances.Bottom) == doctest::Approx(0.0));
         }
+    }
+
+    TEST_CASE("A fully configured floating anchor round-trips and stays schema-valid [unit] [word] [word-image]")
+    {
+        // The anchoring API writes the whole `<wp:anchor>` shape - wrap element,
+        // positionH/positionV, and the anchor attributes. What makes the document
+        // usable is not only that the values read back: `wp:CT_Anchor` fixes the
+        // order of those children, so an element appended in the wrong place
+        // produces a file Word refuses to open while every getter here still
+        // answers correctly. The package is therefore validated as well.
+        constexpr ExyokiOffice::Real kEmuPerCentimeter = 360000.0;
+        const auto emu = [](const MeasuringUnits& value)
+        { return value.ToEmu().GetValue(); };
+
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto image = editor->AddImageFromData(BuildPng(64, 64), ImageLayout::Inline, ImageWrap::Square);
+        REQUIRE(image != nullptr);
+
+        // Every one of these switches an inline image to floating on its own; the
+        // first call has to do the conversion and the rest must not undo it.
+        image->SetWrap(ImageWrap::Tight, Wp::WrapTextValues::Left)
+            .SetPosition(Wp::HorizontalRelativePositionValues::Page,
+                         MeasuringUnits(2.5, MeasurementUnit::Centimeter),
+                         Wp::VerticalRelativePositionValues::Paragraph,
+                         MeasuringUnits(1.25, MeasurementUnit::Centimeter))
+            .SetBehindText(true)
+            .SetAllowOverlap(false)
+            .SetAnchorLocked(true)
+            .SetLayoutInCell(false)
+            .SetRelativeHeight(251658240);
+        CHECK(image->GetLayout() == ImageLayout::Floating);
+
+        const auto bytes = editor->SaveToMemory();
+        REQUIRE_FALSE(bytes.empty());
+
+        const auto validation = ExyokiOfficeTests::ValidatePackage(bytes);
+        REQUIRE(validation.Loaded);
+        CAPTURE(validation.FirstError);
+        CHECK_FALSE(validation.HasErrors);
+
+        auto reopened = WordDocumentEditor::Open(bytes);
+        REQUIRE(reopened != nullptr);
+        const auto paragraphs = reopened->Paragraphs();
+        REQUIRE_FALSE(paragraphs.empty());
+        auto images = paragraphs.front()->Images();
+        REQUIRE(images.size() == 1);
+        auto reloaded = images.front();
+        CHECK(reloaded->GetLayout() == ImageLayout::Floating);
+
+        ExyokiOffice::Word::ImageWrapSettings wrap;
+        REQUIRE(reloaded->TryGetWrap(wrap));
+        CHECK(wrap.Wrap == ImageWrap::Tight);
+        CHECK(wrap.WrapText == Wp::WrapTextValues::Left);
+
+        ExyokiOffice::Word::ImagePosition position;
+        REQUIRE(reloaded->TryGetPosition(position));
+        CHECK(position.HorizontalFrom == Wp::HorizontalRelativePositionValues::Page);
+        CHECK(position.VerticalFrom == Wp::VerticalRelativePositionValues::Paragraph);
+        REQUIRE(position.HorizontalOffset.has_value());
+        REQUIRE(position.VerticalOffset.has_value());
+        CHECK(emu(*position.HorizontalOffset) == doctest::Approx(2.5 * kEmuPerCentimeter));
+        CHECK(emu(*position.VerticalOffset) == doctest::Approx(1.25 * kEmuPerCentimeter));
+        // Offsets and alignments are alternatives, not companions.
+        CHECK_FALSE(position.HorizontalAlignment.has_value());
+        CHECK_FALSE(position.VerticalAlignment.has_value());
+
+        ExyokiOffice::Word::ImageAnchorOptions options;
+        REQUIRE(reloaded->TryGetAnchorOptions(options));
+        CHECK(options.BehindText);
+        CHECK_FALSE(options.AllowOverlap);
+        CHECK(options.AnchorLocked);
+        CHECK_FALSE(options.LayoutInCell);
+        CHECK(options.RelativeHeight == 251658240u);
+        CHECK_FALSE(options.SimplePositionEnabled);
+    }
+
+    TEST_CASE("Aligned positioning and offset positioning replace one another [unit] [word] [word-image]")
+    {
+        // `wp:CT_PosH` is a choice: exactly one of `wp:align` and `wp:posOffset`.
+        // Leaving the previous child behind would produce a document that carries
+        // two contradictory positions and no longer validates, which is why each
+        // setter removes the other kind rather than only writing its own.
+        constexpr ExyokiOffice::Real kEmuPerCentimeter = 360000.0;
+        const auto emu = [](const MeasuringUnits& value)
+        { return value.ToEmu().GetValue(); };
+
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto image = editor->AddImageFromData(BuildPng(32, 32), ImageLayout::Floating, ImageWrap::Square);
+        REQUIRE(image != nullptr);
+
+        image->SetPosition(Wp::HorizontalRelativePositionValues::Margin,
+                           MeasuringUnits(1.0, MeasurementUnit::Centimeter),
+                           Wp::VerticalRelativePositionValues::Line,
+                           MeasuringUnits(2.0, MeasurementUnit::Centimeter));
+
+        ExyokiOffice::Word::ImagePosition position;
+        REQUIRE(image->TryGetPosition(position));
+        REQUIRE(position.HorizontalOffset.has_value());
+        CHECK(emu(*position.HorizontalOffset) == doctest::Approx(1.0 * kEmuPerCentimeter));
+
+        image->SetPositionAligned(Wp::HorizontalRelativePositionValues::Page,
+                                  Wp::HorizontalAlignmentValues::Center,
+                                  Wp::VerticalRelativePositionValues::Page,
+                                  Wp::VerticalAlignmentValues::Top);
+
+        position = ExyokiOffice::Word::ImagePosition{};
+        REQUIRE(image->TryGetPosition(position));
+        CHECK(position.HorizontalFrom == Wp::HorizontalRelativePositionValues::Page);
+        CHECK(position.VerticalFrom == Wp::VerticalRelativePositionValues::Page);
+        REQUIRE(position.HorizontalAlignment.has_value());
+        REQUIRE(position.VerticalAlignment.has_value());
+        CHECK(*position.HorizontalAlignment == Wp::HorizontalAlignmentValues::Center);
+        CHECK(*position.VerticalAlignment == Wp::VerticalAlignmentValues::Top);
+        CHECK_FALSE(position.HorizontalOffset.has_value());
+        CHECK_FALSE(position.VerticalOffset.has_value());
+
+        const auto aligned = editor->SaveToMemory();
+        const auto alignedValidation = ExyokiOfficeTests::ValidatePackage(aligned);
+        REQUIRE(alignedValidation.Loaded);
+        CAPTURE(alignedValidation.FirstError);
+        CHECK_FALSE(alignedValidation.HasErrors);
+
+        // Back to offsets: the alignment children have to disappear again.
+        image->SetPosition(Wp::HorizontalRelativePositionValues::Column,
+                           MeasuringUnits(0.5, MeasurementUnit::Centimeter),
+                           Wp::VerticalRelativePositionValues::Paragraph,
+                           MeasuringUnits(0.75, MeasurementUnit::Centimeter));
+
+        position = ExyokiOffice::Word::ImagePosition{};
+        REQUIRE(image->TryGetPosition(position));
+        CHECK_FALSE(position.HorizontalAlignment.has_value());
+        CHECK_FALSE(position.VerticalAlignment.has_value());
+        REQUIRE(position.HorizontalOffset.has_value());
+        CHECK(emu(*position.HorizontalOffset) == doctest::Approx(0.5 * kEmuPerCentimeter));
+    }
+
+    TEST_CASE("Simple positioning round-trips with its coordinates [unit] [word] [word-image]")
+    {
+        // `wp:simplePos` is the anchor's escape hatch for absolute page
+        // coordinates. Writing the coordinates implies enabling the flag - a
+        // `<wp:simplePos>` child that the `simplePos` attribute does not switch on
+        // is ignored by Word, so the two must not be settable apart.
+        constexpr ExyokiOffice::Real kEmuPerCentimeter = 360000.0;
+        const auto emu = [](const MeasuringUnits& value)
+        { return value.ToEmu().GetValue(); };
+
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto image = editor->AddImageFromData(BuildPng(32, 32), ImageLayout::Inline, ImageWrap::Square);
+        REQUIRE(image != nullptr);
+
+        image->SetSimplePosition(MeasuringUnits(3.0, MeasurementUnit::Centimeter),
+                                 MeasuringUnits(4.0, MeasurementUnit::Centimeter));
+        CHECK(image->GetLayout() == ImageLayout::Floating);
+
+        auto reopened = WordDocumentEditor::Open(editor->SaveToMemory());
+        REQUIRE(reopened != nullptr);
+        const auto paragraphs = reopened->Paragraphs();
+        REQUIRE_FALSE(paragraphs.empty());
+        auto images = paragraphs.front()->Images();
+        REQUIRE(images.size() == 1);
+
+        ExyokiOffice::Word::ImageAnchorOptions options;
+        REQUIRE(images.front()->TryGetAnchorOptions(options));
+        CHECK(options.SimplePositionEnabled);
+        REQUIRE(options.SimplePosition.has_value());
+        CHECK(emu(options.SimplePosition->X) == doctest::Approx(3.0 * kEmuPerCentimeter));
+        CHECK(emu(options.SimplePosition->Y) == doctest::Approx(4.0 * kEmuPerCentimeter));
+
+        // Turning the flag off leaves the coordinates in place but stops Word
+        // honoring them, which is what the separate setter is for.
+        images.front()->SetSimplePositionEnabled(false);
+        options = ExyokiOffice::Word::ImageAnchorOptions{};
+        REQUIRE(images.front()->TryGetAnchorOptions(options));
+        CHECK_FALSE(options.SimplePositionEnabled);
+        REQUIRE(options.SimplePosition.has_value());
+    }
+
+    TEST_CASE("Every wrap mode is written and read back as itself [unit] [word] [word-image]")
+    {
+        // One wrap element at a time: setting a new mode has to remove the
+        // previous one, or the anchor ends up with two mutually exclusive wrap
+        // children and the first one found wins silently.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto image = editor->AddImageFromData(BuildPng(32, 32), ImageLayout::Inline, ImageWrap::Square);
+        REQUIRE(image != nullptr);
+
+        const ImageWrap modes[] = {ImageWrap::Square, ImageWrap::Tight, ImageWrap::Through,
+                                   ImageWrap::TopAndBottom, ImageWrap::None};
+        for (const ImageWrap mode : modes)
+        {
+            CAPTURE(static_cast<int>(mode));
+            image->SetWrap(mode, Wp::WrapTextValues::Largest);
+
+            ExyokiOffice::Word::ImageWrapSettings wrap;
+            REQUIRE(image->TryGetWrap(wrap));
+            CHECK(wrap.Wrap == mode);
+            // Only the side-wrapping modes carry a wrapText preference; the other
+            // two report the schema default rather than the value passed in.
+            const bool carriesWrapText =
+                mode == ImageWrap::Square || mode == ImageWrap::Tight || mode == ImageWrap::Through;
+            CHECK(wrap.WrapText ==
+                  (carriesWrapText ? Wp::WrapTextValues::Largest : Wp::WrapTextValues::BothSides));
+        }
+
+        const auto bytes = editor->SaveToMemory();
+        const auto validation = ExyokiOfficeTests::ValidatePackage(bytes);
+        REQUIRE(validation.Loaded);
+        CAPTURE(validation.FirstError);
+        CHECK_FALSE(validation.HasErrors);
+
+        auto reopened = WordDocumentEditor::Open(bytes);
+        REQUIRE(reopened != nullptr);
+        auto images = reopened->Paragraphs().front()->Images();
+        REQUIRE(images.size() == 1);
+        ExyokiOffice::Word::ImageWrapSettings wrap;
+        REQUIRE(images.front()->TryGetWrap(wrap));
+        CHECK(wrap.Wrap == ImageWrap::None);
     }
 
 } // TEST_SUITE("WordImageTests")

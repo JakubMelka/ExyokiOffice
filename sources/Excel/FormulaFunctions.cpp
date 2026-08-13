@@ -506,12 +506,6 @@ FormulaValue EvaluateMultiCriteria(FormulaEvaluationSession& session,
     return FormulaValue::Error(FormulaErrorCode::Value);
 }
 
-std::mt19937& RandomEngine()
-{
-    thread_local std::mt19937 engine{std::random_device{}()};
-    return engine;
-}
-
 } // namespace FormulaFunctionDetail
 
 // ---------------------------------------------------------------------------
@@ -1191,10 +1185,10 @@ void FormulaFunctionLibrary::RegisterMathFunctions(FunctionMap& functions)
                 rounded = 1.0;
             }
             return FormulaValue::Number(x >= 0.0 ? rounded : -rounded); }));
-    Add(functions, "RAND", 0, 0, [](FormulaEvaluationSession&, std::span<EvalValue>) -> FormulaValue
+    Add(functions, "RAND", 0, 0, [](FormulaEvaluationSession& session, std::span<EvalValue>) -> FormulaValue
         {
             std::uniform_real_distribution<Real> distribution(0.0, 1.0);
-            return FormulaValue::Number(distribution(RandomEngine())); }, true);
+            return FormulaValue::Number(distribution(session.RandomEngine())); }, true);
     Add(functions, "RANDBETWEEN", 2, 2, [](FormulaEvaluationSession& session, std::span<EvalValue> arguments) -> FormulaValue
         {
             const FormulaValue lowValue = Helpers::ScalarNumber(session, arguments[0]);
@@ -1220,12 +1214,12 @@ void FormulaFunctionLibrary::RegisterMathFunctions(FunctionMap& functions)
             if (low < -kExactIntegerLimit || high > kExactIntegerLimit)
             {
                 std::uniform_real_distribution<Real> unit(0.0, 1.0);
-                const Real drawn = low + std::floor(unit(RandomEngine()) * (high - low + 1.0));
+                const Real drawn = low + std::floor(unit(session.RandomEngine()) * (high - low + 1.0));
                 return FormulaValue::Number(std::min(drawn, high));
             }
             std::uniform_int_distribution<Int64> distribution(static_cast<Int64>(low),
                                                                   static_cast<Int64>(high));
-            return FormulaValue::Number(static_cast<Real>(distribution(RandomEngine()))); }, true);
+            return FormulaValue::Number(static_cast<Real>(distribution(session.RandomEngine()))); }, true);
 
     Add(functions, "SUMPRODUCT", 1, 255,
         [](FormulaEvaluationSession& session, std::span<EvalValue> arguments) -> FormulaValue

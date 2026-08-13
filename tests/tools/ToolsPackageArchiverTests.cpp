@@ -278,6 +278,74 @@ TEST_CASE("Unpack keeps a name that merely contains dots [unit] [tools]")
     std::filesystem::remove(repackedPath);
 }
 
+TEST_CASE("Unpack escapes entry names Windows cannot store, and Pack restores them [unit] [tools]")
+{
+    // A part name is a URI, so `word/CON.xml` and `word/a&b<c.xml` are both
+    // legal OPC and both impossible to create as files on Windows: CON is a
+    // reserved device name, and `<` is not allowed in a filename at all.
+    // Extracting such a package has to rename, and repacking has to undo the
+    // rename - otherwise `exyoki unpack` silently produces a tree that no
+    // longer repacks into the document it came from.
+    const auto docxPath = MakeSampleDocx();
+    const auto stagingDir = MakeTemporaryPath("exyoki_hostile_stage");
+    const auto hostilePath = MakeTemporaryPath("exyoki_hostile", ".docx");
+
+    REQUIRE(Unpack(docxPath, stagingDir).Ok);
+
+    // Build the archive through the manifest, because these names cannot be
+    // written to disk directly. Both survive IsRestorableEntryName; neither is
+    // a traversal.
+    const auto writeFile = [](const std::filesystem::path& path, std::string_view content)
+    {
+        std::filesystem::create_directories(path.parent_path());
+        std::ofstream file(path, std::ios::binary | std::ios::trunc);
+        REQUIRE(file.is_open());
+        file << content;
+    };
+    writeFile(stagingDir / "word" / "_CON.xml", "<reserved/>");
+    writeFile(stagingDir / "word" / "a&b%3Cc.xml", "<special/>");
+    {
+        std::ofstream manifest(stagingDir / std::filesystem::path(kArchiverManifestFileName), std::ios::trunc);
+        // `from` is XML, so the ampersand and the angle bracket are escaped here
+        // and have to come back out of the parser as the literal characters.
+        manifest << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                    "<exyokiUnpackManifest prettyPrinted=\"false\">\n"
+                    "  <rename from=\"word/CON.xml\" to=\"word/_CON.xml\"/>\n"
+                    "  <rename from=\"word/a&amp;b&lt;c.xml\" to=\"word/a&amp;b%3Cc.xml\"/>\n"
+                    "</exyokiUnpackManifest>\n";
+    }
+    REQUIRE(Pack(stagingDir, hostilePath).Ok);
+
+    // Now the real subject: unpacking that archive on a filesystem that cannot
+    // hold either name.
+    const auto extractDir = MakeTemporaryPath("exyoki_hostile_extract");
+    const auto extracted = Unpack(hostilePath, extractDir);
+    CHECK(extracted.Ok);
+    CHECK_FALSE(HasDiagnostic(extracted.Diagnostics, ToolSeverity::Error, "path traversal"));
+    // A rename happened, so the manifest is the record of it.
+    CHECK(extracted.ManifestWritten);
+    CHECK(std::filesystem::exists(extractDir / "word" / "_CON.xml"));
+    CHECK(std::filesystem::exists(extractDir / "word" / "a&b%3Cc.xml"));
+    CHECK(std::filesystem::exists(extractDir / std::filesystem::path(kArchiverManifestFileName)));
+
+    // And repacking that tree reproduces the original entry names, which is the
+    // only thing that makes the escaping lossless rather than merely safe.
+    const auto repackedPath = MakeTemporaryPath("exyoki_hostile_repacked", ".docx");
+    const auto repacked = Pack(extractDir, repackedPath);
+    CHECK(repacked.Ok);
+    CHECK_FALSE(HasDiagnostic(repacked.Diagnostics, ToolSeverity::Warning, "usable ZIP entry name"));
+
+    const auto diff = Compare(hostilePath, repackedPath);
+    CHECK(diff.Ok);
+    CHECK(diff.Identical);
+
+    std::filesystem::remove_all(stagingDir);
+    std::filesystem::remove_all(extractDir);
+    std::filesystem::remove(docxPath);
+    std::filesystem::remove(hostilePath);
+    std::filesystem::remove(repackedPath);
+}
+
 TEST_CASE("Pack ignores a manifest that would restore an escaping entry name [unit] [tools]")
 {
     const auto docxPath = MakeSampleDocx();

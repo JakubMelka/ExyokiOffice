@@ -16,6 +16,7 @@ exyokioffice_add_test_executable(ExyokiOfficeUnitTests
         OpenXmlSimpleTypesTests.cpp
         GeneratedEnumMetadataTests.cpp
         OpenXmlElementNodeTests.cpp
+        OpenXmlElementSiblingTests.cpp
         OpenXmlElementStructuralOpsTests.cpp
         MarkupCompatibilityTests.cpp
         DomContextResolutionTests.cpp

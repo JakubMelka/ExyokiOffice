@@ -463,6 +463,41 @@ TEST_SUITE("ExcelFormulaEngineTests")
         CHECK(H::Error(engine, "=TEXT(1,\"[Red]0\")") == FormulaErrorCode::Value);
     }
 
+    TEST_CASE("TEXT routes text values through the @ placeholder [unit] [excel] [excel-formula-engine]")
+    {
+        // A format code has up to four sections and the fourth one is the only
+        // one that applies to text. Getting the selection wrong is invisible on
+        // numbers and wrong on every text value, so each rule is pinned here:
+        // a lone section applies, a fourth section wins over the first, and a
+        // code with no text placeholder leaves the value alone rather than
+        // formatting it as a number - which is what Excel does.
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Text(engine, "=TEXT(\"abc\",\"@\")") == "abc");
+        // Backslash escapes and quoted runs are both literal text around the
+        // placeholder.
+        CHECK(H::Text(engine, "=TEXT(\"abc\",\"\\[@\\]\")") == "[abc]");
+        CHECK(H::Text(engine, "=TEXT(\"abc\",\"\"\"<\"\"@\"\">\"\"\")") == "<abc>");
+        // Four sections: positive;negative;zero;text - the last one is the one
+        // a text value is formatted with.
+        CHECK(H::Text(engine, "=TEXT(\"abc\",\"0;-0;0;\\(@\\)\")") == "(abc)");
+        // Three sections carry no text section at all, so the first one is used
+        // and, having no `@`, leaves the value untouched.
+        CHECK(H::Text(engine, "=TEXT(\"abc\",\"0.00;-0.00;0\")") == "abc");
+        CHECK(H::Text(engine, "=TEXT(\"abc\",\"0.00\")") == "abc");
+        CHECK(H::Text(engine, "=TEXT(\"abc\",\"General\")") == "abc");
+        CHECK(H::Text(engine, "=TEXT(\"\",\"@\")").empty());
+        // A section that mixes the text placeholder with number tokens has no
+        // meaning for a text value; #VALUE! beats inventing one.
+        CHECK(H::Error(engine, "=TEXT(\"abc\",\"@0.0\")") == FormulaErrorCode::Value);
+        // Numbers keep taking the numeric path even when a text section exists.
+        CHECK(H::Text(engine, "=TEXT(5,\"0.0;-0.0;0;\\(@\\)\")") == "5.0");
+        // The number a text argument would coerce to is not what TEXT applies
+        // the format to: a numeric-looking string is still a string here.
+        CHECK(H::Text(engine, "=TEXT(\"12\",\"0.00\")") == "12");
+    }
+
     TEST_CASE("Lookup functions [unit] [excel] [excel-formula-engine]")
     {
         auto editor = ExcelDocumentEditor::CreateNew();
@@ -641,6 +676,93 @@ TEST_SUITE("ExcelFormulaEngineTests")
         const auto unknownSheet = engine.EvaluateFormula("=1", "Missing");
         CHECK_FALSE(unknownSheet.Succeeded());
         CHECK(unknownSheet.Status.Error == FormulaEngineError::UnknownSheet);
+    }
+
+    TEST_CASE("Every stored cell kind reaches a formula as the value it holds [unit] [excel] [excel-formula-engine]")
+    {
+        // SpreadsheetML stores a cell's type next to its text: `b` for booleans,
+        // `e` for errors, `d` for an ISO date, `inlineStr` for text kept in the
+        // sheet, and a formula cell keeps its last result with a type of its
+        // own. A workbook written by Excel is full of these, and a reference to
+        // one has to arrive in the expression as that value - reading a boolean
+        // cell as the number 0, or an error cell as text, is wrong in a way that
+        // no single formula makes obvious.
+        auto editor = ExcelDocumentEditor::CreateNew();
+        auto sheet = editor->FirstWorksheet();
+        REQUIRE(sheet);
+
+        REQUIRE(sheet->SetCellValue(H::Address("A1"), ExcelCellValue::Boolean(true)));
+        REQUIRE(sheet->SetCellValue(H::Address("A2"), ExcelCellValue::Error("#DIV/0!")));
+        REQUIRE(sheet->SetCellValue(H::Address("A3"), ExcelCellValue::InlineString("inline text")));
+        REQUIRE(sheet->SetCellValue(H::Address("A4"), ExcelCellValue::DateTimeText("2024-03-15T00:00:00")));
+        REQUIRE(sheet->SetCellValue(H::Address("A5"), ExcelCellValue::NumberText("2.5")));
+        // SetCellText interns into the shared string table, so A6 is the
+        // SharedString kind rather than an inline one.
+        REQUIRE(sheet->SetCellText(H::Address("A6"), "shared text"));
+
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Boolean(engine, "=A1"));
+        CHECK(H::Number(engine, "=A1+1") == doctest::Approx(2.0));
+        CHECK(H::Error(engine, "=A2") == FormulaErrorCode::Div0);
+        // An error cell poisons whatever reads it, rather than counting as zero.
+        CHECK(H::Error(engine, "=A2+1") == FormulaErrorCode::Div0);
+        CHECK(H::Text(engine, "=A3") == "inline text");
+        CHECK(H::Text(engine, "=A6") == "shared text");
+        // A `d`-typed cell arrives as its serial, so date arithmetic works on it.
+        CHECK(H::Number(engine, "=A4") == doctest::Approx(45366.0));
+        CHECK(H::Number(engine, "=YEAR(A4)") == doctest::Approx(2024.0));
+        CHECK(H::Number(engine, "=A5*2") == doctest::Approx(5.0));
+
+        // Aggregates apply Excel's rules to the mixture: SUM ignores text and
+        // booleans stored in cells, COUNT counts only numbers, COUNTA counts
+        // everything that is not blank, and an error still propagates.
+        REQUIRE(sheet->SetCellValue(H::Address("C1"), ExcelCellValue::Number(10.0)));
+        REQUIRE(sheet->SetCellValue(H::Address("C2"), ExcelCellValue::Boolean(true)));
+        REQUIRE(sheet->SetCellValue(H::Address("C3"), ExcelCellValue::InlineString("text")));
+        REQUIRE(sheet->SetCellValue(H::Address("C4"), ExcelCellValue::Blank()));
+        REQUIRE(sheet->SetCellValue(H::Address("C5"), ExcelCellValue::Number(5.0)));
+        CHECK(H::Number(engine, "=SUM(C1:C5)") == doctest::Approx(15.0));
+        CHECK(H::Number(engine, "=COUNT(C1:C5)") == doctest::Approx(2.0));
+        CHECK(H::Number(engine, "=COUNTA(C1:C5)") == doctest::Approx(4.0));
+    }
+
+    TEST_CASE("A formula cell's cached value is what a reference reads [unit] [excel] [excel-formula-engine]")
+    {
+        // The engine does not recompute the whole workbook to answer one
+        // reference: a formula cell contributes its stored result, in the type
+        // the file says it has. That is what makes reading an untouched workbook
+        // cheap, and it is also why the cached-type dispatch has to be right for
+        // every type - a cached boolean read as text would compare wrongly
+        // without ever looking like an error.
+        auto editor = ExcelDocumentEditor::CreateNew();
+        auto sheet = editor->FirstWorksheet();
+        REQUIRE(sheet);
+
+        REQUIRE(sheet->SetCellFormula(H::Address("A1"), "=1+1", FormulaCachedValueKind::Number, "2"));
+        REQUIRE(sheet->SetCellFormula(H::Address("A2"), "=1=1", FormulaCachedValueKind::Boolean, "1"));
+        REQUIRE(sheet->SetCellFormula(H::Address("A3"), "=\"a\"&\"b\"", FormulaCachedValueKind::String, "ab"));
+        REQUIRE(sheet->SetCellFormula(H::Address("A4"), "=1/0", FormulaCachedValueKind::Error, "#DIV/0!"));
+        REQUIRE(sheet->SetCellFormula(H::Address("A5"), "=TODAY()", FormulaCachedValueKind::DateTime,
+                                      "2024-03-15T00:00:00"));
+        REQUIRE(sheet->SetCellFormula(H::Address("A6"), "=1+1", FormulaCachedValueKind::None, ""));
+
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Number(engine, "=A1*10") == doctest::Approx(20.0));
+        CHECK(H::Boolean(engine, "=A2"));
+        CHECK(H::Text(engine, "=A3") == "ab");
+        CHECK(H::Error(engine, "=A4") == FormulaErrorCode::Div0);
+        CHECK(H::Number(engine, "=A5") == doctest::Approx(45366.0));
+        // No cached value at all reads as blank, which is zero in arithmetic -
+        // not as a recomputation of the formula behind it.
+        CHECK(H::Number(engine, "=A6+7") == doctest::Approx(7.0));
+
+        // EvaluateCell is the opposite contract: it recomputes and ignores the
+        // stale cache, so the two answers for the same cell differ on purpose.
+        const auto recomputed = engine.EvaluateCell("Sheet1", H::Address("A6"));
+        REQUIRE(recomputed.Succeeded());
+        CHECK(*recomputed.Value.NumberValue() == doctest::Approx(2.0));
     }
 
     // ---------------------------------------------------------------------------

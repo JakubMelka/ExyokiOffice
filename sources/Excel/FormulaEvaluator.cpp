@@ -561,6 +561,15 @@ void FormulaEvaluationSession::SetCurrentSheet(std::string sheetName)
     m_currentSheet = std::move(sheetName);
 }
 
+std::mt19937& FormulaEvaluationSession::RandomEngine()
+{
+    if (!m_randomEngine)
+    {
+        m_randomEngine.emplace(std::random_device{}());
+    }
+    return *m_randomEngine;
+}
+
 FormulaEvaluationSession::SheetCache* FormulaEvaluationSession::FindSheet(std::string_view sheetName)
 {
     if (!m_sheetsLoaded)
