@@ -25,166 +25,166 @@
 namespace ExyokiOffice::Tools
 {
 
-namespace
+/// File-local helpers behind package inspection.
+class PackageInspectorHelper
 {
-
-std::string_view WordDocumentTypeName(Packaging::WordprocessingDocumentType type)
-{
-    switch (type)
+public:
+    static std::string_view WordDocumentTypeName(Packaging::WordprocessingDocumentType type)
     {
-        case Packaging::WordprocessingDocumentType::Document:
-            return "Document";
-        case Packaging::WordprocessingDocumentType::Template:
-            return "Template";
-        case Packaging::WordprocessingDocumentType::MacroEnabledDocument:
-            return "MacroEnabledDocument";
-        case Packaging::WordprocessingDocumentType::MacroEnabledTemplate:
-            return "MacroEnabledTemplate";
-    }
-    return "Document";
-}
-
-std::string_view ExcelDocumentTypeName(Packaging::SpreadsheetDocumentType type)
-{
-    switch (type)
-    {
-        case Packaging::SpreadsheetDocumentType::Workbook:
-            return "Workbook";
-        case Packaging::SpreadsheetDocumentType::Template:
-            return "Template";
-        case Packaging::SpreadsheetDocumentType::MacroEnabledWorkbook:
-            return "MacroEnabledWorkbook";
-        case Packaging::SpreadsheetDocumentType::MacroEnabledTemplate:
-            return "MacroEnabledTemplate";
-    }
-    return "Workbook";
-}
-
-std::string_view PowerPointDocumentTypeName(Packaging::PowerPointDocumentType type)
-{
-    switch (type)
-    {
-        case Packaging::PowerPointDocumentType::Presentation:
-            return "Presentation";
-        case Packaging::PowerPointDocumentType::MacroEnabledPresentation:
-            return "MacroEnabledPresentation";
-        case Packaging::PowerPointDocumentType::Template:
-            return "Template";
-        case Packaging::PowerPointDocumentType::MacroEnabledTemplate:
-            return "MacroEnabledTemplate";
-        case Packaging::PowerPointDocumentType::SlideShow:
-            return "SlideShow";
-        case Packaging::PowerPointDocumentType::MacroEnabledSlideShow:
-            return "MacroEnabledSlideShow";
-    }
-    return "Presentation";
-}
-
-std::string DescriptorNameForPart(const OpenXmlPackagePart& part)
-{
-    const auto name = part.Descriptor().Name;
-    return name.empty() ? std::string("OpaquePackagePart") : std::string(name);
-}
-
-// --- docProps/core.xml access -----------------------------------------------
-//
-// The element lookup itself lives in Xml::CorePropertiesXml, shared with the
-// Packaging document-property API: both used to carry a prefix-literal copy of
-// this logic, which read nothing from a document that binds the core-property
-// namespaces to other prefixes.
-
-std::string GetCorePropertyText(const OpenXmlPackagePart* part, std::string_view canonicalName)
-{
-    if (!part)
-    {
-        return {};
-    }
-    auto xml = part->GetXmlString();
-    if (xml.empty())
-    {
-        return {};
-    }
-    Pugi::xml_document doc;
-    // load_buffer, not load_string: c_str() ends the document at the first
-    // embedded NUL, which would report the properties of a truncated part.
-    if (!doc.load_buffer(xml.data(), xml.size(), Xml::ParseOptions::Preserving))
-    {
-        return {};
-    }
-    auto root = Xml::CorePropertiesXml::FindRoot(doc);
-    if (!root)
-    {
-        return {};
-    }
-    auto node = Xml::CorePropertiesXml::FindChild(root, canonicalName);
-    return node ? std::string(node.text().get()) : std::string();
-}
-
-/**
- * @brief Finds the first part of type T reachable from the package.
- *
- * OpenXmlPartContainer::GetPartOfType() is protected, so external Tools code
- * cannot call it on a plain OpenXmlPackage. dynamic_pointer_cast over the
- * public part list is the supported substitute.
- */
-template <typename TPart>
-std::shared_ptr<TPart> FindPartOfType(const OpenXmlPackage& package)
-{
-    for (const auto& part : CollectAllParts(package))
-    {
-        if (auto typed = std::dynamic_pointer_cast<TPart>(part))
+        switch (type)
         {
-            return typed;
+            case Packaging::WordprocessingDocumentType::Document:
+                return "Document";
+            case Packaging::WordprocessingDocumentType::Template:
+                return "Template";
+            case Packaging::WordprocessingDocumentType::MacroEnabledDocument:
+                return "MacroEnabledDocument";
+            case Packaging::WordprocessingDocumentType::MacroEnabledTemplate:
+                return "MacroEnabledTemplate";
         }
+        return "Document";
     }
-    return nullptr;
-}
 
-/// Maps a friendly CoreProperties field name (case-insensitive) to its docProps/core.xml element name.
-std::string_view CorePropertyElementName(std::string_view name)
-{
-    std::string lowered;
-    lowered.reserve(name.size());
-    for (char ch : name)
+    static std::string_view ExcelDocumentTypeName(Packaging::SpreadsheetDocumentType type)
     {
-        lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+        switch (type)
+        {
+            case Packaging::SpreadsheetDocumentType::Workbook:
+                return "Workbook";
+            case Packaging::SpreadsheetDocumentType::Template:
+                return "Template";
+            case Packaging::SpreadsheetDocumentType::MacroEnabledWorkbook:
+                return "MacroEnabledWorkbook";
+            case Packaging::SpreadsheetDocumentType::MacroEnabledTemplate:
+                return "MacroEnabledTemplate";
+        }
+        return "Workbook";
     }
-    if (lowered == "title")
-    {
-        return "dc:title";
-    }
-    if (lowered == "subject")
-    {
-        return "dc:subject";
-    }
-    if (lowered == "creator")
-    {
-        return "dc:creator";
-    }
-    if (lowered == "keywords")
-    {
-        return "cp:keywords";
-    }
-    if (lowered == "description")
-    {
-        return "dc:description";
-    }
-    if (lowered == "lastmodifiedby")
-    {
-        return "cp:lastModifiedBy";
-    }
-    if (lowered == "category")
-    {
-        return "cp:category";
-    }
-    if (lowered == "contentstatus")
-    {
-        return "cp:contentStatus";
-    }
-    return {};
-}
 
-} // namespace
+    static std::string_view PowerPointDocumentTypeName(Packaging::PowerPointDocumentType type)
+    {
+        switch (type)
+        {
+            case Packaging::PowerPointDocumentType::Presentation:
+                return "Presentation";
+            case Packaging::PowerPointDocumentType::MacroEnabledPresentation:
+                return "MacroEnabledPresentation";
+            case Packaging::PowerPointDocumentType::Template:
+                return "Template";
+            case Packaging::PowerPointDocumentType::MacroEnabledTemplate:
+                return "MacroEnabledTemplate";
+            case Packaging::PowerPointDocumentType::SlideShow:
+                return "SlideShow";
+            case Packaging::PowerPointDocumentType::MacroEnabledSlideShow:
+                return "MacroEnabledSlideShow";
+        }
+        return "Presentation";
+    }
+
+    static std::string DescriptorNameForPart(const OpenXmlPackagePart& part)
+    {
+        const auto name = part.Descriptor().Name;
+        return name.empty() ? std::string("OpaquePackagePart") : std::string(name);
+    }
+
+    // --- docProps/core.xml access -----------------------------------------------
+    //
+    // The element lookup itself lives in Xml::CorePropertiesXml, shared with the
+    // Packaging document-property API: both used to carry a prefix-literal copy of
+    // this logic, which read nothing from a document that binds the core-property
+    // namespaces to other prefixes.
+
+    static std::string GetCorePropertyText(const OpenXmlPackagePart* part, std::string_view canonicalName)
+    {
+        if (!part)
+        {
+            return {};
+        }
+        auto xml = part->GetXmlString();
+        if (xml.empty())
+        {
+            return {};
+        }
+        Pugi::xml_document doc;
+        // load_buffer, not load_string: c_str() ends the document at the first
+        // embedded NUL, which would report the properties of a truncated part.
+        if (!doc.load_buffer(xml.data(), xml.size(), Xml::ParseOptions::Preserving))
+        {
+            return {};
+        }
+        auto root = Xml::CorePropertiesXml::FindRoot(doc);
+        if (!root)
+        {
+            return {};
+        }
+        auto node = Xml::CorePropertiesXml::FindChild(root, canonicalName);
+        return node ? std::string(node.text().get()) : std::string();
+    }
+
+    /**
+     * @brief Finds the first part of type T reachable from the package.
+     *
+     * OpenXmlPartContainer::GetPartOfType() is protected, so external Tools code
+     * cannot call it on a plain OpenXmlPackage. dynamic_pointer_cast over the
+     * public part list is the supported substitute.
+     */
+    template <typename TPart>
+    static std::shared_ptr<TPart> FindPartOfType(const OpenXmlPackage& package)
+    {
+        for (const auto& part : CollectAllParts(package))
+        {
+            if (auto typed = std::dynamic_pointer_cast<TPart>(part))
+            {
+                return typed;
+            }
+        }
+        return nullptr;
+    }
+
+    /// Maps a friendly CoreProperties field name (case-insensitive) to its docProps/core.xml element name.
+    static std::string_view CorePropertyElementName(std::string_view name)
+    {
+        std::string lowered;
+        lowered.reserve(name.size());
+        for (char ch : name)
+        {
+            lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+        }
+        if (lowered == "title")
+        {
+            return "dc:title";
+        }
+        if (lowered == "subject")
+        {
+            return "dc:subject";
+        }
+        if (lowered == "creator")
+        {
+            return "dc:creator";
+        }
+        if (lowered == "keywords")
+        {
+            return "cp:keywords";
+        }
+        if (lowered == "description")
+        {
+            return "dc:description";
+        }
+        if (lowered == "lastmodifiedby")
+        {
+            return "cp:lastModifiedBy";
+        }
+        if (lowered == "category")
+        {
+            return "cp:category";
+        }
+        if (lowered == "contentstatus")
+        {
+            return "cp:contentStatus";
+        }
+        return {};
+    }
+};
 
 std::vector<std::shared_ptr<OpenXmlPackagePart>> CollectAllParts(const OpenXmlPackage& package)
 {
@@ -222,7 +222,7 @@ std::vector<PartRecord> ListParts(const OpenXmlPackage& package)
         record.Uri = part->Uri();
         record.ContentType = std::string(part->ContentType());
         record.Kind = part->IsBinaryPart() ? PartPayloadKind::Binary : PartPayloadKind::Xml;
-        record.DescriptorName = DescriptorNameForPart(*part);
+        record.DescriptorName = PackageInspectorHelper::DescriptorNameForPart(*part);
         record.Incoming = part->IncomingRelationships();
         record.Size = part->IsBinaryPart() ? part->GetBinaryData().size() : part->GetXmlString().size();
         result.push_back(std::move(record));
@@ -297,17 +297,17 @@ PackageInfo GetInfo(const OpenXmlPackage& package)
         if (auto wordType = Packaging::WordDocument::DocumentTypeFromMime(info.MainPartContentType))
         {
             info.Family = DocumentFamily::Word;
-            info.DocumentTypeName = WordDocumentTypeName(*wordType);
+            info.DocumentTypeName = PackageInspectorHelper::WordDocumentTypeName(*wordType);
         }
         else if (auto excelType = Packaging::ExcelDocument::DocumentTypeFromMime(info.MainPartContentType))
         {
             info.Family = DocumentFamily::Excel;
-            info.DocumentTypeName = ExcelDocumentTypeName(*excelType);
+            info.DocumentTypeName = PackageInspectorHelper::ExcelDocumentTypeName(*excelType);
         }
         else if (auto pptType = Packaging::PowerPointDocument::DocumentTypeFromMime(info.MainPartContentType))
         {
             info.Family = DocumentFamily::PowerPoint;
-            info.DocumentTypeName = PowerPointDocumentTypeName(*pptType);
+            info.DocumentTypeName = PackageInspectorHelper::PowerPointDocumentTypeName(*pptType);
         }
     }
 
@@ -338,22 +338,22 @@ CoreProperties ReadCoreProperties(const OpenXmlPackage& package)
 {
     CoreProperties properties;
 
-    auto corePart = FindPartOfType<Packaging::CoreFilePropertiesPart>(package);
+    auto corePart = PackageInspectorHelper::FindPartOfType<Packaging::CoreFilePropertiesPart>(package);
     if (corePart)
     {
-        properties.Title = GetCorePropertyText(corePart.get(), "dc:title");
-        properties.Subject = GetCorePropertyText(corePart.get(), "dc:subject");
-        properties.Creator = GetCorePropertyText(corePart.get(), "dc:creator");
-        properties.Keywords = GetCorePropertyText(corePart.get(), "cp:keywords");
-        properties.Description = GetCorePropertyText(corePart.get(), "dc:description");
-        properties.LastModifiedBy = GetCorePropertyText(corePart.get(), "cp:lastModifiedBy");
-        properties.Category = GetCorePropertyText(corePart.get(), "cp:category");
-        properties.ContentStatus = GetCorePropertyText(corePart.get(), "cp:contentStatus");
-        properties.Created = GetCorePropertyText(corePart.get(), "dcterms:created");
-        properties.Modified = GetCorePropertyText(corePart.get(), "dcterms:modified");
+        properties.Title = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "dc:title");
+        properties.Subject = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "dc:subject");
+        properties.Creator = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "dc:creator");
+        properties.Keywords = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "cp:keywords");
+        properties.Description = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "dc:description");
+        properties.LastModifiedBy = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "cp:lastModifiedBy");
+        properties.Category = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "cp:category");
+        properties.ContentStatus = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "cp:contentStatus");
+        properties.Created = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "dcterms:created");
+        properties.Modified = PackageInspectorHelper::GetCorePropertyText(corePart.get(), "dcterms:modified");
     }
 
-    auto extendedPart = FindPartOfType<Packaging::ExtendedFilePropertiesPart>(package);
+    auto extendedPart = PackageInspectorHelper::FindPartOfType<Packaging::ExtendedFilePropertiesPart>(package);
     if (extendedPart)
     {
         if (auto root = extendedPart->GetTypedRootElement())
@@ -388,7 +388,7 @@ bool WriteCoreProperty(OpenXmlPackage& package, std::string_view name, std::stri
 
     if (lowered == "company")
     {
-        auto extendedPart = FindPartOfType<Packaging::ExtendedFilePropertiesPart>(package);
+        auto extendedPart = PackageInspectorHelper::FindPartOfType<Packaging::ExtendedFilePropertiesPart>(package);
         if (!extendedPart)
         {
             return false;
@@ -412,13 +412,13 @@ bool WriteCoreProperty(OpenXmlPackage& package, std::string_view name, std::stri
         return true;
     }
 
-    const auto elementName = CorePropertyElementName(name);
+    const auto elementName = PackageInspectorHelper::CorePropertyElementName(name);
     if (elementName.empty())
     {
         return false;
     }
 
-    auto corePart = FindPartOfType<Packaging::CoreFilePropertiesPart>(package);
+    auto corePart = PackageInspectorHelper::FindPartOfType<Packaging::CoreFilePropertiesPart>(package);
     if (!corePart)
     {
         return false;

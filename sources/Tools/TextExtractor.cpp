@@ -16,139 +16,139 @@
 namespace ExyokiOffice::Tools
 {
 
-namespace
+/// File-local helpers behind text extraction.
+class TextExtractorHelper
 {
-
-std::string JoinShapeText(const PowerPoint::PresentationTextFrame& frame)
-{
-    std::string text;
-    for (const auto& paragraph : frame.Paragraphs)
+public:
+    static std::string JoinShapeText(const PowerPoint::PresentationTextFrame& frame)
     {
-        for (const auto& run : paragraph.Runs)
+        std::string text;
+        for (const auto& paragraph : frame.Paragraphs)
         {
-            text += run.Text;
-        }
-        text += "\n";
-    }
-    while (!text.empty() && text.back() == '\n')
-    {
-        text.pop_back();
-    }
-    return text;
-}
-
-ExtractedDocumentText ExtractPowerPoint(PowerPoint::PowerPointDocumentEditor& editor)
-{
-    ExtractedDocumentText result;
-    result.Family = DocumentFamily::PowerPoint;
-
-    Size slideIndex = 1;
-    for (const auto& slide : editor.Slides())
-    {
-        Size shapeIndex = 1;
-        if (auto tree = slide->ShapeTree())
-        {
-            for (const auto& shape : tree->Shapes())
+            for (const auto& run : paragraph.Runs)
             {
-                if (auto frame = shape->GetTextFrame())
+                text += run.Text;
+            }
+            text += "\n";
+        }
+        while (!text.empty() && text.back() == '\n')
+        {
+            text.pop_back();
+        }
+        return text;
+    }
+
+    static ExtractedDocumentText ExtractPowerPoint(PowerPoint::PowerPointDocumentEditor& editor)
+    {
+        ExtractedDocumentText result;
+        result.Family = DocumentFamily::PowerPoint;
+
+        Size slideIndex = 1;
+        for (const auto& slide : editor.Slides())
+        {
+            Size shapeIndex = 1;
+            if (auto tree = slide->ShapeTree())
+            {
+                for (const auto& shape : tree->Shapes())
                 {
-                    auto text = JoinShapeText(*frame);
-                    if (!text.empty())
+                    if (auto frame = shape->GetTextFrame())
                     {
-                        result.Blocks.push_back(ExtractedTextBlock{
-                            "slide " + std::to_string(slideIndex) + " shape " + std::to_string(shapeIndex),
-                            std::move(text)});
+                        auto text = JoinShapeText(*frame);
+                        if (!text.empty())
+                        {
+                            result.Blocks.push_back(ExtractedTextBlock{
+                                "slide " + std::to_string(slideIndex) + " shape " + std::to_string(shapeIndex),
+                                std::move(text)});
+                        }
                     }
-                }
-                ++shapeIndex;
-            }
-        }
-
-        if (auto notes = slide->NotesText(); !notes.empty())
-        {
-            result.Blocks.push_back(ExtractedTextBlock{"slide " + std::to_string(slideIndex) + " notes", notes});
-        }
-        ++slideIndex;
-    }
-
-    result.Ok = true;
-    return result;
-}
-
-ExtractedDocumentText ExtractExcel(Excel::ExcelDocumentEditor& editor)
-{
-    ExtractedDocumentText result;
-    result.Family = DocumentFamily::Excel;
-
-    auto sharedStrings = editor.SharedStrings();
-    for (const auto& worksheet : editor.Worksheets())
-    {
-        const auto sheetName = worksheet->Name();
-        for (const auto& address : worksheet->StoredCellAddresses())
-        {
-            const auto value = worksheet->GetCellValue(address);
-            if (!value || value->IsBlank())
-            {
-                continue;
-            }
-
-            std::string text;
-            if (value->Kind() == Excel::CellValueKind::SharedString)
-            {
-                if (auto index = value->SharedStringIndex())
-                {
-                    text = sharedStrings.Lookup(*index).value_or(std::string());
+                    ++shapeIndex;
                 }
             }
-            else
-            {
-                text = value->Text();
-            }
 
-            if (text.empty())
+            if (auto notes = slide->NotesText(); !notes.empty())
             {
-                continue;
+                result.Blocks.push_back(ExtractedTextBlock{"slide " + std::to_string(slideIndex) + " notes", notes});
             }
-
-            result.Blocks.push_back(ExtractedTextBlock{sheetName + "!" + address.ToA1(), std::move(text)});
+            ++slideIndex;
         }
-    }
 
-    result.Ok = true;
-    return result;
-}
-
-ExtractedDocumentText ExtractWord(Word::WordDocumentEditor& editor)
-{
-    ExtractedDocumentText result;
-    result.Family = DocumentFamily::Word;
-
-    const auto extracted = ExtractText(editor);
-    result.Diagnostics = extracted.Diagnostics;
-    if (!extracted.Ok)
-    {
+        result.Ok = true;
         return result;
     }
 
-    for (const auto& block : extracted.Blocks)
+    static ExtractedDocumentText ExtractExcel(Excel::ExcelDocumentEditor& editor)
     {
-        result.Blocks.push_back(ExtractedTextBlock{std::string(ToString(block.Scope)) + ": " + block.Label,
-                                                   block.Text});
+        ExtractedDocumentText result;
+        result.Family = DocumentFamily::Excel;
+
+        auto sharedStrings = editor.SharedStrings();
+        for (const auto& worksheet : editor.Worksheets())
+        {
+            const auto sheetName = worksheet->Name();
+            for (const auto& address : worksheet->StoredCellAddresses())
+            {
+                const auto value = worksheet->GetCellValue(address);
+                if (!value || value->IsBlank())
+                {
+                    continue;
+                }
+
+                std::string text;
+                if (value->Kind() == Excel::CellValueKind::SharedString)
+                {
+                    if (auto index = value->SharedStringIndex())
+                    {
+                        text = sharedStrings.Lookup(*index).value_or(std::string());
+                    }
+                }
+                else
+                {
+                    text = value->Text();
+                }
+
+                if (text.empty())
+                {
+                    continue;
+                }
+
+                result.Blocks.push_back(ExtractedTextBlock{sheetName + "!" + address.ToA1(), std::move(text)});
+            }
+        }
+
+        result.Ok = true;
+        return result;
     }
-    result.Ok = true;
-    return result;
-}
 
-/// The result a family reports when its editor could not open the file.
-ExtractedDocumentText FailedToOpen(DocumentFamily family, const char* message, const std::filesystem::path& path)
-{
-    ExtractedDocumentText result;
-    result.Family = family;
-    result.Diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, message, path.string()});
-    return result;
-}
+    static ExtractedDocumentText ExtractWord(Word::WordDocumentEditor& editor)
+    {
+        ExtractedDocumentText result;
+        result.Family = DocumentFamily::Word;
 
-} // namespace
+        const auto extracted = ExtractText(editor);
+        result.Diagnostics = extracted.Diagnostics;
+        if (!extracted.Ok)
+        {
+            return result;
+        }
+
+        for (const auto& block : extracted.Blocks)
+        {
+            result.Blocks.push_back(ExtractedTextBlock{std::string(ToString(block.Scope)) + ": " + block.Label,
+                                                       block.Text});
+        }
+        result.Ok = true;
+        return result;
+    }
+
+    /// The result a family reports when its editor could not open the file.
+    static ExtractedDocumentText FailedToOpen(DocumentFamily family, const char* message, const std::filesystem::path& path)
+    {
+        ExtractedDocumentText result;
+        result.Family = family;
+        result.Diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, message, path.string()});
+        return result;
+    }
+};
 
 ExtractedDocumentText Extract(const std::filesystem::path& path)
 {
@@ -168,19 +168,19 @@ ExtractedDocumentText Extract(const std::filesystem::path& path)
         {
             auto editor = Word::WordDocumentEditor::Open(path, UntrustedOpenSettings());
             return editor ? Extract(*editor)
-                          : FailedToOpen(DocumentFamily::Word, "Failed to open Word document", path);
+                          : TextExtractorHelper::FailedToOpen(DocumentFamily::Word, "Failed to open Word document", path);
         }
         case DocumentFamily::Excel:
         {
             auto editor = Excel::ExcelDocumentEditor::Open(path, UntrustedOpenSettings());
             return editor ? Extract(*editor)
-                          : FailedToOpen(DocumentFamily::Excel, "Failed to open Excel document", path);
+                          : TextExtractorHelper::FailedToOpen(DocumentFamily::Excel, "Failed to open Excel document", path);
         }
         case DocumentFamily::PowerPoint:
         {
             auto editor = PowerPoint::PowerPointDocumentEditor::Open(path, UntrustedOpenSettings());
             return editor ? Extract(*editor)
-                          : FailedToOpen(DocumentFamily::PowerPoint, "Failed to open PowerPoint document", path);
+                          : TextExtractorHelper::FailedToOpen(DocumentFamily::PowerPoint, "Failed to open PowerPoint document", path);
         }
         case DocumentFamily::Unknown:
             break;
@@ -194,17 +194,17 @@ ExtractedDocumentText Extract(const std::filesystem::path& path)
 
 ExtractedDocumentText Extract(Word::WordDocumentEditor& editor)
 {
-    return ExtractWord(editor);
+    return TextExtractorHelper::ExtractWord(editor);
 }
 
 ExtractedDocumentText Extract(Excel::ExcelDocumentEditor& editor)
 {
-    return ExtractExcel(editor);
+    return TextExtractorHelper::ExtractExcel(editor);
 }
 
 ExtractedDocumentText Extract(PowerPoint::PowerPointDocumentEditor& editor)
 {
-    return ExtractPowerPoint(editor);
+    return TextExtractorHelper::ExtractPowerPoint(editor);
 }
 
 } // namespace ExyokiOffice::Tools

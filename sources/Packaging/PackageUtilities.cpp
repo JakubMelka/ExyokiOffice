@@ -10,36 +10,38 @@
 namespace ExyokiOffice::Packaging
 {
 
-namespace
+/// File-local helpers behind the package utilities.
+class PackageUtilitiesHelper
 {
-std::vector<Byte> ReadStreamInternal(std::istream& stream)
-{
-    std::vector<Byte> buffer;
-    if (!stream)
+public:
+    static std::vector<Byte> ReadStreamInternal(std::istream& stream)
     {
-        return buffer;
-    }
+        std::vector<Byte> buffer;
+        if (!stream)
+        {
+            return buffer;
+        }
 
-    stream.seekg(0, std::ios::end);
-    const auto length = stream.tellg();
-    if (length < 0)
-    {
-        stream.clear();
+        stream.seekg(0, std::ios::end);
+        const auto length = stream.tellg();
+        if (length < 0)
+        {
+            stream.clear();
+            stream.seekg(0, std::ios::beg);
+            return buffer;
+        }
+
+        buffer.resize(static_cast<Size>(length));
         stream.seekg(0, std::ios::beg);
+        stream.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(length));
+        if (!stream)
+        {
+            buffer.clear();
+            stream.clear();
+        }
         return buffer;
     }
-
-    buffer.resize(static_cast<Size>(length));
-    stream.seekg(0, std::ios::beg);
-    stream.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(length));
-    if (!stream)
-    {
-        buffer.clear();
-        stream.clear();
-    }
-    return buffer;
-}
-} // namespace
+};
 
 std::vector<Byte> ReadFileFully(const std::filesystem::path& path)
 {
@@ -54,13 +56,13 @@ std::vector<Byte> ReadFileFully(const std::filesystem::path& path)
         return {};
     }
 
-    return ReadStreamInternal(file);
+    return PackageUtilitiesHelper::ReadStreamInternal(file);
 }
 
 std::vector<Byte> ReadStreamFully(std::iostream& stream)
 {
     stream.clear();
-    return ReadStreamInternal(stream);
+    return PackageUtilitiesHelper::ReadStreamInternal(stream);
 }
 
 bool WriteStream(std::iostream& stream, const std::vector<Byte>& data)

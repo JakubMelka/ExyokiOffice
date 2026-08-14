@@ -10,20 +10,20 @@
 namespace ExyokiOffice
 {
 
-namespace
+/// File-local construction helper for validation issues.
+class ValidationResultHelper
 {
-
-ValidationIssue MakeIssue(ValidationSeverity severity, ValidationErrorId id, std::string message, XmlLocation location)
-{
-    ValidationIssue issue;
-    issue.Severity = severity;
-    issue.Id = id;
-    issue.Message = std::move(message);
-    issue.Location = location;
-    return issue;
-}
-
-} // namespace
+public:
+    static ValidationIssue MakeIssue(ValidationSeverity severity, ValidationErrorId id, std::string message, XmlLocation location)
+    {
+        ValidationIssue issue;
+        issue.Severity = severity;
+        issue.Id = id;
+        issue.Message = std::move(message);
+        issue.Location = location;
+        return issue;
+    }
+};
 
 bool ValidationResult::IsValid() const noexcept
 {
@@ -59,12 +59,12 @@ void ValidationResult::Report(ValidationIssue issue)
 
 void ValidationResult::AddError(ValidationErrorId id, std::string message, XmlLocation location)
 {
-    AddIssue(MakeIssue(ValidationSeverity::Error, id, std::move(message), location));
+    AddIssue(ValidationResultHelper::MakeIssue(ValidationSeverity::Error, id, std::move(message), location));
 }
 
 void ValidationResult::AddWarning(ValidationErrorId id, std::string message, XmlLocation location)
 {
-    AddIssue(MakeIssue(ValidationSeverity::Warning, id, std::move(message), location));
+    AddIssue(ValidationResultHelper::MakeIssue(ValidationSeverity::Warning, id, std::move(message), location));
 }
 
 void ValidationResult::Merge(const ValidationResult& other)

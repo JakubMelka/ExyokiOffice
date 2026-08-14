@@ -16,6 +16,8 @@
 #include "Excel/WorksheetDrawingHelpers.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <optional>
@@ -50,19 +52,6 @@ constexpr UInt32 kMaxNameProbe = 100000;
 // ---------------------------------------------------------------------------
 // Small text helpers
 // ---------------------------------------------------------------------------
-
-std::string ToLowerAscii(std::string_view text)
-{
-    std::string result(text);
-    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char character)
-                   { return static_cast<char>(std::tolower(character)); });
-    return result;
-}
-
-bool EqualsIgnoreCase(std::string_view left, std::string_view right)
-{
-    return left.size() == right.size() && ToLowerAscii(left) == ToLowerAscii(right);
-}
 
 SlicerResult Failure(SlicerError error, std::string message)
 {
@@ -205,7 +194,7 @@ std::shared_ptr<X14::Slicer> FindSlicerElement(const std::shared_ptr<Packaging::
 {
     for (const auto& slicer : SlicerElements(part))
     {
-        if (slicer && EqualsIgnoreCase(slicer->GetName().ToString(), name))
+        if (slicer && AsciiText::EqualsIgnoreCase(slicer->GetName().ToString(), name))
         {
             return slicer;
         }
@@ -223,11 +212,11 @@ bool SlicerNameExists(const ExcelDocument::Ptr& document,
         for (const auto& slicer : SlicerElements(part))
         {
             const auto candidate = slicer ? slicer->GetName().ToString() : std::string{};
-            if (part == exceptPart && EqualsIgnoreCase(candidate, exceptName))
+            if (part == exceptPart && AsciiText::EqualsIgnoreCase(candidate, exceptName))
             {
                 continue;
             }
-            if (EqualsIgnoreCase(candidate, name))
+            if (AsciiText::EqualsIgnoreCase(candidate, name))
             {
                 return true;
             }
@@ -260,7 +249,7 @@ std::shared_ptr<Packaging::SlicerCachePart> SlicerCachePartByName(const ExcelDoc
     for (const auto& part : workbookPart->GetSlicerCacheParts())
     {
         const auto root = part ? part->GetSlicerCacheDefinition() : nullptr;
-        if (root && EqualsIgnoreCase(root->GetName().ToString(), cacheName))
+        if (root && AsciiText::EqualsIgnoreCase(root->GetName().ToString(), cacheName))
         {
             return part;
         }
@@ -320,7 +309,7 @@ bool CacheIsInUse(const ExcelDocument::Ptr& document,
             {
                 continue;
             }
-            if (EqualsIgnoreCase(slicer->GetCache().ToString(), cacheName))
+            if (AsciiText::EqualsIgnoreCase(slicer->GetCache().ToString(), cacheName))
             {
                 return true;
             }
@@ -624,7 +613,7 @@ std::shared_ptr<XDR::TwoCellAnchor> FindSlicerAnchor(const std::shared_ptr<XDR::
     for (const auto& anchor : root->Elements<XDR::TwoCellAnchor>())
     {
         const auto slicer = AnchorSlicerElement(anchor);
-        if (slicer && EqualsIgnoreCase(slicer->GetName().ToString(), slicerName))
+        if (slicer && AsciiText::EqualsIgnoreCase(slicer->GetName().ToString(), slicerName))
         {
             return anchor;
         }
@@ -781,7 +770,7 @@ ExcelPivotTable::Ptr PivotTableByName(const ExcelDocument::Ptr& document, std::s
 {
     for (const auto& pivotTable : AllPivotTables(document))
     {
-        if (pivotTable && EqualsIgnoreCase(pivotTable->Name(), name))
+        if (pivotTable && AsciiText::EqualsIgnoreCase(pivotTable->Name(), name))
         {
             return pivotTable;
         }
@@ -877,8 +866,8 @@ bool ColumnValueLess(const ColumnValue& left, const ColumnValue& right)
     {
         return left.number < right.number;
     }
-    const auto lowerLeft = ToLowerAscii(left.caption);
-    const auto lowerRight = ToLowerAscii(right.caption);
+    const auto lowerLeft = AsciiText::ToLower(left.caption);
+    const auto lowerRight = AsciiText::ToLower(right.caption);
     if (lowerLeft != lowerRight)
     {
         return lowerLeft < lowerRight;
@@ -967,7 +956,7 @@ std::vector<std::string> ReadTableColumnCaptions(const ExcelDocument::Ptr& docum
             continue;
         }
         const auto duplicate = std::ranges::any_of(values, [&](const ColumnValue& existing)
-                                                   { return EqualsIgnoreCase(existing.caption, value->caption); });
+                                                   { return AsciiText::EqualsIgnoreCase(existing.caption, value->caption); });
         if (!duplicate)
         {
             values.push_back(*value);
@@ -998,7 +987,7 @@ std::optional<ResolvedSource> ResolvePivotSource(const ExcelDocument::Ptr& docum
     resolved.kind = SlicerSourceKind::PivotTable;
     for (const auto& fieldName : pivotTable->SourceFieldNames())
     {
-        if (EqualsIgnoreCase(fieldName, definition.SourceField))
+        if (AsciiText::EqualsIgnoreCase(fieldName, definition.SourceField))
         {
             resolved.sourceName = fieldName;
             break;
@@ -1029,7 +1018,7 @@ std::optional<ResolvedSource> ResolveTableSource(const ExcelDocument::Ptr& docum
     ExcelTable::Ptr table;
     for (const auto& candidate : AllTables(document))
     {
-        if (candidate && EqualsIgnoreCase(candidate->Name(), definition.TableName))
+        if (candidate && AsciiText::EqualsIgnoreCase(candidate->Name(), definition.TableName))
         {
             table = candidate;
             break;
@@ -1051,7 +1040,7 @@ std::optional<ResolvedSource> ResolveTableSource(const ExcelDocument::Ptr& docum
     bool found = false;
     for (Size index = 0; index < columns.size(); ++index)
     {
-        if (EqualsIgnoreCase(columns[index].Name, definition.SourceField))
+        if (AsciiText::EqualsIgnoreCase(columns[index].Name, definition.SourceField))
         {
             resolved.sourceName = columns[index].Name;
             resolved.tableColumnId = columns[index].Id;
@@ -1103,7 +1092,7 @@ std::shared_ptr<Packaging::SlicerCachePart> FindSharedCachePart(const ExcelDocum
     for (const auto& cachePart : workbookPart->GetSlicerCacheParts())
     {
         const auto root = cachePart ? cachePart->GetSlicerCacheDefinition() : nullptr;
-        if (!root || !EqualsIgnoreCase(root->GetSourceName().ToString(), resolved.sourceName))
+        if (!root || !AsciiText::EqualsIgnoreCase(root->GetSourceName().ToString(), resolved.sourceName))
         {
             continue;
         }
@@ -1128,7 +1117,7 @@ std::shared_ptr<Packaging::SlicerCachePart> FindSharedCachePart(const ExcelDocum
         }
         for (const auto& entry : pivotTables->Elements<X14::SlicerCachePivotTable>())
         {
-            if (entry && EqualsIgnoreCase(entry->GetName().ToString(), resolved.pivotTableName))
+            if (entry && AsciiText::EqualsIgnoreCase(entry->GetName().ToString(), resolved.pivotTableName))
             {
                 return cachePart;
             }
@@ -1159,7 +1148,7 @@ bool ResolveSelection(const ResolvedSource& resolved,
         bool matched = false;
         for (Size index = 0; index < resolved.captions.size(); ++index)
         {
-            if (EqualsIgnoreCase(resolved.captions[index], caption))
+            if (AsciiText::EqualsIgnoreCase(resolved.captions[index], caption))
             {
                 selection[index] = true;
                 matched = true;
@@ -1573,7 +1562,7 @@ std::vector<ExcelSlicerItem> ExcelSlicer::Items() const
         {
             ExcelSlicerItem item;
             item.Selected = !filtered || std::ranges::any_of(selected, [&](const std::string& value)
-                                                             { return SlicerDetail::EqualsIgnoreCase(value, caption); });
+                                                             { return AsciiText::EqualsIgnoreCase(value, caption); });
             item.Caption = std::move(caption);
             result.push_back(std::move(item));
         }
@@ -1798,7 +1787,7 @@ SlicerResult ExcelSlicer::Update(const ExcelSlicerDefinition& definition)
     {
         return status;
     }
-    if (definition.SourceKind != SourceKind() || !SlicerDetail::EqualsIgnoreCase(definition.SourceField, SourceField()))
+    if (definition.SourceKind != SourceKind() || !AsciiText::EqualsIgnoreCase(definition.SourceField, SourceField()))
     {
         return SlicerDetail::Failure(SlicerError::UnknownSource,
                                      "The slicer source cannot be changed; remove the slicer and create a new one.");
@@ -1834,7 +1823,7 @@ SlicerResult ExcelSlicer::Update(const ExcelSlicerDefinition& definition)
     const auto caption = definition.Caption.empty() ? resolved->sourceName : definition.Caption;
     SlicerDetail::WriteSlicerElement(slicer, definition, m_name, cacheName, caption);
     if (definition.WriteDrawing && !definition.Name.empty() &&
-        !SlicerDetail::EqualsIgnoreCase(definition.Name, m_name))
+        !AsciiText::EqualsIgnoreCase(definition.Name, m_name))
     {
         if (auto renamed = SetName(definition.Name); !renamed)
         {
@@ -2147,7 +2136,7 @@ ExcelSlicer::Ptr Worksheet::SlicerByName(std::string_view name) const
 {
     for (const auto& slicer : Slicers())
     {
-        if (slicer && SlicerDetail::EqualsIgnoreCase(slicer->Name(), name))
+        if (slicer && AsciiText::EqualsIgnoreCase(slicer->Name(), name))
         {
             return slicer;
         }
@@ -2257,7 +2246,7 @@ void RemoveSlicerChain(const ExcelDocument::Ptr& document, const std::shared_ptr
         for (const auto& slicer : sheet->Slicers())
         {
             const auto element = slicer ? slicer->GetLowLevelApi() : nullptr;
-            if (element && EqualsIgnoreCase(element->GetCache().ToString(), cacheName))
+            if (element && AsciiText::EqualsIgnoreCase(element->GetCache().ToString(), cacheName))
             {
                 sheet->RemoveSlicer(slicer);
             }
@@ -2292,7 +2281,7 @@ void DetachPivotTableFromSlicers(const ExcelDocument::Ptr& document, std::string
         }
         for (const auto& entry : pivotTables->Elements<X14::SlicerCachePivotTable>())
         {
-            if (entry && EqualsIgnoreCase(entry->GetName().ToString(), pivotTableName))
+            if (entry && AsciiText::EqualsIgnoreCase(entry->GetName().ToString(), pivotTableName))
             {
                 pivotTables->RemoveChild(entry);
             }
@@ -2351,7 +2340,7 @@ void RenamePivotTableInSlicers(const ExcelDocument::Ptr& document,
         }
         for (const auto& entry : pivotTables->Elements<X14::SlicerCachePivotTable>())
         {
-            if (entry && EqualsIgnoreCase(entry->GetName().ToString(), oldName))
+            if (entry && AsciiText::EqualsIgnoreCase(entry->GetName().ToString(), oldName))
             {
                 entry->SetName(StringValue(newName));
             }
@@ -2377,7 +2366,7 @@ void RefreshSlicersForPivotTable(const ExcelDocument::Ptr& document, std::string
         for (const auto& slicer : sheet->Slicers())
         {
             if (!slicer || slicer->SourceKind() != SlicerSourceKind::PivotTable ||
-                !EqualsIgnoreCase(slicer->SourceObjectName(), pivotTableName))
+                !AsciiText::EqualsIgnoreCase(slicer->SourceObjectName(), pivotTableName))
             {
                 continue;
             }

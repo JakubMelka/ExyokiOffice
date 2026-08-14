@@ -9,6 +9,10 @@
 #include "XmlParseOptions.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
+#include "Base64.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -48,14 +52,6 @@ public:
         return bytes;
     }
 
-    static std::string Lower(std::string value)
-    {
-        std::transform(value.begin(), value.end(), value.begin(),
-                       [](unsigned char ch)
-                       { return static_cast<char>(std::tolower(ch)); });
-        return value;
-    }
-
     static std::string Extension(std::string_view name)
     {
         const auto slash = name.find_last_of('/');
@@ -64,7 +60,7 @@ public:
         {
             return {};
         }
-        return Lower(std::string(name.substr(dot + 1)));
+        return AsciiText::ToLower(std::string(name.substr(dot + 1)));
     }
 
     // Which parts travel as XML is decided the way OpenXmlPackage decides it,
@@ -98,71 +94,13 @@ public:
             const auto local = name.substr(name.find(':') == std::string_view::npos ? 0 : name.find(':') + 1);
             if (local == "Default")
             {
-                defaults[Lower(node.attribute("Extension").as_string())] = node.attribute("ContentType").as_string();
+                defaults[AsciiText::ToLower(node.attribute("Extension").as_string())] = node.attribute("ContentType").as_string();
             }
             else if (local == "Override")
             {
                 overrides[node.attribute("PartName").as_string()] = node.attribute("ContentType").as_string();
             }
         }
-    }
-
-    static std::string EncodeBase64(const std::vector<Byte>& bytes)
-    {
-        static constexpr char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        std::string out;
-        out.reserve((bytes.size() + 2) / 3 * 4);
-        for (Size i = 0; i < bytes.size(); i += 3)
-        {
-            const unsigned value = (static_cast<unsigned>(bytes[i]) << 16) |
-                                   (i + 1 < bytes.size() ? static_cast<unsigned>(bytes[i + 1]) << 8 : 0) |
-                                   (i + 2 < bytes.size() ? bytes[i + 2] : 0);
-            out.push_back(alphabet[(value >> 18) & 63]);
-            out.push_back(alphabet[(value >> 12) & 63]);
-            out.push_back(i + 1 < bytes.size() ? alphabet[(value >> 6) & 63] : '=');
-            out.push_back(i + 2 < bytes.size() ? alphabet[value & 63] : '=');
-        }
-        return out;
-    }
-
-    static bool DecodeBase64(std::string_view text, std::vector<Byte>& out)
-    {
-        int value = 0, bits = -8;
-        bool padding = false;
-        for (const char rawCh : text)
-        {
-            const auto ch = static_cast<unsigned char>(rawCh);
-            if (std::isspace(ch))
-            {
-                continue;
-            }
-            if (ch == '=')
-            {
-                padding = true;
-                continue;
-            }
-            if (padding)
-            {
-                return false;
-            }
-            int digit = ch >= 'A' && ch <= 'Z' ? ch - 'A' : ch >= 'a' && ch <= 'z' ? ch - 'a' + 26
-                                                        : ch >= '0' && ch <= '9'   ? ch - '0' + 52
-                                                        : ch == '+'                ? 62
-                                                        : ch == '/'                ? 63
-                                                                                   : -1;
-            if (digit < 0)
-            {
-                return false;
-            }
-            value = (value << 6) | digit;
-            bits += 6;
-            if (bits >= 0)
-            {
-                out.push_back(static_cast<UInt8>((value >> bits) & 255));
-                bits -= 8;
-            }
-        }
-        return true;
     }
 
     static std::string Prefix(Pugi::xml_node root)
@@ -268,7 +206,7 @@ ToFlatOpcResult ConvertToFlatOpc(std::span<const Byte> packageBytes, const ToFla
         }
         else
         {
-            part.append_child("pkg:binaryData").text().set(FlatOpcHelpers::EncodeBase64(bytes).c_str());
+            part.append_child("pkg:binaryData").text().set(Base64::Encode(bytes).c_str());
         }
         ++result.PartCount;
     }
@@ -360,7 +298,7 @@ FromFlatOpcResult ConvertFromFlatOpc(std::string_view flatOpcXml, const FromFlat
         }
         else if (auto binaryData = part.child(qualified("binaryData").c_str()))
         {
-            if (!FlatOpcHelpers::DecodeBase64(binaryData.text().as_string(), bytes))
+            if (!Base64::Decode(binaryData.text().as_string(), bytes, Base64::Padding::Optional))
             {
                 FlatOpcHelpers::Diagnostic(result.Diagnostics, "Invalid base64 data", entryName);
                 continue;

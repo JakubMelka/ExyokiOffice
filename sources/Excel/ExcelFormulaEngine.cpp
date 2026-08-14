@@ -12,6 +12,8 @@
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <array>
 #include <map>
@@ -240,21 +242,6 @@ std::string FormulaValue::ToDisplayText() const
 namespace FormulaEngineDetail
 {
 
-char AsciiLower(char c)
-{
-    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
-}
-
-std::string ToLower(std::string_view text)
-{
-    std::string result(text);
-    for (char& c : result)
-    {
-        c = AsciiLower(c);
-    }
-    return result;
-}
-
 bool SheetNameNeedsQuoting(std::string_view name)
 {
     if (name.empty())
@@ -443,10 +430,10 @@ void CollectPrecedents(const FormulaExpression& node,
         {
             // Expand the name's definition so dependencies flow through
             // defined names. The stack guards against name-to-name cycles.
-            const std::string nameLower = ToLower(node.text);
+            const std::string nameLower = AsciiText::ToLower(node.text);
             const std::string scopeLower =
-                ToLower(node.area.hasSheet ? std::string_view(node.area.sheet)
-                                           : std::string_view(context.sheetDisplay));
+                AsciiText::ToLower(node.area.hasSheet ? std::string_view(node.area.sheet)
+                                                      : std::string_view(context.sheetDisplay));
             auto it = names.find({scopeLower, nameLower});
             if (it == names.end())
             {
@@ -551,7 +538,7 @@ FormulaValidationResult FormulaEngine::ValidateFormula(std::string_view formula)
             NamedRangeManager names(m_document);
             for (const NamedRange& entry : names.List())
             {
-                knownNames.insert(FormulaEngineDetail::ToLower(entry.Name));
+                knownNames.insert(AsciiText::ToLower(entry.Name));
             }
         }
 
@@ -577,7 +564,7 @@ FormulaValidationResult FormulaEngine::ValidateFormula(std::string_view formula)
                 }
             }
             else if (node.kind == FormulaExpressionKind::NameReference && m_document &&
-                     knownNames.find(FormulaEngineDetail::ToLower(node.text)) == knownNames.end())
+                     knownNames.find(AsciiText::ToLower(node.text)) == knownNames.end())
             {
                 result.Diagnostics.push_back(
                     {node.offset, node.length, "Unknown name '" + node.text + "'."});
@@ -766,7 +753,7 @@ public:
                 continue;
             }
             const std::string displayName = worksheet->Name();
-            const std::string lowerName = ToLower(displayName);
+            const std::string lowerName = AsciiText::ToLower(displayName);
             for (const CellAddress& address : worksheet->StoredCellAddresses())
             {
                 auto model = worksheet->GetCellFormula(address);
@@ -809,8 +796,8 @@ public:
                     continue;
                 }
                 const std::string scopeLower =
-                    entry.Scope == NamedRangeScope::Sheet ? ToLower(entry.ScopeSheet) : std::string();
-                nameAsts[{scopeLower, ToLower(entry.Name)}] = parseFormula(entry.Formula);
+                    entry.Scope == NamedRangeScope::Sheet ? AsciiText::ToLower(entry.ScopeSheet) : std::string();
+                nameAsts[{scopeLower, AsciiText::ToLower(entry.Name)}] = parseFormula(entry.Formula);
             }
         }
 
@@ -902,7 +889,7 @@ public:
 
             for (const ResolvedReferenceArea& area : precedents)
             {
-                const auto sheetIt = sheetIndex.find(ToLower(area.sheet));
+                const auto sheetIt = sheetIndex.find(AsciiText::ToLower(area.sheet));
                 if (sheetIt == sheetIndex.end())
                 {
                     continue;
@@ -1169,7 +1156,7 @@ RecalculationResult FormulaEngine::RecalculateSheet(std::string_view sheetName)
                 "Worksheet '" + std::string(sheetName) + "' does not exist in the workbook.";
             return result;
         }
-        targetSheetLower = ToLower(worksheet->Name());
+        targetSheetLower = AsciiText::ToLower(worksheet->Name());
     }
 
     std::vector<FormulaParseResult> parseStorage;

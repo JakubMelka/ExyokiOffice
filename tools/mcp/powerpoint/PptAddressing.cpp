@@ -9,6 +9,8 @@
 
 #include "ExyokiOffice/MeasuringAngle.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -68,16 +70,6 @@ public:
     /// PresentationML serializes angles in 1/60000 of a degree.
     static constexpr Real DrawingAngleUnitsPerDegree = 60000.0;
 
-    static char ToLower(char value) noexcept
-    {
-        if (value >= 'A' && value <= 'Z')
-        {
-            return static_cast<char>(value - 'A' + 'a');
-        }
-
-        return value;
-    }
-
     /**
      * @brief Parses a rotation argument into an angle.
      *
@@ -114,7 +106,7 @@ public:
                 continue;
             }
 
-            unit.push_back(ToLower(*cursor));
+            unit.push_back(AsciiText::ToLower(*cursor));
         }
 
         if (unit.empty() || unit == "deg" || unit == "degree" || unit == "degrees")

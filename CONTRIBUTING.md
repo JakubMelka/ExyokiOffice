@@ -110,6 +110,10 @@ affects emitted files.
   declarations.
 - Use a focused private helper class with static methods for file-local helper
   behavior instead of adding an anonymous namespace solely for free helpers.
+  This is about free functions: an anonymous namespace holding only constants,
+  or holding only a helper class, is already right as written. `using`
+  directives and namespace aliases belong outside the class, since a class body
+  cannot hold them. Split a helper class that grows past a few dozen members.
 - Preserve unsupported package content unless the operation explicitly removes
   it. Avoid partial mutation when validation fails.
 

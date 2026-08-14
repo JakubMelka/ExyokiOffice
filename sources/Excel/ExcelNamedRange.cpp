@@ -7,6 +7,8 @@
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Spreadsheet.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <utility>
 
@@ -17,27 +19,6 @@ namespace NamedRangeDetail
 {
 
 namespace Spreadsheet = ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet;
-
-char AsciiLower(char c)
-{
-    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
-}
-
-bool EqualsIgnoreCase(std::string_view left, std::string_view right)
-{
-    if (left.size() != right.size())
-    {
-        return false;
-    }
-    for (Size i = 0; i < left.size(); ++i)
-    {
-        if (AsciiLower(left[i]) != AsciiLower(right[i]))
-        {
-            return false;
-        }
-    }
-    return true;
-}
 
 std::shared_ptr<Spreadsheet::Workbook> GetWorkbook(const ExcelDocument::Ptr& document)
 {
@@ -78,7 +59,7 @@ std::optional<UInt32> SheetIndex(const std::vector<std::string>& sheetNames, std
 {
     for (Size i = 0; i < sheetNames.size(); ++i)
     {
-        if (EqualsIgnoreCase(sheetNames[i], name))
+        if (AsciiText::EqualsIgnoreCase(sheetNames[i], name))
         {
             return static_cast<UInt32>(i);
         }
@@ -122,7 +103,7 @@ bool MatchesScope(const std::shared_ptr<Spreadsheet::DefinedName>& element,
         return false;
     }
     const auto index = localSheetId.Value();
-    return index < sheetNames.size() && EqualsIgnoreCase(sheetNames[index], scopeSheet);
+    return index < sheetNames.size() && AsciiText::EqualsIgnoreCase(sheetNames[index], scopeSheet);
 }
 
 std::shared_ptr<Spreadsheet::DefinedName> FindElement(const ExcelDocument::Ptr& document,
@@ -137,7 +118,7 @@ std::shared_ptr<Spreadsheet::DefinedName> FindElement(const ExcelDocument::Ptr& 
     }
     for (const auto& element : definedNames->Elements<Spreadsheet::DefinedName>())
     {
-        if (EqualsIgnoreCase(element->GetName().View(), name) &&
+        if (AsciiText::EqualsIgnoreCase(element->GetName().View(), name) &&
             MatchesScope(element, sheetNames, scopeSheet))
         {
             return element;
@@ -204,7 +185,7 @@ bool NamedRangeManager::IsValidName(std::string_view name)
     }
     // Single-letter C and R are reserved, and cell-reference spellings such
     // as A1 or R1C1 are forbidden.
-    if (EqualsIgnoreCase(name, "C") || EqualsIgnoreCase(name, "R"))
+    if (AsciiText::EqualsIgnoreCase(name, "C") || AsciiText::EqualsIgnoreCase(name, "R"))
     {
         return false;
     }
@@ -431,7 +412,7 @@ NamedRangeResult NamedRangeManager::Rename(std::string_view name,
         return Failure(NamedRangeError::NameNotFound,
                        "No defined name '" + std::string(name) + "' exists in this scope.");
     }
-    if (!EqualsIgnoreCase(name, newName) && FindElement(m_document, newName, scopeSheet, sheetNames))
+    if (!AsciiText::EqualsIgnoreCase(name, newName) && FindElement(m_document, newName, scopeSheet, sheetNames))
     {
         return Failure(NamedRangeError::DuplicateName,
                        "A defined name '" + std::string(newName) + "' already exists in this scope.");

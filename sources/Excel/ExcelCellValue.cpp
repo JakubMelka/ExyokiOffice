@@ -10,32 +10,32 @@
 
 namespace ExyokiOffice::Excel
 {
-namespace
+/// File-local parsing helpers for cell values.
+class ExcelCellValueHelper
 {
-
-std::string FormatDouble(Real value)
-{
-    char buffer[64]{};
-    auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value);
-    if (ec == std::errc())
+public:
+    static std::string FormatDouble(Real value)
     {
-        return std::string(buffer, ptr);
+        char buffer[64]{};
+        auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value);
+        if (ec == std::errc())
+        {
+            return std::string(buffer, ptr);
+        }
+
+        std::snprintf(buffer, sizeof(buffer), "%.17g", value);
+        return std::string(buffer);
     }
 
-    std::snprintf(buffer, sizeof(buffer), "%.17g", value);
-    return std::string(buffer);
-}
-
-std::string StripFormulaPrefix(std::string formula)
-{
-    if (!formula.empty() && formula.front() == '=')
+    static std::string StripFormulaPrefix(std::string formula)
     {
-        formula.erase(formula.begin());
+        if (!formula.empty() && formula.front() == '=')
+        {
+            formula.erase(formula.begin());
+        }
+        return formula;
     }
-    return formula;
-}
-
-} // namespace
+};
 
 CellFormulaValue CellFormulaValue::Normal(std::string formula,
                                           FormulaCachedValueKind cachedKind,
@@ -43,7 +43,7 @@ CellFormulaValue CellFormulaValue::Normal(std::string formula,
                                           FormulaReferenceStyle referenceStyle)
 {
     CellFormulaValue value;
-    value.Formula = StripFormulaPrefix(std::move(formula));
+    value.Formula = ExcelCellValueHelper::StripFormulaPrefix(std::move(formula));
     value.ReferenceStyle = referenceStyle;
     value.CachedKind = cachedKind;
     value.CachedText = std::move(cachedText);
@@ -121,7 +121,7 @@ ExcelCellValue ExcelCellValue::NumberText(std::string text)
 
 ExcelCellValue ExcelCellValue::Number(Real value)
 {
-    return NumberText(FormatDouble(value));
+    return NumberText(ExcelCellValueHelper::FormatDouble(value));
 }
 
 ExcelCellValue ExcelCellValue::Boolean(bool value)
@@ -160,7 +160,7 @@ ExcelCellValue ExcelCellValue::Formula(CellFormulaValue formula)
 {
     ExcelCellValue value;
     value.m_kind = CellValueKind::Formula;
-    formula.Formula = StripFormulaPrefix(std::move(formula.Formula));
+    formula.Formula = ExcelCellValueHelper::StripFormulaPrefix(std::move(formula.Formula));
     value.m_formula = std::move(formula);
     value.m_text = value.m_formula.CachedText;
     return value;

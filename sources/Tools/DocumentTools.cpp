@@ -18,101 +18,103 @@
 
 namespace ExyokiOffice::Tools
 {
-namespace
+/// File-local helpers behind the document tools.
+class DocumentToolsHelper
 {
-void Error(std::vector<ToolDiagnostic>& diagnostics, std::string message,
-           const std::filesystem::path& context = {})
-{
-    diagnostics.push_back({ToolSeverity::Error, std::move(message), context.string()});
-}
-
-DocumentFamily Detect(const std::filesystem::path& path, std::vector<ToolDiagnostic>& diagnostics)
-{
-    OpenXmlPackage package;
-    ApplyDefaultPackageLimits(package);
-    if (!package.LoadFromFile(path))
+public:
+    static void Error(std::vector<ToolDiagnostic>& diagnostics, std::string message,
+                      const std::filesystem::path& context = {})
     {
-        Error(diagnostics, "Failed to open package", path);
-        return DocumentFamily::Unknown;
+        diagnostics.push_back({ToolSeverity::Error, std::move(message), context.string()});
     }
-    const auto family = GetInfo(package).Family;
-    if (family == DocumentFamily::Unknown)
-    {
-        Error(diagnostics, "Package is not a supported Word, Excel, or PowerPoint document", path);
-    }
-    return family;
-}
 
-std::filesystem::path NumberedPath(const std::filesystem::path& directory,
-                                   std::string_view prefix, std::string_view extension,
-                                   Size index, Size count)
-{
-    std::ostringstream name;
-    const auto width = std::max<Size>(2, std::to_string(count).size());
-    name << (prefix.empty() ? "part" : prefix) << '_' << std::setw(static_cast<int>(width))
-         << std::setfill('0') << index << extension;
-    return directory / name.str();
-}
-
-bool PrepareDirectory(const std::filesystem::path& directory,
-                      const std::vector<std::filesystem::path>& paths,
-                      bool overwrite, std::vector<ToolDiagnostic>& diagnostics)
-{
-    std::error_code error;
-    std::filesystem::create_directories(directory, error);
-    if (error)
+    static DocumentFamily Detect(const std::filesystem::path& path, std::vector<ToolDiagnostic>& diagnostics)
     {
-        Error(diagnostics, "Failed to create output directory", directory);
-        return false;
-    }
-    if (!overwrite)
-    {
-        for (const auto& path : paths)
+        OpenXmlPackage package;
+        ApplyDefaultPackageLimits(package);
+        if (!package.LoadFromFile(path))
         {
-            if (std::filesystem::exists(path))
-            {
-                Error(diagnostics, "Output file already exists", path);
-                return false;
-            }
+            Error(diagnostics, "Failed to open package", path);
+            return DocumentFamily::Unknown;
         }
-    }
-    return true;
-}
-
-template <typename Editor, typename Remove>
-bool WritePrunedGroups(const std::vector<Byte>& bytes, Size itemCount,
-                       Size perFile, const std::vector<std::filesystem::path>& paths,
-                       Remove remove, std::vector<std::filesystem::path>& written,
-                       std::vector<ToolDiagnostic>& diagnostics)
-{
-    for (Size group = 0; group < paths.size(); ++group)
-    {
-        auto editor = Editor::Open(bytes, OwnOutputOpenSettings());
-        if (!editor)
+        const auto family = GetInfo(package).Family;
+        if (family == DocumentFamily::Unknown)
         {
-            Error(diagnostics, "Failed to clone source package", paths[group]);
+            Error(diagnostics, "Package is not a supported Word, Excel, or PowerPoint document", path);
+        }
+        return family;
+    }
+
+    static std::filesystem::path NumberedPath(const std::filesystem::path& directory,
+                                              std::string_view prefix, std::string_view extension,
+                                              Size index, Size count)
+    {
+        std::ostringstream name;
+        const auto width = std::max<Size>(2, std::to_string(count).size());
+        name << (prefix.empty() ? "part" : prefix) << '_' << std::setw(static_cast<int>(width))
+             << std::setfill('0') << index << extension;
+        return directory / name.str();
+    }
+
+    static bool PrepareDirectory(const std::filesystem::path& directory,
+                                 const std::vector<std::filesystem::path>& paths,
+                                 bool overwrite, std::vector<ToolDiagnostic>& diagnostics)
+    {
+        std::error_code error;
+        std::filesystem::create_directories(directory, error);
+        if (error)
+        {
+            Error(diagnostics, "Failed to create output directory", directory);
             return false;
         }
-        const auto first = group * perFile;
-        const auto last = std::min(itemCount, first + perFile);
-        for (Size index = itemCount; index-- > 0;)
+        if (!overwrite)
         {
-            if ((index < first || index >= last) && !remove(*editor, index))
+            for (const auto& path : paths)
             {
-                Error(diagnostics, "Failed to remove an item while creating split package", paths[group]);
-                return false;
+                if (std::filesystem::exists(path))
+                {
+                    Error(diagnostics, "Output file already exists", path);
+                    return false;
+                }
             }
         }
-        if (!editor->SaveToFile(paths[group]))
-        {
-            Error(diagnostics, "Failed to write split package", paths[group]);
-            return false;
-        }
-        written.push_back(paths[group]);
+        return true;
     }
-    return true;
-}
-} // namespace
+
+    template <typename Editor, typename Remove>
+    static bool WritePrunedGroups(const std::vector<Byte>& bytes, Size itemCount,
+                                  Size perFile, const std::vector<std::filesystem::path>& paths,
+                                  Remove remove, std::vector<std::filesystem::path>& written,
+                                  std::vector<ToolDiagnostic>& diagnostics)
+    {
+        for (Size group = 0; group < paths.size(); ++group)
+        {
+            auto editor = Editor::Open(bytes, OwnOutputOpenSettings());
+            if (!editor)
+            {
+                Error(diagnostics, "Failed to clone source package", paths[group]);
+                return false;
+            }
+            const auto first = group * perFile;
+            const auto last = std::min(itemCount, first + perFile);
+            for (Size index = itemCount; index-- > 0;)
+            {
+                if ((index < first || index >= last) && !remove(*editor, index))
+                {
+                    Error(diagnostics, "Failed to remove an item while creating split package", paths[group]);
+                    return false;
+                }
+            }
+            if (!editor->SaveToFile(paths[group]))
+            {
+                Error(diagnostics, "Failed to write split package", paths[group]);
+                return false;
+            }
+            written.push_back(paths[group]);
+        }
+        return true;
+    }
+};
 
 DocumentSplitResult SplitDocument(const std::filesystem::path& inputFile,
                                   const std::filesystem::path& outputDirectory,
@@ -125,11 +127,11 @@ DocumentSplitResult SplitDocument(const std::filesystem::path& inputFile,
     // package is even opened: nothing about the input can make the prefix safe.
     if (!options.OutputPrefix.empty() && !IsPlainOutputName(options.OutputPrefix))
     {
-        Error(result.Diagnostics, "Output prefix is not a plain file name", options.OutputPrefix);
+        DocumentToolsHelper::Error(result.Diagnostics, "Output prefix is not a plain file name", options.OutputPrefix);
         return result;
     }
 
-    result.Family = Detect(inputFile, result.Diagnostics);
+    result.Family = DocumentToolsHelper::Detect(inputFile, result.Diagnostics);
     if (result.Family == DocumentFamily::Unknown)
     {
         return result;
@@ -140,7 +142,7 @@ DocumentSplitResult SplitDocument(const std::filesystem::path& inputFile,
         if (options.Strategy == DocumentSplitStrategy::Worksheets ||
             options.Strategy == DocumentSplitStrategy::Slides)
         {
-            Error(result.Diagnostics, "Selected split strategy is not valid for Word documents", inputFile);
+            DocumentToolsHelper::Error(result.Diagnostics, "Selected split strategy is not valid for Word documents", inputFile);
             return result;
         }
         WordSplitOptions word;
@@ -177,7 +179,7 @@ DocumentSplitResult SplitDocument(const std::filesystem::path& inputFile,
     const auto expected = excel ? DocumentSplitStrategy::Worksheets : DocumentSplitStrategy::Slides;
     if (options.Strategy != DocumentSplitStrategy::Auto && options.Strategy != expected)
     {
-        Error(result.Diagnostics, "Selected split strategy is not valid for " + std::string(ToString(result.Family)) + " documents", inputFile);
+        DocumentToolsHelper::Error(result.Diagnostics, "Selected split strategy is not valid for " + std::string(ToString(result.Family)) + " documents", inputFile);
         return result;
     }
     const auto perFile = options.ItemCount == 0 ? 1 : options.ItemCount;
@@ -188,7 +190,7 @@ DocumentSplitResult SplitDocument(const std::filesystem::path& inputFile,
         auto editor = Excel::ExcelDocumentEditor::Open(inputFile, UntrustedOpenSettings());
         if (!editor)
         {
-            Error(result.Diagnostics, "Failed to open Excel workbook", inputFile);
+            DocumentToolsHelper::Error(result.Diagnostics, "Failed to open Excel workbook", inputFile);
             return result;
         }
         bytes = editor->SaveToMemory();
@@ -199,7 +201,7 @@ DocumentSplitResult SplitDocument(const std::filesystem::path& inputFile,
         auto editor = PowerPoint::PowerPointDocumentEditor::Open(inputFile, UntrustedOpenSettings());
         if (!editor)
         {
-            Error(result.Diagnostics, "Failed to open PowerPoint presentation", inputFile);
+            DocumentToolsHelper::Error(result.Diagnostics, "Failed to open PowerPoint presentation", inputFile);
             return result;
         }
         bytes = editor->SaveToMemory();
@@ -207,7 +209,7 @@ DocumentSplitResult SplitDocument(const std::filesystem::path& inputFile,
     }
     if (items == 0)
     {
-        Error(result.Diagnostics, excel ? "Workbook has no worksheets" : "Presentation has no slides", inputFile);
+        DocumentToolsHelper::Error(result.Diagnostics, excel ? "Workbook has no worksheets" : "Presentation has no slides", inputFile);
         return result;
     }
     const auto groups = (items + perFile - 1) / perFile;
@@ -219,15 +221,15 @@ DocumentSplitResult SplitDocument(const std::filesystem::path& inputFile,
     }
     for (Size i = 0; i < groups; ++i)
     {
-        paths.push_back(NumberedPath(outputDirectory, options.OutputPrefix, extension, i + 1, groups));
+        paths.push_back(DocumentToolsHelper::NumberedPath(outputDirectory, options.OutputPrefix, extension, i + 1, groups));
     }
-    if (!PrepareDirectory(outputDirectory, paths, options.Overwrite, result.Diagnostics))
+    if (!DocumentToolsHelper::PrepareDirectory(outputDirectory, paths, options.Overwrite, result.Diagnostics))
     {
         return result;
     }
     if (excel)
     {
-        result.Ok = WritePrunedGroups<Excel::ExcelDocumentEditor>(
+        result.Ok = DocumentToolsHelper::WritePrunedGroups<Excel::ExcelDocumentEditor>(
             bytes, items, perFile, paths,
             [](auto& editor, Size index)
             { return editor.RemoveWorksheet(index); },
@@ -235,7 +237,7 @@ DocumentSplitResult SplitDocument(const std::filesystem::path& inputFile,
     }
     else
     {
-        result.Ok = WritePrunedGroups<PowerPoint::PowerPointDocumentEditor>(
+        result.Ok = DocumentToolsHelper::WritePrunedGroups<PowerPoint::PowerPointDocumentEditor>(
             bytes, items, perFile, paths,
             [](auto& editor, Size index)
             { return editor.RemoveSlide(index); },
@@ -252,12 +254,12 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
     result.OutputFile = outputFile;
     if (inputFiles.empty())
     {
-        Error(result.Diagnostics, "At least one input document is required");
+        DocumentToolsHelper::Error(result.Diagnostics, "At least one input document is required");
         return result;
     }
     for (const auto& input : inputFiles)
     {
-        const auto family = Detect(input, result.Diagnostics);
+        const auto family = DocumentToolsHelper::Detect(input, result.Diagnostics);
         if (family == DocumentFamily::Unknown)
         {
             return result;
@@ -268,13 +270,13 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
         }
         else if (family != result.Family)
         {
-            Error(result.Diagnostics, "All merge inputs must have the same document family", input);
+            DocumentToolsHelper::Error(result.Diagnostics, "All merge inputs must have the same document family", input);
             return result;
         }
     }
     if (!options.Overwrite && std::filesystem::exists(outputFile))
     {
-        Error(result.Diagnostics, "Output file already exists", outputFile);
+        DocumentToolsHelper::Error(result.Diagnostics, "Output file already exists", outputFile);
         return result;
     }
     std::error_code error;
@@ -284,7 +286,7 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
     }
     if (error)
     {
-        Error(result.Diagnostics, "Failed to create output directory", outputFile.parent_path());
+        DocumentToolsHelper::Error(result.Diagnostics, "Failed to create output directory", outputFile.parent_path());
         return result;
     }
 
@@ -306,7 +308,7 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
         auto output = Excel::ExcelDocumentEditor::Open(inputFiles.front(), UntrustedOpenSettings());
         if (!output)
         {
-            Error(result.Diagnostics, "Failed to open first Excel workbook", inputFiles.front());
+            DocumentToolsHelper::Error(result.Diagnostics, "Failed to open first Excel workbook", inputFiles.front());
             return result;
         }
         result.DocumentsMerged = 1;
@@ -316,7 +318,7 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
             auto source = Excel::ExcelDocumentEditor::Open(inputFiles[file], UntrustedOpenSettings());
             if (!source)
             {
-                Error(result.Diagnostics, "Failed to open Excel workbook", inputFiles[file]);
+                DocumentToolsHelper::Error(result.Diagnostics, "Failed to open Excel workbook", inputFiles[file]);
                 return result;
             }
             const auto count = source->Worksheets().size();
@@ -324,9 +326,9 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
             {
                 if (!output->CopyWorksheetFrom(*source, sheet))
                 {
-                    Error(result.Diagnostics,
-                          "Failed to import worksheet; styled sheets require equivalent workbook style catalogs",
-                          inputFiles[file]);
+                    DocumentToolsHelper::Error(result.Diagnostics,
+                                               "Failed to import worksheet; styled sheets require equivalent workbook style catalogs",
+                                               inputFiles[file]);
                     return result;
                 }
                 ++result.ItemsMerged;
@@ -340,7 +342,7 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
         auto output = PowerPoint::PowerPointDocumentEditor::CreateNew();
         if (!output)
         {
-            Error(result.Diagnostics, "Failed to create PowerPoint presentation", outputFile);
+            DocumentToolsHelper::Error(result.Diagnostics, "Failed to create PowerPoint presentation", outputFile);
             return result;
         }
         for (const auto& input : inputFiles)
@@ -348,14 +350,14 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
             auto source = PowerPoint::PowerPointDocumentEditor::Open(input, UntrustedOpenSettings());
             if (!source)
             {
-                Error(result.Diagnostics, "Failed to open PowerPoint presentation", input);
+                DocumentToolsHelper::Error(result.Diagnostics, "Failed to open PowerPoint presentation", input);
                 return result;
             }
             for (Size slide = 0; slide < source->SlideCount(); ++slide)
             {
                 if (!output->CopySlideFrom(*source, slide))
                 {
-                    Error(result.Diagnostics, "Failed to import PowerPoint slide", input);
+                    DocumentToolsHelper::Error(result.Diagnostics, "Failed to import PowerPoint slide", input);
                     return result;
                 }
                 ++result.ItemsMerged;
@@ -366,7 +368,7 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
     }
     if (!result.Ok)
     {
-        Error(result.Diagnostics, "Failed to write merged document", outputFile);
+        DocumentToolsHelper::Error(result.Diagnostics, "Failed to write merged document", outputFile);
     }
     return result;
 }

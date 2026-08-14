@@ -20,48 +20,48 @@
 
 namespace ExyokiOffice::Packaging
 {
-namespace
+/// File-local part lookup helpers for the Excel package.
+class SpreadsheetDocumentHelper
 {
-
-bool IsCancellationRequested(const ICancellationToken* cancellationToken)
-{
-    return cancellationToken != nullptr && cancellationToken->IsCancelled();
-}
-
-OpenXmlPackageLimits BuildPackageLimits(const OpenSettings& settings)
-{
-    auto limits = settings.PackageLimits;
-    if (limits.MaxPartBytes == 0 && settings.MaxCharactersInPart != 0)
+public:
+    static bool IsCancellationRequested(const ICancellationToken* cancellationToken)
     {
-        limits.MaxPartBytes = settings.MaxCharactersInPart;
+        return cancellationToken != nullptr && cancellationToken->IsCancelled();
     }
-    return limits;
-}
 
-ValidationResult CopyWithSeverity(const ValidationResult& source, ValidationSeverity severity)
-{
-    ValidationResult result;
-    for (auto issue : source.Issues())
+    static OpenXmlPackageLimits BuildPackageLimits(const OpenSettings& settings)
     {
-        issue.Severity = severity;
-        result.AddIssue(std::move(issue));
+        auto limits = settings.PackageLimits;
+        if (limits.MaxPartBytes == 0 && settings.MaxCharactersInPart != 0)
+        {
+            limits.MaxPartBytes = settings.MaxCharactersInPart;
+        }
+        return limits;
     }
-    return result;
-}
 
-void ReportDiagnostics(const ValidationResult& result, DiagnosticSink* sink)
-{
-    if (!sink)
+    static ValidationResult CopyWithSeverity(const ValidationResult& source, ValidationSeverity severity)
     {
-        return;
+        ValidationResult result;
+        for (auto issue : source.Issues())
+        {
+            issue.Severity = severity;
+            result.AddIssue(std::move(issue));
+        }
+        return result;
     }
-    for (const auto& issue : result.Issues())
-    {
-        sink->Report(issue);
-    }
-}
 
-} // namespace
+    static void ReportDiagnostics(const ValidationResult& result, DiagnosticSink* sink)
+    {
+        if (!sink)
+        {
+            return;
+        }
+        for (const auto& issue : result.Issues())
+        {
+            sink->Report(issue);
+        }
+    }
+};
 
 SpreadsheetDocumentType ExcelDocument::GetDocumentType() const noexcept
 {
@@ -134,28 +134,28 @@ ExcelDocument::Ptr ExcelDocument::Open(const std::filesystem::path& path,
                                        const OpenSettings& settings,
                                        const ICancellationToken* cancellationToken)
 {
-    if (path.empty() || IsCancellationRequested(cancellationToken))
+    if (path.empty() || SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
     {
         return nullptr;
     }
     auto document = std::make_shared<ExcelDocument>();
-    document->SetPackageLimits(BuildPackageLimits(settings));
+    document->SetPackageLimits(SpreadsheetDocumentHelper::BuildPackageLimits(settings));
     document->SetPartByteRetention(settings.ByteRetention);
     if (!document || !document->LoadFromFile(path, cancellationToken))
     {
         return nullptr;
     }
     document->ApplyOpenSettings(settings);
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
     {
         return nullptr;
     }
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
     {
         return nullptr;
     }
     document->UpdateDocumentTypeFromWorkbookPart();
-    if (IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
     {
         return nullptr;
     }
@@ -166,7 +166,7 @@ ExcelDocument::Ptr ExcelDocument::Open(std::iostream& stream,
                                        const OpenSettings& settings,
                                        const ICancellationToken* cancellationToken)
 {
-    if (IsCancellationRequested(cancellationToken))
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
     {
         return nullptr;
     }
@@ -185,28 +185,28 @@ ExcelDocument::Ptr ExcelDocument::Open(std::span<const Byte> packageBuffer,
                                        const OpenSettings& settings,
                                        const ICancellationToken* cancellationToken)
 {
-    if (packageBuffer.empty() || IsCancellationRequested(cancellationToken))
+    if (packageBuffer.empty() || SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
     {
         return nullptr;
     }
     auto document = std::make_shared<ExcelDocument>();
-    document->SetPackageLimits(BuildPackageLimits(settings));
+    document->SetPackageLimits(SpreadsheetDocumentHelper::BuildPackageLimits(settings));
     document->SetPartByteRetention(settings.ByteRetention);
     if (!document || !document->LoadFromMemory(packageBuffer, cancellationToken))
     {
         return nullptr;
     }
     document->ApplyOpenSettings(settings);
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
     {
         return nullptr;
     }
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
     {
         return nullptr;
     }
     document->UpdateDocumentTypeFromWorkbookPart();
-    if (IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
     {
         return nullptr;
     }
@@ -371,13 +371,13 @@ bool ExcelDocument::ApplyOpcValidationPolicy(const OpenSettings& settings)
     const auto validation = OpenXmlPackageValidator().Validate(*this);
     if (settings.OpcValidation == OpcValidationMode::Tolerant)
     {
-        auto warnings = CopyWithSeverity(validation, ValidationSeverity::Warning);
-        ReportDiagnostics(warnings, settings.ValidationDiagnostics);
+        auto warnings = SpreadsheetDocumentHelper::CopyWithSeverity(validation, ValidationSeverity::Warning);
+        SpreadsheetDocumentHelper::ReportDiagnostics(warnings, settings.ValidationDiagnostics);
         SetLastValidationResult(std::move(warnings));
         return true;
     }
 
-    ReportDiagnostics(validation, settings.ValidationDiagnostics);
+    SpreadsheetDocumentHelper::ReportDiagnostics(validation, settings.ValidationDiagnostics);
     SetLastValidationResult(validation);
     return !validation.HasErrors();
 }

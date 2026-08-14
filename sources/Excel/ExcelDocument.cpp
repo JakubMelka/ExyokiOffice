@@ -14,6 +14,8 @@
 #include "Excel/WorksheetMergeHelpers.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <charconv>
 #include <cctype>
@@ -23,1010 +25,999 @@
 
 namespace ExyokiOffice::Excel
 {
-namespace
-{
-
 namespace Spreadsheet = ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet;
 
-/**
- * @brief File-local helpers for schema-aware SpreadsheetML XML navigation.
- *
- * The generated DOM factory cannot distinguish every colliding schema type in
- * all contexts, so sparse worksheet storage performs this narrow raw-XML
- * navigation. Every comparison and insertion uses a generated schema QName
- * and the namespace resolver instead of relying on a literal prefix.
- */
-class SpreadsheetXmlHelpers final
+/// File-local helpers for schema-aware SpreadsheetML navigation.
+class ExcelDocumentXmlHelper
 {
 public:
-    SpreadsheetXmlHelpers() = delete;
-
-    struct XmlName
+    /**
+     * @brief File-local helpers for schema-aware SpreadsheetML XML navigation.
+     *
+     * The generated DOM factory cannot distinguish every colliding schema type in
+     * all contexts, so sparse worksheet storage performs this narrow raw-XML
+     * navigation. Every comparison and insertion uses a generated schema QName
+     * and the namespace resolver instead of relying on a literal prefix.
+     */
+    class SpreadsheetXmlHelpers final
     {
-        std::string_view prefix;
-        std::string_view localName;
+    public:
+        SpreadsheetXmlHelpers() = delete;
+
+        struct XmlName
+        {
+            std::string_view prefix;
+            std::string_view localName;
+        };
+
+        static XmlName SplitXmlName(std::string_view qualifiedName)
+        {
+            const auto separator = qualifiedName.find(':');
+            return separator == std::string_view::npos
+                       ? XmlName{{}, qualifiedName}
+                       : XmlName{qualifiedName.substr(0, separator), qualifiedName.substr(separator + 1)};
+        }
+
+        static bool NodeHasName(const Pugi::xml_node& node, const OpenXmlQualifiedName& expected)
+        {
+            const auto actual = SplitXmlName(node.name());
+            if (actual.localName != expected.localName())
+            {
+                return false;
+            }
+            const auto namespaceUri = Xml::NamespaceResolver::LookupUriForPrefix(node, actual.prefix);
+            return namespaceUri && *namespaceUri == expected.namespaceUri();
+        }
+
+        template <typename T>
+        static bool NodeHasName(const Pugi::xml_node& node)
+        {
+            return NodeHasName(node, T::StaticMetaClass()->QualifiedName());
+        }
+
+        static std::string QualifiedElementName(Pugi::xml_node& context, const OpenXmlQualifiedName& name)
+        {
+            std::optional<std::string_view> suggestedPrefix;
+            if (const auto suggested = OpenXml::Features::OpenXmlNamespaceResolver::getPrefixForUrl(name.namespaceUri()))
+            {
+                suggestedPrefix = *suggested;
+            }
+            const auto prefix = Xml::NamespaceResolver::EnsurePrefix(context, name.namespaceUri(), suggestedPrefix);
+            return prefix.empty() ? std::string(name.localName())
+                                  : prefix + ":" + std::string(name.localName());
+        }
+
+        template <typename T>
+        static std::shared_ptr<T> WrapNode(const Pugi::xml_node& node)
+        {
+            return ExyokiOffice::openxmlelement_cast<T>(ExyokiOffice::Detail::CreateOpenXmlElementFromNode(node));
+        }
     };
 
-    static XmlName SplitXmlName(std::string_view qualifiedName)
+    static bool IsValidWorksheetName(std::string_view name)
     {
-        const auto separator = qualifiedName.find(':');
-        return separator == std::string_view::npos
-                   ? XmlName{{}, qualifiedName}
-                   : XmlName{qualifiedName.substr(0, separator), qualifiedName.substr(separator + 1)};
-    }
-
-    static bool NodeHasName(const Pugi::xml_node& node, const OpenXmlQualifiedName& expected)
-    {
-        const auto actual = SplitXmlName(node.name());
-        if (actual.localName != expected.localName())
+        if (name.empty() || name.size() > 31)
         {
             return false;
         }
-        const auto namespaceUri = Xml::NamespaceResolver::LookupUriForPrefix(node, actual.prefix);
-        return namespaceUri && *namespaceUri == expected.namespaceUri();
+        return name.find_first_of(":\\/?*[]") == std::string_view::npos;
     }
 
-    template <typename T>
-    static bool NodeHasName(const Pugi::xml_node& node)
+    static Pugi::xml_node EnsureSheetData(const std::shared_ptr<Spreadsheet::Worksheet>& worksheet)
     {
-        return NodeHasName(node, T::StaticMetaClass()->QualifiedName());
-    }
-
-    static std::string QualifiedElementName(Pugi::xml_node& context, const OpenXmlQualifiedName& name)
-    {
-        std::optional<std::string_view> suggestedPrefix;
-        if (const auto suggested = OpenXml::Features::OpenXmlNamespaceResolver::getPrefixForUrl(name.namespaceUri()))
-        {
-            suggestedPrefix = *suggested;
-        }
-        const auto prefix = Xml::NamespaceResolver::EnsurePrefix(context, name.namespaceUri(), suggestedPrefix);
-        return prefix.empty() ? std::string(name.localName())
-                              : prefix + ":" + std::string(name.localName());
-    }
-
-    template <typename T>
-    static std::shared_ptr<T> WrapNode(const Pugi::xml_node& node)
-    {
-        return ExyokiOffice::openxmlelement_cast<T>(ExyokiOffice::Detail::CreateOpenXmlElementFromNode(node));
-    }
-};
-
-std::string ToLowerAscii(std::string_view value)
-{
-    std::string lowered;
-    lowered.reserve(value.size());
-    for (char ch : value)
-    {
-        lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
-    }
-    return lowered;
-}
-
-bool IsValidWorksheetName(std::string_view name)
-{
-    if (name.empty() || name.size() > 31)
-    {
-        return false;
-    }
-    return name.find_first_of(":\\/?*[]") == std::string_view::npos;
-}
-
-Pugi::xml_node EnsureSheetData(const std::shared_ptr<Spreadsheet::Worksheet>& worksheet)
-{
-    if (!worksheet)
-    {
-        return {};
-    }
-    auto worksheetNode = Detail::NodeOf(worksheet);
-    for (auto child = worksheetNode.first_child(); child; child = child.next_sibling())
-    {
-        if (SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::SheetData>(child))
-        {
-            return child;
-        }
-    }
-    if (!worksheetNode)
-    {
-        return {};
-    }
-    const auto name = SpreadsheetXmlHelpers::QualifiedElementName(
-        worksheetNode, Spreadsheet::SheetData::StaticMetaClass()->QualifiedName());
-    return worksheetNode.append_child(name.c_str());
-}
-
-Pugi::xml_node EnsureRow(Pugi::xml_node sheetData,
-                         UInt32 rowIndex)
-{
-    if (!sheetData)
-    {
-        return {};
-    }
-    Pugi::xml_node insertBefore;
-    for (auto row = sheetData.first_child(); row; row = row.next_sibling())
-    {
-        if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Row>(row))
-        {
-            continue;
-        }
-        const auto rowElement = SpreadsheetXmlHelpers::WrapNode<Spreadsheet::Row>(row);
-        const auto existingIndex = rowElement ? rowElement->GetRowIndex() : UInt32Value{};
-        if (existingIndex.IsDefined() && existingIndex.Value() == rowIndex)
-        {
-            return row;
-        }
-        if (!insertBefore && existingIndex.IsDefined() && existingIndex.Value() > rowIndex)
-        {
-            insertBefore = row;
-        }
-    }
-    const auto name = SpreadsheetXmlHelpers::QualifiedElementName(sheetData, Spreadsheet::Row::StaticMetaClass()->QualifiedName());
-    auto row = insertBefore ? sheetData.insert_child_before(name.c_str(), insertBefore) : sheetData.append_child(name.c_str());
-    if (row)
-    {
-        if (const auto rowElement = SpreadsheetXmlHelpers::WrapNode<Spreadsheet::Row>(row))
-        {
-            rowElement->SetRowIndex(UInt32Value(rowIndex));
-        }
-    }
-    return row;
-}
-
-std::string RawCellReference(const std::shared_ptr<Spreadsheet::Cell>& cell)
-{
-    return cell ? cell->GetCellReference().ToString() : std::string{};
-}
-
-std::shared_ptr<Spreadsheet::Cell> WrapCellNode(const Pugi::xml_node& node)
-{
-    return SpreadsheetXmlHelpers::WrapNode<Spreadsheet::Cell>(node);
-}
-
-std::shared_ptr<Spreadsheet::Cell> EnsureCell(Pugi::xml_node row,
-                                              UInt32 rowIndex,
-                                              UInt32 columnIndex)
-{
-    if (!row)
-    {
-        return nullptr;
-    }
-    const auto address = CellAddress::TryCreate(rowIndex, columnIndex);
-    if (!address)
-    {
-        return nullptr;
-    }
-    const auto reference = address->ToA1();
-    Pugi::xml_node insertBefore;
-    for (auto child = row.first_child(); child; child = child.next_sibling())
-    {
-        if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Cell>(child))
-        {
-            continue;
-        }
-        const auto existingCell = WrapCellNode(child);
-        if (RawCellReference(existingCell) == reference)
-        {
-            return existingCell;
-        }
-        const auto existing = CellAddress::ParseA1(RawCellReference(existingCell));
-        if (!insertBefore && existing && existing->Row().Value() == rowIndex &&
-            existing->Column().Value() > columnIndex)
-        {
-            insertBefore = child;
-        }
-    }
-    const auto name = SpreadsheetXmlHelpers::QualifiedElementName(row, Spreadsheet::Cell::StaticMetaClass()->QualifiedName());
-    auto cellNode = insertBefore ? row.insert_child_before(name.c_str(), insertBefore) : row.append_child(name.c_str());
-    auto cell = WrapCellNode(cellNode);
-    if (cell)
-    {
-        cell->SetCellReference(StringValue(reference));
-    }
-    return cell;
-}
-
-std::shared_ptr<Spreadsheet::Cell> FindCell(const std::shared_ptr<Spreadsheet::Worksheet>& worksheet,
-                                            CellAddress address)
-{
-    if (!worksheet || !address.IsValid())
-    {
-        return nullptr;
-    }
-
-    Pugi::xml_node sheetData;
-    for (auto child = Detail::NodeOf(worksheet).first_child(); child; child = child.next_sibling())
-    {
-        if (SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::SheetData>(child))
-        {
-            sheetData = child;
-            break;
-        }
-    }
-    if (!sheetData)
-    {
-        return nullptr;
-    }
-    const auto reference = address.ToA1();
-    for (auto rowNode = sheetData.first_child(); rowNode; rowNode = rowNode.next_sibling())
-    {
-        if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Row>(rowNode))
-        {
-            continue;
-        }
-        const auto row = SpreadsheetXmlHelpers::WrapNode<Spreadsheet::Row>(rowNode);
-        if (!row || row->GetRowIndex().ValueOr(0) != address.Row().Value())
-        {
-            continue;
-        }
-        for (auto cellNode = rowNode.first_child(); cellNode; cellNode = cellNode.next_sibling())
-        {
-            if (SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Cell>(cellNode))
-            {
-                const auto cell = WrapCellNode(cellNode);
-                if (RawCellReference(cell) == reference)
-                {
-                    return cell;
-                }
-            }
-        }
-    }
-    return nullptr;
-}
-
-void ClearCellChildren(const std::shared_ptr<Spreadsheet::Cell>& cell)
-{
-    if (!cell)
-    {
-        return;
-    }
-    for (const auto& child : cell->Children())
-    {
-        cell->RemoveChild(child);
-    }
-}
-
-std::shared_ptr<Spreadsheet::CellValue> AppendCellValue(const std::shared_ptr<Spreadsheet::Cell>& cell,
-                                                        std::string_view text)
-{
-    auto cellValue = cell ? cell->AppendChild<Spreadsheet::CellValue>() : nullptr;
-    if (cellValue)
-    {
-        cellValue->SetText(text);
-    }
-    return cellValue;
-}
-
-Pugi::xml_node FirstCellValueNode(const std::shared_ptr<Spreadsheet::Cell>& cell)
-{
-    for (auto child = Detail::NodeOf(cell).first_child(); child; child = child.next_sibling())
-    {
-        const std::string_view name(child.name());
-        const auto localStart = name.find(':');
-        const auto localName = localStart == std::string_view::npos ? name : name.substr(localStart + 1);
-        if (localName == "v")
-        {
-            return child;
-        }
-    }
-    return {};
-}
-
-std::string CellValueText(const std::shared_ptr<Spreadsheet::Cell>& cell)
-{
-    auto cellValue = FirstCellValueNode(cell);
-    return cellValue ? cellValue.text().as_string() : std::string{};
-}
-
-std::string InlineStringText(const std::shared_ptr<Spreadsheet::Cell>& cell)
-{
-    for (auto child = Detail::NodeOf(cell).first_child(); child; child = child.next_sibling())
-    {
-        const std::string_view name(child.name());
-        const auto localStart = name.find(':');
-        const auto localName = localStart == std::string_view::npos ? name : name.substr(localStart + 1);
-        if (localName != "is")
-        {
-            continue;
-        }
-        for (auto inlineChild = child.first_child(); inlineChild; inlineChild = inlineChild.next_sibling())
-        {
-            const std::string_view inlineName(inlineChild.name());
-            const auto inlineLocalStart = inlineName.find(':');
-            const auto inlineLocalName = inlineLocalStart == std::string_view::npos
-                                             ? inlineName
-                                             : inlineName.substr(inlineLocalStart + 1);
-            if (inlineLocalName == "t")
-            {
-                return inlineChild.text().as_string();
-            }
-        }
-    }
-    return {};
-}
-
-std::optional<UInt32> ParseUInt32(std::string_view text)
-{
-    UInt32 value = 0;
-    auto* first = text.data();
-    auto* last = first + text.size();
-    auto [ptr, ec] = std::from_chars(first, last, value);
-    if (ec != std::errc() || ptr != last)
-    {
-        return std::nullopt;
-    }
-    return value;
-}
-
-FormulaCachedValueKind CachedKindFromCellType(Spreadsheet::CellValues::Value type)
-{
-    switch (type)
-    {
-        case Spreadsheet::CellValues::SharedString:
-            return FormulaCachedValueKind::SharedString;
-        case Spreadsheet::CellValues::String:
-        case Spreadsheet::CellValues::InlineString:
-            return FormulaCachedValueKind::String;
-        case Spreadsheet::CellValues::Boolean:
-            return FormulaCachedValueKind::Boolean;
-        case Spreadsheet::CellValues::Error:
-            return FormulaCachedValueKind::Error;
-        case Spreadsheet::CellValues::Date:
-            return FormulaCachedValueKind::DateTime;
-        case Spreadsheet::CellValues::Number:
-        case Spreadsheet::CellValues::NotDefinedEnumValue:
-            return FormulaCachedValueKind::Number;
-        default:
-            return FormulaCachedValueKind::None;
-    }
-}
-
-EnumValue<Spreadsheet::CellValues> CellTypeForFormulaCache(FormulaCachedValueKind kind)
-{
-    switch (kind)
-    {
-        case FormulaCachedValueKind::SharedString:
-            return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::SharedString);
-        case FormulaCachedValueKind::String:
-            return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::String);
-        case FormulaCachedValueKind::Boolean:
-            return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Boolean);
-        case FormulaCachedValueKind::Error:
-            return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Error);
-        case FormulaCachedValueKind::DateTime:
-            return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Date);
-        case FormulaCachedValueKind::Number:
-        case FormulaCachedValueKind::None:
-        default:
-            return {};
-    }
-}
-
-bool WriteCellValue(const std::shared_ptr<Spreadsheet::Cell>& cell, const ExcelCellValue& value)
-{
-    if (!cell)
-    {
-        return false;
-    }
-
-    ClearCellChildren(cell);
-    cell->SetDataType({});
-
-    switch (value.Kind())
-    {
-        case CellValueKind::Blank:
-            return true;
-        case CellValueKind::InlineString:
-        {
-            cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::InlineString));
-            auto inlineString = cell->AppendChild<Spreadsheet::InlineString>();
-            auto text = inlineString ? inlineString->AppendChild<Spreadsheet::Text>() : nullptr;
-            if (!text)
-            {
-                return false;
-            }
-            text->SetText(value.Text());
-            return true;
-        }
-        case CellValueKind::SharedString:
-            cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::SharedString));
-            return AppendCellValue(cell, value.Text()) != nullptr;
-        case CellValueKind::Number:
-            cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Number));
-            return AppendCellValue(cell, value.Text()) != nullptr;
-        case CellValueKind::Boolean:
-            cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Boolean));
-            return AppendCellValue(cell, value.Text()) != nullptr;
-        case CellValueKind::Error:
-            cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Error));
-            return AppendCellValue(cell, value.Text()) != nullptr;
-        case CellValueKind::DateTime:
-            cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Date));
-            return AppendCellValue(cell, value.Text()) != nullptr;
-        case CellValueKind::Formula:
-        {
-            const auto& formulaValue = value.FormulaValue();
-            cell->SetDataType(CellTypeForFormulaCache(formulaValue.CachedKind));
-            auto formula = cell->AppendChild<Spreadsheet::CellFormula>();
-            if (!formula)
-            {
-                return false;
-            }
-            formula->SetText(formulaValue.Formula);
-            if (formulaValue.Kind == CellFormulaKind::Shared)
-            {
-                formula->SetFormulaType(EnumValue<Spreadsheet::CellFormulaValues>(Spreadsheet::CellFormulaValues::Shared));
-                formula->SetSharedIndex(UInt32Value(*formulaValue.SharedIndex));
-                if (formulaValue.Reference)
-                {
-                    formula->SetReference(StringValue(*formulaValue.Reference));
-                }
-            }
-            else if (formulaValue.Kind == CellFormulaKind::Array)
-            {
-                formula->SetFormulaType(EnumValue<Spreadsheet::CellFormulaValues>(Spreadsheet::CellFormulaValues::Array));
-                formula->SetReference(StringValue(*formulaValue.Reference));
-                if (formulaValue.AlwaysCalculateArray)
-                {
-                    formula->SetAlwaysCalculateArray(BooleanValue(true));
-                }
-            }
-            if (formulaValue.CachedKind == FormulaCachedValueKind::None)
-            {
-                return true;
-            }
-            return AppendCellValue(cell, formulaValue.CachedText) != nullptr;
-        }
-    }
-    return false;
-}
-
-std::string SharedStringItemText(const std::shared_ptr<Spreadsheet::SharedStringItem>& item)
-{
-    std::string text;
-    for (auto child = Detail::NodeOf(item).first_child(); child; child = child.next_sibling())
-    {
-        const std::string_view name(child.name());
-        const auto localStart = name.find(':');
-        const auto localName = localStart == std::string_view::npos ? name : name.substr(localStart + 1);
-        if (localName == "t")
-        {
-            text += child.text().as_string();
-        }
-        else if (localName == "r")
-        {
-            for (auto runChild = child.first_child(); runChild; runChild = runChild.next_sibling())
-            {
-                const std::string_view runName(runChild.name());
-                const auto runLocalStart = runName.find(':');
-                const auto runLocalName = runLocalStart == std::string_view::npos
-                                              ? runName
-                                              : runName.substr(runLocalStart + 1);
-                if (runLocalName == "t")
-                {
-                    text += runChild.text().as_string();
-                }
-            }
-        }
-    }
-    return text;
-}
-
-std::shared_ptr<Spreadsheet::SharedStringTable> SharedStringTableRoot(const ExcelDocument::Ptr& document,
-                                                                      bool create)
-{
-    auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
-    if (!workbookPart)
-    {
-        return nullptr;
-    }
-    auto part = workbookPart->GetSharedStringTablePart();
-    if (!part && create)
-    {
-        part = workbookPart->AddSharedStringTablePart();
-    }
-    return part ? part->GetTypedRootElement() : nullptr;
-}
-
-std::vector<std::shared_ptr<Spreadsheet::SharedStringItem>> SharedStringItems(
-    const std::shared_ptr<Spreadsheet::SharedStringTable>& table)
-{
-    return table ? table->Elements<Spreadsheet::SharedStringItem>()
-                 : std::vector<std::shared_ptr<Spreadsheet::SharedStringItem>>{};
-}
-
-void UpdateSharedStringCounts(const std::shared_ptr<Spreadsheet::SharedStringTable>& table)
-{
-    if (!table)
-    {
-        return;
-    }
-    const auto count = static_cast<UInt32>(SharedStringItems(table).size());
-    table->SetCount(UInt32Value(count));
-    table->SetUniqueCount(UInt32Value(count));
-}
-
-std::shared_ptr<Spreadsheet::SharedStringItem> AppendPlainSharedString(
-    const std::shared_ptr<Spreadsheet::SharedStringTable>& table,
-    std::string_view text)
-{
-    auto item = table ? table->AppendChild<Spreadsheet::SharedStringItem>() : nullptr;
-    auto textElement = item ? item->AppendChild<Spreadsheet::Text>() : nullptr;
-    if (!textElement)
-    {
-        return nullptr;
-    }
-    textElement->SetText(text);
-    return item;
-}
-
-std::vector<std::shared_ptr<Spreadsheet::Cell>> WorkbookCells(const ExcelDocument::Ptr& document)
-{
-    std::vector<std::shared_ptr<Spreadsheet::Cell>> cells;
-    auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
-    if (!workbookPart)
-    {
-        return cells;
-    }
-    for (const auto& worksheetPart : workbookPart->GetWorksheetParts())
-    {
-        auto worksheet = worksheetPart ? worksheetPart->GetTypedRootElement() : nullptr;
         if (!worksheet)
         {
-            continue;
+            return {};
         }
-        for (auto& cell : worksheet->Descendants<Spreadsheet::Cell>())
+        auto worksheetNode = Detail::NodeOf(worksheet);
+        for (auto child = worksheetNode.first_child(); child; child = child.next_sibling())
         {
-            if (cell)
+            if (SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::SheetData>(child))
             {
-                cells.push_back(cell);
+                return child;
             }
         }
-    }
-    return cells;
-}
-
-bool IsSharedStringCell(const std::shared_ptr<Spreadsheet::Cell>& cell)
-{
-    return cell && cell->GetDataType().ValueOr(Spreadsheet::CellValues()).GetValue() ==
-                       Spreadsheet::CellValues::SharedString;
-}
-
-std::optional<UInt32> SharedStringIndexFromCell(const std::shared_ptr<Spreadsheet::Cell>& cell)
-{
-    if (!IsSharedStringCell(cell))
-    {
-        return std::nullopt;
-    }
-    return ParseUInt32(CellValueText(cell));
-}
-
-bool SetSharedStringIndexOnCell(const std::shared_ptr<Spreadsheet::Cell>& cell, UInt32 index)
-{
-    if (!cell)
-    {
-        return false;
-    }
-    auto cellValue = FirstCellValueNode(cell);
-    if (cellValue)
-    {
-        cellValue.text().set(std::to_string(index).c_str());
-        return true;
-    }
-    return AppendCellValue(cell, std::to_string(index)) != nullptr;
-}
-
-ExcelCellValue ReadCellValue(const std::shared_ptr<Spreadsheet::Cell>& cell,
-                             FormulaReferenceStyle referenceStyle = FormulaReferenceStyle::A1)
-{
-    if (!cell)
-    {
-        return ExcelCellValue::Blank();
-    }
-
-    const auto dataType = cell->GetDataType().ValueOr(Spreadsheet::CellValues());
-    auto formula = cell->GetFirstChildOfType<Spreadsheet::CellFormula>();
-    if (formula)
-    {
-        const auto cachedText = CellValueText(cell);
-        const auto cachedKind = cachedText.empty() ? FormulaCachedValueKind::None : CachedKindFromCellType(dataType.GetValue());
-        auto model = CellFormulaValue::Normal(std::string(formula->GetText()), cachedKind, cachedText);
-        model.ReferenceStyle = referenceStyle;
-        const auto formulaType = formula->GetFormulaType().ValueOr(Spreadsheet::CellFormulaValues()).GetValue();
-        if (formulaType == Spreadsheet::CellFormulaValues::Shared)
+        if (!worksheetNode)
         {
-            model.Kind = CellFormulaKind::Shared;
-            const auto sharedIndex = formula->GetSharedIndex();
-            if (sharedIndex.IsDefined())
-            {
-                model.SharedIndex = sharedIndex.Value();
-            }
+            return {};
         }
-        else if (formulaType == Spreadsheet::CellFormulaValues::Array)
+        const auto name = SpreadsheetXmlHelpers::QualifiedElementName(
+            worksheetNode, Spreadsheet::SheetData::StaticMetaClass()->QualifiedName());
+        return worksheetNode.append_child(name.c_str());
+    }
+
+    static Pugi::xml_node EnsureRow(Pugi::xml_node sheetData,
+                                    UInt32 rowIndex)
+    {
+        if (!sheetData)
         {
-            model.Kind = CellFormulaKind::Array;
-            model.AlwaysCalculateArray = formula->GetAlwaysCalculateArray().ValueOr(false);
+            return {};
         }
-        const auto reference = formula->GetReference();
-        if (reference.IsDefined())
+        Pugi::xml_node insertBefore;
+        for (auto row = sheetData.first_child(); row; row = row.next_sibling())
         {
-            model.Reference = reference.ToString();
-        }
-        return ExcelCellValue::Formula(std::move(model));
-    }
-
-    switch (dataType.GetValue())
-    {
-        case Spreadsheet::CellValues::InlineString:
-            return ExcelCellValue::InlineString(InlineStringText(cell));
-        case Spreadsheet::CellValues::SharedString:
-        {
-            const auto text = CellValueText(cell);
-            auto index = ParseUInt32(text);
-            return index ? ExcelCellValue::SharedString(*index) : ExcelCellValue::SharedString(0);
-        }
-        case Spreadsheet::CellValues::Boolean:
-        {
-            const auto text = CellValueText(cell);
-            return ExcelCellValue::Boolean(text == "1" || text == "true" || text == "TRUE");
-        }
-        case Spreadsheet::CellValues::Error:
-            return ExcelCellValue::Error(CellValueText(cell));
-        case Spreadsheet::CellValues::Date:
-            return ExcelCellValue::DateTimeText(CellValueText(cell));
-        case Spreadsheet::CellValues::String:
-            return ExcelCellValue::InlineString(CellValueText(cell));
-        case Spreadsheet::CellValues::Number:
-        case Spreadsheet::CellValues::NotDefinedEnumValue:
-        default:
-        {
-            const auto text = CellValueText(cell);
-            return text.empty() ? ExcelCellValue::Blank() : ExcelCellValue::NumberText(text);
-        }
-    }
-}
-
-std::shared_ptr<Spreadsheet::Sheets> EnsureWorkbookSheets(const ExcelDocument::Ptr& document)
-{
-    if (!document)
-    {
-        return nullptr;
-    }
-    auto workbookPart = document->GetWorkbookPart();
-    if (!workbookPart)
-    {
-        return nullptr;
-    }
-    auto workbook = workbookPart->GetTypedRootElement();
-    if (!workbook)
-    {
-        return nullptr;
-    }
-    auto sheets = workbook->GetFirstChildOfType<Spreadsheet::Sheets>();
-    if (!sheets)
-    {
-        sheets = workbook->AppendChild<Spreadsheet::Sheets>();
-    }
-    return sheets;
-}
-
-UInt32 NextSheetId(const std::shared_ptr<Spreadsheet::Sheets>& sheets)
-{
-    UInt32 nextId = 1;
-    if (!sheets)
-    {
-        return nextId;
-    }
-    for (const auto& sheet : sheets->Elements<Spreadsheet::Sheet>())
-    {
-        if (sheet)
-        {
-            nextId = std::max(nextId, sheet->GetSheetId().ValueOr(0) + 1);
-        }
-    }
-    return nextId;
-}
-
-std::vector<std::shared_ptr<Spreadsheet::Sheet>> SheetElements(const ExcelDocument::Ptr& document)
-{
-    std::vector<std::shared_ptr<Spreadsheet::Sheet>> result;
-    auto sheets = EnsureWorkbookSheets(document);
-    if (!sheets)
-    {
-        return result;
-    }
-    for (const auto& sheet : sheets->Elements<Spreadsheet::Sheet>())
-    {
-        if (sheet)
-        {
-            result.push_back(sheet);
-        }
-    }
-    return result;
-}
-
-std::shared_ptr<Spreadsheet::Sheet> GetSheetElement(const ExcelDocument::Ptr& document, Size index)
-{
-    auto sheets = SheetElements(document);
-    return index < sheets.size() ? sheets[index] : nullptr;
-}
-
-bool WorksheetNameExists(const ExcelDocument::Ptr& document,
-                         std::string_view name,
-                         const std::shared_ptr<Spreadsheet::Sheet>& except = nullptr)
-{
-    const auto desired = ToLowerAscii(name);
-    for (const auto& sheet : SheetElements(document))
-    {
-        if (sheet != except && ToLowerAscii(sheet->GetName().ToString()) == desired)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-std::string MakeUniqueWorksheetName(const ExcelDocument::Ptr& document, std::string_view baseName)
-{
-    std::string base = baseName.empty() ? "Sheet" : std::string(baseName);
-    if (base.size() > 31)
-    {
-        base.resize(31);
-    }
-    if (!IsValidWorksheetName(base))
-    {
-        base = "Sheet";
-    }
-    if (!WorksheetNameExists(document, base))
-    {
-        return base;
-    }
-
-    for (UInt32 suffix = 2; suffix < 100000; ++suffix)
-    {
-        const auto suffixText = " (" + std::to_string(suffix) + ")";
-        auto prefix = base;
-        if (prefix.size() + suffixText.size() > 31)
-        {
-            prefix.resize(31 - suffixText.size());
-        }
-        auto candidate = prefix + suffixText;
-        if (!WorksheetNameExists(document, candidate))
-        {
-            return candidate;
-        }
-    }
-    return {};
-}
-
-std::shared_ptr<Packaging::WorksheetPart> FindWorksheetPartByRelationshipId(const ExcelDocument::Ptr& document,
-                                                                            std::string_view relationshipId)
-{
-    auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
-    if (!workbookPart)
-    {
-        return nullptr;
-    }
-    for (const auto& worksheetPart : workbookPart->GetWorksheetParts())
-    {
-        if (!worksheetPart)
-        {
-            continue;
-        }
-        if (worksheetPart->RelationshipId() == relationshipId)
-        {
-            return worksheetPart;
-        }
-    }
-    return nullptr;
-}
-
-Worksheet::Ptr WrapWorksheet(const ExcelDocument::Ptr& document, const std::shared_ptr<Spreadsheet::Sheet>& sheet)
-{
-    if (!sheet)
-    {
-        return nullptr;
-    }
-    auto part = FindWorksheetPartByRelationshipId(document, sheet->GetId().ToString());
-    return part ? std::make_shared<Worksheet>(sheet->GetName().ToString(), part, document) : nullptr;
-}
-
-class RangeBulkHelpers final
-{
-public:
-    RangeBulkHelpers() = delete;
-
-    struct PlannedCell
-    {
-        CellAddress address;
-        ExcelCellValue value;
-    };
-
-    static RangeOperationResult Error(RangeOperationError error, std::string message)
-    {
-        return RangeOperationResult{error, std::move(message), 0};
-    }
-
-    static RangeOperationResult Success(Size affectedCellCount)
-    {
-        return RangeOperationResult{RangeOperationError::None, {}, affectedCellCount};
-    }
-
-    static bool MatrixMatches(CellRange range, const ExcelCellMatrix& values)
-    {
-        if (!range.IsValid() || values.size() != range.RowCount())
-        {
-            return false;
-        }
-        return std::all_of(values.begin(), values.end(), [&](const auto& row)
-                           { return row.size() == range.ColumnCount(); });
-    }
-
-    static std::optional<CellRange> DestinationRange(CellRange source, CellAddress destinationTopLeft)
-    {
-        if (!source.IsValid() || !destinationTopLeft.IsValid())
-        {
-            return std::nullopt;
-        }
-        const auto lastRow = static_cast<UInt64>(destinationTopLeft.Row().Value()) + source.RowCount() - 1;
-        const auto lastColumn =
-            static_cast<UInt64>(destinationTopLeft.Column().Value()) + source.ColumnCount() - 1;
-        if (lastRow > MaxRowIndex || lastColumn > MaxColumnIndex)
-        {
-            return std::nullopt;
-        }
-        const auto last = CellAddress::TryCreate(static_cast<UInt32>(lastRow),
-                                                 static_cast<UInt32>(lastColumn));
-        return last ? CellRange::TryCreate(destinationTopLeft, *last) : std::nullopt;
-    }
-
-    static UInt64 AddressKey(CellAddress address) noexcept
-    {
-        return (static_cast<UInt64>(address.Row().Value()) << 16) | address.Column().Value();
-    }
-
-    static void AddOrReplace(std::vector<PlannedCell>& plan,
-                             std::unordered_map<UInt64, Size>& indexes,
-                             CellAddress address,
-                             const ExcelCellValue& value)
-    {
-        const auto key = AddressKey(address);
-        if (const auto existing = indexes.find(key); existing != indexes.end())
-        {
-            plan[existing->second].value = value;
-            return;
-        }
-        indexes.emplace(key, plan.size());
-        plan.push_back(PlannedCell{address, value});
-    }
-
-    static std::vector<PlannedCell> MatrixPlan(CellRange range, const ExcelCellMatrix& values)
-    {
-        std::vector<PlannedCell> plan;
-        plan.reserve(static_cast<Size>(range.RowCount()) * range.ColumnCount());
-        for (UInt32 rowOffset = 0; rowOffset < range.RowCount(); ++rowOffset)
-        {
-            for (UInt32 columnOffset = 0; columnOffset < range.ColumnCount(); ++columnOffset)
-            {
-                const auto address = CellAddress::TryCreate(range.First().Row().Value() + rowOffset,
-                                                            range.First().Column().Value() + columnOffset);
-                if (address)
-                {
-                    plan.push_back(PlannedCell{*address, values[rowOffset][columnOffset]});
-                }
-            }
-        }
-        return plan;
-    }
-
-    static bool ApplyValue(Worksheet& worksheet, CellAddress address, const ExcelCellValue& value)
-    {
-        if (value.IsBlank())
-        {
-            return !worksheet.ContainsCell(address) || worksheet.RemoveCell(address);
-        }
-        return worksheet.SetCellValue(address, value);
-    }
-
-    static RangeOperationResult ApplyAtomically(Worksheet& worksheet, const std::vector<PlannedCell>& plan)
-    {
-        const auto part = worksheet.GetPart();
-        if (!part)
-        {
-            return Error(RangeOperationError::InvalidWorksheet, "The worksheet is not attached to a usable part.");
-        }
-        const auto worksheetXml = part->GetXmlString();
-
-        for (const auto& cell : plan)
-        {
-            if (ApplyValue(worksheet, cell.address, cell.value))
+            if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Row>(row))
             {
                 continue;
             }
-            part->SetXmlString(worksheetXml);
-            return Error(RangeOperationError::WriteFailed,
-                         "A cell write failed and all changes made by the range operation were rolled back.");
+            const auto rowElement = SpreadsheetXmlHelpers::WrapNode<Spreadsheet::Row>(row);
+            const auto existingIndex = rowElement ? rowElement->GetRowIndex() : UInt32Value{};
+            if (existingIndex.IsDefined() && existingIndex.Value() == rowIndex)
+            {
+                return row;
+            }
+            if (!insertBefore && existingIndex.IsDefined() && existingIndex.Value() > rowIndex)
+            {
+                insertBefore = row;
+            }
         }
-        return Success(plan.size());
-    }
-};
-
-/** @brief File-local validation and workbook metadata support for formula models. */
-class FormulaModelHelpers final
-{
-public:
-    FormulaModelHelpers() = delete;
-
-    static bool RangeContains(std::string_view text, CellAddress address)
-    {
-        const auto range = CellRange::ParseA1(text);
-        return range && address.Row().Value() >= range->First().Row().Value() &&
-               address.Row().Value() <= range->Last().Row().Value() &&
-               address.Column().Value() >= range->First().Column().Value() &&
-               address.Column().Value() <= range->Last().Column().Value();
+        const auto name = SpreadsheetXmlHelpers::QualifiedElementName(sheetData, Spreadsheet::Row::StaticMetaClass()->QualifiedName());
+        auto row = insertBefore ? sheetData.insert_child_before(name.c_str(), insertBefore) : sheetData.append_child(name.c_str());
+        if (row)
+        {
+            if (const auto rowElement = SpreadsheetXmlHelpers::WrapNode<Spreadsheet::Row>(row))
+            {
+                rowElement->SetRowIndex(UInt32Value(rowIndex));
+            }
+        }
+        return row;
     }
 
-    static bool IsValid(const CellFormulaValue& formula, CellAddress address)
+    static std::string RawCellReference(const std::shared_ptr<Spreadsheet::Cell>& cell)
     {
-        if (formula.CachedKind == FormulaCachedValueKind::None && !formula.CachedText.empty())
+        return cell ? cell->GetCellReference().ToString() : std::string{};
+    }
+
+    static std::shared_ptr<Spreadsheet::Cell> WrapCellNode(const Pugi::xml_node& node)
+    {
+        return SpreadsheetXmlHelpers::WrapNode<Spreadsheet::Cell>(node);
+    }
+
+    static std::shared_ptr<Spreadsheet::Cell> EnsureCell(Pugi::xml_node row,
+                                                         UInt32 rowIndex,
+                                                         UInt32 columnIndex)
+    {
+        if (!row)
+        {
+            return nullptr;
+        }
+        const auto address = CellAddress::TryCreate(rowIndex, columnIndex);
+        if (!address)
+        {
+            return nullptr;
+        }
+        const auto reference = address->ToA1();
+        Pugi::xml_node insertBefore;
+        for (auto child = row.first_child(); child; child = child.next_sibling())
+        {
+            if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Cell>(child))
+            {
+                continue;
+            }
+            const auto existingCell = WrapCellNode(child);
+            if (RawCellReference(existingCell) == reference)
+            {
+                return existingCell;
+            }
+            const auto existing = CellAddress::ParseA1(RawCellReference(existingCell));
+            if (!insertBefore && existing && existing->Row().Value() == rowIndex &&
+                existing->Column().Value() > columnIndex)
+            {
+                insertBefore = child;
+            }
+        }
+        const auto name = SpreadsheetXmlHelpers::QualifiedElementName(row, Spreadsheet::Cell::StaticMetaClass()->QualifiedName());
+        auto cellNode = insertBefore ? row.insert_child_before(name.c_str(), insertBefore) : row.append_child(name.c_str());
+        auto cell = WrapCellNode(cellNode);
+        if (cell)
+        {
+            cell->SetCellReference(StringValue(reference));
+        }
+        return cell;
+    }
+
+    static std::shared_ptr<Spreadsheet::Cell> FindCell(const std::shared_ptr<Spreadsheet::Worksheet>& worksheet,
+                                                       CellAddress address)
+    {
+        if (!worksheet || !address.IsValid())
+        {
+            return nullptr;
+        }
+
+        Pugi::xml_node sheetData;
+        for (auto child = Detail::NodeOf(worksheet).first_child(); child; child = child.next_sibling())
+        {
+            if (SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::SheetData>(child))
+            {
+                sheetData = child;
+                break;
+            }
+        }
+        if (!sheetData)
+        {
+            return nullptr;
+        }
+        const auto reference = address.ToA1();
+        for (auto rowNode = sheetData.first_child(); rowNode; rowNode = rowNode.next_sibling())
+        {
+            if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Row>(rowNode))
+            {
+                continue;
+            }
+            const auto row = SpreadsheetXmlHelpers::WrapNode<Spreadsheet::Row>(rowNode);
+            if (!row || row->GetRowIndex().ValueOr(0) != address.Row().Value())
+            {
+                continue;
+            }
+            for (auto cellNode = rowNode.first_child(); cellNode; cellNode = cellNode.next_sibling())
+            {
+                if (SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Cell>(cellNode))
+                {
+                    const auto cell = WrapCellNode(cellNode);
+                    if (RawCellReference(cell) == reference)
+                    {
+                        return cell;
+                    }
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    static void ClearCellChildren(const std::shared_ptr<Spreadsheet::Cell>& cell)
+    {
+        if (!cell)
+        {
+            return;
+        }
+        for (const auto& child : cell->Children())
+        {
+            cell->RemoveChild(child);
+        }
+    }
+
+    static std::shared_ptr<Spreadsheet::CellValue> AppendCellValue(const std::shared_ptr<Spreadsheet::Cell>& cell,
+                                                                   std::string_view text)
+    {
+        auto cellValue = cell ? cell->AppendChild<Spreadsheet::CellValue>() : nullptr;
+        if (cellValue)
+        {
+            cellValue->SetText(text);
+        }
+        return cellValue;
+    }
+
+    static Pugi::xml_node FirstCellValueNode(const std::shared_ptr<Spreadsheet::Cell>& cell)
+    {
+        for (auto child = Detail::NodeOf(cell).first_child(); child; child = child.next_sibling())
+        {
+            const std::string_view name(child.name());
+            const auto localStart = name.find(':');
+            const auto localName = localStart == std::string_view::npos ? name : name.substr(localStart + 1);
+            if (localName == "v")
+            {
+                return child;
+            }
+        }
+        return {};
+    }
+
+    static std::string CellValueText(const std::shared_ptr<Spreadsheet::Cell>& cell)
+    {
+        auto cellValue = FirstCellValueNode(cell);
+        return cellValue ? cellValue.text().as_string() : std::string{};
+    }
+
+    static std::string InlineStringText(const std::shared_ptr<Spreadsheet::Cell>& cell)
+    {
+        for (auto child = Detail::NodeOf(cell).first_child(); child; child = child.next_sibling())
+        {
+            const std::string_view name(child.name());
+            const auto localStart = name.find(':');
+            const auto localName = localStart == std::string_view::npos ? name : name.substr(localStart + 1);
+            if (localName != "is")
+            {
+                continue;
+            }
+            for (auto inlineChild = child.first_child(); inlineChild; inlineChild = inlineChild.next_sibling())
+            {
+                const std::string_view inlineName(inlineChild.name());
+                const auto inlineLocalStart = inlineName.find(':');
+                const auto inlineLocalName = inlineLocalStart == std::string_view::npos
+                                                 ? inlineName
+                                                 : inlineName.substr(inlineLocalStart + 1);
+                if (inlineLocalName == "t")
+                {
+                    return inlineChild.text().as_string();
+                }
+            }
+        }
+        return {};
+    }
+
+    static std::optional<UInt32> ParseUInt32(std::string_view text)
+    {
+        UInt32 value = 0;
+        auto* first = text.data();
+        auto* last = first + text.size();
+        auto [ptr, ec] = std::from_chars(first, last, value);
+        if (ec != std::errc() || ptr != last)
+        {
+            return std::nullopt;
+        }
+        return value;
+    }
+
+    static FormulaCachedValueKind CachedKindFromCellType(Spreadsheet::CellValues::Value type)
+    {
+        switch (type)
+        {
+            case Spreadsheet::CellValues::SharedString:
+                return FormulaCachedValueKind::SharedString;
+            case Spreadsheet::CellValues::String:
+            case Spreadsheet::CellValues::InlineString:
+                return FormulaCachedValueKind::String;
+            case Spreadsheet::CellValues::Boolean:
+                return FormulaCachedValueKind::Boolean;
+            case Spreadsheet::CellValues::Error:
+                return FormulaCachedValueKind::Error;
+            case Spreadsheet::CellValues::Date:
+                return FormulaCachedValueKind::DateTime;
+            case Spreadsheet::CellValues::Number:
+            case Spreadsheet::CellValues::NotDefinedEnumValue:
+                return FormulaCachedValueKind::Number;
+            default:
+                return FormulaCachedValueKind::None;
+        }
+    }
+
+    static EnumValue<Spreadsheet::CellValues> CellTypeForFormulaCache(FormulaCachedValueKind kind)
+    {
+        switch (kind)
+        {
+            case FormulaCachedValueKind::SharedString:
+                return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::SharedString);
+            case FormulaCachedValueKind::String:
+                return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::String);
+            case FormulaCachedValueKind::Boolean:
+                return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Boolean);
+            case FormulaCachedValueKind::Error:
+                return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Error);
+            case FormulaCachedValueKind::DateTime:
+                return EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Date);
+            case FormulaCachedValueKind::Number:
+            case FormulaCachedValueKind::None:
+            default:
+                return {};
+        }
+    }
+
+    static bool WriteCellValue(const std::shared_ptr<Spreadsheet::Cell>& cell, const ExcelCellValue& value)
+    {
+        if (!cell)
         {
             return false;
         }
-        switch (formula.Kind)
+
+        ClearCellChildren(cell);
+        cell->SetDataType({});
+
+        switch (value.Kind())
         {
-            case CellFormulaKind::Normal:
-                return !formula.Formula.empty() && !formula.Reference && !formula.SharedIndex &&
-                       !formula.AlwaysCalculateArray;
-            case CellFormulaKind::Shared:
-                if (!formula.SharedIndex || formula.AlwaysCalculateArray)
+            case CellValueKind::Blank:
+                return true;
+            case CellValueKind::InlineString:
+            {
+                cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::InlineString));
+                auto inlineString = cell->AppendChild<Spreadsheet::InlineString>();
+                auto text = inlineString ? inlineString->AppendChild<Spreadsheet::Text>() : nullptr;
+                if (!text)
                 {
                     return false;
                 }
-                return formula.Reference ? !formula.Formula.empty() && RangeContains(*formula.Reference, address)
-                                         : formula.Formula.empty();
-            case CellFormulaKind::Array:
-                return !formula.Formula.empty() && !formula.SharedIndex && formula.Reference &&
-                       RangeContains(*formula.Reference, address);
+                text->SetText(value.Text());
+                return true;
+            }
+            case CellValueKind::SharedString:
+                cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::SharedString));
+                return AppendCellValue(cell, value.Text()) != nullptr;
+            case CellValueKind::Number:
+                cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Number));
+                return AppendCellValue(cell, value.Text()) != nullptr;
+            case CellValueKind::Boolean:
+                cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Boolean));
+                return AppendCellValue(cell, value.Text()) != nullptr;
+            case CellValueKind::Error:
+                cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Error));
+                return AppendCellValue(cell, value.Text()) != nullptr;
+            case CellValueKind::DateTime:
+                cell->SetDataType(EnumValue<Spreadsheet::CellValues>(Spreadsheet::CellValues::Date));
+                return AppendCellValue(cell, value.Text()) != nullptr;
+            case CellValueKind::Formula:
+            {
+                const auto& formulaValue = value.FormulaValue();
+                cell->SetDataType(CellTypeForFormulaCache(formulaValue.CachedKind));
+                auto formula = cell->AppendChild<Spreadsheet::CellFormula>();
+                if (!formula)
+                {
+                    return false;
+                }
+                formula->SetText(formulaValue.Formula);
+                if (formulaValue.Kind == CellFormulaKind::Shared)
+                {
+                    formula->SetFormulaType(EnumValue<Spreadsheet::CellFormulaValues>(Spreadsheet::CellFormulaValues::Shared));
+                    formula->SetSharedIndex(UInt32Value(*formulaValue.SharedIndex));
+                    if (formulaValue.Reference)
+                    {
+                        formula->SetReference(StringValue(*formulaValue.Reference));
+                    }
+                }
+                else if (formulaValue.Kind == CellFormulaKind::Array)
+                {
+                    formula->SetFormulaType(EnumValue<Spreadsheet::CellFormulaValues>(Spreadsheet::CellFormulaValues::Array));
+                    formula->SetReference(StringValue(*formulaValue.Reference));
+                    if (formulaValue.AlwaysCalculateArray)
+                    {
+                        formula->SetAlwaysCalculateArray(BooleanValue(true));
+                    }
+                }
+                if (formulaValue.CachedKind == FormulaCachedValueKind::None)
+                {
+                    return true;
+                }
+                return AppendCellValue(cell, formulaValue.CachedText) != nullptr;
+            }
         }
         return false;
     }
 
-    static std::shared_ptr<Spreadsheet::CalculationProperties> CalculationProperties(
-        const ExcelDocument::Ptr& document, bool create)
+    static std::string SharedStringItemText(const std::shared_ptr<Spreadsheet::SharedStringItem>& item)
+    {
+        std::string text;
+        for (auto child = Detail::NodeOf(item).first_child(); child; child = child.next_sibling())
+        {
+            const std::string_view name(child.name());
+            const auto localStart = name.find(':');
+            const auto localName = localStart == std::string_view::npos ? name : name.substr(localStart + 1);
+            if (localName == "t")
+            {
+                text += child.text().as_string();
+            }
+            else if (localName == "r")
+            {
+                for (auto runChild = child.first_child(); runChild; runChild = runChild.next_sibling())
+                {
+                    const std::string_view runName(runChild.name());
+                    const auto runLocalStart = runName.find(':');
+                    const auto runLocalName = runLocalStart == std::string_view::npos
+                                                  ? runName
+                                                  : runName.substr(runLocalStart + 1);
+                    if (runLocalName == "t")
+                    {
+                        text += runChild.text().as_string();
+                    }
+                }
+            }
+        }
+        return text;
+    }
+
+    static std::shared_ptr<Spreadsheet::SharedStringTable> SharedStringTableRoot(const ExcelDocument::Ptr& document,
+                                                                                 bool create)
     {
         auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
-        auto workbook = workbookPart ? workbookPart->GetTypedRootElement() : nullptr;
+        if (!workbookPart)
+        {
+            return nullptr;
+        }
+        auto part = workbookPart->GetSharedStringTablePart();
+        if (!part && create)
+        {
+            part = workbookPart->AddSharedStringTablePart();
+        }
+        return part ? part->GetTypedRootElement() : nullptr;
+    }
+
+    static std::vector<std::shared_ptr<Spreadsheet::SharedStringItem>> SharedStringItems(
+        const std::shared_ptr<Spreadsheet::SharedStringTable>& table)
+    {
+        return table ? table->Elements<Spreadsheet::SharedStringItem>()
+                     : std::vector<std::shared_ptr<Spreadsheet::SharedStringItem>>{};
+    }
+
+    static void UpdateSharedStringCounts(const std::shared_ptr<Spreadsheet::SharedStringTable>& table)
+    {
+        if (!table)
+        {
+            return;
+        }
+        const auto count = static_cast<UInt32>(SharedStringItems(table).size());
+        table->SetCount(UInt32Value(count));
+        table->SetUniqueCount(UInt32Value(count));
+    }
+
+    static std::shared_ptr<Spreadsheet::SharedStringItem> AppendPlainSharedString(
+        const std::shared_ptr<Spreadsheet::SharedStringTable>& table,
+        std::string_view text)
+    {
+        auto item = table ? table->AppendChild<Spreadsheet::SharedStringItem>() : nullptr;
+        auto textElement = item ? item->AppendChild<Spreadsheet::Text>() : nullptr;
+        if (!textElement)
+        {
+            return nullptr;
+        }
+        textElement->SetText(text);
+        return item;
+    }
+
+    static std::vector<std::shared_ptr<Spreadsheet::Cell>> WorkbookCells(const ExcelDocument::Ptr& document)
+    {
+        std::vector<std::shared_ptr<Spreadsheet::Cell>> cells;
+        auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
+        if (!workbookPart)
+        {
+            return cells;
+        }
+        for (const auto& worksheetPart : workbookPart->GetWorksheetParts())
+        {
+            auto worksheet = worksheetPart ? worksheetPart->GetTypedRootElement() : nullptr;
+            if (!worksheet)
+            {
+                continue;
+            }
+            for (auto& cell : worksheet->Descendants<Spreadsheet::Cell>())
+            {
+                if (cell)
+                {
+                    cells.push_back(cell);
+                }
+            }
+        }
+        return cells;
+    }
+
+    static bool IsSharedStringCell(const std::shared_ptr<Spreadsheet::Cell>& cell)
+    {
+        return cell && cell->GetDataType().ValueOr(Spreadsheet::CellValues()).GetValue() ==
+                           Spreadsheet::CellValues::SharedString;
+    }
+
+    static std::optional<UInt32> SharedStringIndexFromCell(const std::shared_ptr<Spreadsheet::Cell>& cell)
+    {
+        if (!IsSharedStringCell(cell))
+        {
+            return std::nullopt;
+        }
+        return ParseUInt32(CellValueText(cell));
+    }
+
+    static bool SetSharedStringIndexOnCell(const std::shared_ptr<Spreadsheet::Cell>& cell, UInt32 index)
+    {
+        if (!cell)
+        {
+            return false;
+        }
+        auto cellValue = FirstCellValueNode(cell);
+        if (cellValue)
+        {
+            cellValue.text().set(std::to_string(index).c_str());
+            return true;
+        }
+        return AppendCellValue(cell, std::to_string(index)) != nullptr;
+    }
+
+    static ExcelCellValue ReadCellValue(const std::shared_ptr<Spreadsheet::Cell>& cell,
+                                        FormulaReferenceStyle referenceStyle = FormulaReferenceStyle::A1)
+    {
+        if (!cell)
+        {
+            return ExcelCellValue::Blank();
+        }
+
+        const auto dataType = cell->GetDataType().ValueOr(Spreadsheet::CellValues());
+        auto formula = cell->GetFirstChildOfType<Spreadsheet::CellFormula>();
+        if (formula)
+        {
+            const auto cachedText = CellValueText(cell);
+            const auto cachedKind = cachedText.empty() ? FormulaCachedValueKind::None : CachedKindFromCellType(dataType.GetValue());
+            auto model = CellFormulaValue::Normal(std::string(formula->GetText()), cachedKind, cachedText);
+            model.ReferenceStyle = referenceStyle;
+            const auto formulaType = formula->GetFormulaType().ValueOr(Spreadsheet::CellFormulaValues()).GetValue();
+            if (formulaType == Spreadsheet::CellFormulaValues::Shared)
+            {
+                model.Kind = CellFormulaKind::Shared;
+                const auto sharedIndex = formula->GetSharedIndex();
+                if (sharedIndex.IsDefined())
+                {
+                    model.SharedIndex = sharedIndex.Value();
+                }
+            }
+            else if (formulaType == Spreadsheet::CellFormulaValues::Array)
+            {
+                model.Kind = CellFormulaKind::Array;
+                model.AlwaysCalculateArray = formula->GetAlwaysCalculateArray().ValueOr(false);
+            }
+            const auto reference = formula->GetReference();
+            if (reference.IsDefined())
+            {
+                model.Reference = reference.ToString();
+            }
+            return ExcelCellValue::Formula(std::move(model));
+        }
+
+        switch (dataType.GetValue())
+        {
+            case Spreadsheet::CellValues::InlineString:
+                return ExcelCellValue::InlineString(InlineStringText(cell));
+            case Spreadsheet::CellValues::SharedString:
+            {
+                const auto text = CellValueText(cell);
+                auto index = ParseUInt32(text);
+                return index ? ExcelCellValue::SharedString(*index) : ExcelCellValue::SharedString(0);
+            }
+            case Spreadsheet::CellValues::Boolean:
+            {
+                const auto text = CellValueText(cell);
+                return ExcelCellValue::Boolean(text == "1" || text == "true" || text == "TRUE");
+            }
+            case Spreadsheet::CellValues::Error:
+                return ExcelCellValue::Error(CellValueText(cell));
+            case Spreadsheet::CellValues::Date:
+                return ExcelCellValue::DateTimeText(CellValueText(cell));
+            case Spreadsheet::CellValues::String:
+                return ExcelCellValue::InlineString(CellValueText(cell));
+            case Spreadsheet::CellValues::Number:
+            case Spreadsheet::CellValues::NotDefinedEnumValue:
+            default:
+            {
+                const auto text = CellValueText(cell);
+                return text.empty() ? ExcelCellValue::Blank() : ExcelCellValue::NumberText(text);
+            }
+        }
+    }
+
+    static std::shared_ptr<Spreadsheet::Sheets> EnsureWorkbookSheets(const ExcelDocument::Ptr& document)
+    {
+        if (!document)
+        {
+            return nullptr;
+        }
+        auto workbookPart = document->GetWorkbookPart();
+        if (!workbookPart)
+        {
+            return nullptr;
+        }
+        auto workbook = workbookPart->GetTypedRootElement();
         if (!workbook)
         {
             return nullptr;
         }
-        auto properties = workbook->GetFirstChildOfType<Spreadsheet::CalculationProperties>();
-        return properties || !create ? properties : workbook->AppendChild<Spreadsheet::CalculationProperties>();
-    }
-
-    static FormulaReferenceStyle ReferenceStyle(const ExcelDocument::Ptr& document)
-    {
-        const auto properties = CalculationProperties(document, false);
-        const auto value = properties
-                               ? properties->GetReferenceMode().ValueOr(Spreadsheet::ReferenceModeValues()).GetValue()
-                               : Spreadsheet::ReferenceModeValues::NotDefinedEnumValue;
-        return value == Spreadsheet::ReferenceModeValues::R1C1 ? FormulaReferenceStyle::R1C1
-                                                               : FormulaReferenceStyle::A1;
-    }
-
-    static bool SetReferenceStyle(const ExcelDocument::Ptr& document, FormulaReferenceStyle style)
-    {
-        auto properties = CalculationProperties(document, true);
-        if (!properties)
+        auto sheets = workbook->GetFirstChildOfType<Spreadsheet::Sheets>();
+        if (!sheets)
         {
+            sheets = workbook->AppendChild<Spreadsheet::Sheets>();
+        }
+        return sheets;
+    }
+
+    static UInt32 NextSheetId(const std::shared_ptr<Spreadsheet::Sheets>& sheets)
+    {
+        UInt32 nextId = 1;
+        if (!sheets)
+        {
+            return nextId;
+        }
+        for (const auto& sheet : sheets->Elements<Spreadsheet::Sheet>())
+        {
+            if (sheet)
+            {
+                nextId = std::max(nextId, sheet->GetSheetId().ValueOr(0) + 1);
+            }
+        }
+        return nextId;
+    }
+
+    static std::vector<std::shared_ptr<Spreadsheet::Sheet>> SheetElements(const ExcelDocument::Ptr& document)
+    {
+        std::vector<std::shared_ptr<Spreadsheet::Sheet>> result;
+        auto sheets = EnsureWorkbookSheets(document);
+        if (!sheets)
+        {
+            return result;
+        }
+        for (const auto& sheet : sheets->Elements<Spreadsheet::Sheet>())
+        {
+            if (sheet)
+            {
+                result.push_back(sheet);
+            }
+        }
+        return result;
+    }
+
+    static std::shared_ptr<Spreadsheet::Sheet> GetSheetElement(const ExcelDocument::Ptr& document, Size index)
+    {
+        auto sheets = SheetElements(document);
+        return index < sheets.size() ? sheets[index] : nullptr;
+    }
+
+    static bool WorksheetNameExists(const ExcelDocument::Ptr& document,
+                                    std::string_view name,
+                                    const std::shared_ptr<Spreadsheet::Sheet>& except = nullptr)
+    {
+        const auto desired = AsciiText::ToLower(name);
+        for (const auto& sheet : SheetElements(document))
+        {
+            if (sheet != except && AsciiText::ToLower(sheet->GetName().ToString()) == desired)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static std::string MakeUniqueWorksheetName(const ExcelDocument::Ptr& document, std::string_view baseName)
+    {
+        std::string base = baseName.empty() ? "Sheet" : std::string(baseName);
+        if (base.size() > 31)
+        {
+            base.resize(31);
+        }
+        if (!IsValidWorksheetName(base))
+        {
+            base = "Sheet";
+        }
+        if (!WorksheetNameExists(document, base))
+        {
+            return base;
+        }
+
+        for (UInt32 suffix = 2; suffix < 100000; ++suffix)
+        {
+            const auto suffixText = " (" + std::to_string(suffix) + ")";
+            auto prefix = base;
+            if (prefix.size() + suffixText.size() > 31)
+            {
+                prefix.resize(31 - suffixText.size());
+            }
+            auto candidate = prefix + suffixText;
+            if (!WorksheetNameExists(document, candidate))
+            {
+                return candidate;
+            }
+        }
+        return {};
+    }
+
+    static std::shared_ptr<Packaging::WorksheetPart> FindWorksheetPartByRelationshipId(const ExcelDocument::Ptr& document,
+                                                                                       std::string_view relationshipId)
+    {
+        auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
+        if (!workbookPart)
+        {
+            return nullptr;
+        }
+        for (const auto& worksheetPart : workbookPart->GetWorksheetParts())
+        {
+            if (!worksheetPart)
+            {
+                continue;
+            }
+            if (worksheetPart->RelationshipId() == relationshipId)
+            {
+                return worksheetPart;
+            }
+        }
+        return nullptr;
+    }
+
+    static Worksheet::Ptr WrapWorksheet(const ExcelDocument::Ptr& document, const std::shared_ptr<Spreadsheet::Sheet>& sheet)
+    {
+        if (!sheet)
+        {
+            return nullptr;
+        }
+        auto part = FindWorksheetPartByRelationshipId(document, sheet->GetId().ToString());
+        return part ? std::make_shared<Worksheet>(sheet->GetName().ToString(), part, document) : nullptr;
+    }
+
+    class RangeBulkHelpers final
+    {
+    public:
+        RangeBulkHelpers() = delete;
+
+        struct PlannedCell
+        {
+            CellAddress address;
+            ExcelCellValue value;
+        };
+
+        static RangeOperationResult Error(RangeOperationError error, std::string message)
+        {
+            return RangeOperationResult{error, std::move(message), 0};
+        }
+
+        static RangeOperationResult Success(Size affectedCellCount)
+        {
+            return RangeOperationResult{RangeOperationError::None, {}, affectedCellCount};
+        }
+
+        static bool MatrixMatches(CellRange range, const ExcelCellMatrix& values)
+        {
+            if (!range.IsValid() || values.size() != range.RowCount())
+            {
+                return false;
+            }
+            return std::all_of(values.begin(), values.end(), [&](const auto& row)
+                               { return row.size() == range.ColumnCount(); });
+        }
+
+        static std::optional<CellRange> DestinationRange(CellRange source, CellAddress destinationTopLeft)
+        {
+            if (!source.IsValid() || !destinationTopLeft.IsValid())
+            {
+                return std::nullopt;
+            }
+            const auto lastRow = static_cast<UInt64>(destinationTopLeft.Row().Value()) + source.RowCount() - 1;
+            const auto lastColumn =
+                static_cast<UInt64>(destinationTopLeft.Column().Value()) + source.ColumnCount() - 1;
+            if (lastRow > MaxRowIndex || lastColumn > MaxColumnIndex)
+            {
+                return std::nullopt;
+            }
+            const auto last = CellAddress::TryCreate(static_cast<UInt32>(lastRow),
+                                                     static_cast<UInt32>(lastColumn));
+            return last ? CellRange::TryCreate(destinationTopLeft, *last) : std::nullopt;
+        }
+
+        static UInt64 AddressKey(CellAddress address) noexcept
+        {
+            return (static_cast<UInt64>(address.Row().Value()) << 16) | address.Column().Value();
+        }
+
+        static void AddOrReplace(std::vector<PlannedCell>& plan,
+                                 std::unordered_map<UInt64, Size>& indexes,
+                                 CellAddress address,
+                                 const ExcelCellValue& value)
+        {
+            const auto key = AddressKey(address);
+            if (const auto existing = indexes.find(key); existing != indexes.end())
+            {
+                plan[existing->second].value = value;
+                return;
+            }
+            indexes.emplace(key, plan.size());
+            plan.push_back(PlannedCell{address, value});
+        }
+
+        static std::vector<PlannedCell> MatrixPlan(CellRange range, const ExcelCellMatrix& values)
+        {
+            std::vector<PlannedCell> plan;
+            plan.reserve(static_cast<Size>(range.RowCount()) * range.ColumnCount());
+            for (UInt32 rowOffset = 0; rowOffset < range.RowCount(); ++rowOffset)
+            {
+                for (UInt32 columnOffset = 0; columnOffset < range.ColumnCount(); ++columnOffset)
+                {
+                    const auto address = CellAddress::TryCreate(range.First().Row().Value() + rowOffset,
+                                                                range.First().Column().Value() + columnOffset);
+                    if (address)
+                    {
+                        plan.push_back(PlannedCell{*address, values[rowOffset][columnOffset]});
+                    }
+                }
+            }
+            return plan;
+        }
+
+        static bool ApplyValue(Worksheet& worksheet, CellAddress address, const ExcelCellValue& value)
+        {
+            if (value.IsBlank())
+            {
+                return !worksheet.ContainsCell(address) || worksheet.RemoveCell(address);
+            }
+            return worksheet.SetCellValue(address, value);
+        }
+
+        static RangeOperationResult ApplyAtomically(Worksheet& worksheet, const std::vector<PlannedCell>& plan)
+        {
+            const auto part = worksheet.GetPart();
+            if (!part)
+            {
+                return Error(RangeOperationError::InvalidWorksheet, "The worksheet is not attached to a usable part.");
+            }
+            const auto worksheetXml = part->GetXmlString();
+
+            for (const auto& cell : plan)
+            {
+                if (ApplyValue(worksheet, cell.address, cell.value))
+                {
+                    continue;
+                }
+                part->SetXmlString(worksheetXml);
+                return Error(RangeOperationError::WriteFailed,
+                             "A cell write failed and all changes made by the range operation were rolled back.");
+            }
+            return Success(plan.size());
+        }
+    };
+
+    /** @brief File-local validation and workbook metadata support for formula models. */
+    class FormulaModelHelpers final
+    {
+    public:
+        FormulaModelHelpers() = delete;
+
+        static bool RangeContains(std::string_view text, CellAddress address)
+        {
+            const auto range = CellRange::ParseA1(text);
+            return range && address.Row().Value() >= range->First().Row().Value() &&
+                   address.Row().Value() <= range->Last().Row().Value() &&
+                   address.Column().Value() >= range->First().Column().Value() &&
+                   address.Column().Value() <= range->Last().Column().Value();
+        }
+
+        static bool IsValid(const CellFormulaValue& formula, CellAddress address)
+        {
+            if (formula.CachedKind == FormulaCachedValueKind::None && !formula.CachedText.empty())
+            {
+                return false;
+            }
+            switch (formula.Kind)
+            {
+                case CellFormulaKind::Normal:
+                    return !formula.Formula.empty() && !formula.Reference && !formula.SharedIndex &&
+                           !formula.AlwaysCalculateArray;
+                case CellFormulaKind::Shared:
+                    if (!formula.SharedIndex || formula.AlwaysCalculateArray)
+                    {
+                        return false;
+                    }
+                    return formula.Reference ? !formula.Formula.empty() && RangeContains(*formula.Reference, address)
+                                             : formula.Formula.empty();
+                case CellFormulaKind::Array:
+                    return !formula.Formula.empty() && !formula.SharedIndex && formula.Reference &&
+                           RangeContains(*formula.Reference, address);
+            }
             return false;
         }
-        const auto value = style == FormulaReferenceStyle::R1C1 ? Spreadsheet::ReferenceModeValues::R1C1
-                                                                : Spreadsheet::ReferenceModeValues::A1;
-        properties->SetReferenceMode(EnumValue<Spreadsheet::ReferenceModeValues>(value));
-        return true;
-    }
-};
 
-} // namespace
+        static std::shared_ptr<Spreadsheet::CalculationProperties> CalculationProperties(
+            const ExcelDocument::Ptr& document, bool create)
+        {
+            auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
+            auto workbook = workbookPart ? workbookPart->GetTypedRootElement() : nullptr;
+            if (!workbook)
+            {
+                return nullptr;
+            }
+            auto properties = workbook->GetFirstChildOfType<Spreadsheet::CalculationProperties>();
+            return properties || !create ? properties : workbook->AppendChild<Spreadsheet::CalculationProperties>();
+        }
+
+        static FormulaReferenceStyle ReferenceStyle(const ExcelDocument::Ptr& document)
+        {
+            const auto properties = CalculationProperties(document, false);
+            const auto value = properties
+                                   ? properties->GetReferenceMode().ValueOr(Spreadsheet::ReferenceModeValues()).GetValue()
+                                   : Spreadsheet::ReferenceModeValues::NotDefinedEnumValue;
+            return value == Spreadsheet::ReferenceModeValues::R1C1 ? FormulaReferenceStyle::R1C1
+                                                                   : FormulaReferenceStyle::A1;
+        }
+
+        static bool SetReferenceStyle(const ExcelDocument::Ptr& document, FormulaReferenceStyle style)
+        {
+            auto properties = CalculationProperties(document, true);
+            if (!properties)
+            {
+                return false;
+            }
+            const auto value = style == FormulaReferenceStyle::R1C1 ? Spreadsheet::ReferenceModeValues::R1C1
+                                                                    : Spreadsheet::ReferenceModeValues::A1;
+            properties->SetReferenceMode(EnumValue<Spreadsheet::ReferenceModeValues>(value));
+            return true;
+        }
+    };
+};
 
 Worksheet::Worksheet(std::string name,
                      std::shared_ptr<ExyokiOffice::Packaging::WorksheetPart> part,
@@ -1073,25 +1064,25 @@ bool Worksheet::SetCellValue(CellAddress address, const ExcelCellValue& value)
         return false;
     }
     if (value.Kind() == CellValueKind::Formula &&
-        (!FormulaModelHelpers::IsValid(value.FormulaValue(), address) ||
-         !FormulaModelHelpers::SetReferenceStyle(m_document, value.FormulaValue().ReferenceStyle)))
+        (!ExcelDocumentXmlHelper::FormulaModelHelpers::IsValid(value.FormulaValue(), address) ||
+         !ExcelDocumentXmlHelper::FormulaModelHelpers::SetReferenceStyle(m_document, value.FormulaValue().ReferenceStyle)))
     {
         return false;
     }
     auto worksheet = GetLowLevelApi();
-    auto cell = FindCell(worksheet, address);
+    auto cell = ExcelDocumentXmlHelper::FindCell(worksheet, address);
     if (!cell)
     {
-        cell = EnsureCell(EnsureRow(EnsureSheetData(worksheet), address.Row().Value()),
-                          address.Row().Value(),
-                          address.Column().Value());
+        cell = ExcelDocumentXmlHelper::EnsureCell(ExcelDocumentXmlHelper::EnsureRow(ExcelDocumentXmlHelper::EnsureSheetData(worksheet), address.Row().Value()),
+                                                  address.Row().Value(),
+                                                  address.Column().Value());
     }
     if (!cell)
     {
         return false;
     }
 
-    return WriteCellValue(cell, value);
+    return ExcelDocumentXmlHelper::WriteCellValue(cell, value);
 }
 
 bool Worksheet::SetCellValue(UInt32 row, UInt32 column, const ExcelCellValue& value)
@@ -1108,7 +1099,7 @@ std::optional<ExcelCellValue> Worksheet::GetCellValue(CellAddress address) const
     }
     auto worksheet = GetLowLevelApi();
     return worksheet ? std::optional<ExcelCellValue>(
-                           ReadCellValue(FindCell(worksheet, address), FormulaModelHelpers::ReferenceStyle(m_document)))
+                           ExcelDocumentXmlHelper::ReadCellValue(ExcelDocumentXmlHelper::FindCell(worksheet, address), ExcelDocumentXmlHelper::FormulaModelHelpers::ReferenceStyle(m_document)))
                      : std::nullopt;
 }
 
@@ -1120,7 +1111,7 @@ std::optional<ExcelCellValue> Worksheet::GetCellValue(UInt32 row, UInt32 column)
 
 bool Worksheet::ContainsCell(CellAddress address) const
 {
-    return address.IsValid() && FindCell(GetLowLevelApi(), address) != nullptr;
+    return address.IsValid() && ExcelDocumentXmlHelper::FindCell(GetLowLevelApi(), address) != nullptr;
 }
 
 bool Worksheet::ContainsCell(UInt32 row, UInt32 column) const
@@ -1136,7 +1127,7 @@ bool Worksheet::RemoveCell(CellAddress address)
         return false;
     }
     auto worksheet = GetLowLevelApi();
-    auto cell = FindCell(worksheet, address);
+    auto cell = ExcelDocumentXmlHelper::FindCell(worksheet, address);
     auto row = cell ? openxmlelement_cast<Spreadsheet::Row>(cell->Parent()) : nullptr;
     if (!row || !row->RemoveChild(cell))
     {
@@ -1187,20 +1178,20 @@ Size Worksheet::StoredCellCount() const
     }
     for (auto child = worksheetNode.first_child(); child; child = child.next_sibling())
     {
-        if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::SheetData>(child))
+        if (!ExcelDocumentXmlHelper::SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::SheetData>(child))
         {
             continue;
         }
         for (auto row = child.first_child(); row; row = row.next_sibling())
         {
-            if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Row>(row))
+            if (!ExcelDocumentXmlHelper::SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Row>(row))
             {
                 continue;
             }
             for (auto cell = row.first_child(); cell; cell = cell.next_sibling())
             {
-                if (SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Cell>(cell) &&
-                    CellAddress::ParseA1(RawCellReference(WrapCellNode(cell))))
+                if (ExcelDocumentXmlHelper::SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Cell>(cell) &&
+                    CellAddress::ParseA1(ExcelDocumentXmlHelper::RawCellReference(ExcelDocumentXmlHelper::WrapCellNode(cell))))
                 {
                     ++count;
                 }
@@ -1223,7 +1214,7 @@ std::vector<CellAddress> Worksheet::StoredCellAddresses() const
     Pugi::xml_node sheetData;
     for (auto child = worksheetNode.first_child(); child; child = child.next_sibling())
     {
-        if (SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::SheetData>(child))
+        if (ExcelDocumentXmlHelper::SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::SheetData>(child))
         {
             sheetData = child;
             break;
@@ -1231,17 +1222,17 @@ std::vector<CellAddress> Worksheet::StoredCellAddresses() const
     }
     for (auto row = sheetData ? sheetData.first_child() : Pugi::xml_node{}; row; row = row.next_sibling())
     {
-        if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Row>(row))
+        if (!ExcelDocumentXmlHelper::SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Row>(row))
         {
             continue;
         }
         for (auto cell = row.first_child(); cell; cell = cell.next_sibling())
         {
-            if (!SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Cell>(cell))
+            if (!ExcelDocumentXmlHelper::SpreadsheetXmlHelpers::NodeHasName<Spreadsheet::Cell>(cell))
             {
                 continue;
             }
-            const auto address = CellAddress::ParseA1(RawCellReference(WrapCellNode(cell)));
+            const auto address = CellAddress::ParseA1(ExcelDocumentXmlHelper::RawCellReference(ExcelDocumentXmlHelper::WrapCellNode(cell)));
             if (address)
             {
                 result.push_back(*address);
@@ -1256,14 +1247,14 @@ RangeReadResult Worksheet::GetRangeValues(CellRange range) const
     RangeReadResult result;
     if (!range.IsValid())
     {
-        result.Status = RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
-                                                "The source range is invalid or not normalized.");
+        result.Status = ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
+                                                                        "The source range is invalid or not normalized.");
         return result;
     }
     if (!GetLowLevelApi())
     {
-        result.Status = RangeBulkHelpers::Error(RangeOperationError::InvalidWorksheet,
-                                                "The worksheet is not attached to a usable part.");
+        result.Status = ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidWorksheet,
+                                                                        "The worksheet is not attached to a usable part.");
         return result;
     }
 
@@ -1280,15 +1271,15 @@ RangeReadResult Worksheet::GetRangeValues(CellRange range) const
             if (!value)
             {
                 result.Values.clear();
-                result.Status = RangeBulkHelpers::Error(RangeOperationError::InvalidWorksheet,
-                                                        "A cell could not be read from the worksheet.");
+                result.Status = ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidWorksheet,
+                                                                                "A cell could not be read from the worksheet.");
                 return result;
             }
             row.push_back(*value);
         }
         result.Values.push_back(std::move(row));
     }
-    result.Status = RangeBulkHelpers::Success(
+    result.Status = ExcelDocumentXmlHelper::RangeBulkHelpers::Success(
         static_cast<Size>(range.RowCount()) * range.ColumnCount());
     return result;
 }
@@ -1297,37 +1288,37 @@ RangeOperationResult Worksheet::SetRangeValues(CellRange range, const ExcelCellM
 {
     if (!range.IsValid())
     {
-        return RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
-                                       "The target range is invalid or not normalized.");
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
+                                                               "The target range is invalid or not normalized.");
     }
-    if (!RangeBulkHelpers::MatrixMatches(range, values))
+    if (!ExcelDocumentXmlHelper::RangeBulkHelpers::MatrixMatches(range, values))
     {
-        return RangeBulkHelpers::Error(
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(
             RangeOperationError::DimensionMismatch,
             "The value matrix must be rectangular and exactly match the target range dimensions.");
     }
     if (!GetLowLevelApi())
     {
-        return RangeBulkHelpers::Error(RangeOperationError::InvalidWorksheet,
-                                       "The worksheet is not attached to a usable part.");
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidWorksheet,
+                                                               "The worksheet is not attached to a usable part.");
     }
-    return RangeBulkHelpers::ApplyAtomically(*this, RangeBulkHelpers::MatrixPlan(range, values));
+    return ExcelDocumentXmlHelper::RangeBulkHelpers::ApplyAtomically(*this, ExcelDocumentXmlHelper::RangeBulkHelpers::MatrixPlan(range, values));
 }
 
 RangeOperationResult Worksheet::ClearRange(CellRange range)
 {
     if (!range.IsValid())
     {
-        return RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
-                                       "The target range is invalid or not normalized.");
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
+                                                               "The target range is invalid or not normalized.");
     }
     if (!GetLowLevelApi())
     {
-        return RangeBulkHelpers::Error(RangeOperationError::InvalidWorksheet,
-                                       "The worksheet is not attached to a usable part.");
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidWorksheet,
+                                                               "The worksheet is not attached to a usable part.");
     }
 
-    std::vector<RangeBulkHelpers::PlannedCell> plan;
+    std::vector<ExcelDocumentXmlHelper::RangeBulkHelpers::PlannedCell> plan;
     for (const auto address : StoredCellAddresses())
     {
         if (address.Row().Value() >= range.First().Row().Value() &&
@@ -1338,15 +1329,15 @@ RangeOperationResult Worksheet::ClearRange(CellRange range)
             plan.push_back({address, ExcelCellValue::Blank()});
         }
     }
-    return RangeBulkHelpers::ApplyAtomically(*this, plan);
+    return ExcelDocumentXmlHelper::RangeBulkHelpers::ApplyAtomically(*this, plan);
 }
 
 RangeOperationResult Worksheet::FillRange(CellRange range, const ExcelCellValue& value)
 {
     if (!range.IsValid())
     {
-        return RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
-                                       "The target range is invalid or not normalized.");
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
+                                                               "The target range is invalid or not normalized.");
     }
     if (value.IsBlank())
     {
@@ -1360,14 +1351,14 @@ RangeOperationResult Worksheet::CopyRange(CellRange source, CellAddress destinat
 {
     if (!source.IsValid() || !destinationTopLeft.IsValid())
     {
-        return RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
-                                       "The source range and destination address must be valid.");
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
+                                                               "The source range and destination address must be valid.");
     }
-    const auto destination = RangeBulkHelpers::DestinationRange(source, destinationTopLeft);
+    const auto destination = ExcelDocumentXmlHelper::RangeBulkHelpers::DestinationRange(source, destinationTopLeft);
     if (!destination)
     {
-        return RangeBulkHelpers::Error(RangeOperationError::DestinationOutOfBounds,
-                                       "The destination rectangle extends beyond the Excel worksheet grid.");
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::DestinationOutOfBounds,
+                                                               "The destination rectangle extends beyond the Excel worksheet grid.");
     }
     auto sourceValues = GetRangeValues(source);
     if (!sourceValues)
@@ -1381,14 +1372,14 @@ RangeOperationResult Worksheet::MoveRange(CellRange source, CellAddress destinat
 {
     if (!source.IsValid() || !destinationTopLeft.IsValid())
     {
-        return RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
-                                       "The source range and destination address must be valid.");
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::InvalidAddress,
+                                                               "The source range and destination address must be valid.");
     }
-    const auto destination = RangeBulkHelpers::DestinationRange(source, destinationTopLeft);
+    const auto destination = ExcelDocumentXmlHelper::RangeBulkHelpers::DestinationRange(source, destinationTopLeft);
     if (!destination)
     {
-        return RangeBulkHelpers::Error(RangeOperationError::DestinationOutOfBounds,
-                                       "The destination rectangle extends beyond the Excel worksheet grid.");
+        return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::DestinationOutOfBounds,
+                                                               "The destination rectangle extends beyond the Excel worksheet grid.");
     }
     auto sourceValues = GetRangeValues(source);
     if (!sourceValues)
@@ -1397,7 +1388,7 @@ RangeOperationResult Worksheet::MoveRange(CellRange source, CellAddress destinat
     }
     const auto originalXml = m_part ? m_part->GetXmlString() : std::string{};
 
-    std::vector<RangeBulkHelpers::PlannedCell> plan;
+    std::vector<ExcelDocumentXmlHelper::RangeBulkHelpers::PlannedCell> plan;
     std::unordered_map<UInt64, Size> indexes;
     const auto sourceBlank = ExcelCellValue::Blank();
     for (UInt32 rowOffset = 0; rowOffset < source.RowCount(); ++rowOffset)
@@ -1408,7 +1399,7 @@ RangeOperationResult Worksheet::MoveRange(CellRange source, CellAddress destinat
                                                               source.First().Column().Value() + columnOffset);
             if (sourceAddress)
             {
-                RangeBulkHelpers::AddOrReplace(plan, indexes, *sourceAddress, sourceBlank);
+                ExcelDocumentXmlHelper::RangeBulkHelpers::AddOrReplace(plan, indexes, *sourceAddress, sourceBlank);
             }
         }
     }
@@ -1420,12 +1411,12 @@ RangeOperationResult Worksheet::MoveRange(CellRange source, CellAddress destinat
                                                                    destination->First().Column().Value() + columnOffset);
             if (destinationAddress)
             {
-                RangeBulkHelpers::AddOrReplace(
+                ExcelDocumentXmlHelper::RangeBulkHelpers::AddOrReplace(
                     plan, indexes, *destinationAddress, sourceValues.Values[rowOffset][columnOffset]);
             }
         }
     }
-    auto status = RangeBulkHelpers::ApplyAtomically(*this, plan);
+    auto status = ExcelDocumentXmlHelper::RangeBulkHelpers::ApplyAtomically(*this, plan);
     if (!status)
     {
         return status;
@@ -1443,7 +1434,7 @@ RangeOperationResult Worksheet::MoveRange(CellRange source, CellAddress destinat
         if (!rewritten)
         {
             m_part->SetXmlString(originalXml);
-            return RangeBulkHelpers::Error(RangeOperationError::ReferenceUpdateFailed, rewritten.ErrorMessage);
+            return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::ReferenceUpdateFailed, rewritten.ErrorMessage);
         }
         formula->Formula = rewritten.Formula;
         if (formula->Reference)
@@ -1452,16 +1443,16 @@ RangeOperationResult Worksheet::MoveRange(CellRange source, CellAddress destinat
             if (!rewrittenRange || rewrittenRange.Formula == "#REF!")
             {
                 m_part->SetXmlString(originalXml);
-                return RangeBulkHelpers::Error(RangeOperationError::ReferenceUpdateFailed,
-                                               "A formula-owned range could not be moved safely.");
+                return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::ReferenceUpdateFailed,
+                                                                       "A formula-owned range could not be moved safely.");
             }
             formula->Reference = rewrittenRange.Formula;
         }
         if (!SetCellFormula(address, *formula))
         {
             m_part->SetXmlString(originalXml);
-            return RangeBulkHelpers::Error(RangeOperationError::WriteFailed,
-                                           "A moved formula could not be written; the worksheet was restored.");
+            return ExcelDocumentXmlHelper::RangeBulkHelpers::Error(RangeOperationError::WriteFailed,
+                                                                   "A moved formula could not be written; the worksheet was restored.");
         }
     }
     return status;
@@ -1566,7 +1557,7 @@ std::optional<CellFormulaValue> Worksheet::GetCellFormula(CellAddress address) c
         return std::nullopt;
     }
     auto formula = value->FormulaValue();
-    formula.ReferenceStyle = FormulaModelHelpers::ReferenceStyle(m_document);
+    formula.ReferenceStyle = ExcelDocumentXmlHelper::FormulaModelHelpers::ReferenceStyle(m_document);
     return formula;
 }
 
@@ -1592,7 +1583,7 @@ ExcelTable::Ptr Worksheet::CreateTable(std::string_view name,
         {
             const auto existing = std::make_shared<ExcelTable>(part);
             nextId = std::max(nextId, existing->Id() + 1);
-            if (ToLowerAscii(existing->Name()) == ToLowerAscii(name))
+            if (AsciiText::ToLower(existing->Name()) == AsciiText::ToLower(name))
             {
                 return nullptr;
             }
@@ -1652,7 +1643,7 @@ ExcelTable::Ptr Worksheet::TableByName(std::string_view name) const
 {
     for (const auto& table : Tables())
     {
-        if (ToLowerAscii(table->Name()) == ToLowerAscii(name))
+        if (AsciiText::ToLower(table->Name()) == AsciiText::ToLower(name))
         {
             return table;
         }
@@ -1682,7 +1673,7 @@ bool Worksheet::RenameTable(const ExcelTable::Ptr& table, std::string_view newNa
         for (const auto& candidatePart : worksheetPart->GetTableDefinitionParts())
         {
             if (candidatePart != ownedPart &&
-                ToLowerAscii(std::make_shared<ExcelTable>(candidatePart)->Name()) == ToLowerAscii(newName))
+                AsciiText::ToLower(std::make_shared<ExcelTable>(candidatePart)->Name()) == AsciiText::ToLower(newName))
             {
                 return false;
             }
@@ -2086,32 +2077,32 @@ bool SharedStringTableService::IsValid() const noexcept
 
 UInt32 SharedStringTableService::Count() const
 {
-    auto table = SharedStringTableRoot(m_document, false);
-    return static_cast<UInt32>(SharedStringItems(table).size());
+    auto table = ExcelDocumentXmlHelper::SharedStringTableRoot(m_document, false);
+    return static_cast<UInt32>(ExcelDocumentXmlHelper::SharedStringItems(table).size());
 }
 
 UInt32 SharedStringTableService::UniqueCount() const
 {
-    auto table = SharedStringTableRoot(m_document, false);
+    auto table = ExcelDocumentXmlHelper::SharedStringTableRoot(m_document, false);
     return table ? table->GetUniqueCount().ValueOr(Count()) : 0;
 }
 
 std::optional<std::string> SharedStringTableService::Lookup(UInt32 index) const
 {
-    auto items = SharedStringItems(SharedStringTableRoot(m_document, false));
+    auto items = ExcelDocumentXmlHelper::SharedStringItems(ExcelDocumentXmlHelper::SharedStringTableRoot(m_document, false));
     if (index >= items.size())
     {
         return std::nullopt;
     }
-    return SharedStringItemText(items[index]);
+    return ExcelDocumentXmlHelper::SharedStringItemText(items[index]);
 }
 
 std::optional<UInt32> SharedStringTableService::Find(std::string_view text) const
 {
-    auto items = SharedStringItems(SharedStringTableRoot(m_document, false));
+    auto items = ExcelDocumentXmlHelper::SharedStringItems(ExcelDocumentXmlHelper::SharedStringTableRoot(m_document, false));
     for (UInt32 index = 0; index < items.size(); ++index)
     {
-        if (SharedStringItemText(items[index]) == text)
+        if (ExcelDocumentXmlHelper::SharedStringItemText(items[index]) == text)
         {
             return index;
         }
@@ -2129,21 +2120,21 @@ std::optional<UInt32> SharedStringTableService::GetOrAdd(std::string_view text)
     {
         return existing;
     }
-    auto table = SharedStringTableRoot(m_document, true);
-    if (!AppendPlainSharedString(table, text))
+    auto table = ExcelDocumentXmlHelper::SharedStringTableRoot(m_document, true);
+    if (!ExcelDocumentXmlHelper::AppendPlainSharedString(table, text))
     {
         return std::nullopt;
     }
-    UpdateSharedStringCounts(table);
+    ExcelDocumentXmlHelper::UpdateSharedStringCounts(table);
     return Count() - 1;
 }
 
 UInt32 SharedStringTableService::ReferenceCount(UInt32 index) const
 {
     UInt32 count = 0;
-    for (const auto& cell : WorkbookCells(m_document))
+    for (const auto& cell : ExcelDocumentXmlHelper::WorkbookCells(m_document))
     {
-        auto referenced = SharedStringIndexFromCell(cell);
+        auto referenced = ExcelDocumentXmlHelper::SharedStringIndexFromCell(cell);
         if (referenced && *referenced == index)
         {
             ++count;
@@ -2164,15 +2155,15 @@ bool SharedStringTableService::Cleanup()
 
     std::unordered_map<std::string, UInt32> textToNew;
     std::vector<std::string> newTexts;
-    const auto items = SharedStringItems(table);
-    for (const auto& cell : WorkbookCells(m_document))
+    const auto items = ExcelDocumentXmlHelper::SharedStringItems(table);
+    for (const auto& cell : ExcelDocumentXmlHelper::WorkbookCells(m_document))
     {
-        auto oldIndex = SharedStringIndexFromCell(cell);
+        auto oldIndex = ExcelDocumentXmlHelper::SharedStringIndexFromCell(cell);
         if (!oldIndex || *oldIndex >= items.size())
         {
             continue;
         }
-        const auto text = SharedStringItemText(items[*oldIndex]);
+        const auto text = ExcelDocumentXmlHelper::SharedStringItemText(items[*oldIndex]);
         auto found = textToNew.find(text);
         if (found == textToNew.end())
         {
@@ -2180,7 +2171,7 @@ bool SharedStringTableService::Cleanup()
             found = textToNew.emplace(text, newIndex).first;
             newTexts.push_back(text);
         }
-        SetSharedStringIndexOnCell(cell, found->second);
+        ExcelDocumentXmlHelper::SetSharedStringIndexOnCell(cell, found->second);
     }
 
     if (newTexts.empty())
@@ -2188,18 +2179,18 @@ bool SharedStringTableService::Cleanup()
         return workbookPart->RemoveSharedStringTablePart();
     }
 
-    for (const auto& item : SharedStringItems(table))
+    for (const auto& item : ExcelDocumentXmlHelper::SharedStringItems(table))
     {
         table->RemoveChild(item);
     }
     for (const auto& text : newTexts)
     {
-        if (!AppendPlainSharedString(table, text))
+        if (!ExcelDocumentXmlHelper::AppendPlainSharedString(table, text))
         {
             return false;
         }
     }
-    UpdateSharedStringCounts(table);
+    ExcelDocumentXmlHelper::UpdateSharedStringCounts(table);
     return true;
 }
 
@@ -2489,7 +2480,7 @@ Worksheet::Ptr ExcelDocumentEditor::AddWorksheet(std::string_view name)
         return nullptr;
     }
     auto workbookPart = m_document->GetWorkbookPart();
-    auto sheets = EnsureWorkbookSheets(m_document);
+    auto sheets = ExcelDocumentXmlHelper::EnsureWorkbookSheets(m_document);
     if (!workbookPart || !sheets)
     {
         return nullptr;
@@ -2505,10 +2496,10 @@ Worksheet::Ptr ExcelDocumentEditor::AddWorksheet(std::string_view name)
     {
         return nullptr;
     }
-    EnsureSheetData(worksheet);
+    ExcelDocumentXmlHelper::EnsureSheetData(worksheet);
 
-    const auto requestedName = name.empty() ? std::string("Sheet") + std::to_string(NextSheetId(sheets)) : std::string(name);
-    if (!IsValidWorksheetName(requestedName) || WorksheetNameExists(m_document, requestedName))
+    const auto requestedName = name.empty() ? std::string("Sheet") + std::to_string(ExcelDocumentXmlHelper::NextSheetId(sheets)) : std::string(name);
+    if (!ExcelDocumentXmlHelper::IsValidWorksheetName(requestedName) || ExcelDocumentXmlHelper::WorksheetNameExists(m_document, requestedName))
     {
         workbookPart->RemoveWorksheetPart(worksheetPart);
         return nullptr;
@@ -2521,7 +2512,7 @@ Worksheet::Ptr ExcelDocumentEditor::AddWorksheet(std::string_view name)
         return nullptr;
     }
     sheet->SetName(StringValue(sheetName));
-    sheet->SetSheetId(UInt32Value(NextSheetId(sheets)));
+    sheet->SetSheetId(UInt32Value(ExcelDocumentXmlHelper::NextSheetId(sheets)));
     sheet->SetId(StringValue(worksheetPart->RelationshipId()));
 
     return std::make_shared<Worksheet>(sheetName, worksheetPart, m_document);
@@ -2529,17 +2520,17 @@ Worksheet::Ptr ExcelDocumentEditor::AddWorksheet(std::string_view name)
 
 Worksheet::Ptr ExcelDocumentEditor::GetWorksheet(Size index) const
 {
-    return WrapWorksheet(m_document, GetSheetElement(m_document, index));
+    return ExcelDocumentXmlHelper::WrapWorksheet(m_document, ExcelDocumentXmlHelper::GetSheetElement(m_document, index));
 }
 
 Worksheet::Ptr ExcelDocumentEditor::GetWorksheet(std::string_view name) const
 {
-    const auto desired = ToLowerAscii(name);
-    for (const auto& sheet : SheetElements(m_document))
+    const auto desired = AsciiText::ToLower(name);
+    for (const auto& sheet : ExcelDocumentXmlHelper::SheetElements(m_document))
     {
-        if (ToLowerAscii(sheet->GetName().ToString()) == desired)
+        if (AsciiText::ToLower(sheet->GetName().ToString()) == desired)
         {
-            return WrapWorksheet(m_document, sheet);
+            return ExcelDocumentXmlHelper::WrapWorksheet(m_document, sheet);
         }
     }
     return nullptr;
@@ -2547,8 +2538,8 @@ Worksheet::Ptr ExcelDocumentEditor::GetWorksheet(std::string_view name) const
 
 bool ExcelDocumentEditor::RenameWorksheet(Size index, std::string_view newName)
 {
-    auto sheet = GetSheetElement(m_document, index);
-    if (!sheet || !IsValidWorksheetName(newName) || WorksheetNameExists(m_document, newName, sheet))
+    auto sheet = ExcelDocumentXmlHelper::GetSheetElement(m_document, index);
+    if (!sheet || !ExcelDocumentXmlHelper::IsValidWorksheetName(newName) || ExcelDocumentXmlHelper::WorksheetNameExists(m_document, newName, sheet))
     {
         return false;
     }
@@ -2558,8 +2549,8 @@ bool ExcelDocumentEditor::RenameWorksheet(Size index, std::string_view newName)
 
 bool ExcelDocumentEditor::MoveWorksheet(Size fromIndex, Size toIndex)
 {
-    auto sheets = EnsureWorkbookSheets(m_document);
-    auto currentSheets = SheetElements(m_document);
+    auto sheets = ExcelDocumentXmlHelper::EnsureWorkbookSheets(m_document);
+    auto currentSheets = ExcelDocumentXmlHelper::SheetElements(m_document);
     if (!sheets || fromIndex >= currentSheets.size() || toIndex >= currentSheets.size())
     {
         return false;
@@ -2593,18 +2584,18 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheet(Size sourceIndex, std::string_
     {
         return nullptr;
     }
-    auto sourceSheet = GetSheetElement(m_document, sourceIndex);
+    auto sourceSheet = ExcelDocumentXmlHelper::GetSheetElement(m_document, sourceIndex);
     auto workbookPart = m_document->GetWorkbookPart();
-    auto sheets = EnsureWorkbookSheets(m_document);
-    auto sourcePart = sourceSheet ? FindWorksheetPartByRelationshipId(m_document, sourceSheet->GetId().ToString()) : nullptr;
+    auto sheets = ExcelDocumentXmlHelper::EnsureWorkbookSheets(m_document);
+    auto sourcePart = sourceSheet ? ExcelDocumentXmlHelper::FindWorksheetPartByRelationshipId(m_document, sourceSheet->GetId().ToString()) : nullptr;
     if (!sourceSheet || !workbookPart || !sheets || !sourcePart)
     {
         return nullptr;
     }
 
-    const auto sheetName = name.empty() ? MakeUniqueWorksheetName(m_document, sourceSheet->GetName().ToString())
+    const auto sheetName = name.empty() ? ExcelDocumentXmlHelper::MakeUniqueWorksheetName(m_document, sourceSheet->GetName().ToString())
                                         : std::string(name);
-    if (!IsValidWorksheetName(sheetName) || WorksheetNameExists(m_document, sheetName))
+    if (!ExcelDocumentXmlHelper::IsValidWorksheetName(sheetName) || ExcelDocumentXmlHelper::WorksheetNameExists(m_document, sheetName))
     {
         return nullptr;
     }
@@ -2623,7 +2614,7 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheet(Size sourceIndex, std::string_
         return nullptr;
     }
     sheet->SetName(StringValue(sheetName));
-    sheet->SetSheetId(UInt32Value(NextSheetId(sheets)));
+    sheet->SetSheetId(UInt32Value(ExcelDocumentXmlHelper::NextSheetId(sheets)));
     sheet->SetId(StringValue(worksheetPart->RelationshipId()));
     return std::make_shared<Worksheet>(sheetName, worksheetPart, m_document);
 }
@@ -2636,23 +2627,23 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheetFrom(const ExcelDocumentEditor&
     {
         return nullptr;
     }
-    auto sourceSheet = GetSheetElement(sourceEditor.m_document, sourceIndex);
+    auto sourceSheet = ExcelDocumentXmlHelper::GetSheetElement(sourceEditor.m_document, sourceIndex);
     auto sourcePart = sourceSheet
-                          ? FindWorksheetPartByRelationshipId(sourceEditor.m_document, sourceSheet->GetId().ToString())
+                          ? ExcelDocumentXmlHelper::FindWorksheetPartByRelationshipId(sourceEditor.m_document, sourceSheet->GetId().ToString())
                           : nullptr;
     auto workbookPart = m_document->GetWorkbookPart();
-    auto sheets = EnsureWorkbookSheets(m_document);
+    auto sheets = ExcelDocumentXmlHelper::EnsureWorkbookSheets(m_document);
     if (!sourceSheet || !sourcePart || !workbookPart || !sheets)
     {
         return nullptr;
     }
 
     const auto sheetName = name.empty()
-                               ? (WorksheetNameExists(m_document, sourceSheet->GetName().ToString())
-                                      ? MakeUniqueWorksheetName(m_document, sourceSheet->GetName().ToString())
+                               ? (ExcelDocumentXmlHelper::WorksheetNameExists(m_document, sourceSheet->GetName().ToString())
+                                      ? ExcelDocumentXmlHelper::MakeUniqueWorksheetName(m_document, sourceSheet->GetName().ToString())
                                       : sourceSheet->GetName().ToString())
                                : std::string(name);
-    if (!IsValidWorksheetName(sheetName) || WorksheetNameExists(m_document, sheetName))
+    if (!ExcelDocumentXmlHelper::IsValidWorksheetName(sheetName) || ExcelDocumentXmlHelper::WorksheetNameExists(m_document, sheetName))
     {
         return nullptr;
     }
@@ -2693,14 +2684,14 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheetFrom(const ExcelDocumentEditor&
     for (const auto& cell : importedRoot ? importedRoot->Descendants<Spreadsheet::Cell>()
                                          : std::vector<Spreadsheet::Cell::Ptr>{})
     {
-        auto oldIndex = SharedStringIndexFromCell(cell);
+        auto oldIndex = ExcelDocumentXmlHelper::SharedStringIndexFromCell(cell);
         if (!oldIndex)
         {
             continue;
         }
         auto text = sourceStrings.Lookup(*oldIndex);
         auto newIndex = text ? targetStrings.GetOrAdd(*text) : std::nullopt;
-        if (!newIndex || !SetSharedStringIndexOnCell(cell, *newIndex))
+        if (!newIndex || !ExcelDocumentXmlHelper::SetSharedStringIndexOnCell(cell, *newIndex))
         {
             workbookPart->RemoveWorksheetPart(importedPart);
             return nullptr;
@@ -2714,7 +2705,7 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheetFrom(const ExcelDocumentEditor&
         return nullptr;
     }
     sheet->SetName(StringValue(sheetName));
-    sheet->SetSheetId(UInt32Value(NextSheetId(sheets)));
+    sheet->SetSheetId(UInt32Value(ExcelDocumentXmlHelper::NextSheetId(sheets)));
     sheet->SetId(StringValue(importedPart->RelationshipId()));
     return std::make_shared<Worksheet>(sheetName, importedPart, m_document);
 }
@@ -2722,15 +2713,15 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheetFrom(const ExcelDocumentEditor&
 bool ExcelDocumentEditor::RemoveWorksheet(Size index)
 {
     auto workbookPart = m_document ? m_document->GetWorkbookPart() : nullptr;
-    auto sheets = EnsureWorkbookSheets(m_document);
-    auto currentSheets = SheetElements(m_document);
+    auto sheets = ExcelDocumentXmlHelper::EnsureWorkbookSheets(m_document);
+    auto currentSheets = ExcelDocumentXmlHelper::SheetElements(m_document);
     if (!workbookPart || !sheets || index >= currentSheets.size() || currentSheets.size() <= 1)
     {
         return false;
     }
 
     auto sheet = currentSheets[index];
-    auto part = FindWorksheetPartByRelationshipId(m_document, sheet->GetId().ToString());
+    auto part = ExcelDocumentXmlHelper::FindWorksheetPartByRelationshipId(m_document, sheet->GetId().ToString());
     if (!part || !sheets->RemoveChild(sheet))
     {
         return false;
@@ -2741,9 +2732,9 @@ bool ExcelDocumentEditor::RemoveWorksheet(Size index)
 std::vector<Worksheet::Ptr> ExcelDocumentEditor::Worksheets() const
 {
     std::vector<Worksheet::Ptr> result;
-    for (const auto& sheet : SheetElements(m_document))
+    for (const auto& sheet : ExcelDocumentXmlHelper::SheetElements(m_document))
     {
-        auto worksheet = WrapWorksheet(m_document, sheet);
+        auto worksheet = ExcelDocumentXmlHelper::WrapWorksheet(m_document, sheet);
         if (worksheet)
         {
             result.push_back(worksheet);

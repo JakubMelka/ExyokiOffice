@@ -17,201 +17,201 @@
 namespace ExyokiOffice::Xml
 {
 
-namespace
-{
-
 using ExyokiOffice::Detail::NodeOf;
 using ExyokiOffice::Pugi::xml_node;
 using ExyokiOffice::Pugi::xml_node_type;
 
-bool IsNameStart(char c) noexcept
+/// File-local helpers behind namespace-aware XPath queries.
+class XmlQueryHelper
 {
-    const auto uc = static_cast<unsigned char>(c);
-    return c == '_' || std::isalpha(uc) != 0;
-}
-
-bool IsNameChar(char c) noexcept
-{
-    const auto uc = static_cast<unsigned char>(c);
-    return IsNameStart(c) || std::isdigit(uc) != 0 || c == '-' || c == '.';
-}
-
-/// Resolves a query prefix to a namespace URI using bindings, then the document, then well-known table.
-std::optional<std::string> ResolvePrefix(std::string_view prefix, const XmlQueryOptions& options,
-                                         const xml_node& contextNode)
-{
-    for (const auto& [boundPrefix, uri] : options.NamespaceBindings)
+public:
+    static bool IsNameStart(char c) noexcept
     {
-        if (boundPrefix == prefix)
+        const auto uc = static_cast<unsigned char>(c);
+        return c == '_' || std::isalpha(uc) != 0;
+    }
+
+    static bool IsNameChar(char c) noexcept
+    {
+        const auto uc = static_cast<unsigned char>(c);
+        return IsNameStart(c) || std::isdigit(uc) != 0 || c == '-' || c == '.';
+    }
+
+    /// Resolves a query prefix to a namespace URI using bindings, then the document, then well-known table.
+    static std::optional<std::string> ResolvePrefix(std::string_view prefix, const XmlQueryOptions& options,
+                                                    const xml_node& contextNode)
+    {
+        for (const auto& [boundPrefix, uri] : options.NamespaceBindings)
         {
-            return uri;
+            if (boundPrefix == prefix)
+            {
+                return uri;
+            }
         }
+
+        if (prefix == "xml")
+        {
+            return std::string("http://www.w3.org/XML/1998/namespace");
+        }
+
+        if (auto declared = NamespaceResolver::LookupUriForPrefix(contextNode, prefix))
+        {
+            return std::string(*declared);
+        }
+
+        if (auto wellKnown = ExyokiOffice::OpenXml::Features::OpenXmlNamespaceResolver::getUrlForPrefix(prefix))
+        {
+            return std::string(*wellKnown);
+        }
+
+        return std::nullopt;
     }
 
-    if (prefix == "xml")
+    /// Emits a namespace-aware node test predicate for a resolved prefix/local pair.
+    static void AppendNameTest(std::string& out, const std::string& uri, std::string_view local)
     {
-        return std::string("http://www.w3.org/XML/1998/namespace");
-    }
-
-    if (auto declared = NamespaceResolver::LookupUriForPrefix(contextNode, prefix))
-    {
-        return std::string(*declared);
-    }
-
-    if (auto wellKnown = ExyokiOffice::OpenXml::Features::OpenXmlNamespaceResolver::getUrlForPrefix(prefix))
-    {
-        return std::string(*wellKnown);
-    }
-
-    return std::nullopt;
-}
-
-/// Emits a namespace-aware node test predicate for a resolved prefix/local pair.
-void AppendNameTest(std::string& out, const std::string& uri, std::string_view local)
-{
-    out += "*[namespace-uri()='";
-    out += uri;
-    out += "'";
-    if (local != "*")
-    {
-        out += " and local-name()='";
-        out += local;
+        out += "*[namespace-uri()='";
+        out += uri;
         out += "'";
-    }
-    out += "]";
-}
-
-/**
- * Rewrites prefixed element/attribute name tests (w:p, @w:val, w:*) into
- * namespace-aware predicates so pugixml matches by namespace URI instead of by
- * the literal document prefix. String literals, axis specifiers (child::),
- * function calls, and everything else are copied verbatim.
- */
-bool RewriteQuery(std::string_view xpath, const XmlQueryOptions& options, const xml_node& contextNode,
-                  std::string& out, std::string& error)
-{
-    out.clear();
-    out.reserve(xpath.size() + 32);
-
-    const Size n = xpath.size();
-    Size i = 0;
-    while (i < n)
-    {
-        const char c = xpath[i];
-
-        if (c == '\'' || c == '"')
+        if (local != "*")
         {
-            const char quote = c;
-            out += c;
-            ++i;
-            while (i < n && xpath[i] != quote)
-            {
-                out += xpath[i++];
-            }
-            if (i < n)
-            {
-                out += xpath[i++]; // closing quote
-            }
-            continue;
+            out += " and local-name()='";
+            out += local;
+            out += "'";
         }
+        out += "]";
+    }
 
-        if (IsNameStart(c))
+    /**
+     * Rewrites prefixed element/attribute name tests (w:p, @w:val, w:*) into
+     * namespace-aware predicates so pugixml matches by namespace URI instead of by
+     * the literal document prefix. String literals, axis specifiers (child::),
+     * function calls, and everything else are copied verbatim.
+     */
+    static bool RewriteQuery(std::string_view xpath, const XmlQueryOptions& options, const xml_node& contextNode,
+                             std::string& out, std::string& error)
+    {
+        out.clear();
+        out.reserve(xpath.size() + 32);
+
+        const Size n = xpath.size();
+        Size i = 0;
+        while (i < n)
         {
-            Size start = i;
-            while (i < n && IsNameChar(xpath[i]))
+            const char c = xpath[i];
+
+            if (c == '\'' || c == '"')
             {
+                const char quote = c;
+                out += c;
                 ++i;
-            }
-            std::string_view ncName = xpath.substr(start, i - start);
-
-            // A QName name test: NCName ':' (NCName | '*'), but not the '::' axis separator.
-            if (i + 1 < n && xpath[i] == ':' && xpath[i + 1] != ':' &&
-                (IsNameStart(xpath[i + 1]) || xpath[i + 1] == '*'))
-            {
-                ++i; // consume ':'
-                std::string_view local;
-                if (xpath[i] == '*')
+                while (i < n && xpath[i] != quote)
                 {
-                    local = xpath.substr(i, 1);
-                    ++i;
+                    out += xpath[i++];
                 }
-                else
+                if (i < n)
                 {
-                    Size localStart = i;
-                    while (i < n && IsNameChar(xpath[i]))
-                    {
-                        ++i;
-                    }
-                    local = xpath.substr(localStart, i - localStart);
+                    out += xpath[i++]; // closing quote
                 }
-
-                // A namespaced function call (prefix:fn(...)) is left untouched.
-                Size peek = i;
-                while (peek < n && (xpath[peek] == ' ' || xpath[peek] == '\t'))
-                {
-                    ++peek;
-                }
-                if (peek < n && xpath[peek] == '(')
-                {
-                    out += ncName;
-                    out += ':';
-                    out += local;
-                    continue;
-                }
-
-                auto uri = ResolvePrefix(ncName, options, contextNode);
-                if (!uri)
-                {
-                    error = "unbound namespace prefix '" + std::string(ncName) + "'";
-                    return false;
-                }
-                // For an attribute test the '@' has already been emitted; for an element test this
-                // stands on its own. Both cases append the same '*[...]' predicate.
-                AppendNameTest(out, *uri, local);
                 continue;
             }
 
-            out += ncName;
-            continue;
+            if (IsNameStart(c))
+            {
+                Size start = i;
+                while (i < n && IsNameChar(xpath[i]))
+                {
+                    ++i;
+                }
+                std::string_view ncName = xpath.substr(start, i - start);
+
+                // A QName name test: NCName ':' (NCName | '*'), but not the '::' axis separator.
+                if (i + 1 < n && xpath[i] == ':' && xpath[i + 1] != ':' &&
+                    (IsNameStart(xpath[i + 1]) || xpath[i + 1] == '*'))
+                {
+                    ++i; // consume ':'
+                    std::string_view local;
+                    if (xpath[i] == '*')
+                    {
+                        local = xpath.substr(i, 1);
+                        ++i;
+                    }
+                    else
+                    {
+                        Size localStart = i;
+                        while (i < n && IsNameChar(xpath[i]))
+                        {
+                            ++i;
+                        }
+                        local = xpath.substr(localStart, i - localStart);
+                    }
+
+                    // A namespaced function call (prefix:fn(...)) is left untouched.
+                    Size peek = i;
+                    while (peek < n && (xpath[peek] == ' ' || xpath[peek] == '\t'))
+                    {
+                        ++peek;
+                    }
+                    if (peek < n && xpath[peek] == '(')
+                    {
+                        out += ncName;
+                        out += ':';
+                        out += local;
+                        continue;
+                    }
+
+                    auto uri = ResolvePrefix(ncName, options, contextNode);
+                    if (!uri)
+                    {
+                        error = "unbound namespace prefix '" + std::string(ncName) + "'";
+                        return false;
+                    }
+                    // For an attribute test the '@' has already been emitted; for an element test this
+                    // stands on its own. Both cases append the same '*[...]' predicate.
+                    AppendNameTest(out, *uri, local);
+                    continue;
+                }
+
+                out += ncName;
+                continue;
+            }
+
+            out += c;
+            ++i;
         }
 
-        out += c;
-        ++i;
+        return true;
     }
 
-    return true;
-}
-
-void CollectText(const xml_node& node, std::string& out)
-{
-    for (xml_node child = node.first_child(); child; child = child.next_sibling())
+    static void CollectText(const xml_node& node, std::string& out)
     {
-        const auto type = child.type();
-        if (type == xml_node_type::node_pcdata || type == xml_node_type::node_cdata)
+        for (xml_node child = node.first_child(); child; child = child.next_sibling())
         {
-            out += child.value();
-        }
-        else if (type == xml_node_type::node_element)
-        {
-            CollectText(child, out);
+            const auto type = child.type();
+            if (type == xml_node_type::node_pcdata || type == xml_node_type::node_cdata)
+            {
+                out += child.value();
+            }
+            else if (type == xml_node_type::node_element)
+            {
+                CollectText(child, out);
+            }
         }
     }
-}
 
-template <typename Fn>
-void ForEachDescendantElement(const xml_node& node, const Fn& fn)
-{
-    for (xml_node child = node.first_child(); child; child = child.next_sibling())
+    template <typename Fn>
+    static void ForEachDescendantElement(const xml_node& node, const Fn& fn)
     {
-        if (child.type() == xml_node_type::node_element)
+        for (xml_node child = node.first_child(); child; child = child.next_sibling())
         {
-            fn(child);
-            ForEachDescendantElement(child, fn);
+            if (child.type() == xml_node_type::node_element)
+            {
+                fn(child);
+                ForEachDescendantElement(child, fn);
+            }
         }
     }
-}
-
-} // namespace
+};
 
 std::string InnerText(const std::shared_ptr<OpenXMLElement>& element)
 {
@@ -219,7 +219,7 @@ std::string InnerText(const std::shared_ptr<OpenXMLElement>& element)
     const xml_node node = NodeOf(element);
     if (node)
     {
-        CollectText(node, out);
+        XmlQueryHelper::CollectText(node, out);
     }
     return out;
 }
@@ -247,7 +247,7 @@ std::vector<std::shared_ptr<OpenXMLElement>> SelectNodes(const std::shared_ptr<O
 
     std::string rewritten;
     std::string rewriteError;
-    if (!RewriteQuery(xpath, options, rootNode, rewritten, rewriteError))
+    if (!XmlQueryHelper::RewriteQuery(xpath, options, rootNode, rewritten, rewriteError))
     {
         if (error)
         {
@@ -353,8 +353,8 @@ XmlQuery& XmlQuery::SelectDescendants(std::string_view localName, std::optional<
         {
             continue;
         }
-        ForEachDescendantElement(node, [&](const xml_node& child)
-                                 {
+        XmlQueryHelper::ForEachDescendantElement(node, [&](const xml_node& child)
+                                                 {
             auto wrapped = Detail::CreateOpenXmlElementFromNode(child);
             if (!wrapped)
             {
@@ -411,8 +411,8 @@ std::vector<std::shared_ptr<OpenXMLElement>> XmlHelpers::FindByAttribute(
     };
 
     consider(root);
-    ForEachDescendantElement(rootNode, [&](const xml_node& child)
-                             { consider(Detail::CreateOpenXmlElementFromNode(child)); });
+    XmlQueryHelper::ForEachDescendantElement(rootNode, [&](const xml_node& child)
+                                             { consider(Detail::CreateOpenXmlElementFromNode(child)); });
 
     return results;
 }
@@ -441,7 +441,7 @@ std::vector<std::string> XmlHelpers::ExtractAllText(const std::shared_ptr<OpenXM
     };
 
     collect(rootNode);
-    ForEachDescendantElement(rootNode, collect);
+    XmlQueryHelper::ForEachDescendantElement(rootNode, collect);
     return texts;
 }
 

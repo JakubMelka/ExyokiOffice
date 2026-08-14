@@ -11,25 +11,25 @@
 namespace ExyokiOffice::Tools
 {
 
-namespace
+/// File-local helpers behind the validation runner.
+class ValidationRunnerHelper
 {
-
-void CountIssues(const std::vector<ValidationIssue>& issues, Size& errors, Size& warnings)
-{
-    for (const auto& issue : issues)
+public:
+    static void CountIssues(const std::vector<ValidationIssue>& issues, Size& errors, Size& warnings)
     {
-        if (issue.Severity == ValidationSeverity::Error)
+        for (const auto& issue : issues)
         {
-            ++errors;
-        }
-        else
-        {
-            ++warnings;
+            if (issue.Severity == ValidationSeverity::Error)
+            {
+                ++errors;
+            }
+            else
+            {
+                ++warnings;
+            }
         }
     }
-}
-
-} // namespace
+};
 
 ValidationReport Run(OpenXmlPackage& package, const ValidationRunOptions& options)
 {
@@ -44,8 +44,8 @@ ValidationReport Run(OpenXmlPackage& package, const ValidationRunOptions& option
     const auto result = validator.Validate(package);
     report.ValidationIssues = result.Issues();
 
-    CountIssues(report.LoadIssues, report.ErrorCount, report.WarningCount);
-    CountIssues(report.ValidationIssues, report.ErrorCount, report.WarningCount);
+    ValidationRunnerHelper::CountIssues(report.LoadIssues, report.ErrorCount, report.WarningCount);
+    ValidationRunnerHelper::CountIssues(report.ValidationIssues, report.ErrorCount, report.WarningCount);
     return report;
 }
 
@@ -58,7 +58,7 @@ ValidationReport Run(const std::filesystem::path& path, const ValidationRunOptio
         ValidationReport report;
         report.Loaded = false;
         report.LoadIssues = package.LastValidationResult().Issues();
-        CountIssues(report.LoadIssues, report.ErrorCount, report.WarningCount);
+        ValidationRunnerHelper::CountIssues(report.LoadIssues, report.ErrorCount, report.WarningCount);
         return report;
     }
 

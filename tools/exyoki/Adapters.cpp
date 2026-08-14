@@ -11,107 +11,107 @@
 namespace exyoki
 {
 
-namespace
+/// File-local helpers shared by the report adapters.
+class AdapterHelper
 {
-
-std::string FormatReadingTime(ExyokiOffice::Real minutes)
-{
-    if (minutes < 1.0)
+public:
+    static std::string FormatReadingTime(ExyokiOffice::Real minutes)
     {
-        auto seconds = static_cast<ExyokiOffice::Int64>(std::llround(minutes * 60.0));
-        if (seconds < 0)
+        if (minutes < 1.0)
         {
-            seconds = 0;
+            auto seconds = static_cast<ExyokiOffice::Int64>(std::llround(minutes * 60.0));
+            if (seconds < 0)
+            {
+                seconds = 0;
+            }
+            return std::to_string(seconds) + " sec";
         }
-        return std::to_string(seconds) + " sec";
+        return std::to_string(static_cast<ExyokiOffice::Int64>(std::llround(minutes))) + " min";
     }
-    return std::to_string(static_cast<ExyokiOffice::Int64>(std::llround(minutes))) + " min";
-}
 
-void AppendDiagnostics(ReportDocument& document, const std::vector<ToolDiagnostic>& diagnostics)
-{
-    document.Diagnostics.insert(document.Diagnostics.end(), diagnostics.begin(), diagnostics.end());
-}
-
-ReportNode PartToNode(const PartRecord& part)
-{
-    auto node = ReportNode::MakeObject();
-    node.Set("uri", part.Uri);
-    node.Set("contentType", part.ContentType);
-    node.Set("kind", part.Kind == PartPayloadKind::Xml ? std::string("xml") : std::string("binary"));
-    node.Set("size", static_cast<ExyokiOffice::UInt64>(part.Size));
-    node.Set("descriptor", part.DescriptorName);
-    node.Set("incomingRelationshipCount", static_cast<ExyokiOffice::UInt64>(part.Incoming.size()));
-    return node;
-}
-
-ReportNode RelationshipToNode(const RelationshipRecord& relationship)
-{
-    auto node = ReportNode::MakeObject();
-    node.Set("sourceUri", relationship.SourceUri);
-    node.Set("id", relationship.Relationship.Id);
-    node.Set("type", relationship.Relationship.Type);
-    node.Set("target", relationship.Relationship.Target);
-    node.Set("targetMode", relationship.Relationship.TargetMode);
-    node.Set("isExternal", relationship.Relationship.IsExternal);
-    node.Set("resolvedTargetUri", relationship.ResolvedTargetUri);
-    node.Set("targetExists", relationship.TargetExists);
-    return node;
-}
-
-ReportNode ValidationIssueToNode(const ExyokiOffice::ValidationIssue& issue)
-{
-    auto node = ReportNode::MakeObject();
-    node.Set("severity", std::string(ExyokiOffice::Tools::ToString(issue.Severity)));
-    node.Set("domain", std::string(ExyokiOffice::Tools::ToString(issue.Domain)));
-    node.Set("errorId", std::string(ExyokiOffice::Tools::ToString(issue.Id)));
-    node.Set("message", issue.Message);
-    if (!issue.PartUri.empty())
+    static void AppendDiagnostics(ReportDocument& document, const std::vector<ToolDiagnostic>& diagnostics)
     {
-        node.Set("partUri", issue.PartUri);
+        document.Diagnostics.insert(document.Diagnostics.end(), diagnostics.begin(), diagnostics.end());
     }
-    if (issue.Location.IsValid())
+
+    static ReportNode PartToNode(const PartRecord& part)
     {
-        node.Set("xmlPath", issue.Location.Path);
-        if (!issue.Location.AttributeName.empty())
+        auto node = ReportNode::MakeObject();
+        node.Set("uri", part.Uri);
+        node.Set("contentType", part.ContentType);
+        node.Set("kind", part.Kind == PartPayloadKind::Xml ? std::string("xml") : std::string("binary"));
+        node.Set("size", static_cast<ExyokiOffice::UInt64>(part.Size));
+        node.Set("descriptor", part.DescriptorName);
+        node.Set("incomingRelationshipCount", static_cast<ExyokiOffice::UInt64>(part.Incoming.size()));
+        return node;
+    }
+
+    static ReportNode RelationshipToNode(const RelationshipRecord& relationship)
+    {
+        auto node = ReportNode::MakeObject();
+        node.Set("sourceUri", relationship.SourceUri);
+        node.Set("id", relationship.Relationship.Id);
+        node.Set("type", relationship.Relationship.Type);
+        node.Set("target", relationship.Relationship.Target);
+        node.Set("targetMode", relationship.Relationship.TargetMode);
+        node.Set("isExternal", relationship.Relationship.IsExternal);
+        node.Set("resolvedTargetUri", relationship.ResolvedTargetUri);
+        node.Set("targetExists", relationship.TargetExists);
+        return node;
+    }
+
+    static ReportNode ValidationIssueToNode(const ExyokiOffice::ValidationIssue& issue)
+    {
+        auto node = ReportNode::MakeObject();
+        node.Set("severity", std::string(ExyokiOffice::Tools::ToString(issue.Severity)));
+        node.Set("domain", std::string(ExyokiOffice::Tools::ToString(issue.Domain)));
+        node.Set("errorId", std::string(ExyokiOffice::Tools::ToString(issue.Id)));
+        node.Set("message", issue.Message);
+        if (!issue.PartUri.empty())
         {
-            node.Set("attributeName", issue.Location.AttributeName);
+            node.Set("partUri", issue.PartUri);
         }
+        if (issue.Location.IsValid())
+        {
+            node.Set("xmlPath", issue.Location.Path);
+            if (!issue.Location.AttributeName.empty())
+            {
+                node.Set("attributeName", issue.Location.AttributeName);
+            }
+        }
+        if (!issue.ConstraintId.empty())
+        {
+            node.Set("constraintId", issue.ConstraintId);
+        }
+        if (!issue.RelationshipId.empty())
+        {
+            node.Set("relationshipId", issue.RelationshipId);
+            node.Set("relationshipSourceUri", issue.RelationshipSourceUri);
+            node.Set("relationshipType", issue.RelationshipType);
+            node.Set("targetUri", issue.TargetUri);
+        }
+        return node;
     }
-    if (!issue.ConstraintId.empty())
-    {
-        node.Set("constraintId", issue.ConstraintId);
-    }
-    if (!issue.RelationshipId.empty())
-    {
-        node.Set("relationshipId", issue.RelationshipId);
-        node.Set("relationshipSourceUri", issue.RelationshipSourceUri);
-        node.Set("relationshipType", issue.RelationshipType);
-        node.Set("targetUri", issue.TargetUri);
-    }
-    return node;
-}
 
-ReportNode CorePropertiesToNode(const CoreProperties& properties)
-{
-    auto node = ReportNode::MakeObject();
-    node.Set("title", properties.Title);
-    node.Set("subject", properties.Subject);
-    node.Set("creator", properties.Creator);
-    node.Set("keywords", properties.Keywords);
-    node.Set("description", properties.Description);
-    node.Set("lastModifiedBy", properties.LastModifiedBy);
-    node.Set("category", properties.Category);
-    node.Set("contentStatus", properties.ContentStatus);
-    node.Set("created", properties.Created);
-    node.Set("modified", properties.Modified);
-    node.Set("application", properties.Application);
-    node.Set("appVersion", properties.AppVersion);
-    node.Set("company", properties.Company);
-    return node;
-}
-
-} // namespace
+    static ReportNode CorePropertiesToNode(const CoreProperties& properties)
+    {
+        auto node = ReportNode::MakeObject();
+        node.Set("title", properties.Title);
+        node.Set("subject", properties.Subject);
+        node.Set("creator", properties.Creator);
+        node.Set("keywords", properties.Keywords);
+        node.Set("description", properties.Description);
+        node.Set("lastModifiedBy", properties.LastModifiedBy);
+        node.Set("category", properties.Category);
+        node.Set("contentStatus", properties.ContentStatus);
+        node.Set("created", properties.Created);
+        node.Set("modified", properties.Modified);
+        node.Set("application", properties.Application);
+        node.Set("appVersion", properties.AppVersion);
+        node.Set("company", properties.Company);
+        return node;
+    }
+};
 
 ReportDocument AdaptParts(const std::vector<PartRecord>& parts, const std::string& sortBy)
 {
@@ -140,7 +140,7 @@ ReportDocument AdaptParts(const std::vector<PartRecord>& parts, const std::strin
     array.SetTableHint({"uri", "contentType", "kind", "size", "descriptor"});
     for (const auto& part : sorted)
     {
-        array.Push(PartToNode(part));
+        array.Push(AdapterHelper::PartToNode(part));
     }
     document.Data.Set("partCount", static_cast<ExyokiOffice::UInt64>(sorted.size()));
     document.Data.Set("parts", std::move(array));
@@ -166,7 +166,7 @@ ReportDocument AdaptRelationships(const std::vector<RelationshipRecord>& relatio
         {
             continue;
         }
-        array.Push(RelationshipToNode(relationship));
+        array.Push(AdapterHelper::RelationshipToNode(relationship));
     }
 
     document.Data.Set("relationshipCount", static_cast<ExyokiOffice::UInt64>(relationships.size()));
@@ -193,7 +193,7 @@ ReportDocument AdaptInfo(const PackageInfo& info, bool propsOnly)
         document.Data.Set("relationshipCount", static_cast<ExyokiOffice::UInt64>(info.RelationshipCount));
         document.Data.Set("totalPartSize", static_cast<ExyokiOffice::UInt64>(info.TotalPartSize));
     }
-    document.Data.Set("properties", CorePropertiesToNode(info.Properties));
+    document.Data.Set("properties", AdapterHelper::CorePropertiesToNode(info.Properties));
     if (info.IsStrictConformance)
     {
         document.Diagnostics.push_back(
@@ -237,7 +237,7 @@ ReportDocument AdaptValidate(const ValidationReport& report, bool errorsOnly, bo
         {
             continue;
         }
-        array.Push(ValidationIssueToNode(issue));
+        array.Push(AdapterHelper::ValidationIssueToNode(issue));
     }
 
     document.Data.Set("loaded", report.Loaded);
@@ -318,7 +318,7 @@ ReportDocument AdaptSignatures(const SignatureInspectionReport& report)
     issues.SetTableHint({"severity", "domain", "errorId", "message", "partUri", "xmlPath"});
     for (const auto& issue : report.Result.Diagnostics.Issues())
     {
-        issues.Push(ValidationIssueToNode(issue));
+        issues.Push(AdapterHelper::ValidationIssueToNode(issue));
     }
     document.Data.Set("issues", std::move(issues));
     return document;
@@ -345,7 +345,7 @@ ReportDocument AdaptExternal(const ExternalResourceReport& report)
 
     document.Data.Set("referenceCount", static_cast<ExyokiOffice::UInt64>(report.Count()));
     document.Data.Set("references", std::move(references));
-    AppendDiagnostics(document, report.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, report.Diagnostics);
     return document;
 }
 
@@ -356,7 +356,7 @@ ReportDocument AdaptUnpack(const UnpackResult& result)
     document.Status = result.Ok ? "ok" : "error";
     document.Data.Set("entryCount", static_cast<ExyokiOffice::UInt64>(result.EntryCount));
     document.Data.Set("manifestWritten", result.ManifestWritten);
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -372,7 +372,7 @@ ReportDocument AdaptPack(const PackResult& result)
         document.Data.Set("validationErrorCount", static_cast<ExyokiOffice::UInt64>(result.Validation.ErrorCount));
         document.Data.Set("validationWarningCount", static_cast<ExyokiOffice::UInt64>(result.Validation.WarningCount));
     }
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -382,7 +382,7 @@ ReportDocument AdaptToFlatOpc(const ToFlatOpcResult& result)
     document.Command = "to-flat-opc";
     document.Status = result.Ok ? "ok" : "error";
     document.Data.Set("partCount", static_cast<ExyokiOffice::UInt64>(result.PartCount));
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -392,7 +392,7 @@ ReportDocument AdaptFromFlatOpc(const FromFlatOpcResult& result)
     document.Command = "from-flat-opc";
     document.Status = result.Ok ? "ok" : "error";
     document.Data.Set("partCount", static_cast<ExyokiOffice::UInt64>(result.PartCount));
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -415,7 +415,7 @@ ReportDocument AdaptExportMedia(const MediaExportResult& result)
     }
     document.Data.Set("itemCount", static_cast<ExyokiOffice::UInt64>(result.Items.size()));
     document.Data.Set("items", std::move(array));
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -440,7 +440,7 @@ ReportDocument AdaptSearch(const DocumentSearchResult& result)
     document.Data.Set("family", std::string(ExyokiOffice::Tools::ToString(result.Family)));
     document.Data.Set("matchCount", static_cast<ExyokiOffice::UInt64>(result.Matches.size()));
     document.Data.Set("matches", std::move(array));
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -462,7 +462,7 @@ ReportDocument AdaptExtractText(const ExtractedDocumentText& result)
     document.Data.Set("family", std::string(ExyokiOffice::Tools::ToString(result.Family)));
     document.Data.Set("blockCount", static_cast<ExyokiOffice::UInt64>(result.Blocks.size()));
     document.Data.Set("blocks", std::move(array));
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -475,7 +475,7 @@ ReportDocument AdaptReplace(const DocumentReplaceResult& result)
     document.Data.Set("replacementCount", static_cast<ExyokiOffice::UInt64>(result.ReplacementCount));
     document.Data.Set("skippedNonTextMatches", static_cast<ExyokiOffice::UInt64>(result.SkippedMatches));
     document.Data.Set("saved", result.Saved);
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -494,7 +494,7 @@ ReportDocument AdaptSplit(const WordSplitResult& result)
     }
     document.Data.Set("splitCount", static_cast<ExyokiOffice::UInt64>(result.OutputFiles.size()));
     document.Data.Set("files", std::move(files));
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -505,7 +505,7 @@ ReportDocument AdaptMerge(const WordMergeResult& result)
     document.Status = result.Ok ? "ok" : "error";
     document.Data.Set("documentsMerged", static_cast<ExyokiOffice::UInt64>(result.DocumentsMerged));
     document.Data.Set("outputFile", result.OutputFile.string());
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -525,7 +525,7 @@ ReportDocument AdaptSplit(const DocumentSplitResult& result)
     }
     document.Data.Set("splitCount", static_cast<ExyokiOffice::UInt64>(result.OutputFiles.size()));
     document.Data.Set("files", std::move(files));
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -538,7 +538,7 @@ ReportDocument AdaptMerge(const DocumentMergeResult& result)
     document.Data.Set("documentsMerged", static_cast<ExyokiOffice::UInt64>(result.DocumentsMerged));
     document.Data.Set("itemsMerged", static_cast<ExyokiOffice::UInt64>(result.ItemsMerged));
     document.Data.Set("outputFile", result.OutputFile.string());
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -614,7 +614,7 @@ ReportDocument AdaptDiff(const DiffResult& result, bool partsOnly)
         document.Data.Set("relationshipChanges", std::move(relationshipArray));
     }
 
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -622,7 +622,7 @@ ReportDocument AdaptPropsGet(const CoreProperties& properties)
 {
     ReportDocument document;
     document.Command = "props get";
-    document.Data = CorePropertiesToNode(properties);
+    document.Data = AdapterHelper::CorePropertiesToNode(properties);
     return document;
 }
 
@@ -687,10 +687,10 @@ ReportDocument AdaptStat(const DocumentStats& result)
     if (result.ReadingTimeMinutes)
     {
         document.Data.Set("readingTimeMinutes", *result.ReadingTimeMinutes);
-        document.Data.Set("readingTimeText", FormatReadingTime(*result.ReadingTimeMinutes));
+        document.Data.Set("readingTimeText", AdapterHelper::FormatReadingTime(*result.ReadingTimeMinutes));
     }
 
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -726,7 +726,7 @@ ReportDocument AdaptQuery(const QueryResult& result)
     }
     document.Data.Set("matchCount", static_cast<ExyokiOffice::UInt64>(result.Matches.size()));
     document.Data.Set("matches", std::move(array));
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -770,7 +770,7 @@ ReportDocument AdaptConvert(const ConvertResult& result, const std::string& inpu
         document.Data.Set("mediaCount", static_cast<ExyokiOffice::UInt64>(result.MediaItems.size()));
         document.Data.Set("media", std::move(array));
     }
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -806,7 +806,7 @@ ReportDocument AdaptDedup(const ResourceDeduplicationResult& result, bool dryRun
     document.Data.Set("removedParts", static_cast<ExyokiOffice::UInt64>(result.RemovedParts));
     document.Data.Set("rewrittenRelationships", static_cast<ExyokiOffice::UInt64>(result.RewrittenRelationships));
     document.Data.Set("bytesSaved", result.BytesSaved);
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -822,7 +822,7 @@ ReportDocument AdaptRedact(const RedactResult& result)
     document.Data.Set("metadataFieldsCleared",
                       static_cast<ExyokiOffice::UInt64>(result.MetadataFieldsCleared));
     document.Data.Set("saved", result.Saved);
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -836,7 +836,7 @@ ReportDocument AdaptFill(const TemplateFillResult& result)
     document.Data.Set("regionsMerged", static_cast<ExyokiOffice::UInt64>(result.RegionsMerged));
     document.Data.Set("regionRowsInserted", static_cast<ExyokiOffice::UInt64>(result.RegionRowsInserted));
     document.Data.Set("saved", result.Saved);
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -859,7 +859,7 @@ ReportDocument AdaptRecalc(const WorkbookRecalcResult& result)
                       static_cast<ExyokiOffice::UInt64>(result.CircularReferenceCycles.size()));
     document.Data.Set("circularReferences", std::move(cycles));
     document.Data.Set("saved", result.Saved);
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -871,7 +871,7 @@ ReportDocument AdaptCompare(const WordCompareResult& result)
     document.Data.Set("revisionsCreated", static_cast<ExyokiOffice::UInt64>(result.RevisionsCreated));
     document.Data.Set("identical", result.Identical);
     document.Data.Set("outputFile", result.OutputFile.string());
-    AppendDiagnostics(document, result.Diagnostics);
+    AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;
 }
 
@@ -937,7 +937,7 @@ ReportDocument AdaptSchemaCheck(const std::string& input, bool valid,
     document.Data.Set("schema", GetDocumentModelJsonSchemaFileName());
     document.Data.Set("valid", valid);
     document.Data.Set("violationCount", static_cast<ExyokiOffice::UInt64>(violations.size()));
-    AppendDiagnostics(document, violations);
+    AdapterHelper::AppendDiagnostics(document, violations);
     return document;
 }
 

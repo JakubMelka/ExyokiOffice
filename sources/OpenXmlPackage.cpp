@@ -36,57 +36,58 @@
 namespace ExyokiOffice
 {
 
-namespace
+/// File-local helpers for package loading and saving.
+class OpenXmlPackageHelper
 {
-constexpr std::string_view kContentTypesEntry = "[Content_Types].xml";
-constexpr std::string_view kRelationshipsExtension = ".rels";
-constexpr std::string_view kRelationshipsContentType =
-    "application/vnd.openxmlformats-package.relationships+xml";
+public:
+    static constexpr std::string_view kContentTypesEntry = "[Content_Types].xml";
+    static constexpr std::string_view kRelationshipsExtension = ".rels";
+    static constexpr std::string_view kRelationshipsContentType =
+        "application/vnd.openxmlformats-package.relationships+xml";
 
-bool IsCancellationRequested(const ICancellationToken* cancellationToken)
-{
-    return cancellationToken != nullptr && cancellationToken->IsCancelled();
-}
-
-bool EndsWith(std::string_view value, std::string_view suffix)
-{
-    return value.size() >= suffix.size() && value.substr(value.size() - suffix.size(), suffix.size()) == suffix;
-}
-
-std::string_view TrimLeadingSlash(std::string_view path)
-{
-    if (!path.empty() && path.front() == '/')
+    static bool IsCancellationRequested(const ICancellationToken* cancellationToken)
     {
-        return path.substr(1);
+        return cancellationToken != nullptr && cancellationToken->IsCancelled();
     }
-    return path;
-}
 
-std::string NormalizeEntryName(std::string_view name)
-{
-    std::string normalized;
-    normalized.reserve(name.size());
-    for (char ch : name)
+    static bool EndsWith(std::string_view value, std::string_view suffix)
     {
-        if (ch == '\\')
-        {
-            normalized.push_back('/');
-        }
-        else
-        {
-            normalized.push_back(ch);
-        }
+        return value.size() >= suffix.size() && value.substr(value.size() - suffix.size(), suffix.size()) == suffix;
     }
-    return normalized;
-}
 
-struct ZipEntryData
-{
-    std::string Name;
-    std::vector<Byte> Data;
+    static std::string_view TrimLeadingSlash(std::string_view path)
+    {
+        if (!path.empty() && path.front() == '/')
+        {
+            return path.substr(1);
+        }
+        return path;
+    }
+
+    static std::string NormalizeEntryName(std::string_view name)
+    {
+        std::string normalized;
+        normalized.reserve(name.size());
+        for (char ch : name)
+        {
+            if (ch == '\\')
+            {
+                normalized.push_back('/');
+            }
+            else
+            {
+                normalized.push_back(ch);
+            }
+        }
+        return normalized;
+    }
+
+    struct ZipEntryData
+    {
+        std::string Name;
+        std::vector<Byte> Data;
+    };
 };
-
-} // namespace
 
 class OpenXmlPackageFileSave
 {
@@ -196,7 +197,7 @@ OpenXmlPackage::~OpenXmlPackage()
 
 bool OpenXmlPackage::LoadFromFile(const std::filesystem::path& path, const ICancellationToken* cancellationToken)
 {
-    if (IsCancellationRequested(cancellationToken))
+    if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         return false;
     }
@@ -223,7 +224,7 @@ bool OpenXmlPackage::SaveToFile(const std::filesystem::path& path,
                                 bool atomicSave,
                                 const ICancellationToken* cancellationToken)
 {
-    if (IsCancellationRequested(cancellationToken))
+    if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         return false;
     }
@@ -235,7 +236,7 @@ bool OpenXmlPackage::SaveToFile(const std::filesystem::path& path,
     {
         return false;
     }
-    if (IsCancellationRequested(cancellationToken))
+    if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         return false;
     }
@@ -255,7 +256,7 @@ bool OpenXmlPackage::SaveToFile(const std::filesystem::path& path,
     }
     const bool result = m_impl->SaveToZip(*this, archive, cancellationToken);
     zip_close(archive);
-    if (!result || IsCancellationRequested(cancellationToken))
+    if (!result || OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         if (writeAtomically)
         {
@@ -282,7 +283,7 @@ bool OpenXmlPackage::SaveToFile(const std::filesystem::path& path,
 
 bool OpenXmlPackage::LoadFromMemory(std::span<const Byte> buffer, const ICancellationToken* cancellationToken)
 {
-    if (IsCancellationRequested(cancellationToken))
+    if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         return false;
     }
@@ -311,7 +312,7 @@ std::vector<Byte> OpenXmlPackage::SaveToMemory(const ICancellationToken* cancell
 {
     std::vector<Byte> buffer;
 
-    if (IsCancellationRequested(cancellationToken))
+    if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         return buffer;
     }
@@ -323,7 +324,7 @@ std::vector<Byte> OpenXmlPackage::SaveToMemory(const ICancellationToken* cancell
     {
         return buffer;
     }
-    if (IsCancellationRequested(cancellationToken))
+    if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         return buffer;
     }
@@ -333,7 +334,7 @@ std::vector<Byte> OpenXmlPackage::SaveToMemory(const ICancellationToken* cancell
     {
         return buffer;
     }
-    if (!m_impl->SaveToZip(*this, archive, cancellationToken) || IsCancellationRequested(cancellationToken))
+    if (!m_impl->SaveToZip(*this, archive, cancellationToken) || OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         zip_stream_close(archive);
         return buffer;
@@ -781,7 +782,7 @@ bool OpenXmlPackageImpl::LoadFromZip(OpenXmlPackage& self,
     }
     for (const auto& relationship : relationships)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -894,7 +895,7 @@ bool OpenXmlPackageImpl::ValidateZipMetadata(zip_t* archive, const ICancellation
     UInt64 uncompressedTotal = 0;
     for (Size index = 0; index < static_cast<Size>(total); ++index)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -903,10 +904,10 @@ bool OpenXmlPackageImpl::ValidateZipMetadata(zip_t* archive, const ICancellation
             continue;
         }
         const char* rawName = zip_entry_name(archive);
-        const std::string entryName = rawName ? NormalizeEntryName(rawName) : std::string{};
+        const std::string entryName = rawName ? OpenXmlPackageHelper::NormalizeEntryName(rawName) : std::string{};
         const auto compressed = zip_entry_comp_size(archive);
         const auto uncompressed = zip_entry_size(archive);
-        const bool isXml = entryName == kContentTypesEntry || EndsWith(entryName, kRelationshipsExtension) || Detail::PartUriExtension(Detail::NormalizePartUri(entryName)) == "xml";
+        const bool isXml = entryName == OpenXmlPackageHelper::kContentTypesEntry || OpenXmlPackageHelper::EndsWith(entryName, OpenXmlPackageHelper::kRelationshipsExtension) || Detail::PartUriExtension(Detail::NormalizePartUri(entryName)) == "xml";
         if (!CheckCurrentEntryLimits(archive, entryName, isXml))
         {
             zip_entry_close(archive);
@@ -944,7 +945,7 @@ bool OpenXmlPackageImpl::CheckXmlLimits(const Pugi::xml_document& doc,
                                         const ICancellationToken* cancellationToken)
 {
     const auto& limits = packageLimits;
-    if (IsCancellationRequested(cancellationToken))
+    if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         return false;
     }
@@ -960,7 +961,7 @@ bool OpenXmlPackageImpl::CheckXmlLimits(const Pugi::xml_document& doc,
     const std::function<bool(Pugi::xml_node, UInt64)> visit =
         [&](Pugi::xml_node node, UInt64 depth) -> bool
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1019,7 +1020,7 @@ bool OpenXmlPackageImpl::CheckXmlLimits(const Pugi::xml_document& doc,
 
     for (auto child = doc.first_child(); child; child = child.next_sibling())
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1052,15 +1053,15 @@ bool OpenXmlPackageImpl::SaveToZip(const OpenXmlPackage& self,
 
 bool OpenXmlPackageImpl::ReadContentTypes(zip_t* archive, const ICancellationToken* cancellationToken)
 {
-    if (IsCancellationRequested(cancellationToken))
+    if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         return false;
     }
-    if (zip_entry_open(archive, std::string(kContentTypesEntry).c_str()) != 0)
+    if (zip_entry_open(archive, std::string(OpenXmlPackageHelper::kContentTypesEntry).c_str()) != 0)
     {
         return false;
     }
-    if (!CheckCurrentEntryLimits(archive, kContentTypesEntry, true))
+    if (!CheckCurrentEntryLimits(archive, OpenXmlPackageHelper::kContentTypesEntry, true))
     {
         zip_entry_close(archive);
         return false;
@@ -1079,7 +1080,7 @@ bool OpenXmlPackageImpl::ReadContentTypes(zip_t* archive, const ICancellationTok
         std::free(buffer);
         return false;
     }
-    if (!CheckXmlLimits(doc, kContentTypesEntry, {}, cancellationToken))
+    if (!CheckXmlLimits(doc, OpenXmlPackageHelper::kContentTypesEntry, {}, cancellationToken))
     {
         std::free(buffer);
         return false;
@@ -1090,7 +1091,7 @@ bool OpenXmlPackageImpl::ReadContentTypes(zip_t* archive, const ICancellationTok
     const auto types = doc.child("Types");
     for (const auto& child : types.children())
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1113,19 +1114,19 @@ bool OpenXmlPackageImpl::WriteContentTypes(const OpenXmlPackage& /*self*/,
                                            zip_t* archive,
                                            const ICancellationToken* cancellationToken) const
 {
-    if (IsCancellationRequested(cancellationToken))
+    if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
     {
         return false;
     }
     auto defaults = defaultContentTypes;
     auto overrides = contentTypeOverrides;
 
-    defaults.try_emplace("rels", std::string(kRelationshipsContentType));
+    defaults.try_emplace("rels", std::string(OpenXmlPackageHelper::kRelationshipsContentType));
     defaults.try_emplace("xml", "application/xml");
 
     for (const auto& [uri, part] : partsByUri)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1151,7 +1152,7 @@ bool OpenXmlPackageImpl::WriteContentTypes(const OpenXmlPackage& /*self*/,
     types.append_attribute("xmlns") = "http://schemas.openxmlformats.org/package/2006/content-types";
     for (const auto& [extension, contentType] : defaults)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1161,7 +1162,7 @@ bool OpenXmlPackageImpl::WriteContentTypes(const OpenXmlPackage& /*self*/,
     }
     for (const auto& [uri, contentType] : overrides)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1172,7 +1173,7 @@ bool OpenXmlPackageImpl::WriteContentTypes(const OpenXmlPackage& /*self*/,
     std::ostringstream stream;
     doc.save(stream);
     const auto xml = stream.str();
-    if (zip_entry_open(archive, std::string(kContentTypesEntry).c_str()) != 0)
+    if (zip_entry_open(archive, std::string(OpenXmlPackageHelper::kContentTypesEntry).c_str()) != 0)
     {
         return false;
     }
@@ -1188,7 +1189,7 @@ bool OpenXmlPackageImpl::ReadRelationships(zip_t* archive,
     const auto total = zip_entries_total(archive);
     for (Size index = 0; index < static_cast<Size>(total); ++index)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1202,13 +1203,13 @@ bool OpenXmlPackageImpl::ReadRelationships(zip_t* archive,
             zip_entry_close(archive);
             continue;
         }
-        const std::string entryName = NormalizeEntryName(rawName);
-        if (!EndsWith(entryName, kRelationshipsExtension))
+        const std::string entryName = OpenXmlPackageHelper::NormalizeEntryName(rawName);
+        if (!OpenXmlPackageHelper::EndsWith(entryName, OpenXmlPackageHelper::kRelationshipsExtension))
         {
             zip_entry_close(archive);
             continue;
         }
-        if (entryName == kContentTypesEntry)
+        if (entryName == OpenXmlPackageHelper::kContentTypesEntry)
         {
             zip_entry_close(archive);
             continue;
@@ -1254,7 +1255,7 @@ bool OpenXmlPackageImpl::ReadRelationships(zip_t* archive,
             {
                 auto folder = entryName.substr(0, slash);
                 auto file = entryName.substr(slash + 7);
-                if (EndsWith(file, ".rels"))
+                if (OpenXmlPackageHelper::EndsWith(file, ".rels"))
                 {
                     file.resize(file.size() - 5);
                 }
@@ -1268,7 +1269,7 @@ bool OpenXmlPackageImpl::ReadRelationships(zip_t* archive,
         UInt64 relationshipsInPart = 0;
         for (const auto& relNode : doc.child("Relationships").children("Relationship"))
         {
-            if (IsCancellationRequested(cancellationToken))
+            if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
             {
                 return false;
             }
@@ -1300,7 +1301,7 @@ bool OpenXmlPackageImpl::WriteRelationships(const OpenXmlPackage& self,
 {
     auto writeContainer = [&](const OpenXmlPartContainer& container, std::string relPath) -> bool
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1313,7 +1314,7 @@ bool OpenXmlPackageImpl::WriteRelationships(const OpenXmlPackage& self,
         relationships.append_attribute("xmlns") = "http://schemas.openxmlformats.org/package/2006/relationships";
         for (const auto& relationship : container.Relationships())
         {
-            if (IsCancellationRequested(cancellationToken))
+            if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
             {
                 return false;
             }
@@ -1343,7 +1344,7 @@ bool OpenXmlPackageImpl::WriteRelationships(const OpenXmlPackage& self,
     }
     for (const auto& [uri, part] : partsByUri)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1400,7 +1401,7 @@ bool OpenXmlPackageImpl::ReadParts(OpenXmlPackage& self,
     relationshipTypes.reserve(relationships.size());
     for (const auto& relationship : relationships)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1415,7 +1416,7 @@ bool OpenXmlPackageImpl::ReadParts(OpenXmlPackage& self,
     const auto total = zip_entries_total(archive);
     for (Size index = 0; index < static_cast<Size>(total); ++index)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
@@ -1429,8 +1430,8 @@ bool OpenXmlPackageImpl::ReadParts(OpenXmlPackage& self,
             zip_entry_close(archive);
             continue;
         }
-        const std::string entryName = NormalizeEntryName(rawName);
-        if (entryName == kContentTypesEntry || EndsWith(entryName, kRelationshipsExtension))
+        const std::string entryName = OpenXmlPackageHelper::NormalizeEntryName(rawName);
+        if (entryName == OpenXmlPackageHelper::kContentTypesEntry || OpenXmlPackageHelper::EndsWith(entryName, OpenXmlPackageHelper::kRelationshipsExtension))
         {
             zip_entry_close(archive);
             continue;
@@ -1495,7 +1496,7 @@ bool OpenXmlPackageImpl::ReadParts(OpenXmlPackage& self,
         self.RegisterPart(part);
         if (part->IsXmlPart())
         {
-            if (IsCancellationRequested(cancellationToken))
+            if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
             {
                 return false;
             }
@@ -1517,7 +1518,7 @@ bool OpenXmlPackageImpl::ReadParts(OpenXmlPackage& self,
         }
         else
         {
-            if (IsCancellationRequested(cancellationToken))
+            if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
             {
                 return false;
             }
@@ -1533,11 +1534,11 @@ bool OpenXmlPackageImpl::WriteParts(const OpenXmlPackage& /*self*/,
 {
     for (const auto& [uri, part] : partsByUri)
     {
-        if (IsCancellationRequested(cancellationToken))
+        if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
             return false;
         }
-        const auto entryName = TrimLeadingSlash(uri);
+        const auto entryName = OpenXmlPackageHelper::TrimLeadingSlash(uri);
         if (zip_entry_open(archive, std::string(entryName).c_str()) != 0)
         {
             return false;

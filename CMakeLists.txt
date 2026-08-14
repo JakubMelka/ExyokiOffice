@@ -404,6 +404,17 @@ target_include_directories(ExyokiOffice SYSTEM PRIVATE
 
 # Generate export header instead of exporting every symbol
 include(GenerateExportHeader)
+
+# The export header only decides anything once the default is "not exported".
+# That is already true for a Windows DLL, but an ELF shared object exports
+# every symbol it has unless the visibility default is flipped, which would
+# leave EXYOKIOFFICE_EXPORT decorative on those platforms and put every
+# file-local helper into the dynamic symbol table. Setting it here makes the
+# two platforms agree on what the public surface is.
+set_target_properties(ExyokiOffice PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    C_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON)
 set(EXPORT_HEADER_PATH ${CMAKE_CURRENT_BINARY_DIR}/ExyokiOffice/Export.hpp)
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Version.hpp.in

@@ -274,49 +274,49 @@ std::optional<ExyokiOffice::OpenXml::FileFormatVersions> ParseFileFormatVersion(
     return std::nullopt;
 }
 
-namespace
+/// File-local helpers behind the package model projection.
+class PackageModelHelper
 {
-
-/// Case-insensitive filename wildcard match supporting '*' and '?'.
-bool WildcardMatches(std::string_view pattern, std::string_view name)
-{
-    const auto lower = [](char c)
-    { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
-
-    Size p = 0;
-    Size n = 0;
-    Size starPattern = std::string_view::npos;
-    Size starName = 0;
-    while (n < name.size())
+public:
+    /// Case-insensitive filename wildcard match supporting '*' and '?'.
+    static bool WildcardMatches(std::string_view pattern, std::string_view name)
     {
-        if (p < pattern.size() && (pattern[p] == '?' || lower(pattern[p]) == lower(name[n])))
+        const auto lower = [](char c)
+        { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
+
+        Size p = 0;
+        Size n = 0;
+        Size starPattern = std::string_view::npos;
+        Size starName = 0;
+        while (n < name.size())
+        {
+            if (p < pattern.size() && (pattern[p] == '?' || lower(pattern[p]) == lower(name[n])))
+            {
+                ++p;
+                ++n;
+            }
+            else if (p < pattern.size() && pattern[p] == '*')
+            {
+                starPattern = p++;
+                starName = n;
+            }
+            else if (starPattern != std::string_view::npos)
+            {
+                p = starPattern + 1;
+                n = ++starName;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        while (p < pattern.size() && pattern[p] == '*')
         {
             ++p;
-            ++n;
         }
-        else if (p < pattern.size() && pattern[p] == '*')
-        {
-            starPattern = p++;
-            starName = n;
-        }
-        else if (starPattern != std::string_view::npos)
-        {
-            p = starPattern + 1;
-            n = ++starName;
-        }
-        else
-        {
-            return false;
-        }
+        return p == pattern.size();
     }
-    while (p < pattern.size() && pattern[p] == '*')
-    {
-        ++p;
-    }
-    return p == pattern.size();
-}
-
-} // namespace
+};
 
 std::vector<std::filesystem::path> ExpandInputPaths(const std::vector<std::string>& patterns,
                                                     std::vector<ToolDiagnostic>& diagnostics)
@@ -343,7 +343,7 @@ std::vector<std::filesystem::path> ExpandInputPaths(const std::vector<std::strin
         for (const auto& entry : std::filesystem::directory_iterator(directory, errorCode))
         {
             if (entry.is_regular_file(errorCode) &&
-                WildcardMatches(filename, entry.path().filename().string()))
+                PackageModelHelper::WildcardMatches(filename, entry.path().filename().string()))
             {
                 matches.push_back(entry.path());
             }

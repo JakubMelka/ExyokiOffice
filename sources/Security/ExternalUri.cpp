@@ -7,6 +7,8 @@
 #include "OpenXmlPackageUri.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <vector>
@@ -26,17 +28,6 @@ public:
     static constexpr std::string_view Ftp = "ftp";
     static constexpr std::string_view Ftps = "ftps";
     static constexpr std::string_view Smb = "smb";
-
-    static std::string ToLower(std::string_view value)
-    {
-        std::string lowered;
-        lowered.reserve(value.size());
-        for (char ch : value)
-        {
-            lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
-        }
-        return lowered;
-    }
 
     /// True for the characters a scheme may contain after its first letter.
     static bool IsSchemeCharacter(char ch) noexcept
@@ -345,7 +336,7 @@ std::optional<ExternalUriParts> ExternalUri::Parse(std::string_view uri)
     }
 
     ExternalUriParts parts;
-    parts.Scheme = ExternalUriSchemes::ToLower(value.substr(0, schemeEnd));
+    parts.Scheme = AsciiText::ToLower(value.substr(0, schemeEnd));
     value.remove_prefix(schemeEnd + 1);
 
     std::string authority;
@@ -411,7 +402,7 @@ std::optional<ExternalUriParts> ExternalUri::Parse(std::string_view uri)
                 parts.Host = authority;
             }
         }
-        parts.Host = ExternalUriSchemes::ToLower(parts.Host);
+        parts.Host = AsciiText::ToLower(parts.Host);
     }
 
     std::string rest(remainder);

@@ -6,6 +6,8 @@
 
 #include "ToolRegistry.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <charconv>
 
@@ -132,7 +134,7 @@ Excel::Worksheet::Ptr ExcelAddressing::FindSheetByName(Excel::ExcelDocumentEdito
 {
     for (const auto& sheet : editor.Worksheets())
     {
-        if (sheet != nullptr && EqualsIgnoringCase(sheet->Name(), name))
+        if (sheet != nullptr && AsciiText::EqualsIgnoreCase(sheet->Name(), name))
         {
             return sheet;
         }
@@ -427,35 +429,4 @@ bool ExcelAddressing::ParseRowBand(const std::string& text, UInt32& first, UInt3
     last = std::max(firstRow, lastRow);
     return true;
 }
-
-bool ExcelAddressing::EqualsIgnoringCase(std::string_view left, std::string_view right)
-{
-    if (left.size() != right.size())
-    {
-        return false;
-    }
-
-    for (Size index = 0; index < left.size(); ++index)
-    {
-        char leftCharacter = left[index];
-        char rightCharacter = right[index];
-        if (leftCharacter >= 'A' && leftCharacter <= 'Z')
-        {
-            leftCharacter = static_cast<char>(leftCharacter - 'A' + 'a');
-        }
-
-        if (rightCharacter >= 'A' && rightCharacter <= 'Z')
-        {
-            rightCharacter = static_cast<char>(rightCharacter - 'A' + 'a');
-        }
-
-        if (leftCharacter != rightCharacter)
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 } // namespace ExyokiOffice::Mcp

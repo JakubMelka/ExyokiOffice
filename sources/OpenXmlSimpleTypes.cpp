@@ -5,6 +5,8 @@
 #include "ExyokiOffice/OpenXmlSimpleTypes.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "Base64.hpp"
+
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -20,174 +22,149 @@
 
 namespace ExyokiOffice::detail
 {
-namespace
+/// File-local parsing and formatting helpers for simple types.
+class OpenXmlSimpleTypesHelper
 {
-
-bool parseUnsigned(std::string_view text, Size pos, Size length, unsigned& value) noexcept
-{
-    if (pos + length > text.size())
+public:
+    static bool parseUnsigned(std::string_view text, Size pos, Size length, unsigned& value) noexcept
     {
-        return false;
-    }
-
-    unsigned parsed = 0;
-    for (Size i = 0; i < length; ++i)
-    {
-        char ch = text[pos + i];
-        if (ch < '0' || ch > '9')
+        if (pos + length > text.size())
         {
             return false;
         }
 
-        parsed = static_cast<unsigned>(parsed * 10 + static_cast<unsigned>(ch - '0'));
+        unsigned parsed = 0;
+        for (Size i = 0; i < length; ++i)
+        {
+            char ch = text[pos + i];
+            if (ch < '0' || ch > '9')
+            {
+                return false;
+            }
+
+            parsed = static_cast<unsigned>(parsed * 10 + static_cast<unsigned>(ch - '0'));
+        }
+
+        value = parsed;
+        return true;
     }
 
-    value = parsed;
-    return true;
-}
-
-bool parseSigned(std::string_view text, Size pos, Size length, int& value) noexcept
-{
-    unsigned unsignedValue = 0;
-    if (!parseUnsigned(text, pos, length, unsignedValue))
+    static bool parseSigned(std::string_view text, Size pos, Size length, int& value) noexcept
     {
-        return false;
+        unsigned unsignedValue = 0;
+        if (!parseUnsigned(text, pos, length, unsignedValue))
+        {
+            return false;
+        }
+
+        value = static_cast<int>(unsignedValue);
+        return true;
     }
 
-    value = static_cast<int>(unsignedValue);
-    return true;
-}
+    static constexpr Int64 secondsPerDay = 24LL * 60LL * 60LL;
+    static constexpr Int64 nanosecondsPerSecond = 1000000000LL;
 
-constexpr Int64 secondsPerDay = 24LL * 60LL * 60LL;
-constexpr Int64 nanosecondsPerSecond = 1000000000LL;
+    // The instants a parsed xsd:dateTime can be handed back as.
+    //
+    // The clock's duration counts nanoseconds on libstdc++ and libc++, which spans
+    // only about the years 1678 to 2262, and 100 ns ticks on the Microsoft standard
+    // library, which covers the whole of xsd:dateTime. xsd:dateTime itself runs from
+    // year 1 to year 9999, so on the narrow representations a perfectly legal date -
+    // `0001-01-01T00:00:00Z`, the conventional null-date sentinel in Office
+    // documents, among them - scales to a count no signed 64-bit integer holds. That
+    // is undefined behaviour, and a silently wrong instant wherever it does not trap,
+    // so the whole-second count is checked against these bounds first and a date the
+    // clock cannot carry is rejected rather than mangled. The Format side of the
+    // round-trip has its own guard against the same overflow.
+    //
+    // The second of headroom at each end leaves room for the sub-second remainder
+    // that is added after the conversion.
+    static constexpr Int64 minRepresentableSecond =
+        std::chrono::ceil<std::chrono::seconds>(std::chrono::system_clock::duration::min()).count() + 1;
+    static constexpr Int64 maxRepresentableSecond =
+        std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::duration::max()).count() - 1;
 
-// The instants a parsed xsd:dateTime can be handed back as.
-//
-// The clock's duration counts nanoseconds on libstdc++ and libc++, which spans
-// only about the years 1678 to 2262, and 100 ns ticks on the Microsoft standard
-// library, which covers the whole of xsd:dateTime. xsd:dateTime itself runs from
-// year 1 to year 9999, so on the narrow representations a perfectly legal date -
-// `0001-01-01T00:00:00Z`, the conventional null-date sentinel in Office
-// documents, among them - scales to a count no signed 64-bit integer holds. That
-// is undefined behaviour, and a silently wrong instant wherever it does not trap,
-// so the whole-second count is checked against these bounds first and a date the
-// clock cannot carry is rejected rather than mangled. The Format side of the
-// round-trip has its own guard against the same overflow.
-//
-// The second of headroom at each end leaves room for the sub-second remainder
-// that is added after the conversion.
-constexpr Int64 minRepresentableSecond =
-    std::chrono::ceil<std::chrono::seconds>(std::chrono::system_clock::duration::min()).count() + 1;
-constexpr Int64 maxRepresentableSecond =
-    std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::duration::max()).count() - 1;
-
-bool isLeapYear(int year) noexcept
-{
-    return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-}
-
-unsigned daysInMonth(int year, unsigned month) noexcept
-{
-    static constexpr std::array<unsigned, 12> days{
-        31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    if (month == 0 || month > days.size())
+    static bool isLeapYear(int year) noexcept
     {
-        return 0;
+        return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
     }
 
-    if (month == 2 && isLeapYear(year))
+    static unsigned daysInMonth(int year, unsigned month) noexcept
     {
-        return 29;
+        static constexpr std::array<unsigned, 12> days{
+            31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        if (month == 0 || month > days.size())
+        {
+            return 0;
+        }
+
+        if (month == 2 && isLeapYear(year))
+        {
+            return 29;
+        }
+
+        return days[month - 1];
     }
 
-    return days[month - 1];
-}
+    static Int64 daysFromCivil(int year, unsigned month, unsigned day) noexcept
+    {
+        year -= (month <= 2) ? 1 : 0;
+        const auto era = (year >= 0 ? year : year - 399) / 400;
+        const auto yoe = static_cast<unsigned>(year - era * 400);
+        const auto adjustedMonth = static_cast<unsigned>(static_cast<int>(month) + (month > 2 ? -3 : 9));
+        const auto doy = (153 * adjustedMonth + 2) / 5 + day - 1;
+        const auto doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        return static_cast<Int64>(era) * 146097 + static_cast<Int64>(doe) - 719468;
+    }
 
-Int64 daysFromCivil(int year, unsigned month, unsigned day) noexcept
-{
-    year -= (month <= 2) ? 1 : 0;
-    const auto era = (year >= 0 ? year : year - 399) / 400;
-    const auto yoe = static_cast<unsigned>(year - era * 400);
-    const auto adjustedMonth = static_cast<unsigned>(static_cast<int>(month) + (month > 2 ? -3 : 9));
-    const auto doy = (153 * adjustedMonth + 2) / 5 + day - 1;
-    const auto doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    return static_cast<Int64>(era) * 146097 + static_cast<Int64>(doe) - 719468;
-}
+    struct CivilDate
+    {
+        int year = 0;
+        unsigned month = 1;
+        unsigned day = 1;
+    };
 
-struct CivilDate
-{
-    int year = 0;
-    unsigned month = 1;
-    unsigned day = 1;
+    static CivilDate civilFromDays(Int64 days) noexcept
+    {
+        days += 719468;
+        const auto era = (days >= 0 ? days : days - 146096) / 146097;
+        const auto doe = static_cast<unsigned>(days - era * 146097);
+        const auto yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+        auto year = static_cast<int>(yoe) + era * 400;
+        const auto doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+        const auto mp = static_cast<int>((5 * doy + 2) / 153);
+        const auto day = doy - static_cast<unsigned>((153 * mp + 2) / 5) + 1;
+        const auto month = mp + (mp < 10 ? 3 : -9);
+
+        year += (month <= 2) ? 1 : 0;
+
+        CivilDate date{};
+        date.year = static_cast<int>(year);
+        date.month = static_cast<unsigned>(month);
+        date.day = static_cast<unsigned>(day);
+        return date;
+    }
+
+    static inline unsigned hexValue(char ch) noexcept
+    {
+        if (ch >= '0' && ch <= '9')
+        {
+            return static_cast<unsigned>(ch - '0');
+        }
+
+        if (ch >= 'A' && ch <= 'F')
+        {
+            return static_cast<unsigned>(ch - 'A' + 10);
+        }
+
+        if (ch >= 'a' && ch <= 'f')
+        {
+            return static_cast<unsigned>(ch - 'a' + 10);
+        }
+
+        return std::numeric_limits<unsigned>::max();
+    }
 };
-
-CivilDate civilFromDays(Int64 days) noexcept
-{
-    days += 719468;
-    const auto era = (days >= 0 ? days : days - 146096) / 146097;
-    const auto doe = static_cast<unsigned>(days - era * 146097);
-    const auto yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    auto year = static_cast<int>(yoe) + era * 400;
-    const auto doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    const auto mp = static_cast<int>((5 * doy + 2) / 153);
-    const auto day = doy - static_cast<unsigned>((153 * mp + 2) / 5) + 1;
-    const auto month = mp + (mp < 10 ? 3 : -9);
-
-    year += (month <= 2) ? 1 : 0;
-
-    CivilDate date{};
-    date.year = static_cast<int>(year);
-    date.month = static_cast<unsigned>(month);
-    date.day = static_cast<unsigned>(day);
-    return date;
-}
-
-std::array<int, 256> buildBase64DecodeTable() noexcept
-{
-    std::array<int, 256> table{};
-    table.fill(-1);
-
-    const std::string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    for (Size i = 0; i < alphabet.size(); ++i)
-    {
-        table[static_cast<unsigned char>(alphabet[i])] = static_cast<int>(i);
-    }
-
-    return table;
-}
-
-const std::array<int, 256>& base64DecodeTable() noexcept
-{
-    static const std::array<int, 256> table = buildBase64DecodeTable();
-    return table;
-}
-
-inline int base64Index(char ch) noexcept
-{
-    return base64DecodeTable()[static_cast<unsigned char>(ch)];
-}
-
-inline unsigned hexValue(char ch) noexcept
-{
-    if (ch >= '0' && ch <= '9')
-    {
-        return static_cast<unsigned>(ch - '0');
-    }
-
-    if (ch >= 'A' && ch <= 'F')
-    {
-        return static_cast<unsigned>(ch - 'A' + 10);
-    }
-
-    if (ch >= 'a' && ch <= 'f')
-    {
-        return static_cast<unsigned>(ch - 'a' + 10);
-    }
-
-    return std::numeric_limits<unsigned>::max();
-}
-
-} // namespace
 
 template <typename TInt>
 bool IntegralValueTraits<TInt>::TryParse(std::string_view text, TInt& value) noexcept
@@ -449,17 +426,17 @@ bool DateTimeValueTraits::TryParse(std::string_view text, value_type& value) noe
     unsigned minute = 0;
     unsigned second = 0;
 
-    if (!parseSigned(text, 0, 4, year) ||
+    if (!OpenXmlSimpleTypesHelper::parseSigned(text, 0, 4, year) ||
         text[4] != '-' ||
-        !parseUnsigned(text, 5, 2, month) ||
+        !OpenXmlSimpleTypesHelper::parseUnsigned(text, 5, 2, month) ||
         text[7] != '-' ||
-        !parseUnsigned(text, 8, 2, day) ||
+        !OpenXmlSimpleTypesHelper::parseUnsigned(text, 8, 2, day) ||
         text[10] != 'T' ||
-        !parseUnsigned(text, 11, 2, hour) ||
+        !OpenXmlSimpleTypesHelper::parseUnsigned(text, 11, 2, hour) ||
         text[13] != ':' ||
-        !parseUnsigned(text, 14, 2, minute) ||
+        !OpenXmlSimpleTypesHelper::parseUnsigned(text, 14, 2, minute) ||
         text[16] != ':' ||
-        !parseUnsigned(text, 17, 2, second))
+        !OpenXmlSimpleTypesHelper::parseUnsigned(text, 17, 2, second))
     {
         return false;
     }
@@ -524,7 +501,7 @@ bool DateTimeValueTraits::TryParse(std::string_view text, value_type& value) noe
 
         unsigned offsetHours = 0;
         unsigned offsetMins = 0;
-        if (!parseUnsigned(text, index, 2, offsetHours))
+        if (!OpenXmlSimpleTypesHelper::parseUnsigned(text, index, 2, offsetHours))
         {
             return false;
         }
@@ -538,7 +515,7 @@ bool DateTimeValueTraits::TryParse(std::string_view text, value_type& value) noe
 
         ++index;
 
-        if (!parseUnsigned(text, index, 2, offsetMins))
+        if (!OpenXmlSimpleTypesHelper::parseUnsigned(text, index, 2, offsetMins))
         {
             return false;
         }
@@ -565,20 +542,20 @@ bool DateTimeValueTraits::TryParse(std::string_view text, value_type& value) noe
         return false;
     }
 
-    if (day == 0 || day > daysInMonth(year, month) || hour > 23 || minute > 59 ||
+    if (day == 0 || day > OpenXmlSimpleTypesHelper::daysInMonth(year, month) || hour > 23 || minute > 59 ||
         second > 59)
     {
         return false;
     }
 
-    const auto days = daysFromCivil(year, month, day);
-    auto seconds = static_cast<Int64>(days) * secondsPerDay;
+    const auto days = OpenXmlSimpleTypesHelper::daysFromCivil(year, month, day);
+    auto seconds = static_cast<Int64>(days) * OpenXmlSimpleTypesHelper::secondsPerDay;
     seconds += static_cast<Int64>(hour) * 3600;
     seconds += static_cast<Int64>(minute) * 60;
     seconds += static_cast<Int64>(second);
     seconds -= static_cast<Int64>(offsetMinutes) * 60;
 
-    if (seconds < minRepresentableSecond || seconds > maxRepresentableSecond)
+    if (seconds < OpenXmlSimpleTypesHelper::minRepresentableSecond || seconds > OpenXmlSimpleTypesHelper::maxRepresentableSecond)
     {
         return false;
     }
@@ -613,10 +590,10 @@ std::string DateTimeValueTraits::Format(const value_type& value)
         std::chrono::duration_cast<std::chrono::nanoseconds>(sinceEpoch - wholeSeconds).count();
 
     const auto days =
-        seconds >= 0 ? seconds / secondsPerDay : (seconds - (secondsPerDay - 1)) / secondsPerDay;
-    Int64 daySeconds = seconds - days * secondsPerDay;
+        seconds >= 0 ? seconds / OpenXmlSimpleTypesHelper::secondsPerDay : (seconds - (OpenXmlSimpleTypesHelper::secondsPerDay - 1)) / OpenXmlSimpleTypesHelper::secondsPerDay;
+    Int64 daySeconds = seconds - days * OpenXmlSimpleTypesHelper::secondsPerDay;
 
-    auto date = civilFromDays(days);
+    auto date = OpenXmlSimpleTypesHelper::civilFromDays(days);
 
     const unsigned hour = static_cast<unsigned>(daySeconds / 3600);
     daySeconds %= 3600;
@@ -647,7 +624,7 @@ std::string DateTimeValueTraits::Format(const value_type& value)
         // second, but nothing in the type says so: the modulo is what tells the
         // compiler that nine digits are the most this can print, instead of the
         // twenty a 64-bit count would need.
-        const auto nanosOfSecond = static_cast<unsigned>(nanos % nanosecondsPerSecond);
+        const auto nanosOfSecond = static_cast<unsigned>(nanos % OpenXmlSimpleTypesHelper::nanosecondsPerSecond);
 
         char fractional[16]{};
         std::snprintf(fractional, sizeof(fractional), "%09u", nanosOfSecond);
@@ -664,176 +641,6 @@ std::string DateTimeValueTraits::Format(const value_type& value)
 
     result.push_back('Z');
     return result;
-}
-
-bool Base64BinaryTraits::TryParse(std::string_view text, std::vector<Byte>& value) noexcept
-{
-    value.clear();
-
-    if (text.empty())
-    {
-        return true;
-    }
-
-    std::string filtered;
-    filtered.reserve(text.size());
-    for (char ch : text)
-    {
-        if (std::isspace(static_cast<unsigned char>(ch)))
-        {
-            continue;
-        }
-
-        if (ch == '=' || base64Index(ch) >= 0)
-        {
-            filtered.push_back(ch);
-        }
-        else
-        {
-            value.clear();
-            return false;
-        }
-    }
-
-    if (filtered.empty())
-    {
-        return true;
-    }
-
-    if (filtered.size() % 4 != 0)
-    {
-        value.clear();
-        return false;
-    }
-
-    value.reserve(filtered.size() / 4 * 3);
-
-    for (Size i = 0; i < filtered.size(); i += 4)
-    {
-        const char c0 = filtered[i];
-        const char c1 = filtered[i + 1];
-        const char c2 = filtered[i + 2];
-        const char c3 = filtered[i + 3];
-
-        const int s0 = base64Index(c0);
-        const int s1 = base64Index(c1);
-        if (s0 < 0 || s1 < 0)
-        {
-            value.clear();
-            return false;
-        }
-
-        int s2 = 0;
-        int s3 = 0;
-        const bool pad2 = c2 == '=';
-        const bool pad3 = c3 == '=';
-
-        if ((pad2 || pad3) && i + 4 != filtered.size())
-        {
-            value.clear();
-            return false;
-        }
-
-        if (pad2 && !pad3)
-        {
-            value.clear();
-            return false;
-        }
-
-        if (c2 != '=')
-        {
-            s2 = base64Index(c2);
-            if (s2 < 0)
-            {
-                value.clear();
-                return false;
-            }
-        }
-
-        if (c3 != '=')
-        {
-            s3 = base64Index(c3);
-            if (s3 < 0)
-            {
-                value.clear();
-                return false;
-            }
-        }
-
-        const UInt32 triple =
-            (static_cast<UInt32>(s0) << 18) |
-            (static_cast<UInt32>(s1) << 12) |
-            (static_cast<UInt32>(s2) << 6) |
-            static_cast<UInt32>(s3);
-
-        value.push_back(static_cast<UInt8>((triple >> 16) & 0xFFu));
-        if (!pad2)
-        {
-            value.push_back(static_cast<UInt8>((triple >> 8) & 0xFFu));
-        }
-        if (!pad3)
-        {
-            value.push_back(static_cast<UInt8>(triple & 0xFFu));
-        }
-    }
-
-    return true;
-}
-
-std::string Base64BinaryTraits::Format(const std::vector<Byte>& value)
-{
-    if (value.empty())
-    {
-        return {};
-    }
-
-    static constexpr char alphabet[] =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    const Size groups = value.size() / 3;
-    const Size remainder = value.size() % 3;
-    const Size outputLength = (groups + (remainder ? 1 : 0)) * 4;
-
-    std::string output;
-    output.resize(outputLength);
-
-    Size outputIndex = 0;
-    Size inputIndex = 0;
-
-    while (inputIndex + 3 <= value.size())
-    {
-        const UInt32 chunk =
-            (static_cast<UInt32>(value[inputIndex]) << 16) |
-            (static_cast<UInt32>(value[inputIndex + 1]) << 8) |
-            static_cast<UInt32>(value[inputIndex + 2]);
-
-        output[outputIndex++] = alphabet[(chunk >> 18) & 0x3F];
-        output[outputIndex++] = alphabet[(chunk >> 12) & 0x3F];
-        output[outputIndex++] = alphabet[(chunk >> 6) & 0x3F];
-        output[outputIndex++] = alphabet[chunk & 0x3F];
-        inputIndex += 3;
-    }
-
-    if (remainder == 1)
-    {
-        const UInt32 chunk = static_cast<UInt32>(value[inputIndex]) << 16;
-        output[outputIndex++] = alphabet[(chunk >> 18) & 0x3F];
-        output[outputIndex++] = alphabet[(chunk >> 12) & 0x3F];
-        output[outputIndex++] = '=';
-        output[outputIndex++] = '=';
-    }
-    else if (remainder == 2)
-    {
-        const UInt32 chunk =
-            (static_cast<UInt32>(value[inputIndex]) << 16) |
-            (static_cast<UInt32>(value[inputIndex + 1]) << 8);
-        output[outputIndex++] = alphabet[(chunk >> 18) & 0x3F];
-        output[outputIndex++] = alphabet[(chunk >> 12) & 0x3F];
-        output[outputIndex++] = alphabet[(chunk >> 6) & 0x3F];
-        output[outputIndex++] = '=';
-    }
-
-    return output;
 }
 
 bool HexBinaryTraits::TryParse(std::string_view text, std::vector<Byte>& value) noexcept
@@ -854,8 +661,8 @@ bool HexBinaryTraits::TryParse(std::string_view text, std::vector<Byte>& value) 
 
     for (Size i = 0; i < text.size(); i += 2)
     {
-        const unsigned high = hexValue(text[i]);
-        const unsigned low = hexValue(text[i + 1]);
+        const unsigned high = OpenXmlSimpleTypesHelper::hexValue(text[i]);
+        const unsigned low = OpenXmlSimpleTypesHelper::hexValue(text[i + 1]);
 
         if (high == std::numeric_limits<unsigned>::max() ||
             low == std::numeric_limits<unsigned>::max())
@@ -888,6 +695,18 @@ std::string HexBinaryTraits::Format(const std::vector<Byte>& value)
     }
 
     return text;
+}
+
+bool Base64BinaryTraits::TryParse(std::string_view text, std::vector<Byte>& value) noexcept
+{
+    // `base64Binary` is defined by the schema, so the lexical space is the
+    // strict one: whole quads, padding only at the end.
+    return Base64::Decode(text, value, Base64::Padding::Required);
+}
+
+std::string Base64BinaryTraits::Format(const std::vector<Byte>& value)
+{
+    return Base64::Encode(value);
 }
 
 template struct IntegralValueTraits<Int8>;

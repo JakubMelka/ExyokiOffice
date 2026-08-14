@@ -11,29 +11,29 @@
 namespace ExyokiOffice::Xml
 {
 
-namespace
+/// File-local helpers for namespace prefix resolution.
+class XmlNamespaceResolverHelper
 {
-
-bool IsNamespaceDeclaration(const Pugi::xml_attribute& attr, std::string_view& outPrefix)
-{
-    const std::string_view name(attr.name());
-    if (name == "xmlns")
+public:
+    static bool IsNamespaceDeclaration(const Pugi::xml_attribute& attr, std::string_view& outPrefix)
     {
-        outPrefix = std::string_view{};
-        return true;
+        const std::string_view name(attr.name());
+        if (name == "xmlns")
+        {
+            outPrefix = std::string_view{};
+            return true;
+        }
+
+        constexpr std::string_view kXmlnsPrefix = "xmlns:";
+        if (name.size() > kXmlnsPrefix.size() && name.substr(0, kXmlnsPrefix.size()) == kXmlnsPrefix)
+        {
+            outPrefix = name.substr(kXmlnsPrefix.size());
+            return true;
+        }
+
+        return false;
     }
-
-    constexpr std::string_view kXmlnsPrefix = "xmlns:";
-    if (name.size() > kXmlnsPrefix.size() && name.substr(0, kXmlnsPrefix.size()) == kXmlnsPrefix)
-    {
-        outPrefix = name.substr(kXmlnsPrefix.size());
-        return true;
-    }
-
-    return false;
-}
-
-} // namespace
+};
 
 bool NamespaceResolver::IsDefaultXmlPrefix(std::string_view prefix, std::string_view uri) noexcept
 {
@@ -63,7 +63,7 @@ std::optional<std::string_view> NamespaceResolver::LookupPrefixForUri(const Exyo
         for (const auto& attr : current.attributes())
         {
             std::string_view prefix;
-            if (!IsNamespaceDeclaration(attr, prefix))
+            if (!XmlNamespaceResolverHelper::IsNamespaceDeclaration(attr, prefix))
             {
                 continue;
             }
@@ -91,7 +91,7 @@ std::optional<std::string_view> NamespaceResolver::LookupUriForPrefix(const Exyo
         for (const auto& attr : current.attributes())
         {
             std::string_view declaredPrefix;
-            if (!IsNamespaceDeclaration(attr, declaredPrefix))
+            if (!XmlNamespaceResolverHelper::IsNamespaceDeclaration(attr, declaredPrefix))
             {
                 continue;
             }

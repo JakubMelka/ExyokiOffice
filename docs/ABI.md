@@ -47,7 +47,8 @@ separate number — a hand-kept counter could only drift from the policy it is
 supposed to encode:
 
 - `Version::Abi` and `GetAbiVersion()` report it as a string, for example
-  `"1.0"`. Two builds are binary compatible exactly when these match.
+  `"1.0"`. A matching pair is what this project promises; see the toolchain
+  condition below for what it does not cover.
 - The installed shared library carries it as `SOVERSION`, so a minor release
   produces a new soname on platforms with versioned library names.
 - The generated package config uses `COMPATIBILITY SameMinorVersion`, so
@@ -56,6 +57,28 @@ supposed to encode:
 
 Consumers should link the exported `ExyokiOffice::ExyokiOffice` CMake target
 instead of depending on a library filename.
+
+## The condition the version number cannot express
+
+The table above is a promise about *this project's* changes. It is not a
+promise that any two builds carrying the same `MAJOR.MINOR` can be mixed,
+because the public API passes standard-library types — `std::string`,
+`std::vector`, `std::optional`, `std::filesystem::path` — by value across the
+library boundary. Their layout belongs to the toolchain, not to ExyokiOffice,
+so the library and everything linking it must additionally agree on:
+
+- the compiler and its standard library (MSVC STL, libstdc++, libc++ are not
+  interchangeable, and neither are major versions of one of them);
+- the C++ standard the two were compiled with;
+- on MSVC, the runtime library and `_ITERATOR_DEBUG_LEVEL`, which is why a
+  Debug build of the library cannot serve a Release consumer;
+- on libstdc++, `_GLIBCXX_USE_CXX11_ABI`.
+
+A mismatch here is not caught by the version check. It shows up as a link
+error in the lucky case and as heap corruption in the unlucky one. Installing
+the library through a package manager that builds it with the same toolchain
+as the consuming project — vcpkg, or a distribution package — makes the
+condition hold by construction.
 
 Public API consists of installed headers under `include/ExyokiOffice`.
 Generated DOM headers are public API but may grow as schema coverage improves.

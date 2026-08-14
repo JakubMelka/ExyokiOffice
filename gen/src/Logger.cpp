@@ -17,91 +17,93 @@
 
 namespace exyoki::generator
 {
-namespace
+/// File-local state and formatting behind the generator log.
+class LoggerHelper
 {
-std::mutex g_logMutex;
-std::vector<WarningDiagnostic> g_warnings;
+public:
+    inline static std::mutex g_logMutex;
+    inline static std::vector<WarningDiagnostic> g_warnings;
 
-std::string Timestamp()
-{
-    using namespace std::chrono;
-    const auto now = system_clock::now();
-    const auto time = system_clock::to_time_t(now);
+    static std::string Timestamp()
+    {
+        using namespace std::chrono;
+        const auto now = system_clock::now();
+        const auto time = system_clock::to_time_t(now);
 
-    std::tm tm;
+        std::tm tm;
 #if defined(_WIN32)
-    localtime_s(&tm, &time);
+        localtime_s(&tm, &time);
 #else
-    localtime_r(&time, &tm);
+        localtime_r(&time, &tm);
 #endif
 
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
-    return oss.str();
-}
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+        return oss.str();
+    }
 
-void Write(std::string_view level, std::string_view message, std::ostream& output)
-{
-    output << '[' << Timestamp() << "] [" << level << "] " << message << '\n';
-}
-
-void WriteCompilerStyleWarning(const WarningDiagnostic& diagnostic)
-{
-    const std::string code = diagnostic.code.empty() ? "GEN-WARNING" : diagnostic.code;
-    if (!diagnostic.sourceFile.empty())
+    static void Write(std::string_view level, std::string_view message, std::ostream& output)
     {
-        std::cerr << diagnostic.sourceFile << "(1): warning " << code << ": "
+        output << '[' << Timestamp() << "] [" << level << "] " << message << '\n';
+    }
+
+    static void WriteCompilerStyleWarning(const WarningDiagnostic& diagnostic)
+    {
+        const std::string code = diagnostic.code.empty() ? "GEN-WARNING" : diagnostic.code;
+        if (!diagnostic.sourceFile.empty())
+        {
+            std::cerr << diagnostic.sourceFile << "(1): warning " << code << ": "
+                      << diagnostic.message << '\n';
+            return;
+        }
+
+        std::cerr << "OpenXmlGenerator: warning " << code << ": "
                   << diagnostic.message << '\n';
-        return;
     }
 
-    std::cerr << "OpenXmlGenerator: warning " << code << ": "
-              << diagnostic.message << '\n';
-}
-
-void SetIfNotEmpty(nlohmann::json& object, std::string_view name, const std::string& value)
-{
-    if (!value.empty())
+    static void SetIfNotEmpty(nlohmann::json& object, std::string_view name, const std::string& value)
     {
-        object[std::string(name)] = value;
+        if (!value.empty())
+        {
+            object[std::string(name)] = value;
+        }
     }
-}
-} // namespace
+};
 
 void Logger::Info(std::string_view message)
 {
-    std::lock_guard lock(g_logMutex);
-    Write("info", message, std::cout);
+    std::lock_guard lock(LoggerHelper::g_logMutex);
+    LoggerHelper::Write("info", message, std::cout);
 }
 
 void Logger::Warn(WarningDiagnostic diagnostic)
 {
-    std::lock_guard lock(g_logMutex);
-    WriteCompilerStyleWarning(diagnostic);
-    g_warnings.push_back(std::move(diagnostic));
+    std::lock_guard lock(LoggerHelper::g_logMutex);
+    LoggerHelper::WriteCompilerStyleWarning(diagnostic);
+    LoggerHelper::g_warnings.push_back(std::move(diagnostic));
 }
 
 void Logger::Error(std::string_view message)
 {
-    std::lock_guard lock(g_logMutex);
-    Write("error", message, std::cerr);
+    std::lock_guard lock(LoggerHelper::g_logMutex);
+    LoggerHelper::Write("error", message, std::cerr);
 }
 
 void Logger::ResetWarnings()
 {
-    std::lock_guard lock(g_logMutex);
-    g_warnings.clear();
+    std::lock_guard lock(LoggerHelper::g_logMutex);
+    LoggerHelper::g_warnings.clear();
 }
 
 std::size_t Logger::WarningCount()
 {
-    std::lock_guard lock(g_logMutex);
-    return g_warnings.size();
+    std::lock_guard lock(LoggerHelper::g_logMutex);
+    return LoggerHelper::g_warnings.size();
 }
 
 void Logger::WriteWarningReport(const std::filesystem::path& path)
 {
-    std::lock_guard lock(g_logMutex);
+    std::lock_guard lock(LoggerHelper::g_logMutex);
 
     if (path.has_parent_path())
     {
@@ -117,7 +119,7 @@ void Logger::WriteWarningReport(const std::filesystem::path& path)
     std::map<std::string, std::size_t, std::less<>> categoryCounts;
     std::map<std::string, std::size_t, std::less<>> codeCounts;
     std::map<std::string, std::size_t, std::less<>> ignoredPropertyCounts;
-    for (const auto& warning : g_warnings)
+    for (const auto& warning : LoggerHelper::g_warnings)
     {
         ++categoryCounts[warning.category];
         ++codeCounts[warning.code];
@@ -129,21 +131,21 @@ void Logger::WriteWarningReport(const std::filesystem::path& path)
 
     nlohmann::json report = {
         {"formatVersion", 1},
-        {"warningCount", g_warnings.size()},
+        {"warningCount", LoggerHelper::g_warnings.size()},
         {"categoryCounts", categoryCounts},
         {"codeCounts", codeCounts},
         {"ignoredPropertyCounts", ignoredPropertyCounts},
         {"warnings", nlohmann::json::array()}};
-    for (const auto& warning : g_warnings)
+    for (const auto& warning : LoggerHelper::g_warnings)
     {
         nlohmann::json entry = nlohmann::json::object();
-        SetIfNotEmpty(entry, "code", warning.code);
-        SetIfNotEmpty(entry, "category", warning.category);
-        SetIfNotEmpty(entry, "message", warning.message);
-        SetIfNotEmpty(entry, "sourceFile", warning.sourceFile);
-        SetIfNotEmpty(entry, "ownerKind", warning.ownerKind);
-        SetIfNotEmpty(entry, "ownerName", warning.ownerName);
-        SetIfNotEmpty(entry, "property", warning.property);
+        LoggerHelper::SetIfNotEmpty(entry, "code", warning.code);
+        LoggerHelper::SetIfNotEmpty(entry, "category", warning.category);
+        LoggerHelper::SetIfNotEmpty(entry, "message", warning.message);
+        LoggerHelper::SetIfNotEmpty(entry, "sourceFile", warning.sourceFile);
+        LoggerHelper::SetIfNotEmpty(entry, "ownerKind", warning.ownerKind);
+        LoggerHelper::SetIfNotEmpty(entry, "ownerName", warning.ownerName);
+        LoggerHelper::SetIfNotEmpty(entry, "property", warning.property);
         report["warnings"].push_back(std::move(entry));
     }
     output << std::setw(2) << report << '\n';

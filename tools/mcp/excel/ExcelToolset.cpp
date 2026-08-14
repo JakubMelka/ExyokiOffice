@@ -14,6 +14,8 @@
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
 #include "ExyokiOffice/Tools/DocumentModelIO.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <string>
 #include <utility>
@@ -382,7 +384,7 @@ private:
     {
         for (const auto& state : states)
         {
-            if (ExcelAddressing::EqualsIgnoringCase(state.first, name))
+            if (AsciiText::EqualsIgnoreCase(state.first, name))
             {
                 return state.second;
             }
@@ -1554,7 +1556,7 @@ private:
                 continue;
             }
 
-            if (!sheetName.empty() && !ExcelAddressing::EqualsIgnoringCase(sheet->Name(), sheetName))
+            if (!sheetName.empty() && !AsciiText::EqualsIgnoreCase(sheet->Name(), sheetName))
             {
                 continue;
             }

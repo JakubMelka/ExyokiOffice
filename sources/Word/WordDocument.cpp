@@ -15,6 +15,8 @@
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Office2021/Word/CommentsExt.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -168,32 +170,9 @@ void SetRunPlainText(const std::shared_ptr<Run>& run, const std::string& newText
     }
 }
 
-std::string ToLower(std::string value)
-{
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch)
-                   { return static_cast<char>(std::tolower(ch)); });
-    return value;
-}
-
-std::string ToUpper(std::string value)
-{
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch)
-                   { return static_cast<char>(std::toupper(ch)); });
-    return value;
-}
-
 std::string TrimAsciiWhitespace(std::string value)
 {
-    const auto first = std::find_if_not(value.begin(), value.end(), [](unsigned char ch)
-                                        { return std::isspace(ch) != 0; });
-    const auto last = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char ch)
-                                       { return std::isspace(ch) != 0; })
-                          .base();
-    if (first >= last)
-    {
-        return {};
-    }
-    return std::string(first, last);
+    return std::string(AsciiText::Trim(value));
 }
 
 std::string WordAttributeOrEmpty(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
@@ -410,7 +389,7 @@ std::string FieldInstructionName(std::string_view instruction)
         }
         ++end;
     }
-    return ToUpper(text.substr(0, end));
+    return AsciiText::ToUpper(text.substr(0, end));
 }
 
 bool IsLayoutDependentFieldInstruction(std::string_view instruction)
@@ -574,7 +553,7 @@ std::string DirectLeafTextByWordName(const std::shared_ptr<ExyokiOffice::OpenXML
 
 std::string ContentTypeFromExtension(std::filesystem::path path)
 {
-    auto ext = ToLower(path.extension().string());
+    auto ext = AsciiText::ToLower(path.extension().string());
     if (ext == ".png")
     {
         return "image/png";
@@ -1283,7 +1262,7 @@ std::string RawValAttributeOrEmpty(const std::shared_ptr<ExyokiOffice::OpenXMLEl
 
 std::optional<bool> RawOnOffOrEmpty(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
 {
-    const auto value = ToLower(RawValAttributeOrEmpty(element));
+    const auto value = AsciiText::ToLower(RawValAttributeOrEmpty(element));
     if (value.empty())
     {
         return std::nullopt;
@@ -1752,7 +1731,7 @@ std::optional<HeaderFooterType> FromDomHeaderFooterType(
 
 std::optional<HeaderFooterType> TryParseHeaderFooterTypeString(std::string value)
 {
-    value = ToLower(std::move(value));
+    value = AsciiText::ToLower(std::move(value));
     if (value == "default")
     {
         return HeaderFooterType::Default;
@@ -5758,64 +5737,62 @@ std::vector<std::shared_ptr<Field>> WordDocumentEditor::Fields() const
     return fields;
 }
 
-namespace
+/// File-local ASCII text helpers for Word field instructions.
+class WordDocumentFieldTextHelper
 {
-std::string TrimAscii(std::string_view value)
-{
-    auto first = value.begin();
-    auto last = value.end();
-    while (first != last && std::isspace(static_cast<unsigned char>(*first)))
+public:
+    static std::string TrimAscii(std::string_view value)
     {
-        ++first;
-    }
-    while (last != first && std::isspace(static_cast<unsigned char>(*(last - 1))))
-    {
-        --last;
-    }
-    return std::string(first, last);
-}
-
-std::string ToUpperAscii(std::string_view value)
-{
-    std::string result(value);
-    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch)
-                   { return static_cast<char>(std::toupper(ch)); });
-    return result;
-}
-
-std::optional<std::string> ParseMergeFieldName(std::string_view instruction)
-{
-    auto text = TrimAscii(instruction);
-    constexpr std::string_view prefix = "MERGEFIELD";
-    if (text.size() < prefix.size() || ToUpperAscii(std::string_view(text).substr(0, prefix.size())) != prefix)
-    {
-        return std::nullopt;
-    }
-    if (text.size() > prefix.size() && !std::isspace(static_cast<unsigned char>(text[prefix.size()])))
-    {
-        return std::nullopt;
+        return std::string(AsciiText::Trim(value));
     }
 
-    Size pos = prefix.size();
-    while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
+    static std::optional<std::string> ParseMergeFieldName(std::string_view instruction)
     {
-        ++pos;
-    }
-    if (pos >= text.size())
-    {
-        return std::nullopt;
-    }
-
-    if (text[pos] == '"' || text[pos] == '\'')
-    {
-        const char quote = text[pos++];
-        const auto end = text.find(quote, pos);
-        if (end == std::string::npos)
+        auto text = TrimAscii(instruction);
+        constexpr std::string_view prefix = "MERGEFIELD";
+        if (text.size() < prefix.size() || AsciiText::ToUpper(std::string_view(text).substr(0, prefix.size())) != prefix)
         {
             return std::nullopt;
         }
-        auto fieldName = text.substr(pos, end - pos);
-        pos = end + 1;
+        if (text.size() > prefix.size() && !std::isspace(static_cast<unsigned char>(text[prefix.size()])))
+        {
+            return std::nullopt;
+        }
+
+        Size pos = prefix.size();
+        while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
+        {
+            ++pos;
+        }
+        if (pos >= text.size())
+        {
+            return std::nullopt;
+        }
+
+        if (text[pos] == '"' || text[pos] == '\'')
+        {
+            const char quote = text[pos++];
+            const auto end = text.find(quote, pos);
+            if (end == std::string::npos)
+            {
+                return std::nullopt;
+            }
+            auto fieldName = text.substr(pos, end - pos);
+            pos = end + 1;
+            while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
+            {
+                ++pos;
+            }
+            if (pos < text.size() && text[pos] != '\\')
+            {
+                return std::nullopt;
+            }
+            return fieldName;
+        }
+
+        const auto end = text.find_first_of(" \t\r\n", pos);
+        auto fieldName = text.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+        pos = end == std::string::npos ? text.size() : end;
         while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
         {
             ++pos;
@@ -5827,92 +5804,25 @@ std::optional<std::string> ParseMergeFieldName(std::string_view instruction)
         return fieldName;
     }
 
-    const auto end = text.find_first_of(" \t\r\n", pos);
-    auto fieldName = text.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
-    pos = end == std::string::npos ? text.size() : end;
-    while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
+    enum class MergeRegionMarkerKind
     {
-        ++pos;
-    }
-    if (pos < text.size() && text[pos] != '\\')
-    {
-        return std::nullopt;
-    }
-    return fieldName;
-}
+        None,
+        Start,
+        End
+    };
 
-enum class MergeRegionMarkerKind
-{
-    None,
-    Start,
-    End
-};
-
-struct MergeRegionMarker
-{
-    MergeRegionMarkerKind Kind = MergeRegionMarkerKind::None;
-    std::string Name;
-};
-
-MergeRegionMarker ParseRegionMarker(const std::shared_ptr<Paragraph>& paragraph)
-{
-    if (!paragraph)
+    struct MergeRegionMarker
     {
-        return {};
-    }
-    for (const auto& field : paragraph->Fields())
+        MergeRegionMarkerKind Kind = MergeRegionMarkerKind::None;
+        std::string Name;
+    };
+
+    static MergeRegionMarker ParseRegionMarker(const std::shared_ptr<Paragraph>& paragraph)
     {
-        if (!field)
+        if (!paragraph)
         {
-            continue;
+            return {};
         }
-        auto name = ParseMergeFieldName(field->GetInstruction());
-        if (!name)
-        {
-            continue;
-        }
-        constexpr std::string_view startPrefix = "TableStart:";
-        constexpr std::string_view endPrefix = "TableEnd:";
-        if (name->rfind(startPrefix, 0) == 0 && name->size() > startPrefix.size())
-        {
-            return {MergeRegionMarkerKind::Start, name->substr(startPrefix.size())};
-        }
-        if (name->rfind(endPrefix, 0) == 0 && name->size() > endPrefix.size())
-        {
-            return {MergeRegionMarkerKind::End, name->substr(endPrefix.size())};
-        }
-    }
-    return {};
-}
-
-std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>>
-CollectParagraphsInElement(const std::shared_ptr<OpenXMLElement>& element)
-{
-    std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>> paragraphs;
-    if (!element)
-    {
-        return paragraphs;
-    }
-    if (auto paragraph =
-            std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>(element))
-    {
-        paragraphs.push_back(paragraph);
-    }
-    auto descendants = element->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
-    paragraphs.insert(paragraphs.end(), descendants.begin(), descendants.end());
-    return paragraphs;
-}
-
-Size MergeFieldsInElement(
-    const std::shared_ptr<OpenXMLElement>& element,
-    const std::unordered_map<std::string, std::string>& values,
-    const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
-    bool preserveSpaces)
-{
-    Size merged = 0;
-    for (const auto& paragraphElement : CollectParagraphsInElement(element))
-    {
-        auto paragraph = std::make_shared<Paragraph>(paragraphElement, mainPart);
         for (const auto& field : paragraph->Fields())
         {
             if (!field)
@@ -5920,82 +5830,134 @@ Size MergeFieldsInElement(
                 continue;
             }
             auto name = ParseMergeFieldName(field->GetInstruction());
-            if (!name || name->rfind("TableStart:", 0) == 0 || name->rfind("TableEnd:", 0) == 0)
+            if (!name)
             {
                 continue;
             }
-            auto it = values.find(*name);
-            if (it != values.end() && field->SetResult(it->second, preserveSpaces))
+            constexpr std::string_view startPrefix = "TableStart:";
+            constexpr std::string_view endPrefix = "TableEnd:";
+            if (name->rfind(startPrefix, 0) == 0 && name->size() > startPrefix.size())
             {
-                ++merged;
+                return {MergeRegionMarkerKind::Start, name->substr(startPrefix.size())};
+            }
+            if (name->rfind(endPrefix, 0) == 0 && name->size() > endPrefix.size())
+            {
+                return {MergeRegionMarkerKind::End, name->substr(endPrefix.size())};
             }
         }
+        return {};
     }
-    return merged;
-}
 
-Size MergeBookmarksInElement(const std::shared_ptr<OpenXMLElement>& element,
-                             const std::unordered_map<std::string, std::string>& values,
-                             bool preserveSpaces)
-{
-    Size merged = 0;
-    if (!element)
+    static std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>>
+    CollectParagraphsInElement(const std::shared_ptr<OpenXMLElement>& element)
     {
+        std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>> paragraphs;
+        if (!element)
+        {
+            return paragraphs;
+        }
+        if (auto paragraph =
+                std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>(element))
+        {
+            paragraphs.push_back(paragraph);
+        }
+        auto descendants = element->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
+        paragraphs.insert(paragraphs.end(), descendants.begin(), descendants.end());
+        return paragraphs;
+    }
+
+    static Size MergeFieldsInElement(
+        const std::shared_ptr<OpenXMLElement>& element,
+        const std::unordered_map<std::string, std::string>& values,
+        const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
+        bool preserveSpaces)
+    {
+        Size merged = 0;
+        for (const auto& paragraphElement : CollectParagraphsInElement(element))
+        {
+            auto paragraph = std::make_shared<Paragraph>(paragraphElement, mainPart);
+            for (const auto& field : paragraph->Fields())
+            {
+                if (!field)
+                {
+                    continue;
+                }
+                auto name = ParseMergeFieldName(field->GetInstruction());
+                if (!name || name->rfind("TableStart:", 0) == 0 || name->rfind("TableEnd:", 0) == 0)
+                {
+                    continue;
+                }
+                auto it = values.find(*name);
+                if (it != values.end() && field->SetResult(it->second, preserveSpaces))
+                {
+                    ++merged;
+                }
+            }
+        }
         return merged;
     }
 
-    auto starts = element->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>();
-    if (auto start = std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>(element))
+    static Size MergeBookmarksInElement(const std::shared_ptr<OpenXMLElement>& element,
+                                        const std::unordered_map<std::string, std::string>& values,
+                                        bool preserveSpaces)
     {
-        starts.insert(starts.begin(), start);
-    }
-
-    for (const auto& start : starts)
-    {
-        if (!start)
+        Size merged = 0;
+        if (!element)
         {
-            continue;
-        }
-        const auto name = start->GetName().ToString();
-        auto value = values.find(name);
-        if (value == values.end())
-        {
-            continue;
+            return merged;
         }
 
-        auto parent = std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>(
-            start->Parent());
-        if (!parent)
+        auto starts = element->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>();
+        if (auto start = std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>(element))
         {
-            continue;
+            starts.insert(starts.begin(), start);
         }
 
-        std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkEnd> end;
-        for (auto child = start->NextSibling(); child; child = child->NextSibling())
+        for (const auto& start : starts)
         {
-            end = std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkEnd>(child);
-            if (end && end->GetId().ToString() == start->GetId().ToString())
+            if (!start)
             {
-                break;
+                continue;
             }
-            end.reset();
-        }
-        if (!end)
-        {
-            continue;
-        }
+            const auto name = start->GetName().ToString();
+            auto value = values.find(name);
+            if (value == values.end())
+            {
+                continue;
+            }
 
-        RemoveParagraphChildrenBetween(parent, start, end);
-        if (!value->second.empty())
-        {
-            InsertRunWithTextBefore(parent, end, value->second, preserveSpaces);
+            auto parent = std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>(
+                start->Parent());
+            if (!parent)
+            {
+                continue;
+            }
+
+            std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkEnd> end;
+            for (auto child = start->NextSibling(); child; child = child->NextSibling())
+            {
+                end = std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkEnd>(child);
+                if (end && end->GetId().ToString() == start->GetId().ToString())
+                {
+                    break;
+                }
+                end.reset();
+            }
+            if (!end)
+            {
+                continue;
+            }
+
+            RemoveParagraphChildrenBetween(parent, start, end);
+            if (!value->second.empty())
+            {
+                InsertRunWithTextBefore(parent, end, value->second, preserveSpaces);
+            }
+            ++merged;
         }
-        ++merged;
+        return merged;
     }
-    return merged;
-}
-
-} // namespace
+};
 
 TemplateMergeResult WordDocumentEditor::MergeTemplate(const TemplateMergeData& data, bool preserveSpaces)
 {
@@ -6016,8 +5978,8 @@ TemplateMergeResult WordDocumentEditor::MergeTemplate(const TemplateMergeData& d
         {
             auto startParagraph = std::dynamic_pointer_cast<
                 ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>(children[startIndex]);
-            auto startMarker = ParseRegionMarker(std::make_shared<Paragraph>(startParagraph, mainPart));
-            if (startMarker.Kind != MergeRegionMarkerKind::Start)
+            auto startMarker = WordDocumentFieldTextHelper::ParseRegionMarker(std::make_shared<Paragraph>(startParagraph, mainPart));
+            if (startMarker.Kind != WordDocumentFieldTextHelper::MergeRegionMarkerKind::Start)
             {
                 continue;
             }
@@ -6027,8 +5989,8 @@ TemplateMergeResult WordDocumentEditor::MergeTemplate(const TemplateMergeData& d
             {
                 auto endParagraph = std::dynamic_pointer_cast<
                     ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>(children[endIndex]);
-                auto endMarker = ParseRegionMarker(std::make_shared<Paragraph>(endParagraph, mainPart));
-                if (endMarker.Kind == MergeRegionMarkerKind::End && endMarker.Name == startMarker.Name)
+                auto endMarker = WordDocumentFieldTextHelper::ParseRegionMarker(std::make_shared<Paragraph>(endParagraph, mainPart));
+                if (endMarker.Kind == WordDocumentFieldTextHelper::MergeRegionMarkerKind::End && endMarker.Name == startMarker.Name)
                 {
                     break;
                 }
@@ -6055,8 +6017,8 @@ TemplateMergeResult WordDocumentEditor::MergeTemplate(const TemplateMergeData& d
                         auto copy = node ? node->CopyInto(body, before) : nullptr;
                         if (copy)
                         {
-                            result.FieldsMerged += MergeFieldsInElement(copy, row, mainPart, preserveSpaces);
-                            result.BookmarksMerged += MergeBookmarksInElement(copy, row, preserveSpaces);
+                            result.FieldsMerged += WordDocumentFieldTextHelper::MergeFieldsInElement(copy, row, mainPart, preserveSpaces);
+                            result.BookmarksMerged += WordDocumentFieldTextHelper::MergeBookmarksInElement(copy, row, preserveSpaces);
                         }
                     }
                     ++result.RegionRowsInserted;
@@ -6073,8 +6035,8 @@ TemplateMergeResult WordDocumentEditor::MergeTemplate(const TemplateMergeData& d
         }
     }
 
-    result.FieldsMerged += MergeFieldsInElement(body, data.Values, mainPart, preserveSpaces);
-    result.BookmarksMerged += MergeBookmarksInElement(body, data.Values, preserveSpaces);
+    result.FieldsMerged += WordDocumentFieldTextHelper::MergeFieldsInElement(body, data.Values, mainPart, preserveSpaces);
+    result.BookmarksMerged += WordDocumentFieldTextHelper::MergeBookmarksInElement(body, data.Values, preserveSpaces);
     return result;
 }
 
@@ -6457,69 +6419,69 @@ std::shared_ptr<Paragraph> WordDocumentEditor::AddPageBreak()
     return paragraph;
 }
 
-namespace
+/// File-local helper for the document comparison entry point.
+class WordDocumentCompareHelper
 {
-
-// Word-like visual defaults for heading styles created by AddHeading(). Only
-// applied when the style does not exist yet; documents that already define
-// HeadingN keep their own design.
-void ApplyDefaultHeadingFormatting(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style>& style,
-    int level)
-{
-    if (!style)
+public:
+    // Word-like visual defaults for heading styles created by AddHeading(). Only
+    // applied when the style does not exist yet; documents that already define
+    // HeadingN keep their own design.
+    static void ApplyDefaultHeadingFormatting(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style>& style,
+        int level)
     {
-        return;
+        if (!style)
+        {
+            return;
+        }
+
+        using namespace ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        auto paragraphProperties = EnsureChildOfType<Style, StyleParagraphProperties>(style);
+        if (paragraphProperties)
+        {
+            if (auto keepNext = EnsureChildOfType<StyleParagraphProperties, KeepNext>(paragraphProperties))
+            {
+                keepNext->SetVal(OnOffValue(true));
+            }
+            if (auto keepLines = EnsureChildOfType<StyleParagraphProperties, KeepLines>(paragraphProperties))
+            {
+                keepLines->SetVal(OnOffValue(true));
+            }
+            if (auto spacing = EnsureChildOfType<StyleParagraphProperties, SpacingBetweenLines>(paragraphProperties))
+            {
+                spacing->SetBefore(StringValue(level == 1 ? "240" : "120"));
+            }
+            if (auto outline = EnsureChildOfType<StyleParagraphProperties, OutlineLevel>(paragraphProperties))
+            {
+                outline->SetVal(Int32Value(level - 1));
+            }
+        }
+
+        auto runProperties = EnsureChildOfType<Style, StyleRunProperties>(style);
+        if (runProperties)
+        {
+            if (auto bold = EnsureChildOfType<StyleRunProperties, Bold>(runProperties))
+            {
+                bold->SetVal(OnOffValue(true));
+            }
+            if (auto color = EnsureChildOfType<StyleRunProperties,
+                                               ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Color>(runProperties))
+            {
+                color->SetVal(StringValue("2F5496"));
+            }
+            // Half-point sizes decreasing with the heading level: 16pt, 13pt,
+            // 12pt, then 11pt for level 4 and deeper.
+            const int halfPoints = level == 1 ? 32 : level == 2 ? 26
+                                                 : level == 3   ? 24
+                                                                : 22;
+            if (auto fontSize = EnsureChildOfType<StyleRunProperties, FontSize>(runProperties))
+            {
+                fontSize->SetVal(StringValue(std::to_string(halfPoints)));
+            }
+        }
     }
-
-    using namespace ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
-
-    auto paragraphProperties = EnsureChildOfType<Style, StyleParagraphProperties>(style);
-    if (paragraphProperties)
-    {
-        if (auto keepNext = EnsureChildOfType<StyleParagraphProperties, KeepNext>(paragraphProperties))
-        {
-            keepNext->SetVal(OnOffValue(true));
-        }
-        if (auto keepLines = EnsureChildOfType<StyleParagraphProperties, KeepLines>(paragraphProperties))
-        {
-            keepLines->SetVal(OnOffValue(true));
-        }
-        if (auto spacing = EnsureChildOfType<StyleParagraphProperties, SpacingBetweenLines>(paragraphProperties))
-        {
-            spacing->SetBefore(StringValue(level == 1 ? "240" : "120"));
-        }
-        if (auto outline = EnsureChildOfType<StyleParagraphProperties, OutlineLevel>(paragraphProperties))
-        {
-            outline->SetVal(Int32Value(level - 1));
-        }
-    }
-
-    auto runProperties = EnsureChildOfType<Style, StyleRunProperties>(style);
-    if (runProperties)
-    {
-        if (auto bold = EnsureChildOfType<StyleRunProperties, Bold>(runProperties))
-        {
-            bold->SetVal(OnOffValue(true));
-        }
-        if (auto color = EnsureChildOfType<StyleRunProperties,
-                                           ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Color>(runProperties))
-        {
-            color->SetVal(StringValue("2F5496"));
-        }
-        // Half-point sizes decreasing with the heading level: 16pt, 13pt,
-        // 12pt, then 11pt for level 4 and deeper.
-        const int halfPoints = level == 1 ? 32 : level == 2 ? 26
-                                             : level == 3   ? 24
-                                                            : 22;
-        if (auto fontSize = EnsureChildOfType<StyleRunProperties, FontSize>(runProperties))
-        {
-            fontSize->SetVal(StringValue(std::to_string(halfPoints)));
-        }
-    }
-}
-
-} // namespace
+};
 
 std::shared_ptr<Paragraph> WordDocumentEditor::AddHeading(std::string_view text, int level)
 {
@@ -6557,7 +6519,7 @@ std::shared_ptr<Paragraph> WordDocumentEditor::AddHeading(std::string_view text,
         heading.NextStyleId = "Normal";
         if (styles.CreateStyle(heading))
         {
-            ApplyDefaultHeadingFormatting(styles.GetLowLevelStyle(styleId), clampedLevel);
+            WordDocumentCompareHelper::ApplyDefaultHeadingFormatting(styles.GetLowLevelStyle(styleId), clampedLevel);
         }
     }
 

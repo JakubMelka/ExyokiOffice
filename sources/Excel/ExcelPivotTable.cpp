@@ -9,6 +9,8 @@
 #include "Excel/ExcelSlicerInternal.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -47,24 +49,11 @@ constexpr UInt8 kUpdatedVersion = 3;
 // Small text helpers
 // ---------------------------------------------------------------------------
 
-std::string ToLowerAscii(std::string_view text)
-{
-    std::string result(text);
-    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char character)
-                   { return static_cast<char>(std::tolower(character)); });
-    return result;
-}
-
-bool EqualsIgnoreCase(std::string_view left, std::string_view right)
-{
-    return left.size() == right.size() && ToLowerAscii(left) == ToLowerAscii(right);
-}
-
 /** Orders text case-insensitively and breaks ties with a stable byte comparison. */
 int CompareText(std::string_view left, std::string_view right)
 {
-    const auto lowerLeft = ToLowerAscii(left);
-    const auto lowerRight = ToLowerAscii(right);
+    const auto lowerLeft = AsciiText::ToLower(left);
+    const auto lowerRight = AsciiText::ToLower(right);
     if (lowerLeft != lowerRight)
     {
         return lowerLeft < lowerRight ? -1 : 1;
@@ -268,7 +257,7 @@ Value ReadValue(const Worksheet& worksheet, const SharedStringTableService& stri
                 {
                     Value value;
                     value.kind = ValueKind::Boolean;
-                    value.number = (formula.CachedText == "1" || EqualsIgnoreCase(formula.CachedText, "true")) ? 1.0 : 0.0;
+                    value.number = (formula.CachedText == "1" || AsciiText::EqualsIgnoreCase(formula.CachedText, "true")) ? 1.0 : 0.0;
                     return value;
                 }
                 case FormulaCachedValueKind::Error:
@@ -565,7 +554,7 @@ std::optional<SourceData> ReadSource(const ExcelDocument::Ptr& document,
         }
         for (const auto& existing : data.headers)
         {
-            if (EqualsIgnoreCase(existing, header))
+            if (AsciiText::EqualsIgnoreCase(existing, header))
             {
                 result = Failure(PivotTableError::InvalidSourceHeader,
                                  "The pivot table source header '" + header + "' is used more than once.");
@@ -639,7 +628,7 @@ std::optional<Size> FindField(const std::vector<std::string>& headers, std::stri
 {
     for (Size index = 0; index < headers.size(); ++index)
     {
-        if (EqualsIgnoreCase(headers[index], name))
+        if (AsciiText::EqualsIgnoreCase(headers[index], name))
         {
             return index;
         }
@@ -920,7 +909,7 @@ PivotTableResult BuildReportModel(const ExcelPivotTableDefinition& definition,
         }
         for (const auto& existing : report.dataFields)
         {
-            if (EqualsIgnoreCase(existing.name, dataField.name))
+            if (AsciiText::EqualsIgnoreCase(existing.name, dataField.name))
             {
                 return Failure(PivotTableError::InvalidFieldConfiguration,
                                "The pivot data field name '" + dataField.name + "' is used more than once.");
@@ -2049,7 +2038,7 @@ bool PivotTableNameExists(const ExcelDocument::Ptr& document,
             continue;
         }
         const auto root = part->GetPivotTableDefinition();
-        if (root && EqualsIgnoreCase(root->GetName().ToString(), name))
+        if (root && AsciiText::EqualsIgnoreCase(root->GetName().ToString(), name))
         {
             return true;
         }
@@ -2353,7 +2342,7 @@ std::vector<ExcelPivotItem> ExcelPivotTable::FieldItems(std::string_view fieldNa
     }
     for (const auto& field : fields->Elements<S::CacheField>())
     {
-        if (!PivotDetail::EqualsIgnoreCase(field->GetName().ToString(), fieldName))
+        if (!AsciiText::EqualsIgnoreCase(field->GetName().ToString(), fieldName))
         {
             continue;
         }
@@ -2652,7 +2641,7 @@ PivotTableResult ExcelPivotTable::SetFieldAxis(std::string_view fieldName, Pivot
     }
     const auto names = SourceFieldNames();
     const auto known = std::any_of(names.begin(), names.end(), [&](const std::string& candidate)
-                                   { return PivotDetail::EqualsIgnoreCase(candidate, fieldName); });
+                                   { return AsciiText::EqualsIgnoreCase(candidate, fieldName); });
     if (!known)
     {
         return PivotDetail::Failure(PivotTableError::UnknownField,
@@ -2662,7 +2651,7 @@ PivotTableResult ExcelPivotTable::SetFieldAxis(std::string_view fieldName, Pivot
 
     auto& fields = definition->Fields;
     const auto existing = std::find_if(fields.begin(), fields.end(), [&](const ExcelPivotField& candidate)
-                                       { return PivotDetail::EqualsIgnoreCase(candidate.Name, fieldName); });
+                                       { return AsciiText::EqualsIgnoreCase(candidate.Name, fieldName); });
     if (axis == PivotAxis::None)
     {
         if (existing != fields.end())
@@ -2731,7 +2720,7 @@ std::optional<Real> ExcelPivotTable::AggregatedValue(const std::vector<std::stri
         const auto found = std::find_if(report.dataFields.begin(), report.dataFields.end(),
                                         [&](const Detail::BuiltDataField& candidate)
                                         {
-                                            return Detail::EqualsIgnoreCase(candidate.name, dataFieldName);
+                                            return AsciiText::EqualsIgnoreCase(candidate.name, dataFieldName);
                                         });
         if (found == report.dataFields.end())
         {
@@ -2767,7 +2756,7 @@ std::optional<Real> ExcelPivotTable::AggregatedValue(const std::vector<std::stri
         {
             const auto& items = fields[axisFields[level]].items;
             const auto found = std::find_if(items.begin(), items.end(), [&](const Detail::Value& candidate)
-                                            { return Detail::EqualsIgnoreCase(candidate.Caption(), captions[level]); });
+                                            { return AsciiText::EqualsIgnoreCase(candidate.Caption(), captions[level]); });
             if (found == items.end())
             {
                 return std::nullopt;
@@ -2846,7 +2835,7 @@ PivotTableResult ExcelPivotTable::Update(const ExcelPivotTableDefinition& defini
     // Rebuilding the cache renumbers its shared items, so slicer item indexes
     // that were correct a moment ago would now select the wrong values.
     const auto currentName = Name();
-    if (!PivotDetail::EqualsIgnoreCase(previousName, currentName))
+    if (!AsciiText::EqualsIgnoreCase(previousName, currentName))
     {
         SlicerDetail::RenamePivotTableInSlicers(m_document, previousName, currentName);
     }
@@ -3032,7 +3021,7 @@ PivotTableResult Worksheet::WritePivotTable(Worksheet& host,
     }
 
     // Reports on the same worksheet must not overlap each other.
-    if (Detail::EqualsIgnoreCase(sourceSheet, host.Name()))
+    if (AsciiText::EqualsIgnoreCase(sourceSheet, host.Name()))
     {
         if (Detail::RangesIntersect(*written, definition.SourceRange))
         {
@@ -3154,7 +3143,7 @@ ExcelPivotTable::Ptr Worksheet::PivotTableByName(std::string_view name) const
 {
     for (const auto& pivotTable : PivotTables())
     {
-        if (pivotTable && PivotDetail::EqualsIgnoreCase(pivotTable->Name(), name))
+        if (pivotTable && AsciiText::EqualsIgnoreCase(pivotTable->Name(), name))
         {
             return pivotTable;
         }

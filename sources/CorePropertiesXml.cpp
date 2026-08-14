@@ -12,62 +12,62 @@
 namespace ExyokiOffice::Xml
 {
 
-namespace
+/// File-local helpers for core property XML.
+class CorePropertiesXmlHelper
 {
+public:
+    /// Canonical child order of `coreProperties` per ECMA-376 Part 2. The elements
+    /// are optional, but when present they must appear in this sequence. Local
+    /// names are unique across the three namespaces involved, so ordering can be
+    /// keyed by local name alone.
+    static constexpr std::array<std::string_view, 15> kCorePropertyOrder{
+        "category",
+        "contentStatus",
+        "created",
+        "creator",
+        "description",
+        "identifier",
+        "keywords",
+        "language",
+        "lastModifiedBy",
+        "lastPrinted",
+        "modified",
+        "revision",
+        "subject",
+        "title",
+        "version",
+    };
 
-/// Canonical child order of `coreProperties` per ECMA-376 Part 2. The elements
-/// are optional, but when present they must appear in this sequence. Local
-/// names are unique across the three namespaces involved, so ordering can be
-/// keyed by local name alone.
-constexpr std::array<std::string_view, 15> kCorePropertyOrder{
-    "category",
-    "contentStatus",
-    "created",
-    "creator",
-    "description",
-    "identifier",
-    "keywords",
-    "language",
-    "lastModifiedBy",
-    "lastPrinted",
-    "modified",
-    "revision",
-    "subject",
-    "title",
-    "version",
-};
-
-/// The conventional prefix for each namespace, used only when a document does
-/// not bind the namespace at all and one has to be declared.
-struct CanonicalNamespace
-{
-    std::string_view Prefix;
-    std::string_view Uri;
-};
-
-constexpr std::array<CanonicalNamespace, 3> kCanonicalNamespaces{{
-    {"cp", CorePropertiesXml::CoreNamespace},
-    {"dc", CorePropertiesXml::DublinCoreNamespace},
-    {"dcterms", CorePropertiesXml::DublinCoreTermsNamespace},
-}};
-
-std::string_view PrefixOf(std::string_view qualifiedName)
-{
-    const auto colon = qualifiedName.find(':');
-    return colon == std::string_view::npos ? std::string_view{} : qualifiedName.substr(0, colon);
-}
-
-/// Composes a qualified name, omitting the colon for the default namespace.
-std::string QualifiedName(std::string_view prefix, std::string_view localName)
-{
-    if (prefix.empty())
+    /// The conventional prefix for each namespace, used only when a document does
+    /// not bind the namespace at all and one has to be declared.
+    struct CanonicalNamespace
     {
-        return std::string(localName);
-    }
-    return std::string(prefix) + ":" + std::string(localName);
-}
+        std::string_view Prefix;
+        std::string_view Uri;
+    };
 
-} // namespace
+    static constexpr std::array<CanonicalNamespace, 3> kCanonicalNamespaces{{
+        {"cp", CorePropertiesXml::CoreNamespace},
+        {"dc", CorePropertiesXml::DublinCoreNamespace},
+        {"dcterms", CorePropertiesXml::DublinCoreTermsNamespace},
+    }};
+
+    static std::string_view PrefixOf(std::string_view qualifiedName)
+    {
+        const auto colon = qualifiedName.find(':');
+        return colon == std::string_view::npos ? std::string_view{} : qualifiedName.substr(0, colon);
+    }
+
+    /// Composes a qualified name, omitting the colon for the default namespace.
+    static std::string QualifiedName(std::string_view prefix, std::string_view localName)
+    {
+        if (prefix.empty())
+        {
+            return std::string(localName);
+        }
+        return std::string(prefix) + ":" + std::string(localName);
+    }
+};
 
 std::string_view CorePropertiesXml::LocalName(std::string_view qualifiedName)
 {
@@ -79,8 +79,8 @@ bool CorePropertiesXml::ResolveCanonicalName(std::string_view canonicalName,
                                              std::string_view& namespaceUri,
                                              std::string_view& localName)
 {
-    const auto prefix = PrefixOf(canonicalName);
-    for (const auto& entry : kCanonicalNamespaces)
+    const auto prefix = CorePropertiesXmlHelper::PrefixOf(canonicalName);
+    for (const auto& entry : CorePropertiesXmlHelper::kCanonicalNamespaces)
     {
         if (entry.Prefix == prefix)
         {
@@ -94,20 +94,20 @@ bool CorePropertiesXml::ResolveCanonicalName(std::string_view canonicalName,
 
 std::string_view CorePropertiesXml::NamespaceUriOf(const Pugi::xml_node& node)
 {
-    const auto uri = NamespaceResolver::LookupUriForPrefix(node, PrefixOf(node.name()));
+    const auto uri = NamespaceResolver::LookupUriForPrefix(node, CorePropertiesXmlHelper::PrefixOf(node.name()));
     return uri ? *uri : std::string_view{};
 }
 
 Size CorePropertiesXml::OrderIndex(std::string_view localName)
 {
-    for (Size i = 0; i < kCorePropertyOrder.size(); ++i)
+    for (Size i = 0; i < CorePropertiesXmlHelper::kCorePropertyOrder.size(); ++i)
     {
-        if (kCorePropertyOrder[i] == localName)
+        if (CorePropertiesXmlHelper::kCorePropertyOrder[i] == localName)
         {
             return i;
         }
     }
-    return kCorePropertyOrder.size();
+    return CorePropertiesXmlHelper::kCorePropertyOrder.size();
 }
 
 Pugi::xml_node CorePropertiesXml::FindRoot(Pugi::xml_document& document)
@@ -180,8 +180,8 @@ Pugi::xml_node CorePropertiesXml::EnsureChild(Pugi::xml_node root, std::string_v
         return existing;
     }
 
-    const auto prefix = NamespaceResolver::EnsurePrefix(root, namespaceUri, PrefixOf(canonicalName));
-    const auto name = QualifiedName(prefix, localName);
+    const auto prefix = NamespaceResolver::EnsurePrefix(root, namespaceUri, CorePropertiesXmlHelper::PrefixOf(canonicalName));
+    const auto name = CorePropertiesXmlHelper::QualifiedName(prefix, localName);
 
     const auto index = OrderIndex(localName);
     for (auto child = root.first_child(); child; child = child.next_sibling())
@@ -219,7 +219,7 @@ void CorePropertiesXml::EnsureDateTypeAttribute(Pugi::xml_node node)
     for (const auto& attribute : node.attributes())
     {
         if (LocalName(attribute.name()) == "type" &&
-            NamespaceResolver::LookupUriForPrefix(node, PrefixOf(attribute.name())) ==
+            NamespaceResolver::LookupUriForPrefix(node, CorePropertiesXmlHelper::PrefixOf(attribute.name())) ==
                 XmlSchemaInstanceNamespace)
         {
             return;
@@ -228,8 +228,8 @@ void CorePropertiesXml::EnsureDateTypeAttribute(Pugi::xml_node node)
 
     const auto schemaPrefix = NamespaceResolver::EnsurePrefix(node, XmlSchemaInstanceNamespace, "xsi");
     const auto termsPrefix = NamespaceResolver::EnsurePrefix(node, DublinCoreTermsNamespace, "dcterms");
-    node.append_attribute(QualifiedName(schemaPrefix, "type").c_str()) =
-        QualifiedName(termsPrefix, "W3CDTF").c_str();
+    node.append_attribute(CorePropertiesXmlHelper::QualifiedName(schemaPrefix, "type").c_str()) =
+        CorePropertiesXmlHelper::QualifiedName(termsPrefix, "W3CDTF").c_str();
 }
 
 } // namespace ExyokiOffice::Xml

@@ -7,6 +7,8 @@
 #include "FormulaEvaluator.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -17,27 +19,6 @@ namespace ExyokiOffice::Excel
 
 namespace NumberFormatDetail
 {
-
-char AsciiLower(char c)
-{
-    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
-}
-
-bool EqualsIgnoreCase(std::string_view left, std::string_view right)
-{
-    if (left.size() != right.size())
-    {
-        return false;
-    }
-    for (Size i = 0; i < left.size(); ++i)
-    {
-        if (AsciiLower(left[i]) != AsciiLower(right[i]))
-        {
-            return false;
-        }
-    }
-    return true;
-}
 
 /** One lexical token of a format section. */
 struct FormatToken
@@ -91,7 +72,7 @@ const std::string_view DayNames[7] = {"Sunday", "Monday", "Tuesday", "Wednesday"
 /** Parses one section; returns false for unsupported codes. */
 bool ParseSection(std::string_view code, FormatSection& section)
 {
-    if (code.empty() || EqualsIgnoreCase(code, "General"))
+    if (code.empty() || AsciiText::EqualsIgnoreCase(code, "General"))
     {
         section.isGeneral = true;
         return true;
@@ -268,7 +249,7 @@ bool ParseSection(std::string_view code, FormatSection& section)
             {
                 // Only the elapsed-hours token is supported; colors and
                 // conditions are not.
-                if (i + 2 < code.size() && AsciiLower(code[i + 1]) == 'h' && code[i + 2] == ']')
+                if (i + 2 < code.size() && AsciiText::ToLower(code[i + 1]) == 'h' && code[i + 2] == ']')
                 {
                     FormatToken token;
                     token.kind = FormatToken::Kind::ElapsedHours;
@@ -286,7 +267,7 @@ bool ParseSection(std::string_view code, FormatSection& section)
             case 'A':
             case 'a':
             {
-                if (code.substr(i).size() >= 5 && EqualsIgnoreCase(code.substr(i, 5), "AM/PM"))
+                if (code.substr(i).size() >= 5 && AsciiText::EqualsIgnoreCase(code.substr(i, 5), "AM/PM"))
                 {
                     FormatToken token;
                     token.kind = FormatToken::Kind::AmPm;
@@ -295,7 +276,7 @@ bool ParseSection(std::string_view code, FormatSection& section)
                     i += 5;
                     continue;
                 }
-                if (code.substr(i).size() >= 3 && EqualsIgnoreCase(code.substr(i, 3), "A/P"))
+                if (code.substr(i).size() >= 3 && AsciiText::EqualsIgnoreCase(code.substr(i, 3), "A/P"))
                 {
                     FormatToken token;
                     token.kind = FormatToken::Kind::AmPm;
@@ -318,9 +299,9 @@ bool ParseSection(std::string_view code, FormatSection& section)
             case 's':
             case 'S':
             {
-                const char unit = AsciiLower(c);
+                const char unit = AsciiText::ToLower(c);
                 Size j = i;
-                while (j < code.size() && AsciiLower(code[j]) == unit)
+                while (j < code.size() && AsciiText::ToLower(code[j]) == unit)
                 {
                     ++j;
                 }

@@ -11,54 +11,56 @@
 
 namespace exyoki::generator
 {
-namespace
+/// File-local scanning helpers for the JSON reader.
+class JsonHelper
 {
-JsonValue ConvertJson(const nlohmann::json& value)
-{
-    if (value.is_null())
+public:
+    static JsonValue ConvertJson(const nlohmann::json& value)
     {
-        return JsonValue(std::nullptr_t{});
-    }
-
-    if (value.is_boolean())
-    {
-        return JsonValue(value.get<bool>());
-    }
-
-    if (value.is_number_float() || value.is_number_integer() || value.is_number_unsigned())
-    {
-        return JsonValue(value.get<double>());
-    }
-
-    if (value.is_string())
-    {
-        return JsonValue(value.get<std::string>());
-    }
-
-    if (value.is_array())
-    {
-        JsonValue::array_type array;
-        array.reserve(value.size());
-        for (const auto& item : value)
+        if (value.is_null())
         {
-            array.push_back(ConvertJson(item));
+            return JsonValue(std::nullptr_t{});
         }
-        return JsonValue(std::move(array));
-    }
 
-    if (value.is_object())
-    {
-        JsonValue::object_type object;
-        for (const auto& [key, item] : value.items())
+        if (value.is_boolean())
         {
-            object.emplace(key, ConvertJson(item));
+            return JsonValue(value.get<bool>());
         }
-        return JsonValue(std::move(object));
-    }
 
-    throw std::runtime_error("Unsupported JSON value type encountered during parsing.");
-}
-} // namespace
+        if (value.is_number_float() || value.is_number_integer() || value.is_number_unsigned())
+        {
+            return JsonValue(value.get<double>());
+        }
+
+        if (value.is_string())
+        {
+            return JsonValue(value.get<std::string>());
+        }
+
+        if (value.is_array())
+        {
+            JsonValue::array_type array;
+            array.reserve(value.size());
+            for (const auto& item : value)
+            {
+                array.push_back(ConvertJson(item));
+            }
+            return JsonValue(std::move(array));
+        }
+
+        if (value.is_object())
+        {
+            JsonValue::object_type object;
+            for (const auto& [key, item] : value.items())
+            {
+                object.emplace(key, ConvertJson(item));
+            }
+            return JsonValue(std::move(object));
+        }
+
+        throw std::runtime_error("Unsupported JSON value type encountered during parsing.");
+    }
+};
 
 JsonValue::JsonValue()
     : type_(Type::Null)
@@ -249,7 +251,7 @@ JsonValue JsonValue::Parse(std::string_view text)
     try
     {
         auto parsed = nlohmann::json::parse(text.begin(), text.end());
-        return ConvertJson(parsed);
+        return JsonHelper::ConvertJson(parsed);
     }
     catch (const nlohmann::json::exception& ex)
     {

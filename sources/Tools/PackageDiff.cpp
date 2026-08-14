@@ -12,6 +12,8 @@
 #include "pugixml/pugixml.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <map>
@@ -20,162 +22,147 @@
 namespace ExyokiOffice::Tools
 {
 
-namespace
+/// File-local normalization helpers behind the package diff.
+class PackageDiffHelper
 {
-
-bool IsWhitespaceOnly(std::string_view text)
-{
-    return std::all_of(text.begin(), text.end(),
-                       [](unsigned char ch)
-                       { return std::isspace(ch) != 0; });
-}
-
-std::string_view TrimWhitespace(std::string_view text)
-{
-    Size start = 0;
-    while (start < text.size() && std::isspace(static_cast<unsigned char>(text[start])) != 0)
+public:
+    static bool IsWhitespaceOnly(std::string_view text)
     {
-        ++start;
+        return std::all_of(text.begin(), text.end(),
+                           [](unsigned char ch)
+                           { return std::isspace(ch) != 0; });
     }
-    Size end = text.size();
-    while (end > start && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0)
+
+    static bool PreservesSpace(Pugi::xml_node node)
     {
-        --end;
+        const auto attribute = node.attribute("xml:space");
+        return attribute && std::string_view(attribute.value()) == "preserve";
     }
-    return text.substr(start, end - start);
-}
 
-bool PreservesSpace(Pugi::xml_node node)
-{
-    const auto attribute = node.attribute("xml:space");
-    return attribute && std::string_view(attribute.value()) == "preserve";
-}
-
-std::vector<Pugi::xml_node> SignificantChildren(Pugi::xml_node parent)
-{
-    const bool preserve = PreservesSpace(parent);
-    std::vector<Pugi::xml_node> result;
-    for (auto child : parent.children())
+    static std::vector<Pugi::xml_node> SignificantChildren(Pugi::xml_node parent)
     {
-        if (child.type() == Pugi::node_element)
+        const bool preserve = PreservesSpace(parent);
+        std::vector<Pugi::xml_node> result;
+        for (auto child : parent.children())
         {
-            result.push_back(child);
-        }
-        else if (child.type() == Pugi::node_pcdata || child.type() == Pugi::node_cdata)
-        {
-            if (preserve || !IsWhitespaceOnly(child.value()))
+            if (child.type() == Pugi::node_element)
             {
                 result.push_back(child);
             }
-        }
-    }
-    return result;
-}
-
-std::map<std::string, std::string> AttributeMap(Pugi::xml_node node)
-{
-    std::map<std::string, std::string> attributes;
-    for (auto attribute : node.attributes())
-    {
-        attributes.emplace(attribute.name(), attribute.value());
-    }
-    return attributes;
-}
-
-std::string SameTagPathSegment(Pugi::xml_node node)
-{
-    Size index = 1;
-    for (auto sibling = node.previous_sibling(node.name()); sibling; sibling = sibling.previous_sibling(node.name()))
-    {
-        ++index;
-    }
-    return std::string(node.name()) + "[" + std::to_string(index) + "]";
-}
-
-std::optional<std::string> CompareNodes(Pugi::xml_node a, Pugi::xml_node b, const std::string& path)
-{
-    if (std::string_view(a.name()) != std::string_view(b.name()))
-    {
-        return path;
-    }
-
-    if (AttributeMap(a) != AttributeMap(b))
-    {
-        return path + "/@" + a.name();
-    }
-
-    const auto childrenA = SignificantChildren(a);
-    const auto childrenB = SignificantChildren(b);
-    const auto commonCount = std::min(childrenA.size(), childrenB.size());
-
-    for (Size i = 0; i < commonCount; ++i)
-    {
-        auto childA = childrenA[i];
-        auto childB = childrenB[i];
-
-        if (childA.type() != childB.type())
-        {
-            return path + "/*";
-        }
-
-        if (childA.type() == Pugi::node_pcdata || childA.type() == Pugi::node_cdata)
-        {
-            const bool preserve = PreservesSpace(a);
-            const std::string_view textA = childA.value();
-            const std::string_view textB = childB.value();
-            const bool equal = preserve ? textA == textB : TrimWhitespace(textA) == TrimWhitespace(textB);
-            if (!equal)
+            else if (child.type() == Pugi::node_pcdata || child.type() == Pugi::node_cdata)
             {
-                return path + "/text()";
+                if (preserve || !IsWhitespaceOnly(child.value()))
+                {
+                    result.push_back(child);
+                }
             }
-            continue;
         }
+        return result;
+    }
 
-        const auto childPath = path + "/" + SameTagPathSegment(childA);
-        if (auto diff = CompareNodes(childA, childB, childPath))
+    static std::map<std::string, std::string> AttributeMap(Pugi::xml_node node)
+    {
+        std::map<std::string, std::string> attributes;
+        for (auto attribute : node.attributes())
         {
-            return diff;
+            attributes.emplace(attribute.name(), attribute.value());
         }
+        return attributes;
     }
 
-    if (childrenA.size() != childrenB.size())
+    static std::string SameTagPathSegment(Pugi::xml_node node)
     {
-        return path;
+        Size index = 1;
+        for (auto sibling = node.previous_sibling(node.name()); sibling; sibling = sibling.previous_sibling(node.name()))
+        {
+            ++index;
+        }
+        return std::string(node.name()) + "[" + std::to_string(index) + "]";
     }
 
-    return std::nullopt;
-}
-
-bool LoadXmlDocument(Pugi::xml_document& doc, const std::string& xml)
-{
-    // load_buffer, not load_string: c_str() ends the document at the first
-    // embedded NUL, so two parts differing only after one would compare equal.
-    return static_cast<bool>(doc.load_buffer(xml.data(), xml.size(), Xml::ParseOptions::Preserving));
-}
-
-/// Returns nullopt when the two XML documents are structurally equivalent, otherwise the first difference's path.
-std::optional<std::string> CompareXmlNormalized(const std::string& xmlA, const std::string& xmlB)
-{
-    Pugi::xml_document docA;
-    Pugi::xml_document docB;
-    const bool loadedA = !xmlA.empty() && LoadXmlDocument(docA, xmlA);
-    const bool loadedB = !xmlB.empty() && LoadXmlDocument(docB, xmlB);
-    if (!loadedA || !loadedB)
+    static std::optional<std::string> CompareNodes(Pugi::xml_node a, Pugi::xml_node b, const std::string& path)
     {
-        return xmlA != xmlB ? std::make_optional(std::string("/")) : std::nullopt;
+        if (std::string_view(a.name()) != std::string_view(b.name()))
+        {
+            return path;
+        }
+
+        if (AttributeMap(a) != AttributeMap(b))
+        {
+            return path + "/@" + a.name();
+        }
+
+        const auto childrenA = SignificantChildren(a);
+        const auto childrenB = SignificantChildren(b);
+        const auto commonCount = std::min(childrenA.size(), childrenB.size());
+
+        for (Size i = 0; i < commonCount; ++i)
+        {
+            auto childA = childrenA[i];
+            auto childB = childrenB[i];
+
+            if (childA.type() != childB.type())
+            {
+                return path + "/*";
+            }
+
+            if (childA.type() == Pugi::node_pcdata || childA.type() == Pugi::node_cdata)
+            {
+                const bool preserve = PreservesSpace(a);
+                const std::string_view textA = childA.value();
+                const std::string_view textB = childB.value();
+                const bool equal = preserve ? textA == textB : AsciiText::Trim(textA) == AsciiText::Trim(textB);
+                if (!equal)
+                {
+                    return path + "/text()";
+                }
+                continue;
+            }
+
+            const auto childPath = path + "/" + SameTagPathSegment(childA);
+            if (auto diff = CompareNodes(childA, childB, childPath))
+            {
+                return diff;
+            }
+        }
+
+        if (childrenA.size() != childrenB.size())
+        {
+            return path;
+        }
+
+        return std::nullopt;
     }
 
-    auto rootA = docA.document_element();
-    auto rootB = docB.document_element();
-    if (!rootA || !rootB)
+    static bool LoadXmlDocument(Pugi::xml_document& doc, const std::string& xml)
     {
-        return xmlA != xmlB ? std::make_optional(std::string("/")) : std::nullopt;
+        // load_buffer, not load_string: c_str() ends the document at the first
+        // embedded NUL, so two parts differing only after one would compare equal.
+        return static_cast<bool>(doc.load_buffer(xml.data(), xml.size(), Xml::ParseOptions::Preserving));
     }
 
-    return CompareNodes(rootA, rootB, "/" + SameTagPathSegment(rootA));
-}
+    /// Returns nullopt when the two XML documents are structurally equivalent, otherwise the first difference's path.
+    static std::optional<std::string> CompareXmlNormalized(const std::string& xmlA, const std::string& xmlB)
+    {
+        Pugi::xml_document docA;
+        Pugi::xml_document docB;
+        const bool loadedA = !xmlA.empty() && LoadXmlDocument(docA, xmlA);
+        const bool loadedB = !xmlB.empty() && LoadXmlDocument(docB, xmlB);
+        if (!loadedA || !loadedB)
+        {
+            return xmlA != xmlB ? std::make_optional(std::string("/")) : std::nullopt;
+        }
 
-} // namespace
+        auto rootA = docA.document_element();
+        auto rootB = docB.document_element();
+        if (!rootA || !rootB)
+        {
+            return xmlA != xmlB ? std::make_optional(std::string("/")) : std::nullopt;
+        }
+
+        return CompareNodes(rootA, rootB, "/" + SameTagPathSegment(rootA));
+    }
+};
 
 DiffResult Compare(const std::filesystem::path& left, const std::filesystem::path& right, bool normalizeXml)
 {
@@ -272,7 +259,7 @@ DiffResult Compare(const std::filesystem::path& left, const std::filesystem::pat
             continue;
         }
 
-        if (auto diffPath = CompareXmlNormalized(leftXml, rightXml))
+        if (auto diffPath = PackageDiffHelper::CompareXmlNormalized(leftXml, rightXml))
         {
             PartDiffEntry entry;
             entry.Uri = uri;

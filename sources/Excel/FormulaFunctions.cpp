@@ -5,6 +5,8 @@
 #include "FormulaFunctions.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -18,18 +20,13 @@ namespace ExyokiOffice::Excel
 namespace FormulaFunctionDetail
 {
 
-char AsciiUpper(char c)
-{
-    return (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
-}
-
 int CompareTextIgnoreCase(std::string_view left, std::string_view right)
 {
     const Size common = std::min(left.size(), right.size());
     for (Size i = 0; i < common; ++i)
     {
-        const char l = AsciiUpper(left[i]);
-        const char r = AsciiUpper(right[i]);
+        const char l = AsciiText::ToUpper(left[i]);
+        const char r = AsciiText::ToUpper(right[i]);
         if (l != r)
         {
             return l < r ? -1 : 1;
@@ -540,7 +537,7 @@ std::string FormulaFunctionRegistry::NormalizeName(std::string_view name)
     std::string result(name);
     for (char& c : result)
     {
-        c = FormulaFunctionDetail::AsciiUpper(c);
+        c = AsciiText::ToUpper(c);
     }
     return result;
 }
@@ -784,7 +781,8 @@ bool FormulaFunctionHelpers::WildcardMatch(std::string_view pattern, std::string
     Size starPattern = std::string_view::npos;
     Size starText = 0;
 
-    const auto upper = FormulaFunctionDetail::AsciiUpper;
+    const auto upper = [](char value)
+    { return AsciiText::ToUpper(value); };
     while (textIndex < text.size())
     {
         bool literal = false;

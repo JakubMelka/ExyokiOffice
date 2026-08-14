@@ -31,36 +31,36 @@
 namespace ExyokiOffice
 {
 
-namespace
+/// File-local helpers for part URI and content-type handling.
+class OpenXmlPackagePartHelper
 {
-
-std::optional<UInt32> ParseRelationshipNumber(std::string_view id)
-{
-    constexpr std::string_view prefix = "rId";
-    if (id.size() <= prefix.size() || id.substr(0, prefix.size()) != prefix)
+public:
+    static std::optional<UInt32> ParseRelationshipNumber(std::string_view id)
     {
-        return std::nullopt;
-    }
-
-    UInt32 value = 0;
-    for (char ch : id.substr(prefix.size()))
-    {
-        if (!std::isdigit(static_cast<unsigned char>(ch)))
+        constexpr std::string_view prefix = "rId";
+        if (id.size() <= prefix.size() || id.substr(0, prefix.size()) != prefix)
         {
             return std::nullopt;
         }
 
-        const auto digit = static_cast<UInt32>(ch - '0');
-        if (value > (std::numeric_limits<UInt32>::max() - digit) / 10)
+        UInt32 value = 0;
+        for (char ch : id.substr(prefix.size()))
         {
-            return std::nullopt;
-        }
-        value = value * 10 + digit;
-    }
-    return value;
-}
+            if (!std::isdigit(static_cast<unsigned char>(ch)))
+            {
+                return std::nullopt;
+            }
 
-} // namespace
+            const auto digit = static_cast<UInt32>(ch - '0');
+            if (value > (std::numeric_limits<UInt32>::max() - digit) / 10)
+            {
+                return std::nullopt;
+            }
+            value = value * 10 + digit;
+        }
+        return value;
+    }
+};
 
 OpenXmlPartContainer::OpenXmlPartContainer(OpenXmlPackage* package) noexcept
     : m_impl(std::make_unique<OpenXmlPartContainerImpl>())
@@ -586,7 +586,7 @@ std::string OpenXmlPartContainer::AllocateRelationshipId()
 
 void OpenXmlPartContainer::RegisterRelationship(OpenXmlRelationship relationship)
 {
-    if (auto relationshipNumber = ParseRelationshipNumber(relationship.Id))
+    if (auto relationshipNumber = OpenXmlPackagePartHelper::ParseRelationshipNumber(relationship.Id))
     {
         if (*relationshipNumber >= m_impl->nextRelationshipId)
         {

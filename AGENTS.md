@@ -224,7 +224,12 @@ build\ninja-clang-debug\gen\OpenXmlGenerator.exe --data data --out-include inclu
 Keep vendored code unchanged unless a task explicitly targets it. Put public
 API in `include/ExyokiOffice/` and implementation in `sources/`. Prefer a
 focused private helper class with static methods for file-local helpers; do not
-add an anonymous namespace merely to hold helper functions.
+add an anonymous namespace merely to hold helper functions. The rule is about
+functions, so two shapes stay as they are: a block that holds only constants,
+and one that holds only a class - the class is already the pattern, and
+wrapping it changes nothing. Keep each helper class focused: when one grows
+past a few dozen members, split it by subject rather than letting it collect
+everything the file needs.
 
 ## Build, test, and install
 

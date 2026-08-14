@@ -14,9 +14,6 @@
 namespace ExyokiOffice::Tools
 {
 
-namespace
-{
-
 using Json = nlohmann::ordered_json;
 
 // The semantic XML format is a mechanical projection of the canonical JSON
@@ -144,8 +141,6 @@ private:
         return array;
     }
 };
-
-} // namespace
 
 std::string SerializeModelXml(const DocumentModel& model, bool embedMedia)
 {

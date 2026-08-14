@@ -25,51 +25,51 @@
 
 namespace ExyokiOffice::Packaging
 {
-namespace
+/// File-local part lookup helpers for the Word package.
+class WordprocessingDocumentHelper
 {
-
-constexpr std::string_view kAttachedTemplateRelationship =
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate";
-bool IsCancellationRequested(const ICancellationToken* cancellationToken)
-{
-    return cancellationToken != nullptr && cancellationToken->IsCancelled();
-}
-
-ValidationResult CopyWithSeverity(const ValidationResult& source, ValidationSeverity severity)
-{
-    ValidationResult result;
-    for (auto issue : source.Issues())
+public:
+    static constexpr std::string_view kAttachedTemplateRelationship =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate";
+    static bool IsCancellationRequested(const ICancellationToken* cancellationToken)
     {
-        issue.Severity = severity;
-        result.AddIssue(std::move(issue));
-    }
-    return result;
-}
-
-void ReportDiagnostics(const ValidationResult& result, DiagnosticSink* sink)
-{
-    if (!sink)
-    {
-        return;
+        return cancellationToken != nullptr && cancellationToken->IsCancelled();
     }
 
-    for (const auto& issue : result.Issues())
+    static ValidationResult CopyWithSeverity(const ValidationResult& source, ValidationSeverity severity)
     {
-        sink->Report(issue);
+        ValidationResult result;
+        for (auto issue : source.Issues())
+        {
+            issue.Severity = severity;
+            result.AddIssue(std::move(issue));
+        }
+        return result;
     }
-}
 
-OpenXmlPackageLimits BuildPackageLimits(const OpenSettings& settings)
-{
-    auto limits = settings.PackageLimits;
-    if (limits.MaxPartBytes == 0 && settings.MaxCharactersInPart != 0)
+    static void ReportDiagnostics(const ValidationResult& result, DiagnosticSink* sink)
     {
-        limits.MaxPartBytes = settings.MaxCharactersInPart;
-    }
-    return limits;
-}
+        if (!sink)
+        {
+            return;
+        }
 
-} // namespace
+        for (const auto& issue : result.Issues())
+        {
+            sink->Report(issue);
+        }
+    }
+
+    static OpenXmlPackageLimits BuildPackageLimits(const OpenSettings& settings)
+    {
+        auto limits = settings.PackageLimits;
+        if (limits.MaxPartBytes == 0 && settings.MaxCharactersInPart != 0)
+        {
+            limits.MaxPartBytes = settings.MaxCharactersInPart;
+        }
+        return limits;
+    }
+};
 
 WordprocessingDocumentType WordDocument::GetDocumentType() const noexcept
 {
@@ -234,28 +234,28 @@ WordDocument::Ptr WordDocument::Open(const std::filesystem::path& path,
                                      const OpenSettings& settings,
                                      const ICancellationToken* cancellationToken)
 {
-    if (path.empty() || IsCancellationRequested(cancellationToken))
+    if (path.empty() || WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
     {
         return nullptr;
     }
     auto document = std::make_shared<WordDocument>();
-    document->SetPackageLimits(BuildPackageLimits(settings));
+    document->SetPackageLimits(WordprocessingDocumentHelper::BuildPackageLimits(settings));
     document->SetPartByteRetention(settings.ByteRetention);
     if (!document || !document->LoadFromFile(path, cancellationToken))
     {
         return nullptr;
     }
     document->ApplyOpenSettings(settings);
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
     {
         return nullptr;
     }
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
     {
         return nullptr;
     }
     document->UpdateDocumentTypeFromMainPart();
-    if (IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
     {
         return nullptr;
     }
@@ -266,33 +266,33 @@ WordDocument::Ptr WordDocument::Open(std::iostream& stream,
                                      const OpenSettings& settings,
                                      const ICancellationToken* cancellationToken)
 {
-    if (IsCancellationRequested(cancellationToken))
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
     {
         return nullptr;
     }
     auto buffer = ReadStreamFully(stream);
-    if (buffer.empty() || IsCancellationRequested(cancellationToken))
+    if (buffer.empty() || WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
     {
         return nullptr;
     }
     auto document = std::make_shared<WordDocument>();
-    document->SetPackageLimits(BuildPackageLimits(settings));
+    document->SetPackageLimits(WordprocessingDocumentHelper::BuildPackageLimits(settings));
     document->SetPartByteRetention(settings.ByteRetention);
     if (!document || !document->LoadFromMemory(buffer, cancellationToken))
     {
         return nullptr;
     }
     document->ApplyOpenSettings(settings);
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
     {
         return nullptr;
     }
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
     {
         return nullptr;
     }
     document->UpdateDocumentTypeFromMainPart();
-    if (IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
     {
         return nullptr;
     }
@@ -312,28 +312,28 @@ WordDocument::Ptr WordDocument::Open(std::span<const Byte> packageBuffer,
                                      const OpenSettings& settings,
                                      const ICancellationToken* cancellationToken)
 {
-    if (packageBuffer.empty() || IsCancellationRequested(cancellationToken))
+    if (packageBuffer.empty() || WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
     {
         return nullptr;
     }
     auto document = std::make_shared<WordDocument>();
-    document->SetPackageLimits(BuildPackageLimits(settings));
+    document->SetPackageLimits(WordprocessingDocumentHelper::BuildPackageLimits(settings));
     document->SetPartByteRetention(settings.ByteRetention);
     if (!document || !document->LoadFromMemory(packageBuffer, cancellationToken))
     {
         return nullptr;
     }
     document->ApplyOpenSettings(settings);
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
     {
         return nullptr;
     }
-    if (IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
     {
         return nullptr;
     }
     document->UpdateDocumentTypeFromMainPart();
-    if (IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
     {
         return nullptr;
     }
@@ -452,13 +452,13 @@ bool WordDocument::ApplyOpcValidationPolicy(const OpenSettings& settings)
     const auto validation = OpenXmlPackageValidator().Validate(*this);
     if (settings.OpcValidation == OpcValidationMode::Tolerant)
     {
-        auto warnings = CopyWithSeverity(validation, ValidationSeverity::Warning);
-        ReportDiagnostics(warnings, settings.ValidationDiagnostics);
+        auto warnings = WordprocessingDocumentHelper::CopyWithSeverity(validation, ValidationSeverity::Warning);
+        WordprocessingDocumentHelper::ReportDiagnostics(warnings, settings.ValidationDiagnostics);
         SetLastValidationResult(std::move(warnings));
         return true;
     }
 
-    ReportDiagnostics(validation, settings.ValidationDiagnostics);
+    WordprocessingDocumentHelper::ReportDiagnostics(validation, settings.ValidationDiagnostics);
     SetLastValidationResult(validation);
     return !validation.HasErrors();
 }
@@ -523,7 +523,7 @@ void WordDocument::AttachTemplateRelationship(const std::filesystem::path& templ
     }
 
     const auto relId =
-        settingsPart->AddExternalRelationship(kAttachedTemplateRelationship, BuildRelationshipTarget(templatePath));
+        settingsPart->AddExternalRelationship(WordprocessingDocumentHelper::kAttachedTemplateRelationship, BuildRelationshipTarget(templatePath));
     if (relId.empty())
     {
         return;
@@ -546,7 +546,7 @@ std::optional<Security::ExternalReference> WordDocument::GetAttachedTemplateRefe
 {
     for (const auto& reference : Security::CollectExternalReferences(*this))
     {
-        if (reference.RelationshipType == kAttachedTemplateRelationship)
+        if (reference.RelationshipType == WordprocessingDocumentHelper::kAttachedTemplateRelationship)
         {
             return reference;
         }

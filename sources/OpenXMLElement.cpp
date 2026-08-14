@@ -54,168 +54,168 @@ bool OpenXmlQualifiedName::operator<(const OpenXmlQualifiedName& other) const no
     return m_namespaceUri < other.m_namespaceUri;
 }
 
-namespace
+/// File-local qualified-name parsing helpers.
+class OpenXmlElementNameHelper
 {
-
-struct ParsedName
-{
-    std::string_view prefix;
-    std::string_view localName;
-};
-
-ParsedName SplitName(std::string_view qualifiedName)
-{
-    const auto colon = qualifiedName.find(':');
-    if (colon == std::string_view::npos)
+public:
+    struct ParsedName
     {
-        return {std::string_view{}, qualifiedName};
-    }
-    return {qualifiedName.substr(0, colon), qualifiedName.substr(colon + 1)};
-}
+        std::string_view prefix;
+        std::string_view localName;
+    };
 
-Pugi::xml_attribute FindAttribute(const ExyokiOffice::Pugi::xml_node& node,
-                                  const ExyokiOffice::OpenXmlQualifiedName& name)
-{
-    const auto targetLocal = name.localName();
-    const auto targetNs = name.namespaceUri();
-
-    for (const auto& attr : node.attributes())
+    static ParsedName SplitName(std::string_view qualifiedName)
     {
-        const auto parsed = SplitName(std::string_view(attr.name()));
-        if (parsed.localName != targetLocal)
+        const auto colon = qualifiedName.find(':');
+        if (colon == std::string_view::npos)
         {
-            continue;
+            return {std::string_view{}, qualifiedName};
+        }
+        return {qualifiedName.substr(0, colon), qualifiedName.substr(colon + 1)};
+    }
+
+    static Pugi::xml_attribute FindAttribute(const ExyokiOffice::Pugi::xml_node& node,
+                                             const ExyokiOffice::OpenXmlQualifiedName& name)
+    {
+        const auto targetLocal = name.localName();
+        const auto targetNs = name.namespaceUri();
+
+        for (const auto& attr : node.attributes())
+        {
+            const auto parsed = SplitName(std::string_view(attr.name()));
+            if (parsed.localName != targetLocal)
+            {
+                continue;
+            }
+
+            std::optional<std::string> attrNamespace;
+            if (parsed.prefix.empty())
+            {
+                attrNamespace = std::string{};
+            }
+            else
+            {
+                attrNamespace = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(node, parsed.prefix);
+            }
+            if (!attrNamespace)
+            {
+                attrNamespace = std::string{};
+            }
+
+            if (*attrNamespace == targetNs)
+            {
+                return attr;
+            }
         }
 
-        std::optional<std::string> attrNamespace;
-        if (parsed.prefix.empty())
+        return {};
+    }
+
+    // The namespace bindings a piece of copied content depends on: the prefixes its
+    // element and attribute names use, plus whether any element name is unprefixed
+    // and therefore bound by the default namespace declaration in scope.
+    struct NamespaceUsage
+    {
+        std::set<std::string> Prefixes;
+        bool UsesDefaultNamespace = false;
+    };
+
+    // Collects the namespace bindings referenced by element and attribute names in
+    // `node`, optionally including its whole subtree (used by the copy helpers to
+    // work out which declarations a copy has to carry with it).
+    static void CollectNamespaceUsage(const ExyokiOffice::Pugi::xml_node& node, NamespaceUsage& usage, bool recurse)
+    {
+        if (!node || node.type() != Pugi::node_element)
         {
-            attrNamespace = std::string{};
+            return;
+        }
+
+        const auto elementPrefix = SplitName(node.name() ? std::string_view(node.name()) : std::string_view{}).prefix;
+        if (elementPrefix.empty())
+        {
+            usage.UsesDefaultNamespace = true;
         }
         else
         {
-            attrNamespace = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(node, parsed.prefix);
-        }
-        if (!attrNamespace)
-        {
-            attrNamespace = std::string{};
+            usage.Prefixes.emplace(elementPrefix);
         }
 
-        if (*attrNamespace == targetNs)
+        for (const auto& attribute : node.attributes())
         {
-            return attr;
+            const auto attributePrefix =
+                SplitName(attribute.name() ? std::string_view(attribute.name()) : std::string_view{}).prefix;
+            if (!attributePrefix.empty() && attributePrefix != "xmlns")
+            {
+                usage.Prefixes.emplace(attributePrefix);
+            }
+        }
+
+        if (!recurse)
+        {
+            return;
+        }
+
+        for (auto child : node.children())
+        {
+            CollectNamespaceUsage(child, usage, recurse);
         }
     }
 
-    return {};
-}
+    /**
+     * @brief Resolves the qualified name of an XML node without materializing it.
+     */
+    static std::optional<OpenXmlQualifiedName> NodeQualifiedName(const ExyokiOffice::Pugi::xml_node& node,
+                                                                 std::string& namespaceStorage)
+    {
+        if (!node || node.type() != Pugi::node_element)
+        {
+            return std::nullopt;
+        }
+        const char* nameText = node.name();
+        const std::string_view rawName = nameText ? std::string_view(nameText) : std::string_view{};
+        if (rawName.empty())
+        {
+            return std::nullopt;
+        }
+        const auto parts = SplitName(rawName);
+        if (const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(node, parts.prefix))
+        {
+            namespaceStorage = *uri;
+            return OpenXmlQualifiedName(std::string_view(namespaceStorage), parts.localName);
+        }
+        return OpenXmlQualifiedName(std::string_view{}, parts.localName);
+    }
 
-// The namespace bindings a piece of copied content depends on: the prefixes its
-// element and attribute names use, plus whether any element name is unprefixed
-// and therefore bound by the default namespace declaration in scope.
-struct NamespaceUsage
-{
-    std::set<std::string> Prefixes;
-    bool UsesDefaultNamespace = false;
+    /**
+     * @brief Finds the element particle that declares @p name inside a content model.
+     */
+    static const MetadataElementParticle* FindElementParticle(const MetadataParticlePtr& particle,
+                                                              const OpenXmlQualifiedName& name)
+    {
+        if (!particle)
+        {
+            return nullptr;
+        }
+        if (particle->Kind() == MetadataParticleKind::Element)
+        {
+            const auto& element = static_cast<const MetadataElementParticle&>(*particle);
+            return element.Element() == name ? &element : nullptr;
+        }
+        if (particle->Kind() == MetadataParticleKind::Any)
+        {
+            return nullptr;
+        }
+        const auto& composite = static_cast<const MetadataCompositeParticle&>(*particle);
+        for (const auto& child : composite.Children())
+        {
+            if (const auto* found = FindElementParticle(child, name))
+            {
+                return found;
+            }
+        }
+        return nullptr;
+    }
 };
-
-// Collects the namespace bindings referenced by element and attribute names in
-// `node`, optionally including its whole subtree (used by the copy helpers to
-// work out which declarations a copy has to carry with it).
-void CollectNamespaceUsage(const ExyokiOffice::Pugi::xml_node& node, NamespaceUsage& usage, bool recurse)
-{
-    if (!node || node.type() != Pugi::node_element)
-    {
-        return;
-    }
-
-    const auto elementPrefix = SplitName(node.name() ? std::string_view(node.name()) : std::string_view{}).prefix;
-    if (elementPrefix.empty())
-    {
-        usage.UsesDefaultNamespace = true;
-    }
-    else
-    {
-        usage.Prefixes.emplace(elementPrefix);
-    }
-
-    for (const auto& attribute : node.attributes())
-    {
-        const auto attributePrefix =
-            SplitName(attribute.name() ? std::string_view(attribute.name()) : std::string_view{}).prefix;
-        if (!attributePrefix.empty() && attributePrefix != "xmlns")
-        {
-            usage.Prefixes.emplace(attributePrefix);
-        }
-    }
-
-    if (!recurse)
-    {
-        return;
-    }
-
-    for (auto child : node.children())
-    {
-        CollectNamespaceUsage(child, usage, recurse);
-    }
-}
-
-/**
- * @brief Resolves the qualified name of an XML node without materializing it.
- */
-std::optional<OpenXmlQualifiedName> NodeQualifiedName(const ExyokiOffice::Pugi::xml_node& node,
-                                                      std::string& namespaceStorage)
-{
-    if (!node || node.type() != Pugi::node_element)
-    {
-        return std::nullopt;
-    }
-    const char* nameText = node.name();
-    const std::string_view rawName = nameText ? std::string_view(nameText) : std::string_view{};
-    if (rawName.empty())
-    {
-        return std::nullopt;
-    }
-    const auto parts = SplitName(rawName);
-    if (const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(node, parts.prefix))
-    {
-        namespaceStorage = *uri;
-        return OpenXmlQualifiedName(std::string_view(namespaceStorage), parts.localName);
-    }
-    return OpenXmlQualifiedName(std::string_view{}, parts.localName);
-}
-
-/**
- * @brief Finds the element particle that declares @p name inside a content model.
- */
-const MetadataElementParticle* FindElementParticle(const MetadataParticlePtr& particle,
-                                                   const OpenXmlQualifiedName& name)
-{
-    if (!particle)
-    {
-        return nullptr;
-    }
-    if (particle->Kind() == MetadataParticleKind::Element)
-    {
-        const auto& element = static_cast<const MetadataElementParticle&>(*particle);
-        return element.Element() == name ? &element : nullptr;
-    }
-    if (particle->Kind() == MetadataParticleKind::Any)
-    {
-        return nullptr;
-    }
-    const auto& composite = static_cast<const MetadataCompositeParticle&>(*particle);
-    for (const auto& child : composite.Children())
-    {
-        if (const auto* found = FindElementParticle(child, name))
-        {
-            return found;
-        }
-    }
-    return nullptr;
-}
-
-} // namespace
 
 namespace Detail
 {
@@ -236,7 +236,7 @@ std::shared_ptr<OpenXMLElement> CreateOpenXmlElementFromNode(
         return nullptr;
     }
 
-    const auto parts = SplitName(rawName);
+    const auto parts = OpenXmlElementNameHelper::SplitName(rawName);
     std::string namespaceBuffer;
     std::string_view namespaceView;
     if (const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(node, parts.prefix))
@@ -284,9 +284,6 @@ std::shared_ptr<OpenXMLElement> CreateOpenXmlElementFromNode(const ExyokiOffice:
 }
 
 } // namespace Detail
-
-namespace
-{
 
 class OpenXmlSchemaInsertionHelpers
 {
@@ -538,7 +535,6 @@ public:
 private:
     OpenXmlQualifiedName name_;
 };
-} // namespace
 
 GenericOpenXmlElement::GenericOpenXmlElement(OpenXmlQualifiedName name)
     : namespaceUri_(name.namespaceUri()), localName_(name.localName()), metaClass_(std::make_unique<GenericElementMetaClass>(OpenXmlQualifiedName(namespaceUri_, localName_)))
@@ -552,295 +548,295 @@ const OpenXMLElementClass* GenericOpenXmlElement::ElementMetaClass() const noexc
     return metaClass_.get();
 }
 
-namespace
+/// File-local pugixml navigation helpers for element serialization.
+class OpenXmlElementXmlHelper
 {
-
-ExyokiOffice::Pugi::xml_node FirstElementChild(const ExyokiOffice::Pugi::xml_node& node)
-{
-    auto child = node.first_child();
-    while (child && child.type() != Pugi::node_element)
+public:
+    static ExyokiOffice::Pugi::xml_node FirstElementChild(const ExyokiOffice::Pugi::xml_node& node)
     {
-        child = child.next_sibling();
-    }
-    return child;
-}
-
-ExyokiOffice::Pugi::xml_node LastElementChild(const ExyokiOffice::Pugi::xml_node& node)
-{
-    auto child = node.last_child();
-    while (child && child.type() != Pugi::node_element)
-    {
-        child = child.previous_sibling();
-    }
-    return child;
-}
-
-ExyokiOffice::Pugi::xml_node NextElementSibling(const ExyokiOffice::Pugi::xml_node& node)
-{
-    auto sibling = node.next_sibling();
-    while (sibling && sibling.type() != Pugi::node_element)
-    {
-        sibling = sibling.next_sibling();
-    }
-    return sibling;
-}
-
-ExyokiOffice::Pugi::xml_node PreviousElementSibling(const ExyokiOffice::Pugi::xml_node& node)
-{
-    auto sibling = node.previous_sibling();
-    while (sibling && sibling.type() != Pugi::node_element)
-    {
-        sibling = sibling.previous_sibling();
-    }
-    return sibling;
-}
-
-/**
- * @brief Formats a node's name for diagnostics, normalizing the prefix.
- *
- * A document may bind any prefix to a namespace, so the prefix it happens to use
- * is not a stable way to name an element in a diagnostic. Where the namespace is
- * a known Open XML one, its canonical prefix is used instead; otherwise the name
- * is reported exactly as written.
- */
-std::string DisplayQualifiedName(std::string_view rawName,
-                                 std::string_view localName,
-                                 std::string_view namespaceUri)
-{
-    if (rawName.empty())
-    {
-        return {};
-    }
-
-    if (!namespaceUri.empty())
-    {
-        if (const auto wellKnown =
-                ExyokiOffice::OpenXml::Features::OpenXmlNamespaceResolver::getPrefixForUrl(namespaceUri))
+        auto child = node.first_child();
+        while (child && child.type() != Pugi::node_element)
         {
-            std::string result;
-            result.reserve(wellKnown->size() + 1 + localName.size());
-            result.append(*wellKnown);
-            result.push_back(':');
-            result.append(localName);
-            return result;
+            child = child.next_sibling();
         }
+        return child;
     }
 
-    return std::string(rawName);
-}
-
-std::string DisplayQualifiedName(const ExyokiOffice::Pugi::xml_node& node)
-{
-    const char* nameText = node.name();
-    const std::string_view rawName = nameText ? std::string_view(nameText) : std::string_view{};
-    if (rawName.empty())
+    static ExyokiOffice::Pugi::xml_node LastElementChild(const ExyokiOffice::Pugi::xml_node& node)
     {
-        return {};
-    }
-
-    const auto parts = SplitName(rawName);
-    const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(node, parts.prefix);
-    return DisplayQualifiedName(rawName, parts.localName, uri ? std::string_view(*uri) : std::string_view{});
-}
-
-/**
- * @brief Formats an attribute name for diagnostics when the attribute is absent.
- *
- * Used for "attribute is required" style messages, where there is no attribute in
- * the document to read a prefix from. The prefix the element's scope already binds
- * to the namespace wins, so the message matches how the document would spell it.
- */
-std::string DescribeQualifiedAttributeName(const ExyokiOffice::Pugi::xml_node& node,
-                                           const OpenXmlQualifiedName& name)
-{
-    if (name.namespaceUri().empty())
-    {
-        return std::string(name.localName());
-    }
-
-    std::string prefix;
-    if (const auto inScope = ExyokiOffice::Xml::NamespaceResolver::LookupPrefixForUri(node, name.namespaceUri());
-        inScope && !inScope->empty())
-    {
-        prefix = *inScope;
-    }
-    else if (const auto wellKnown =
-                 ExyokiOffice::OpenXml::Features::OpenXmlNamespaceResolver::getPrefixForUrl(name.namespaceUri()))
-    {
-        prefix = *wellKnown;
-    }
-    else
-    {
-        return std::string(name.localName());
-    }
-
-    std::string result;
-    result.reserve(prefix.size() + 1 + name.localName().size());
-    result.append(prefix);
-    result.push_back(':');
-    result.append(name.localName());
-    return result;
-}
-
-bool NodeMatchesQualifiedName(const ExyokiOffice::Pugi::xml_node& node, const OpenXmlQualifiedName& name)
-{
-    const char* nameText = node.name();
-    const std::string_view rawName = nameText ? std::string_view(nameText) : std::string_view{};
-    if (rawName.empty())
-    {
-        return false;
-    }
-
-    const auto parts = SplitName(rawName);
-    std::string namespaceBuffer;
-    std::string_view namespaceView;
-    if (const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(node, parts.prefix))
-    {
-        namespaceBuffer = *uri;
-        namespaceView = namespaceBuffer;
-    }
-    else
-    {
-        namespaceView = std::string_view{};
-    }
-
-    return namespaceView == name.namespaceUri() && parts.localName == name.localName();
-}
-
-std::string BuildElementQualifiedName(ExyokiOffice::Pugi::xml_node& node, const OpenXmlQualifiedName& name)
-{
-    std::string prefix;
-    if (!name.namespaceUri().empty())
-    {
-        auto existingPrefix = Xml::NamespaceResolver::LookupPrefixForUri(node, name.namespaceUri());
-        if (!existingPrefix.has_value())
+        auto child = node.last_child();
+        while (child && child.type() != Pugi::node_element)
         {
-            if (auto suggested =
-                    ExyokiOffice::OpenXml::Features::OpenXmlNamespaceResolver::getPrefixForUrl(name.namespaceUri()))
+            child = child.previous_sibling();
+        }
+        return child;
+    }
+
+    static ExyokiOffice::Pugi::xml_node NextElementSibling(const ExyokiOffice::Pugi::xml_node& node)
+    {
+        auto sibling = node.next_sibling();
+        while (sibling && sibling.type() != Pugi::node_element)
+        {
+            sibling = sibling.next_sibling();
+        }
+        return sibling;
+    }
+
+    static ExyokiOffice::Pugi::xml_node PreviousElementSibling(const ExyokiOffice::Pugi::xml_node& node)
+    {
+        auto sibling = node.previous_sibling();
+        while (sibling && sibling.type() != Pugi::node_element)
+        {
+            sibling = sibling.previous_sibling();
+        }
+        return sibling;
+    }
+
+    /**
+     * @brief Formats a node's name for diagnostics, normalizing the prefix.
+     *
+     * A document may bind any prefix to a namespace, so the prefix it happens to use
+     * is not a stable way to name an element in a diagnostic. Where the namespace is
+     * a known Open XML one, its canonical prefix is used instead; otherwise the name
+     * is reported exactly as written.
+     */
+    static std::string DisplayQualifiedName(std::string_view rawName,
+                                            std::string_view localName,
+                                            std::string_view namespaceUri)
+    {
+        if (rawName.empty())
+        {
+            return {};
+        }
+
+        if (!namespaceUri.empty())
+        {
+            if (const auto wellKnown =
+                    ExyokiOffice::OpenXml::Features::OpenXmlNamespaceResolver::getPrefixForUrl(namespaceUri))
             {
-                existingPrefix = *suggested;
+                std::string result;
+                result.reserve(wellKnown->size() + 1 + localName.size());
+                result.append(*wellKnown);
+                result.push_back(':');
+                result.append(localName);
+                return result;
             }
         }
 
-        prefix = Xml::NamespaceResolver::EnsurePrefix(node, name.namespaceUri(), existingPrefix);
+        return std::string(rawName);
     }
 
-    std::string qualifiedName;
-    if (prefix.empty())
+    static std::string DisplayQualifiedName(const ExyokiOffice::Pugi::xml_node& node)
     {
-        qualifiedName.assign(name.localName());
-    }
-    else
-    {
-        qualifiedName.reserve(prefix.size() + 1 + name.localName().size());
-        qualifiedName.append(prefix);
-        qualifiedName.push_back(':');
-        qualifiedName.append(name.localName());
-    }
-
-    return qualifiedName;
-}
-
-/**
- * @brief Resolves the anchor an existing subtree should be placed in front of.
- *
- * For exact placement the caller's anchor is used verbatim. For schema-ordered
- * placement it becomes a preference that the parent's content model may override.
- */
-std::shared_ptr<OpenXMLElement> ResolvePlacementAnchor(const OpenXMLElement& targetParent,
-                                                       const OpenXmlQualifiedName& childName,
-                                                       const std::shared_ptr<OpenXMLElement>& before,
-                                                       OpenXmlPlacement placement)
-{
-    if (placement != OpenXmlPlacement::SchemaOrdered)
-    {
-        return before;
-    }
-
-    return OpenXmlSchemaInsertionHelpers::FindInsertionAnchor(targetParent, childName, before);
-}
-
-/**
- * @brief Copies `source` under `targetNode` and repairs its namespace bindings.
- *
- * The copy is inserted in front of `beforeNode`, or appended when that node is
- * empty. Every namespace binding the copied content depends on but the
- * destination does not already provide identically is redeclared on the copied
- * root, so the result stays self-contained.
- */
-Pugi::xml_node CopyNodeInto(const ExyokiOffice::Pugi::xml_node& source,
-                            ExyokiOffice::Pugi::xml_node& targetNode,
-                            const ExyokiOffice::Pugi::xml_node& beforeNode,
-                            OpenXmlCloneDepth depth)
-{
-    // Resolve the bindings in the *source* context before copying: the
-    // destination tree may not declare (or may declare differently) some of them.
-    NamespaceUsage usage;
-    CollectNamespaceUsage(source, usage, depth == OpenXmlCloneDepth::Deep);
-
-    std::vector<std::pair<std::string, std::string>> requiredDeclarations;
-    for (const auto& prefix : usage.Prefixes)
-    {
-        if (auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(source, prefix))
+        const char* nameText = node.name();
+        const std::string_view rawName = nameText ? std::string_view(nameText) : std::string_view{};
+        if (rawName.empty())
         {
-            requiredDeclarations.emplace_back(prefix, std::string(*uri));
+            return {};
         }
-    }
-    if (usage.UsesDefaultNamespace)
-    {
-        // An unprefixed element name binds to whatever xmlns="..." is in scope.
-        // The empty binding matters just as much as a real one: without it the
-        // copy would silently adopt the destination's default namespace.
-        const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(source, std::string_view{});
-        requiredDeclarations.emplace_back(std::string{}, uri ? std::string(*uri) : std::string{});
+
+        const auto parts = OpenXmlElementNameHelper::SplitName(rawName);
+        const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(node, parts.prefix);
+        return DisplayQualifiedName(rawName, parts.localName, uri ? std::string_view(*uri) : std::string_view{});
     }
 
-    Pugi::xml_node copiedNode;
-    if (depth == OpenXmlCloneDepth::Deep)
+    /**
+     * @brief Formats an attribute name for diagnostics when the attribute is absent.
+     *
+     * Used for "attribute is required" style messages, where there is no attribute in
+     * the document to read a prefix from. The prefix the element's scope already binds
+     * to the namespace wins, so the message matches how the document would spell it.
+     */
+    static std::string DescribeQualifiedAttributeName(const ExyokiOffice::Pugi::xml_node& node,
+                                                      const OpenXmlQualifiedName& name)
     {
-        copiedNode =
-            beforeNode ? targetNode.insert_copy_before(source, beforeNode) : targetNode.append_copy(source);
-    }
-    else
-    {
-        copiedNode = beforeNode ? targetNode.insert_child_before(source.type(), beforeNode)
-                                : targetNode.append_child(source.type());
-        if (copiedNode)
+        if (name.namespaceUri().empty())
         {
-            copiedNode.set_name(source.name());
-            for (const auto& attribute : source.attributes())
+            return std::string(name.localName());
+        }
+
+        std::string prefix;
+        if (const auto inScope = ExyokiOffice::Xml::NamespaceResolver::LookupPrefixForUri(node, name.namespaceUri());
+            inScope && !inScope->empty())
+        {
+            prefix = *inScope;
+        }
+        else if (const auto wellKnown =
+                     ExyokiOffice::OpenXml::Features::OpenXmlNamespaceResolver::getPrefixForUrl(name.namespaceUri()))
+        {
+            prefix = *wellKnown;
+        }
+        else
+        {
+            return std::string(name.localName());
+        }
+
+        std::string result;
+        result.reserve(prefix.size() + 1 + name.localName().size());
+        result.append(prefix);
+        result.push_back(':');
+        result.append(name.localName());
+        return result;
+    }
+
+    static bool NodeMatchesQualifiedName(const ExyokiOffice::Pugi::xml_node& node, const OpenXmlQualifiedName& name)
+    {
+        const char* nameText = node.name();
+        const std::string_view rawName = nameText ? std::string_view(nameText) : std::string_view{};
+        if (rawName.empty())
+        {
+            return false;
+        }
+
+        const auto parts = OpenXmlElementNameHelper::SplitName(rawName);
+        std::string namespaceBuffer;
+        std::string_view namespaceView;
+        if (const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(node, parts.prefix))
+        {
+            namespaceBuffer = *uri;
+            namespaceView = namespaceBuffer;
+        }
+        else
+        {
+            namespaceView = std::string_view{};
+        }
+
+        return namespaceView == name.namespaceUri() && parts.localName == name.localName();
+    }
+
+    static std::string BuildElementQualifiedName(ExyokiOffice::Pugi::xml_node& node, const OpenXmlQualifiedName& name)
+    {
+        std::string prefix;
+        if (!name.namespaceUri().empty())
+        {
+            auto existingPrefix = Xml::NamespaceResolver::LookupPrefixForUri(node, name.namespaceUri());
+            if (!existingPrefix.has_value())
             {
-                copiedNode.append_attribute(attribute.name()).set_value(attribute.value());
+                if (auto suggested =
+                        ExyokiOffice::OpenXml::Features::OpenXmlNamespaceResolver::getPrefixForUrl(name.namespaceUri()))
+                {
+                    existingPrefix = *suggested;
+                }
+            }
+
+            prefix = Xml::NamespaceResolver::EnsurePrefix(node, name.namespaceUri(), existingPrefix);
+        }
+
+        std::string qualifiedName;
+        if (prefix.empty())
+        {
+            qualifiedName.assign(name.localName());
+        }
+        else
+        {
+            qualifiedName.reserve(prefix.size() + 1 + name.localName().size());
+            qualifiedName.append(prefix);
+            qualifiedName.push_back(':');
+            qualifiedName.append(name.localName());
+        }
+
+        return qualifiedName;
+    }
+
+    /**
+     * @brief Resolves the anchor an existing subtree should be placed in front of.
+     *
+     * For exact placement the caller's anchor is used verbatim. For schema-ordered
+     * placement it becomes a preference that the parent's content model may override.
+     */
+    static std::shared_ptr<OpenXMLElement> ResolvePlacementAnchor(const OpenXMLElement& targetParent,
+                                                                  const OpenXmlQualifiedName& childName,
+                                                                  const std::shared_ptr<OpenXMLElement>& before,
+                                                                  OpenXmlPlacement placement)
+    {
+        if (placement != OpenXmlPlacement::SchemaOrdered)
+        {
+            return before;
+        }
+
+        return OpenXmlSchemaInsertionHelpers::FindInsertionAnchor(targetParent, childName, before);
+    }
+
+    /**
+     * @brief Copies `source` under `targetNode` and repairs its namespace bindings.
+     *
+     * The copy is inserted in front of `beforeNode`, or appended when that node is
+     * empty. Every namespace binding the copied content depends on but the
+     * destination does not already provide identically is redeclared on the copied
+     * root, so the result stays self-contained.
+     */
+    static Pugi::xml_node CopyNodeInto(const ExyokiOffice::Pugi::xml_node& source,
+                                       ExyokiOffice::Pugi::xml_node& targetNode,
+                                       const ExyokiOffice::Pugi::xml_node& beforeNode,
+                                       OpenXmlCloneDepth depth)
+    {
+        // Resolve the bindings in the *source* context before copying: the
+        // destination tree may not declare (or may declare differently) some of them.
+        OpenXmlElementNameHelper::NamespaceUsage usage;
+        OpenXmlElementNameHelper::CollectNamespaceUsage(source, usage, depth == OpenXmlCloneDepth::Deep);
+
+        std::vector<std::pair<std::string, std::string>> requiredDeclarations;
+        for (const auto& prefix : usage.Prefixes)
+        {
+            if (auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(source, prefix))
+            {
+                requiredDeclarations.emplace_back(prefix, std::string(*uri));
             }
         }
-    }
-    if (!copiedNode)
-    {
-        return {};
-    }
-
-    for (const auto& [prefix, uri] : requiredDeclarations)
-    {
-        const auto existing = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(copiedNode, prefix);
-        const std::string_view resolved = existing ? *existing : std::string_view{};
-        if (resolved == uri)
+        if (usage.UsesDefaultNamespace)
         {
-            continue;
+            // An unprefixed element name binds to whatever xmlns="..." is in scope.
+            // The empty binding matters just as much as a real one: without it the
+            // copy would silently adopt the destination's default namespace.
+            const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(source, std::string_view{});
+            requiredDeclarations.emplace_back(std::string{}, uri ? std::string(*uri) : std::string{});
         }
 
-        const std::string attributeName = prefix.empty() ? std::string("xmlns") : "xmlns:" + prefix;
-        auto attribute = copiedNode.attribute(attributeName.c_str());
-        if (!attribute)
+        Pugi::xml_node copiedNode;
+        if (depth == OpenXmlCloneDepth::Deep)
         {
-            attribute = copiedNode.append_attribute(attributeName.c_str());
+            copiedNode =
+                beforeNode ? targetNode.insert_copy_before(source, beforeNode) : targetNode.append_copy(source);
         }
-        attribute.set_value(uri.c_str());
+        else
+        {
+            copiedNode = beforeNode ? targetNode.insert_child_before(source.type(), beforeNode)
+                                    : targetNode.append_child(source.type());
+            if (copiedNode)
+            {
+                copiedNode.set_name(source.name());
+                for (const auto& attribute : source.attributes())
+                {
+                    copiedNode.append_attribute(attribute.name()).set_value(attribute.value());
+                }
+            }
+        }
+        if (!copiedNode)
+        {
+            return {};
+        }
+
+        for (const auto& [prefix, uri] : requiredDeclarations)
+        {
+            const auto existing = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(copiedNode, prefix);
+            const std::string_view resolved = existing ? *existing : std::string_view{};
+            if (resolved == uri)
+            {
+                continue;
+            }
+
+            const std::string attributeName = prefix.empty() ? std::string("xmlns") : "xmlns:" + prefix;
+            auto attribute = copiedNode.attribute(attributeName.c_str());
+            if (!attribute)
+            {
+                attribute = copiedNode.append_attribute(attributeName.c_str());
+            }
+            attribute.set_value(uri.c_str());
+        }
+
+        return copiedNode;
     }
-
-    return copiedNode;
-}
-
-} // namespace
+};
 
 OpenXmlQualifiedName OpenXMLElement::QualifiedName() const
 {
@@ -917,7 +913,7 @@ struct XmlLocationCache::Impl
 
         // A node with no parent at all: nothing to be positioned among, and no
         // ancestry to prefix it with. Its own name is the whole path.
-        auto name = DisplayQualifiedName(node);
+        auto name = OpenXmlElementXmlHelper::DisplayQualifiedName(node);
         auto path = "/" + name;
         return Entries.emplace(node.internal_object(), Entry{std::move(path), std::move(name)}).first->second;
     }
@@ -955,11 +951,11 @@ struct XmlLocationCache::Impl
 
         std::vector<ChildName> children;
         std::unordered_map<std::string, Size> totals;
-        for (auto child = FirstElementChild(parent); child; child = NextElementSibling(child))
+        for (auto child = OpenXmlElementXmlHelper::FirstElementChild(parent); child; child = OpenXmlElementXmlHelper::NextElementSibling(child))
         {
             const char* nameText = child.name();
             const std::string_view rawName = nameText ? std::string_view(nameText) : std::string_view{};
-            const auto parts = SplitName(rawName);
+            const auto parts = OpenXmlElementNameHelper::SplitName(rawName);
             const auto uri = ExyokiOffice::Xml::NamespaceResolver::LookupUriForPrefix(child, parts.prefix);
             const std::string_view namespaceUri = uri ? std::string_view(*uri) : std::string_view{};
 
@@ -971,7 +967,7 @@ struct XmlLocationCache::Impl
 
             ++totals[key];
             children.push_back(
-                {child, DisplayQualifiedName(rawName, parts.localName, namespaceUri), std::move(key)});
+                {child, OpenXmlElementXmlHelper::DisplayQualifiedName(rawName, parts.localName, namespaceUri), std::move(key)});
         }
 
         std::unordered_map<std::string, Size> positions;
@@ -1032,7 +1028,7 @@ XmlLocation XmlLocationCache::Location(const OpenXMLElement& element, const Open
     }
 
     const auto node = Detail::ToNode(element.GetNodeHandle());
-    if (const auto existing = FindAttribute(node, attribute))
+    if (const auto existing = OpenXmlElementNameHelper::FindAttribute(node, attribute))
     {
         // Report the attribute exactly as the document spells it when it is
         // actually present, so the location can be matched against the markup.
@@ -1040,7 +1036,7 @@ XmlLocation XmlLocationCache::Location(const OpenXMLElement& element, const Open
         return location;
     }
 
-    location.AttributeName = DescribeQualifiedAttributeName(node, attribute);
+    location.AttributeName = OpenXmlElementXmlHelper::DescribeQualifiedAttributeName(node, attribute);
     return location;
 }
 
@@ -1088,11 +1084,11 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::CopyInto(const std::shared_ptr<O
         return nullptr;
     }
 
-    const auto anchor = ResolvePlacementAnchor(*targetParent, QualifiedName(), before, placement);
+    const auto anchor = OpenXmlElementXmlHelper::ResolvePlacementAnchor(*targetParent, QualifiedName(), before, placement);
     const Pugi::xml_node anchorNode = Detail::NodeOf(anchor);
     const Pugi::xml_node beforeNode = anchorNode.parent() == targetNode ? anchorNode : Pugi::xml_node{};
 
-    const auto copiedNode = CopyNodeInto(node, targetNode, beforeNode, depth);
+    const auto copiedNode = OpenXmlElementXmlHelper::CopyNodeInto(node, targetNode, beforeNode, depth);
     if (!copiedNode)
     {
         return nullptr;
@@ -1116,7 +1112,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::CopyAfter(const std::shared_ptr<
         return nullptr;
     }
 
-    const auto copiedNode = CopyNodeInto(Detail::ToNode(m_node), parentNode, anchorNode.next_sibling(), depth);
+    const auto copiedNode = OpenXmlElementXmlHelper::CopyNodeInto(Detail::ToNode(m_node), parentNode, anchorNode.next_sibling(), depth);
     if (!copiedNode)
     {
         return nullptr;
@@ -1142,7 +1138,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::MoveInto(const std::shared_ptr<O
         return nullptr;
     }
 
-    const auto anchor = ResolvePlacementAnchor(*targetParent, QualifiedName(), before, placement);
+    const auto anchor = OpenXmlElementXmlHelper::ResolvePlacementAnchor(*targetParent, QualifiedName(), before, placement);
     auto anchorNode = Detail::NodeOf(anchor);
     if (anchorNode.parent() != targetNode)
     {
@@ -1159,7 +1155,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::MoveInto(const std::shared_ptr<O
         // pugixml cannot relink across documents, so a cross-document move is a
         // copy plus destruction of the source. Node identity is lost and every
         // wrapper into the old subtree goes stale, this one included.
-        const auto copiedNode = CopyNodeInto(node, targetNode, anchorNode, OpenXmlCloneDepth::Deep);
+        const auto copiedNode = OpenXmlElementXmlHelper::CopyNodeInto(node, targetNode, anchorNode, OpenXmlCloneDepth::Deep);
         if (!copiedNode)
         {
             return nullptr;
@@ -1247,7 +1243,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::ReplaceWith(const std::shared_pt
     }
     else
     {
-        const auto copiedNode = CopyNodeInto(replacementNode, parentNode, node, OpenXmlCloneDepth::Deep);
+        const auto copiedNode = OpenXmlElementXmlHelper::CopyNodeInto(replacementNode, parentNode, node, OpenXmlCloneDepth::Deep);
         if (!copiedNode)
         {
             return nullptr;
@@ -1365,7 +1361,7 @@ std::vector<std::shared_ptr<OpenXMLElement>> OpenXMLElement::Children() const
         return result;
     }
 
-    for (auto child = FirstElementChild(Detail::ToNode(m_node)); child; child = NextElementSibling(child))
+    for (auto child = OpenXmlElementXmlHelper::FirstElementChild(Detail::ToNode(m_node)); child; child = OpenXmlElementXmlHelper::NextElementSibling(child))
     {
         if (auto element = Detail::CreateOpenXmlElementFromNode(child))
         {
@@ -1387,16 +1383,16 @@ std::vector<std::shared_ptr<OpenXMLElement>> OpenXMLElement::ChildrenInContentMo
     const auto metadata = elementClass ? elementClass->GetMetadata() : nullptr;
     const MetadataParticlePtr particleTree = metadata ? metadata->ParticleTree() : MetadataParticlePtr{};
 
-    for (auto child = FirstElementChild(Detail::ToNode(m_node)); child; child = NextElementSibling(child))
+    for (auto child = OpenXmlElementXmlHelper::FirstElementChild(Detail::ToNode(m_node)); child; child = OpenXmlElementXmlHelper::NextElementSibling(child))
     {
         const OpenXMLElementClass* preferred = nullptr;
         std::string childNamespace;
         if (particleTree)
         {
-            if (const auto childName = NodeQualifiedName(child, childNamespace);
+            if (const auto childName = OpenXmlElementNameHelper::NodeQualifiedName(child, childNamespace);
                 childName && Generated::OpenXmlElementFactory::IsAmbiguousElementName(*childName))
             {
-                if (const auto* particle = FindElementParticle(particleTree, *childName))
+                if (const auto* particle = OpenXmlElementNameHelper::FindElementParticle(particleTree, *childName))
                 {
                     preferred = Generated::OpenXmlElementFactory::ResolveClassByTypeName(particle->ElementType());
                 }
@@ -1417,9 +1413,9 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::GetChild(const OpenXmlQualifiedN
         return nullptr;
     }
 
-    for (auto child = FirstElementChild(Detail::ToNode(m_node)); child; child = NextElementSibling(child))
+    for (auto child = OpenXmlElementXmlHelper::FirstElementChild(Detail::ToNode(m_node)); child; child = OpenXmlElementXmlHelper::NextElementSibling(child))
     {
-        if (NodeMatchesQualifiedName(child, name))
+        if (OpenXmlElementXmlHelper::NodeMatchesQualifiedName(child, name))
         {
             return Detail::CreateOpenXmlElementFromNode(child);
         }
@@ -1442,7 +1438,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::FirstSibling() const
         return Detail::CreateOpenXmlElementFromNode(node);
     }
 
-    auto first = FirstElementChild(parent);
+    auto first = OpenXmlElementXmlHelper::FirstElementChild(parent);
     if (!first)
     {
         return nullptr;
@@ -1458,7 +1454,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::PreviousSibling() const
         return nullptr;
     }
 
-    auto previous = PreviousElementSibling(Detail::ToNode(m_node));
+    auto previous = OpenXmlElementXmlHelper::PreviousElementSibling(Detail::ToNode(m_node));
     if (!previous)
     {
         return nullptr;
@@ -1474,7 +1470,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::NextSibling() const
         return nullptr;
     }
 
-    auto next = NextElementSibling(Detail::ToNode(m_node));
+    auto next = OpenXmlElementXmlHelper::NextElementSibling(Detail::ToNode(m_node));
     if (!next)
     {
         return nullptr;
@@ -1497,7 +1493,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::LastSibling() const
         return Detail::CreateOpenXmlElementFromNode(node);
     }
 
-    auto last = LastElementChild(parent);
+    auto last = OpenXmlElementXmlHelper::LastElementChild(parent);
     if (!last)
     {
         return nullptr;
@@ -1513,7 +1509,7 @@ bool OpenXMLElement::HasAttribute(const OpenXmlQualifiedName& name) const
         return false;
     }
 
-    const auto attribute = FindAttribute(Detail::ToNode(m_node), name);
+    const auto attribute = OpenXmlElementNameHelper::FindAttribute(Detail::ToNode(m_node), name);
     return static_cast<bool>(attribute);
 }
 
@@ -1526,7 +1522,7 @@ bool OpenXMLElement::TryGetAttribute(const OpenXmlQualifiedName& name, std::stri
         return false;
     }
 
-    const Pugi::xml_attribute attribute = FindAttribute(Detail::ToNode(m_node), name);
+    const Pugi::xml_attribute attribute = OpenXmlElementNameHelper::FindAttribute(Detail::ToNode(m_node), name);
     if (!attribute)
     {
         return false;
@@ -1585,7 +1581,7 @@ void OpenXMLElement::SetAttribute(const OpenXmlQualifiedName& name, std::string_
         qualifiedName.append(name.localName());
     }
 
-    auto attribute = FindAttribute(node, name);
+    auto attribute = OpenXmlElementNameHelper::FindAttribute(node, name);
     if (!attribute)
     {
         attribute = node.append_attribute(qualifiedName.c_str());
@@ -1602,7 +1598,7 @@ void OpenXMLElement::RemoveAttribute(const OpenXmlQualifiedName& name)
     }
 
     auto node = Detail::ToNode(m_node);
-    auto attribute = FindAttribute(node, name);
+    auto attribute = OpenXmlElementNameHelper::FindAttribute(node, name);
     if (attribute)
     {
         node.remove_attribute(attribute);
@@ -1669,7 +1665,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::AppendChildInternal(const OpenXM
     }
 
     auto node = Detail::ToNode(m_node);
-    auto qualifiedName = BuildElementQualifiedName(node, qualifiedInfo);
+    auto qualifiedName = OpenXmlElementXmlHelper::BuildElementQualifiedName(node, qualifiedInfo);
     Pugi::xml_node child;
     const auto before = schemaAware
                             ? OpenXmlSchemaInsertionHelpers::FindInsertionAnchor(*this, qualifiedInfo)
@@ -1717,7 +1713,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::InsertChildInternal(const OpenXM
     }
 
     auto node = Detail::ToNode(m_node);
-    auto qualifiedName = BuildElementQualifiedName(node, qualifiedInfo);
+    auto qualifiedName = OpenXmlElementXmlHelper::BuildElementQualifiedName(node, qualifiedInfo);
     auto insertionAnchor = before;
     if (schemaAware)
     {
@@ -1760,7 +1756,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::InsertChildAfterInternal(
     const auto anchorNode = Detail::NodeOf(after);
     if (anchorNode && anchorNode.parent() == Detail::ToNode(m_node))
     {
-        if (const auto nextNode = NextElementSibling(anchorNode))
+        if (const auto nextNode = OpenXmlElementXmlHelper::NextElementSibling(anchorNode))
         {
             before = Detail::CreateOpenXmlElementFromNode(nextNode);
         }
@@ -1799,7 +1795,7 @@ std::vector<std::shared_ptr<OpenXMLElement>> OpenXMLElement::ElementsInternal(
         return result;
     }
 
-    for (auto child = FirstElementChild(Detail::ToNode(m_node)); child; child = NextElementSibling(child))
+    for (auto child = OpenXmlElementXmlHelper::FirstElementChild(Detail::ToNode(m_node)); child; child = OpenXmlElementXmlHelper::NextElementSibling(child))
     {
         auto element = Detail::CreateOpenXmlElementFromNode(child, metaClass);
         if (!element)
@@ -1826,7 +1822,7 @@ std::vector<std::shared_ptr<OpenXMLElement>> OpenXMLElement::DescendantsInternal
     }
 
     std::vector<ExyokiOffice::Pugi::xml_node> stack;
-    for (auto child = LastElementChild(Detail::ToNode(m_node)); child; child = PreviousElementSibling(child))
+    for (auto child = OpenXmlElementXmlHelper::LastElementChild(Detail::ToNode(m_node)); child; child = OpenXmlElementXmlHelper::PreviousElementSibling(child))
     {
         stack.push_back(child);
     }
@@ -1842,7 +1838,7 @@ std::vector<std::shared_ptr<OpenXMLElement>> OpenXMLElement::DescendantsInternal
             result.push_back(std::move(element));
         }
 
-        for (auto child = LastElementChild(node); child; child = PreviousElementSibling(child))
+        for (auto child = OpenXmlElementXmlHelper::LastElementChild(node); child; child = OpenXmlElementXmlHelper::PreviousElementSibling(child))
         {
             stack.push_back(child);
         }
@@ -1859,7 +1855,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::GetFirstChildOfTypeInternal(
         return nullptr;
     }
 
-    for (auto child = FirstElementChild(Detail::ToNode(m_node)); child; child = NextElementSibling(child))
+    for (auto child = OpenXmlElementXmlHelper::FirstElementChild(Detail::ToNode(m_node)); child; child = OpenXmlElementXmlHelper::NextElementSibling(child))
     {
         auto element = Detail::CreateOpenXmlElementFromNode(child, metaClass);
         if (!element)
@@ -1884,7 +1880,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::GetNextSiblingOfTypeInternal(
         return nullptr;
     }
 
-    for (auto sibling = NextElementSibling(Detail::ToNode(m_node)); sibling; sibling = NextElementSibling(sibling))
+    for (auto sibling = OpenXmlElementXmlHelper::NextElementSibling(Detail::ToNode(m_node)); sibling; sibling = OpenXmlElementXmlHelper::NextElementSibling(sibling))
     {
         auto element = Detail::CreateOpenXmlElementFromNode(sibling, metaClass);
         if (!element)
@@ -1909,7 +1905,7 @@ std::shared_ptr<OpenXMLElement> OpenXMLElement::GetPreviousSiblingOfTypeInternal
         return nullptr;
     }
 
-    for (auto sibling = PreviousElementSibling(Detail::ToNode(m_node)); sibling; sibling = PreviousElementSibling(sibling))
+    for (auto sibling = OpenXmlElementXmlHelper::PreviousElementSibling(Detail::ToNode(m_node)); sibling; sibling = OpenXmlElementXmlHelper::PreviousElementSibling(sibling))
     {
         auto element = Detail::CreateOpenXmlElementFromNode(sibling, metaClass);
         if (!element)
@@ -1997,9 +1993,6 @@ void OpenXMLElementClass::ConfigureMetadata(MetadataBuilder& builder) const
     (void)builder;
 }
 
-namespace
-{
-
 class CompositeElementMetaClass final : public OpenXMLElementClass
 {
 public:
@@ -2047,8 +2040,6 @@ public:
     virtual OpenXml::FileFormatVersions GetVersion() const noexcept override { return OpenXml::FileFormatVersions::None; }
     virtual std::shared_ptr<OpenXMLElement> Create() const override { return nullptr; }
 };
-
-} // namespace
 
 const OpenXMLElementClass* OpenXmlCompositeElement::StaticMetaClass() noexcept
 {

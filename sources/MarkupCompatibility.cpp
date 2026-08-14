@@ -22,124 +22,124 @@
 namespace ExyokiOffice
 {
 
-namespace
-{
-
-/**
- * @brief Splits a whitespace-separated attribute value into its entries.
- *
- * Every markup compatibility attribute is a list of prefixes or names in this
- * form. Empty runs are skipped, so leading, trailing and repeated whitespace do
- * not produce empty entries.
- */
-std::vector<std::string> SplitTokens(std::string_view value)
-{
-    std::vector<std::string> tokens;
-    Size position = 0;
-    while (position < value.size())
-    {
-        while (position < value.size() && IsXmlWhitespace(value[position]))
-        {
-            ++position;
-        }
-
-        const auto start = position;
-        while (position < value.size() && !IsXmlWhitespace(value[position]))
-        {
-            ++position;
-        }
-
-        if (position > start)
-        {
-            tokens.emplace_back(value.substr(start, position - start));
-        }
-    }
-
-    return tokens;
-}
-
-/** Reads a markup compatibility attribute as a token list. */
-std::vector<std::string> ReadTokens(const OpenXMLElement& element, const OpenXmlQualifiedName& attribute)
-{
-    std::string_view value;
-    if (!element.TryGetAttribute(attribute, value))
-    {
-        return {};
-    }
-
-    return SplitTokens(value);
-}
-
-/**
- * @brief Meta-class for the hand-written markup compatibility elements.
- *
- * Deliberately carries no particle metadata: the children of `mc:AlternateContent`
- * and its branches are arbitrary subtrees of other vocabularies, so there is no
- * content model to validate them against. The DOM validator skips elements whose
- * meta-class has no metadata, which is exactly the intended behavior here.
- */
-class MarkupCompatibilityMetaClass final : public OpenXMLElementClass
+/// File-local attribute parsing for markup compatibility.
+class MarkupCompatibilityHelper
 {
 public:
-    using Factory = std::shared_ptr<OpenXMLElement> (*)();
-
-    MarkupCompatibilityMetaClass(std::string_view localName, Factory factory) noexcept
-        : localName_(localName), factory_(factory)
+    /**
+     * @brief Splits a whitespace-separated attribute value into its entries.
+     *
+     * Every markup compatibility attribute is a list of prefixes or names in this
+     * form. Empty runs are skipped, so leading, trailing and repeated whitespace do
+     * not produce empty entries.
+     */
+    static std::vector<std::string> SplitTokens(std::string_view value)
     {
+        std::vector<std::string> tokens;
+        Size position = 0;
+        while (position < value.size())
+        {
+            while (position < value.size() && IsXmlWhitespace(value[position]))
+            {
+                ++position;
+            }
+
+            const auto start = position;
+            while (position < value.size() && !IsXmlWhitespace(value[position]))
+            {
+                ++position;
+            }
+
+            if (position > start)
+            {
+                tokens.emplace_back(value.substr(start, position - start));
+            }
+        }
+
+        return tokens;
     }
 
-    const OpenXMLElementClass* GetBaseMetaClass() const noexcept override
+    /** Reads a markup compatibility attribute as a token list. */
+    static std::vector<std::string> ReadTokens(const OpenXMLElement& element, const OpenXmlQualifiedName& attribute)
     {
-        return OpenXmlCompositeElement::StaticMetaClass();
+        std::string_view value;
+        if (!element.TryGetAttribute(attribute, value))
+        {
+            return {};
+        }
+
+        return SplitTokens(value);
     }
 
-    OpenXmlQualifiedName QualifiedName() const noexcept override
+    /**
+     * @brief Meta-class for the hand-written markup compatibility elements.
+     *
+     * Deliberately carries no particle metadata: the children of `mc:AlternateContent`
+     * and its branches are arbitrary subtrees of other vocabularies, so there is no
+     * content model to validate them against. The DOM validator skips elements whose
+     * meta-class has no metadata, which is exactly the intended behavior here.
+     */
+    class MarkupCompatibilityMetaClass final : public OpenXMLElementClass
     {
-        return OpenXmlQualifiedName(kMarkupCompatibilityNamespace, localName_);
+    public:
+        using Factory = std::shared_ptr<OpenXMLElement> (*)();
+
+        MarkupCompatibilityMetaClass(std::string_view localName, Factory factory) noexcept
+            : localName_(localName), factory_(factory)
+        {
+        }
+
+        const OpenXMLElementClass* GetBaseMetaClass() const noexcept override
+        {
+            return OpenXmlCompositeElement::StaticMetaClass();
+        }
+
+        OpenXmlQualifiedName QualifiedName() const noexcept override
+        {
+            return OpenXmlQualifiedName(kMarkupCompatibilityNamespace, localName_);
+        }
+
+        OpenXmlQualifiedName TypeQualifiedName() const noexcept override { return QualifiedName(); }
+
+        OpenXml::FileFormatVersions GetVersion() const noexcept override
+        {
+            return OpenXml::FileFormatVersions::Office2007;
+        }
+
+        std::shared_ptr<OpenXMLElement> Create() const override { return factory_(); }
+
+    private:
+        std::string_view localName_;
+        Factory factory_;
+    };
+
+    static const MarkupCompatibilityMetaClass& AlternateContentMeta() noexcept
+    {
+        static const MarkupCompatibilityMetaClass kMeta("AlternateContent",
+                                                        []
+                                                        { return std::static_pointer_cast<OpenXMLElement>(
+                                                              std::make_shared<AlternateContent>()); });
+        return kMeta;
     }
 
-    OpenXmlQualifiedName TypeQualifiedName() const noexcept override { return QualifiedName(); }
-
-    OpenXml::FileFormatVersions GetVersion() const noexcept override
+    static const MarkupCompatibilityMetaClass& ChoiceMeta() noexcept
     {
-        return OpenXml::FileFormatVersions::Office2007;
+        static const MarkupCompatibilityMetaClass kMeta("Choice",
+                                                        []
+                                                        { return std::static_pointer_cast<OpenXMLElement>(
+                                                              std::make_shared<AlternateContentChoice>()); });
+        return kMeta;
     }
 
-    std::shared_ptr<OpenXMLElement> Create() const override { return factory_(); }
-
-private:
-    std::string_view localName_;
-    Factory factory_;
+    static const MarkupCompatibilityMetaClass& FallbackMeta() noexcept
+    {
+        static const MarkupCompatibilityMetaClass kMeta("Fallback",
+                                                        []
+                                                        { return std::static_pointer_cast<OpenXMLElement>(
+                                                              std::make_shared<AlternateContentFallback>()); });
+        return kMeta;
+    }
 };
-
-const MarkupCompatibilityMetaClass& AlternateContentMeta() noexcept
-{
-    static const MarkupCompatibilityMetaClass kMeta("AlternateContent",
-                                                    []
-                                                    { return std::static_pointer_cast<OpenXMLElement>(
-                                                          std::make_shared<AlternateContent>()); });
-    return kMeta;
-}
-
-const MarkupCompatibilityMetaClass& ChoiceMeta() noexcept
-{
-    static const MarkupCompatibilityMetaClass kMeta("Choice",
-                                                    []
-                                                    { return std::static_pointer_cast<OpenXMLElement>(
-                                                          std::make_shared<AlternateContentChoice>()); });
-    return kMeta;
-}
-
-const MarkupCompatibilityMetaClass& FallbackMeta() noexcept
-{
-    static const MarkupCompatibilityMetaClass kMeta("Fallback",
-                                                    []
-                                                    { return std::static_pointer_cast<OpenXMLElement>(
-                                                          std::make_shared<AlternateContentFallback>()); });
-    return kMeta;
-}
-
-} // namespace
 
 bool IsXmlWhitespace(char value) noexcept
 {
@@ -204,7 +204,7 @@ std::shared_ptr<AlternateContentFallback> AlternateContent::Fallback() const
 
 const OpenXMLElementClass* AlternateContent::StaticMetaClass() noexcept
 {
-    return &AlternateContentMeta();
+    return &MarkupCompatibilityHelper::AlternateContentMeta();
 }
 
 const OpenXMLElementClass* AlternateContent::ElementMetaClass() const noexcept
@@ -224,12 +224,12 @@ void AlternateContentChoice::SetRequires(const StringValue& value)
 
 std::vector<std::string> AlternateContentChoice::RequiredPrefixes() const
 {
-    return ReadTokens(*this, MarkupCompatibilityNames::Requires());
+    return MarkupCompatibilityHelper::ReadTokens(*this, MarkupCompatibilityNames::Requires());
 }
 
 const OpenXMLElementClass* AlternateContentChoice::StaticMetaClass() noexcept
 {
-    return &ChoiceMeta();
+    return &MarkupCompatibilityHelper::ChoiceMeta();
 }
 
 const OpenXMLElementClass* AlternateContentChoice::ElementMetaClass() const noexcept
@@ -239,7 +239,7 @@ const OpenXMLElementClass* AlternateContentChoice::ElementMetaClass() const noex
 
 const OpenXMLElementClass* AlternateContentFallback::StaticMetaClass() noexcept
 {
-    return &FallbackMeta();
+    return &MarkupCompatibilityHelper::FallbackMeta();
 }
 
 const OpenXMLElementClass* AlternateContentFallback::ElementMetaClass() const noexcept
@@ -250,11 +250,11 @@ const OpenXMLElementClass* AlternateContentFallback::ElementMetaClass() const no
 MarkupCompatibilityAttributes MarkupCompatibilityAttributes::Read(const OpenXMLElement& element)
 {
     MarkupCompatibilityAttributes attributes;
-    attributes.Ignorable = ReadTokens(element, MarkupCompatibilityNames::Ignorable());
-    attributes.ProcessContent = ReadTokens(element, MarkupCompatibilityNames::ProcessContent());
-    attributes.MustUnderstand = ReadTokens(element, MarkupCompatibilityNames::MustUnderstand());
-    attributes.PreserveElements = ReadTokens(element, MarkupCompatibilityNames::PreserveElements());
-    attributes.PreserveAttributes = ReadTokens(element, MarkupCompatibilityNames::PreserveAttributes());
+    attributes.Ignorable = MarkupCompatibilityHelper::ReadTokens(element, MarkupCompatibilityNames::Ignorable());
+    attributes.ProcessContent = MarkupCompatibilityHelper::ReadTokens(element, MarkupCompatibilityNames::ProcessContent());
+    attributes.MustUnderstand = MarkupCompatibilityHelper::ReadTokens(element, MarkupCompatibilityNames::MustUnderstand());
+    attributes.PreserveElements = MarkupCompatibilityHelper::ReadTokens(element, MarkupCompatibilityNames::PreserveElements());
+    attributes.PreserveAttributes = MarkupCompatibilityHelper::ReadTokens(element, MarkupCompatibilityNames::PreserveAttributes());
     return attributes;
 }
 
@@ -264,99 +264,99 @@ bool MarkupCompatibilityAttributes::IsEmpty() const noexcept
            PreserveAttributes.empty();
 }
 
-namespace
+/// File-local scope bookkeeping for the markup compatibility walk.
+class MarkupCompatibilityScopeHelper
 {
-
-/**
- * @brief Carries the markup compatibility rules that are in force at one element.
- *
- * `mc:Ignorable` and its companions apply to the element that declares them and to
- * everything below it, so the rules accumulate as the walk descends and are undone
- * on the way back up. Prefixes are resolved to namespace URIs at the point of
- * declaration, because the same prefix may be bound differently further down.
- */
-struct MarkupCompatibilityScope
-{
-    std::vector<std::string> IgnorableNamespaces;
-    std::vector<OpenXmlQualifiedName> ProcessContentNames;
-    std::vector<OpenXmlQualifiedName> PreserveElementNames;
-    std::vector<OpenXmlQualifiedName> PreserveAttributeNames;
-    bool PreserveAllElements = false;
-    bool PreserveAllAttributes = false;
-
-    [[nodiscard]] bool IsIgnorable(std::string_view namespaceUri) const
+public:
+    /**
+     * @brief Carries the markup compatibility rules that are in force at one element.
+     *
+     * `mc:Ignorable` and its companions apply to the element that declares them and to
+     * everything below it, so the rules accumulate as the walk descends and are undone
+     * on the way back up. Prefixes are resolved to namespace URIs at the point of
+     * declaration, because the same prefix may be bound differently further down.
+     */
+    struct MarkupCompatibilityScope
     {
-        return std::find(IgnorableNamespaces.begin(), IgnorableNamespaces.end(), namespaceUri) !=
-               IgnorableNamespaces.end();
+        std::vector<std::string> IgnorableNamespaces;
+        std::vector<OpenXmlQualifiedName> ProcessContentNames;
+        std::vector<OpenXmlQualifiedName> PreserveElementNames;
+        std::vector<OpenXmlQualifiedName> PreserveAttributeNames;
+        bool PreserveAllElements = false;
+        bool PreserveAllAttributes = false;
+
+        [[nodiscard]] bool IsIgnorable(std::string_view namespaceUri) const
+        {
+            return std::find(IgnorableNamespaces.begin(), IgnorableNamespaces.end(), namespaceUri) !=
+                   IgnorableNamespaces.end();
+        }
+
+        [[nodiscard]] bool IsProcessContent(const OpenXmlQualifiedName& name) const
+        {
+            return std::find(ProcessContentNames.begin(), ProcessContentNames.end(), name) !=
+                   ProcessContentNames.end();
+        }
+
+        [[nodiscard]] bool IsPreservedElement(const OpenXmlQualifiedName& name) const
+        {
+            return PreserveAllElements || std::find(PreserveElementNames.begin(), PreserveElementNames.end(),
+                                                    name) != PreserveElementNames.end();
+        }
+
+        [[nodiscard]] bool IsPreservedAttribute(const OpenXmlQualifiedName& name) const
+        {
+            return PreserveAllAttributes || std::find(PreserveAttributeNames.begin(),
+                                                      PreserveAttributeNames.end(),
+                                                      name) != PreserveAttributeNames.end();
+        }
+    };
+
+    /** Resolves a prefix against the namespace declarations in scope at @p element. */
+    static std::optional<std::string> ResolvePrefix(const OpenXMLElement& element, std::string_view prefix)
+    {
+        const auto node = Detail::ToNode(element.GetNodeHandle());
+        if (!node)
+        {
+            return std::nullopt;
+        }
+
+        if (const auto uri = Xml::NamespaceResolver::LookupUriForPrefix(node, prefix))
+        {
+            return std::string(*uri);
+        }
+
+        return std::nullopt;
     }
 
-    [[nodiscard]] bool IsProcessContent(const OpenXmlQualifiedName& name) const
+    /**
+     * @brief Resolves a `prefix:localName` token into a qualified name.
+     *
+     * `*` is reported separately by the caller, and a token without a prefix names an
+     * element in no namespace.
+     */
+    static std::optional<OpenXmlQualifiedName> ResolveNameToken(const OpenXMLElement& element,
+                                                                std::string_view token,
+                                                                std::string& namespaceStorage)
     {
-        return std::find(ProcessContentNames.begin(), ProcessContentNames.end(), name) !=
-               ProcessContentNames.end();
-    }
+        const auto colon = token.find(':');
+        if (colon == std::string_view::npos)
+        {
+            namespaceStorage.clear();
+            return OpenXmlQualifiedName({}, token);
+        }
 
-    [[nodiscard]] bool IsPreservedElement(const OpenXmlQualifiedName& name) const
-    {
-        return PreserveAllElements || std::find(PreserveElementNames.begin(), PreserveElementNames.end(),
-                                                name) != PreserveElementNames.end();
-    }
+        const auto prefix = token.substr(0, colon);
+        const auto localName = token.substr(colon + 1);
+        auto uri = ResolvePrefix(element, prefix);
+        if (!uri)
+        {
+            return std::nullopt;
+        }
 
-    [[nodiscard]] bool IsPreservedAttribute(const OpenXmlQualifiedName& name) const
-    {
-        return PreserveAllAttributes || std::find(PreserveAttributeNames.begin(),
-                                                  PreserveAttributeNames.end(),
-                                                  name) != PreserveAttributeNames.end();
+        namespaceStorage = std::move(*uri);
+        return OpenXmlQualifiedName(namespaceStorage, localName);
     }
 };
-
-/** Resolves a prefix against the namespace declarations in scope at @p element. */
-std::optional<std::string> ResolvePrefix(const OpenXMLElement& element, std::string_view prefix)
-{
-    const auto node = Detail::ToNode(element.GetNodeHandle());
-    if (!node)
-    {
-        return std::nullopt;
-    }
-
-    if (const auto uri = Xml::NamespaceResolver::LookupUriForPrefix(node, prefix))
-    {
-        return std::string(*uri);
-    }
-
-    return std::nullopt;
-}
-
-/**
- * @brief Resolves a `prefix:localName` token into a qualified name.
- *
- * `*` is reported separately by the caller, and a token without a prefix names an
- * element in no namespace.
- */
-std::optional<OpenXmlQualifiedName> ResolveNameToken(const OpenXMLElement& element,
-                                                     std::string_view token,
-                                                     std::string& namespaceStorage)
-{
-    const auto colon = token.find(':');
-    if (colon == std::string_view::npos)
-    {
-        namespaceStorage.clear();
-        return OpenXmlQualifiedName({}, token);
-    }
-
-    const auto prefix = token.substr(0, colon);
-    const auto localName = token.substr(colon + 1);
-    auto uri = ResolvePrefix(element, prefix);
-    if (!uri)
-    {
-        return std::nullopt;
-    }
-
-    namespaceStorage = std::move(*uri);
-    return OpenXmlQualifiedName(namespaceStorage, localName);
-}
-
-} // namespace
 
 /**
  * @brief Recursive worker holding the state of one processing run.
@@ -373,7 +373,7 @@ public:
     {
     }
 
-    bool Process(const std::shared_ptr<OpenXMLElement>& element, MarkupCompatibilityScope scope)
+    bool Process(const std::shared_ptr<OpenXMLElement>& element, MarkupCompatibilityScopeHelper::MarkupCompatibilityScope scope)
     {
         if (!element || element->IsNull())
         {
@@ -410,7 +410,7 @@ public:
 
 private:
     /** Handles one child: alternate content, ignorable content, or plain recursion. */
-    bool ProcessChild(const std::shared_ptr<OpenXMLElement>& child, const MarkupCompatibilityScope& scope)
+    bool ProcessChild(const std::shared_ptr<OpenXMLElement>& child, const MarkupCompatibilityScopeHelper::MarkupCompatibilityScope& scope)
     {
         if (auto alternate = openxmlelement_cast<AlternateContent>(child))
         {
@@ -450,7 +450,7 @@ private:
 
     /** Replaces an mc:AlternateContent with the content of the branch that applies. */
     bool ResolveAlternateContent(const std::shared_ptr<AlternateContent>& alternate,
-                                 const MarkupCompatibilityScope& scope)
+                                 const MarkupCompatibilityScopeHelper::MarkupCompatibilityScope& scope)
     {
         std::shared_ptr<OpenXMLElement> selected;
         for (const auto& choice : alternate->Choices())
@@ -522,7 +522,7 @@ private:
     {
         for (const auto& prefix : prefixes)
         {
-            const auto uri = ResolvePrefix(choice, prefix);
+            const auto uri = MarkupCompatibilityScopeHelper::ResolvePrefix(choice, prefix);
             if (!uri)
             {
                 Report(choice, ValidationErrorId::MarkupCompatibilityUnresolvablePrefix,
@@ -544,7 +544,7 @@ private:
     {
         for (const auto& prefix : attributes.MustUnderstand)
         {
-            const auto uri = ResolvePrefix(element, prefix);
+            const auto uri = MarkupCompatibilityScopeHelper::ResolvePrefix(element, prefix);
             if (!uri)
             {
                 Report(element, ValidationErrorId::MarkupCompatibilityUnresolvablePrefix,
@@ -567,11 +567,11 @@ private:
     /** Adds the rules declared on @p element to the inherited ones. */
     void ExtendScope(const OpenXMLElement& element,
                      const MarkupCompatibilityAttributes& attributes,
-                     MarkupCompatibilityScope& scope)
+                     MarkupCompatibilityScopeHelper::MarkupCompatibilityScope& scope)
     {
         for (const auto& prefix : attributes.Ignorable)
         {
-            if (auto uri = ResolvePrefix(element, prefix))
+            if (auto uri = MarkupCompatibilityScopeHelper::ResolvePrefix(element, prefix))
             {
                 if (!scope.IsIgnorable(*uri))
                 {
@@ -610,7 +610,7 @@ private:
             }
 
             std::string namespaceStorage;
-            const auto name = ResolveNameToken(element, token, namespaceStorage);
+            const auto name = MarkupCompatibilityScopeHelper::ResolveNameToken(element, token, namespaceStorage);
             if (!name)
             {
                 Report(element, ValidationErrorId::MarkupCompatibilityUnresolvablePrefix,
@@ -629,7 +629,7 @@ private:
     }
 
     /** Drops attributes in ignorable namespaces that nothing preserves. */
-    void RemoveIgnorableAttributes(OpenXMLElement& element, const MarkupCompatibilityScope& scope)
+    void RemoveIgnorableAttributes(OpenXMLElement& element, const MarkupCompatibilityScopeHelper::MarkupCompatibilityScope& scope)
     {
         if (scope.IgnorableNamespaces.empty())
         {
@@ -727,7 +727,7 @@ MarkupCompatibilityProcessor::MarkupCompatibilityProcessor(MarkupCompatibilityPr
 bool MarkupCompatibilityProcessor::Process(const std::shared_ptr<OpenXMLElement>& element)
 {
     MarkupCompatibilityWalker walker(*this, diagnostics_);
-    return walker.Process(element, MarkupCompatibilityScope{});
+    return walker.Process(element, MarkupCompatibilityScopeHelper::MarkupCompatibilityScope{});
 }
 
 bool MarkupCompatibilityProcessor::IsUnderstoodNamespace(std::string_view namespaceUri) const
@@ -830,7 +830,7 @@ std::vector<std::string> CollectIgnorableNamespaces(const OpenXMLElement& elemen
     {
         for (const auto& prefix : MarkupCompatibilityAttributes::Read(current).Ignorable)
         {
-            auto uri = ResolvePrefix(current, prefix);
+            auto uri = MarkupCompatibilityScopeHelper::ResolvePrefix(current, prefix);
             if (uri && std::find(namespaces.begin(), namespaces.end(), *uri) == namespaces.end())
             {
                 namespaces.push_back(std::move(*uri));

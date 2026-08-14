@@ -15,6 +15,8 @@
 #include "pugixml/pugixml.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -180,19 +182,7 @@ public:
 
     static std::string TrimAscii(std::string_view text)
     {
-        const auto isSpace = [](char ch)
-        { return std::isspace(static_cast<unsigned char>(ch)) != 0; };
-        Size begin = 0;
-        Size end = text.size();
-        while (begin < end && isSpace(text[begin]))
-        {
-            ++begin;
-        }
-        while (end > begin && isSpace(text[end - 1]))
-        {
-            --end;
-        }
-        return std::string(text.substr(begin, end - begin));
+        return std::string(AsciiText::Trim(text));
     }
 
     static bool EqualsIgnoreAsciiCase(std::string_view left, std::string_view right)

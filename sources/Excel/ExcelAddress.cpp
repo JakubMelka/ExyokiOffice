@@ -5,6 +5,8 @@
 #include "ExyokiOffice/Excel/ExcelAddress.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 
 namespace ExyokiOffice::Excel
@@ -17,11 +19,6 @@ public:
     static bool IsAsciiLetter(char ch) noexcept
     {
         return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
-    }
-
-    static char ToUpperAscii(char ch) noexcept
-    {
-        return (ch >= 'a' && ch <= 'z') ? static_cast<char>(ch - 'a' + 'A') : ch;
     }
 
     static bool IsDigit(char ch) noexcept
@@ -170,7 +167,7 @@ std::optional<ColumnIndex> ColumnIndex::ParseName(std::string_view name)
         {
             return std::nullopt;
         }
-        const auto digit = static_cast<UInt32>(ExcelAddressParsing::ToUpperAscii(ch) - 'A' + 1);
+        const auto digit = static_cast<UInt32>(AsciiText::ToUpper(ch) - 'A' + 1);
         if (value > (MaxColumnIndex - digit) / 26)
         {
             return std::nullopt;
@@ -264,7 +261,7 @@ std::optional<CellAddress> CellAddress::ParseA1(std::string_view text)
 
 std::optional<CellAddress> CellAddress::ParseR1C1(std::string_view text)
 {
-    if (text.size() < 4 || ExcelAddressParsing::ToUpperAscii(text[0]) != 'R')
+    if (text.size() < 4 || AsciiText::ToUpper(text[0]) != 'R')
     {
         return std::nullopt;
     }
@@ -275,7 +272,7 @@ std::optional<CellAddress> CellAddress::ParseR1C1(std::string_view text)
     {
         ++pos;
     }
-    if (rowStart == pos || pos >= text.size() || ExcelAddressParsing::ToUpperAscii(text[pos]) != 'C')
+    if (rowStart == pos || pos >= text.size() || AsciiText::ToUpper(text[pos]) != 'C')
     {
         return std::nullopt;
     }

@@ -17,515 +17,515 @@
 
 namespace ExyokiOffice
 {
-namespace
-{
+using Detail::DescribeQualifiedName;
 
-/**
- * @brief Checks whether the provided text conforms to the XML Schema @c token rules.
- *
- * The function ensures there are no leading or trailing spaces, no disallowed whitespace characters,
- * and no consecutive internal spaces.
- *
- * @param value Text to validate.
- * @return True if @p value represents a valid token; otherwise false.
- */
-bool IsTokenString(std::string_view value) noexcept
+/// File-local helpers behind metadata construction.
+class MetadataBuilderHelper
 {
-    if (value.empty())
+public:
+    /**
+     * @brief Checks whether the provided text conforms to the XML Schema @c token rules.
+     *
+     * The function ensures there are no leading or trailing spaces, no disallowed whitespace characters,
+     * and no consecutive internal spaces.
+     *
+     * @param value Text to validate.
+     * @return True if @p value represents a valid token; otherwise false.
+     */
+    static bool IsTokenString(std::string_view value) noexcept
     {
+        if (value.empty())
+        {
+            return true;
+        }
+
+        if (value.front() == ' ' || value.back() == ' ')
+        {
+            return false;
+        }
+
+        bool lastWasSpace = false;
+        for (char ch : value)
+        {
+            if (ch == '\r' || ch == '\n' || ch == '\t')
+            {
+                return false;
+            }
+
+            if (std::isspace(static_cast<unsigned char>(ch)) && ch != ' ')
+            {
+                return false;
+            }
+
+            if (ch == ' ')
+            {
+                if (lastWasSpace)
+                {
+                    return false;
+                }
+
+                lastWasSpace = true;
+            }
+            else
+            {
+                lastWasSpace = false;
+            }
+        }
+
         return true;
     }
 
-    if (value.front() == ' ' || value.back() == ' ')
+    /**
+     * @brief Validates that the input matches the simplified NCName production.
+     *
+     * This check ensures the name does not contain a colon and is composed of ASCII letters, digits,
+     * underscores, hyphens, or dots, with the first character restricted to letters or underscore.
+     *
+     * @param value Candidate NCName.
+     * @return True if @p value represents a valid NCName; otherwise false.
+     */
+    static bool IsNcName(std::string_view value) noexcept
     {
-        return false;
-    }
-
-    bool lastWasSpace = false;
-    for (char ch : value)
-    {
-        if (ch == '\r' || ch == '\n' || ch == '\t')
+        if (value.empty())
         {
             return false;
         }
 
-        if (std::isspace(static_cast<unsigned char>(ch)) && ch != ' ')
+        if (value.front() == ':' || value.find(':') != std::string_view::npos)
         {
             return false;
         }
 
-        if (ch == ' ')
+        const auto isStart = [](char ch) noexcept
         {
-            if (lastWasSpace)
-            {
-                return false;
-            }
+            const unsigned char uch = static_cast<unsigned char>(ch);
+            return std::isalpha(uch) != 0 || ch == '_';
+        };
 
-            lastWasSpace = true;
-        }
-        else
+        const auto isNameChar = [](char ch) noexcept
         {
-            lastWasSpace = false;
-        }
-    }
+            const unsigned char uch = static_cast<unsigned char>(ch);
+            return std::isalnum(uch) != 0 || ch == '_' || ch == '-' || ch == '.';
+        };
 
-    return true;
-}
-
-/**
- * @brief Validates that the input matches the simplified NCName production.
- *
- * This check ensures the name does not contain a colon and is composed of ASCII letters, digits,
- * underscores, hyphens, or dots, with the first character restricted to letters or underscore.
- *
- * @param value Candidate NCName.
- * @return True if @p value represents a valid NCName; otherwise false.
- */
-bool IsNcName(std::string_view value) noexcept
-{
-    if (value.empty())
-    {
-        return false;
-    }
-
-    if (value.front() == ':' || value.find(':') != std::string_view::npos)
-    {
-        return false;
-    }
-
-    const auto isStart = [](char ch) noexcept
-    {
-        const unsigned char uch = static_cast<unsigned char>(ch);
-        return std::isalpha(uch) != 0 || ch == '_';
-    };
-
-    const auto isNameChar = [](char ch) noexcept
-    {
-        const unsigned char uch = static_cast<unsigned char>(ch);
-        return std::isalnum(uch) != 0 || ch == '_' || ch == '-' || ch == '.';
-    };
-
-    if (!isStart(value.front()))
-    {
-        return false;
-    }
-
-    for (char ch : value.substr(1))
-    {
-        if (!isNameChar(ch))
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-/**
- * @brief Determines whether the supplied text is a qualified name (QName).
- *
- * The function validates optional prefixes as NCNames and enforces a single separating colon.
- *
- * @param value Candidate QName.
- * @return True if @p value is a valid QName; otherwise false.
- */
-bool IsQName(std::string_view value) noexcept
-{
-    if (value.empty())
-    {
-        return false;
-    }
-
-    const auto colon = value.find(':');
-    if (colon == std::string_view::npos)
-    {
-        return IsNcName(value);
-    }
-
-    if (colon == 0 || colon == value.size() - 1)
-    {
-        return false;
-    }
-
-    return IsNcName(value.substr(0, colon)) && IsNcName(value.substr(colon + 1));
-}
-
-/**
- * @brief Checks whether @p value is a plausible `xsd:anyURI`.
- *
- * `xsd:anyURI` is a URI *reference*, not an absolute URI: the empty string, a bare
- * fragment (`#ctx0`) and a relative path (`media/image1.png`) are all values of the
- * type. Requiring a scheme would reject exactly the form InkML uses for every
- * `contextRef`, `brushRef` and `traceFormatRef`, so this check only rules out text
- * that cannot be a URI reference at all: control characters and whitespace, the
- * double quote, a truncated percent-escape, and square brackets outside the
- * authority, where RFC 3986 reserves them for IPv6 literals. Everything else is
- * accepted, because the schemas do not make the validator an RFC parser.
- *
- * @param value Candidate URI reference.
- * @return True when the input can be a URI reference.
- */
-bool IsUri(std::string_view value) noexcept
-{
-    // The authority is what follows "//" up to the next path, query or fragment
-    // delimiter. Only there may square brackets appear, and only as an IPv6 host.
-    Size authorityBegin = std::string_view::npos;
-    Size authorityEnd = std::string_view::npos;
-    if (const auto slashes = value.find("//"); slashes != std::string_view::npos)
-    {
-        authorityBegin = slashes + 2;
-        authorityEnd = value.find_first_of("/?#", authorityBegin);
-        if (authorityEnd == std::string_view::npos)
-        {
-            authorityEnd = value.size();
-        }
-    }
-
-    for (Size index = 0; index < value.size(); ++index)
-    {
-        const auto ch = static_cast<unsigned char>(value[index]);
-
-        // Control characters, spaces and the quote cannot survive being written into
-        // an XML attribute unescaped. Bytes above 0x7E are left alone: they carry
-        // the UTF-8 of an internationalized reference.
-        if (ch <= 0x20 || ch == 0x7F || ch == '"')
+        if (!isStart(value.front()))
         {
             return false;
         }
 
-        if (ch == '%')
+        for (char ch : value.substr(1))
         {
-            if (index + 2 >= value.size() || std::isxdigit(static_cast<unsigned char>(value[index + 1])) == 0 ||
-                std::isxdigit(static_cast<unsigned char>(value[index + 2])) == 0)
+            if (!isNameChar(ch))
             {
                 return false;
             }
         }
 
-        if ((ch == '[' || ch == ']') && (index < authorityBegin || index >= authorityEnd))
+        return true;
+    }
+
+    /**
+     * @brief Determines whether the supplied text is a qualified name (QName).
+     *
+     * The function validates optional prefixes as NCNames and enforces a single separating colon.
+     *
+     * @param value Candidate QName.
+     * @return True if @p value is a valid QName; otherwise false.
+     */
+    static bool IsQName(std::string_view value) noexcept
+    {
+        if (value.empty())
         {
             return false;
         }
+
+        const auto colon = value.find(':');
+        if (colon == std::string_view::npos)
+        {
+            return IsNcName(value);
+        }
+
+        if (colon == 0 || colon == value.size() - 1)
+        {
+            return false;
+        }
+
+        return IsNcName(value.substr(0, colon)) && IsNcName(value.substr(colon + 1));
     }
 
-    return true;
-}
-
-/**
- * @brief Reports whether the empty string is a value of the named simple type.
- *
- * A required attribute has to be *present*; the schemas say nothing about it being
- * non-empty. Whether an empty attribute still carries a value is a property of its
- * type. `xsd:string` and the binary types have the empty string in their lexical
- * space (`name=""` is a defined string, an empty hexBinary is zero octets); an
- * `xsd:list` spells zero items as the empty string, and where a list really must
- * carry something the schemas say so separately - `x:sqref` is required *and*
- * carries a `string-length(@x:sqref) >= 1` schematron rule. `ST_TrueFalseBlank`
- * names the blank in its own type name. Numbers, dates and enumerations have no
- * empty member.
- *
- * `OnOffValue` is deliberately absent even though `OnOffTextTraits` parses the
- * empty string: `ST_OnOff` is the union of `xsd:boolean` with `on`/`off`, and
- * neither branch admits a blank. The leniency belongs to the parser, not to the
- * schema, so the validator keeps reporting it.
- */
-bool AllowsEmptyValue(std::string_view typeName) noexcept
-{
-    return typeName == "StringValue" || typeName == "HexBinaryValue" || typeName == "Base64BinaryValue" ||
-           typeName == "TrueFalseBlankValue" || typeName.starts_with("ListValue<");
-}
-
-/**
- * @brief Looks up the declared simple type of an attribute in its element's metadata.
- *
- * Returns an empty view when the element carries no metadata for the attribute, in
- * which case callers keep their conservative behavior: a constraint used on its own,
- * outside a generated element, cannot tell what the value should have been.
- */
-std::string_view DeclaredAttributeType(const OpenXMLElement& element, const OpenXmlQualifiedName& name)
-{
-    const auto* metaClass = element.ElementMetaClass();
-    const auto metadata = metaClass ? metaClass->GetMetadata() : nullptr;
-    if (!metadata)
+    /**
+     * @brief Checks whether @p value is a plausible `xsd:anyURI`.
+     *
+     * `xsd:anyURI` is a URI *reference*, not an absolute URI: the empty string, a bare
+     * fragment (`#ctx0`) and a relative path (`media/image1.png`) are all values of the
+     * type. Requiring a scheme would reject exactly the form InkML uses for every
+     * `contextRef`, `brushRef` and `traceFormatRef`, so this check only rules out text
+     * that cannot be a URI reference at all: control characters and whitespace, the
+     * double quote, a truncated percent-escape, and square brackets outside the
+     * authority, where RFC 3986 reserves them for IPv6 literals. Everything else is
+     * accepted, because the schemas do not make the validator an RFC parser.
+     *
+     * @param value Candidate URI reference.
+     * @return True when the input can be a URI reference.
+     */
+    static bool IsUri(std::string_view value) noexcept
     {
+        // The authority is what follows "//" up to the next path, query or fragment
+        // delimiter. Only there may square brackets appear, and only as an IPv6 host.
+        Size authorityBegin = std::string_view::npos;
+        Size authorityEnd = std::string_view::npos;
+        if (const auto slashes = value.find("//"); slashes != std::string_view::npos)
+        {
+            authorityBegin = slashes + 2;
+            authorityEnd = value.find_first_of("/?#", authorityBegin);
+            if (authorityEnd == std::string_view::npos)
+            {
+                authorityEnd = value.size();
+            }
+        }
+
+        for (Size index = 0; index < value.size(); ++index)
+        {
+            const auto ch = static_cast<unsigned char>(value[index]);
+
+            // Control characters, spaces and the quote cannot survive being written into
+            // an XML attribute unescaped. Bytes above 0x7E are left alone: they carry
+            // the UTF-8 of an internationalized reference.
+            if (ch <= 0x20 || ch == 0x7F || ch == '"')
+            {
+                return false;
+            }
+
+            if (ch == '%')
+            {
+                if (index + 2 >= value.size() || std::isxdigit(static_cast<unsigned char>(value[index + 1])) == 0 ||
+                    std::isxdigit(static_cast<unsigned char>(value[index + 2])) == 0)
+                {
+                    return false;
+                }
+            }
+
+            if ((ch == '[' || ch == ']') && (index < authorityBegin || index >= authorityEnd))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @brief Reports whether the empty string is a value of the named simple type.
+     *
+     * A required attribute has to be *present*; the schemas say nothing about it being
+     * non-empty. Whether an empty attribute still carries a value is a property of its
+     * type. `xsd:string` and the binary types have the empty string in their lexical
+     * space (`name=""` is a defined string, an empty hexBinary is zero octets); an
+     * `xsd:list` spells zero items as the empty string, and where a list really must
+     * carry something the schemas say so separately - `x:sqref` is required *and*
+     * carries a `string-length(@x:sqref) >= 1` schematron rule. `ST_TrueFalseBlank`
+     * names the blank in its own type name. Numbers, dates and enumerations have no
+     * empty member.
+     *
+     * `OnOffValue` is deliberately absent even though `OnOffTextTraits` parses the
+     * empty string: `ST_OnOff` is the union of `xsd:boolean` with `on`/`off`, and
+     * neither branch admits a blank. The leniency belongs to the parser, not to the
+     * schema, so the validator keeps reporting it.
+     */
+    static bool AllowsEmptyValue(std::string_view typeName) noexcept
+    {
+        return typeName == "StringValue" || typeName == "HexBinaryValue" || typeName == "Base64BinaryValue" ||
+               typeName == "TrueFalseBlankValue" || typeName.starts_with("ListValue<");
+    }
+
+    /**
+     * @brief Looks up the declared simple type of an attribute in its element's metadata.
+     *
+     * Returns an empty view when the element carries no metadata for the attribute, in
+     * which case callers keep their conservative behavior: a constraint used on its own,
+     * outside a generated element, cannot tell what the value should have been.
+     */
+    static std::string_view DeclaredAttributeType(const OpenXMLElement& element, const OpenXmlQualifiedName& name)
+    {
+        const auto* metaClass = element.ElementMetaClass();
+        const auto metadata = metaClass ? metaClass->GetMetadata() : nullptr;
+        if (!metadata)
+        {
+            return {};
+        }
+
+        for (const auto& attribute : metadata->Attributes())
+        {
+            if (attribute.Name == name)
+            {
+                return attribute.TypeName;
+            }
+        }
+
         return {};
     }
 
-    for (const auto& attribute : metadata->Attributes())
+    /**
+     * @brief Checks whether @p value is a well-formed `xsd:hexBinary` literal.
+     *
+     * Every octet is written as exactly two hexadecimal digits, so the literal has an
+     * even length and contains nothing but hex digits. The empty literal denotes zero
+     * octets and is valid.
+     *
+     * @param value Candidate hexBinary text.
+     * @return True when the input encodes a whole number of octets.
+     */
+    static bool IsHexBinary(std::string_view value) noexcept
     {
-        if (attribute.Name == name)
+        if (value.size() % 2 != 0)
         {
-            return attribute.TypeName;
+            return false;
+        }
+
+        return std::all_of(value.begin(), value.end(), [](char ch)
+                           { return std::isxdigit(static_cast<unsigned char>(ch)) != 0; });
+    }
+
+    /**
+     * @brief Matches @p value against a regular expression pattern.
+     * @param pattern ECMAScript regular expression.
+     * @param value Text to validate.
+     * @return True when the text matches the expression; false if it doesn't or the pattern is invalid.
+     */
+    static bool MatchPattern(const std::string& pattern, std::string_view value)
+    {
+        try
+        {
+            const std::regex expression(pattern, std::regex::ECMAScript);
+            return std::regex_match(value.begin(), value.end(), expression);
+        }
+        catch (const std::regex_error&)
+        {
+            return false;
         }
     }
 
-    return {};
-}
-
-/**
- * @brief Checks whether @p value is a well-formed `xsd:hexBinary` literal.
- *
- * Every octet is written as exactly two hexadecimal digits, so the literal has an
- * even length and contains nothing but hex digits. The empty literal denotes zero
- * octets and is valid.
- *
- * @param value Candidate hexBinary text.
- * @return True when the input encodes a whole number of octets.
- */
-bool IsHexBinary(std::string_view value) noexcept
-{
-    if (value.size() % 2 != 0)
+    static std::string_view GetLeafText(const OpenXMLElement& element) noexcept
     {
-        return false;
+        const auto* leaf = dynamic_cast<const OpenXmlLeafTextElement*>(&element);
+        return leaf ? leaf->GetText() : std::string_view{};
     }
 
-    return std::all_of(value.begin(), value.end(), [](char ch)
-                       { return std::isxdigit(static_cast<unsigned char>(ch)) != 0; });
-}
-
-/**
- * @brief Matches @p value against a regular expression pattern.
- * @param pattern ECMAScript regular expression.
- * @param value Text to validate.
- * @return True when the text matches the expression; false if it doesn't or the pattern is invalid.
- */
-bool MatchPattern(const std::string& pattern, std::string_view value)
-{
-    try
+    static bool IsAllowedEnumValue(const std::vector<MetadataEnumRule>& rules, std::string_view value)
     {
-        const std::regex expression(pattern, std::regex::ECMAScript);
-        return std::regex_match(value.begin(), value.end(), expression);
-    }
-    catch (const std::regex_error&)
-    {
-        return false;
-    }
-}
-
-using Detail::DescribeQualifiedName;
-
-std::string_view GetLeafText(const OpenXMLElement& element) noexcept
-{
-    const auto* leaf = dynamic_cast<const OpenXmlLeafTextElement*>(&element);
-    return leaf ? leaf->GetText() : std::string_view{};
-}
-
-bool IsAllowedEnumValue(const std::vector<MetadataEnumRule>& rules, std::string_view value)
-{
-    return std::any_of(rules.begin(), rules.end(), [value](const MetadataEnumRule& rule)
-                       { return std::any_of(rule.Values.begin(), rule.Values.end(), [value](const std::string& allowed)
-                                            { return allowed == value; }); });
-}
-
-bool ContainsStringValue(const std::vector<std::string>& values, std::string_view value)
-{
-    return std::any_of(values.begin(), values.end(), [value](const std::string& item)
-                       { return item == value; });
-}
-
-std::string_view LocalTypeName(std::string_view qualifiedType) noexcept
-{
-    const auto separator = qualifiedType.find_last_of(":/");
-    return separator == std::string_view::npos ? qualifiedType : qualifiedType.substr(separator + 1);
-}
-
-template <typename TValue>
-std::optional<Real> ParseNumericValue(std::string_view text)
-{
-    const auto parsed = OpenXmlSimpleValueConvertor::FromString<TValue>(text);
-    if (!parsed.IsDefined())
-    {
-        return std::nullopt;
-    }
-    return static_cast<Real>(parsed.Value());
-}
-
-std::optional<Real> ParseNumberValidatorValue(std::string_view text, std::string_view qualifiedType)
-{
-    const auto type = LocalTypeName(qualifiedType);
-    if (type == "boolean")
-    {
-        return ParseNumericValue<BooleanValue>(text);
-    }
-    if (type == "byte")
-    {
-        return ParseNumericValue<SByteValue>(text);
-    }
-    if (type == "unsignedByte")
-    {
-        return ParseNumericValue<ByteValue>(text);
-    }
-    if (type == "short")
-    {
-        return ParseNumericValue<Int16Value>(text);
-    }
-    if (type == "unsignedShort")
-    {
-        return ParseNumericValue<UInt16Value>(text);
-    }
-    if (type == "int")
-    {
-        return ParseNumericValue<Int32Value>(text);
-    }
-    if (type == "unsignedInt")
-    {
-        return ParseNumericValue<UInt32Value>(text);
-    }
-    if (type == "long")
-    {
-        return ParseNumericValue<Int64Value>(text);
-    }
-    if (type == "unsignedLong" || type == "nonNegativeInteger" || type == "positiveInteger")
-    {
-        return ParseNumericValue<UInt64Value>(text);
-    }
-    if (type == "integer" || type == "nonPositiveInteger" || type == "negativeInteger")
-    {
-        return ParseNumericValue<IntegerValue>(text);
-    }
-    if (type == "float")
-    {
-        return ParseNumericValue<SingleValue>(text);
-    }
-    if (type == "decimal")
-    {
-        return ParseNumericValue<DecimalValue>(text);
-    }
-    return ParseNumericValue<DoubleValue>(text);
-}
-
-/**
- * @brief Reports whether a number validator's declared type has a numeric lexical space.
- *
- * The imported validators name their type as it appears in the schema, and not
- * every one of those is a number: `xne:ST_Ref` is a cell reference, `ST_Sqref`
- * a list of them, `xsd:base64Binary` and `xsd:dateTime` are not numbers either.
- * The types listed here are the ones @ref ParseNumberValidatorValue actually
- * maps; everything else reaches its `DoubleValue` fallback, which happens to
- * accept the numeric ones (`w:ST_TwipsMeasure`, `a:ST_Coordinate`) and rejects
- * the rest.
- */
-bool IsNumericValidatorType(std::string_view qualifiedType) noexcept
-{
-    static constexpr std::string_view kNumericTypes[] = {
-        "boolean", "byte", "unsignedByte", "short", "unsignedShort", "int", "unsignedInt",
-        "long", "unsignedLong", "nonNegativeInteger", "positiveInteger", "integer",
-        "nonPositiveInteger", "negativeInteger", "float", "decimal", "double"};
-
-    const auto type = LocalTypeName(qualifiedType);
-    return std::any_of(std::begin(kNumericTypes), std::end(kNumericTypes),
-                       [type](std::string_view candidate)
-                       { return candidate == type; });
-}
-
-/**
- * @brief Reads a schematron operand in the radix the rule declared.
- *
- * A hexadecimal rule reads an `ST_LongHexNumber` value, which Word writes as
- * eight hexadecimal digits with no `0x` prefix; the prefix is accepted anyway
- * because the rule literals themselves carry it. Anything the radix does not
- * cover - a stray sign, trailing text, an empty value - stays unparsed, which
- * the callers report as a violation.
- */
-std::optional<Real> ParseSchematronNumber(std::string_view text, MetadataSchematronNumberFormat format)
-{
-    if (format != MetadataSchematronNumberFormat::Hexadecimal)
-    {
-        return ParseNumberValidatorValue(text, "DoubleValue");
+        return std::any_of(rules.begin(), rules.end(), [value](const MetadataEnumRule& rule)
+                           { return std::any_of(rule.Values.begin(), rule.Values.end(), [value](const std::string& allowed)
+                                                { return allowed == value; }); });
     }
 
-    if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
+    static bool ContainsStringValue(const std::vector<std::string>& values, std::string_view value)
     {
-        text.remove_prefix(2);
-    }
-    if (text.empty() || text.size() > 16)
-    {
-        return std::nullopt;
+        return std::any_of(values.begin(), values.end(), [value](const std::string& item)
+                           { return item == value; });
     }
 
-    UInt64 value = 0;
-    for (const char digit : text)
+    static std::string_view LocalTypeName(std::string_view qualifiedType) noexcept
     {
-        const auto character = static_cast<unsigned char>(digit);
-        UInt64 nibble = 0;
-        if (character >= '0' && character <= '9')
-        {
-            nibble = static_cast<UInt64>(character - '0');
-        }
-        else if (character >= 'a' && character <= 'f')
-        {
-            nibble = static_cast<UInt64>(character - 'a') + 10;
-        }
-        else if (character >= 'A' && character <= 'F')
-        {
-            nibble = static_cast<UInt64>(character - 'A') + 10;
-        }
-        else
+        const auto separator = qualifiedType.find_last_of(":/");
+        return separator == std::string_view::npos ? qualifiedType : qualifiedType.substr(separator + 1);
+    }
+
+    template <typename TValue>
+    static std::optional<Real> ParseNumericValue(std::string_view text)
+    {
+        const auto parsed = OpenXmlSimpleValueConvertor::FromString<TValue>(text);
+        if (!parsed.IsDefined())
         {
             return std::nullopt;
         }
-        value = (value << 4) | nibble;
-    }
-    return static_cast<Real>(value);
-}
-
-/** Compares an attribute value against a rule literal, honouring the rule's radix. */
-bool MatchesSchematronValue(std::string_view value,
-                            const std::vector<std::string>& literals,
-                            MetadataSchematronNumberFormat format)
-{
-    if (format != MetadataSchematronNumberFormat::Hexadecimal)
-    {
-        return ContainsStringValue(literals, value);
+        return static_cast<Real>(parsed.Value());
     }
 
-    // `@w:val != 0x0040` states a number, not the spelling of one: the attribute
-    // holds the same value written as unprefixed, zero-padded digits.
-    const auto parsed = ParseSchematronNumber(value, format);
-    if (!parsed)
+    static std::optional<Real> ParseNumberValidatorValue(std::string_view text, std::string_view qualifiedType)
     {
-        return ContainsStringValue(literals, value);
-    }
-    return std::any_of(literals.begin(), literals.end(), [&](const std::string& literal)
-                       {
-                           const auto bound = ParseSchematronNumber(literal, format);
-                           return bound ? *bound == *parsed : literal == value; });
-}
-
-template <typename TCallback>
-void ForEachNumberToken(std::string_view text, bool isList, TCallback&& callback)
-{
-    if (!isList)
-    {
-        callback(text);
-        return;
-    }
-
-    Size start = 0;
-    bool foundToken = false;
-    while (start < text.size())
-    {
-        start = text.find_first_not_of(" \t\r\n", start);
-        if (start == std::string_view::npos)
+        const auto type = LocalTypeName(qualifiedType);
+        if (type == "boolean")
         {
-            break;
+            return ParseNumericValue<BooleanValue>(text);
         }
-        const auto end = text.find_first_of(" \t\r\n", start);
-        foundToken = true;
-        callback(text.substr(start, end == std::string_view::npos ? text.size() - start : end - start));
-        if (end == std::string_view::npos)
+        if (type == "byte")
         {
-            break;
+            return ParseNumericValue<SByteValue>(text);
         }
-        start = end + 1;
+        if (type == "unsignedByte")
+        {
+            return ParseNumericValue<ByteValue>(text);
+        }
+        if (type == "short")
+        {
+            return ParseNumericValue<Int16Value>(text);
+        }
+        if (type == "unsignedShort")
+        {
+            return ParseNumericValue<UInt16Value>(text);
+        }
+        if (type == "int")
+        {
+            return ParseNumericValue<Int32Value>(text);
+        }
+        if (type == "unsignedInt")
+        {
+            return ParseNumericValue<UInt32Value>(text);
+        }
+        if (type == "long")
+        {
+            return ParseNumericValue<Int64Value>(text);
+        }
+        if (type == "unsignedLong" || type == "nonNegativeInteger" || type == "positiveInteger")
+        {
+            return ParseNumericValue<UInt64Value>(text);
+        }
+        if (type == "integer" || type == "nonPositiveInteger" || type == "negativeInteger")
+        {
+            return ParseNumericValue<IntegerValue>(text);
+        }
+        if (type == "float")
+        {
+            return ParseNumericValue<SingleValue>(text);
+        }
+        if (type == "decimal")
+        {
+            return ParseNumericValue<DecimalValue>(text);
+        }
+        return ParseNumericValue<DoubleValue>(text);
     }
-    if (!foundToken)
-    {
-        callback(std::string_view{});
-    }
-}
 
-} // namespace
+    /**
+     * @brief Reports whether a number validator's declared type has a numeric lexical space.
+     *
+     * The imported validators name their type as it appears in the schema, and not
+     * every one of those is a number: `xne:ST_Ref` is a cell reference, `ST_Sqref`
+     * a list of them, `xsd:base64Binary` and `xsd:dateTime` are not numbers either.
+     * The types listed here are the ones @ref ParseNumberValidatorValue actually
+     * maps; everything else reaches its `DoubleValue` fallback, which happens to
+     * accept the numeric ones (`w:ST_TwipsMeasure`, `a:ST_Coordinate`) and rejects
+     * the rest.
+     */
+    static bool IsNumericValidatorType(std::string_view qualifiedType) noexcept
+    {
+        static constexpr std::string_view kNumericTypes[] = {
+            "boolean", "byte", "unsignedByte", "short", "unsignedShort", "int", "unsignedInt",
+            "long", "unsignedLong", "nonNegativeInteger", "positiveInteger", "integer",
+            "nonPositiveInteger", "negativeInteger", "float", "decimal", "double"};
+
+        const auto type = LocalTypeName(qualifiedType);
+        return std::any_of(std::begin(kNumericTypes), std::end(kNumericTypes),
+                           [type](std::string_view candidate)
+                           { return candidate == type; });
+    }
+
+    /**
+     * @brief Reads a schematron operand in the radix the rule declared.
+     *
+     * A hexadecimal rule reads an `ST_LongHexNumber` value, which Word writes as
+     * eight hexadecimal digits with no `0x` prefix; the prefix is accepted anyway
+     * because the rule literals themselves carry it. Anything the radix does not
+     * cover - a stray sign, trailing text, an empty value - stays unparsed, which
+     * the callers report as a violation.
+     */
+    static std::optional<Real> ParseSchematronNumber(std::string_view text, MetadataSchematronNumberFormat format)
+    {
+        if (format != MetadataSchematronNumberFormat::Hexadecimal)
+        {
+            return ParseNumberValidatorValue(text, "DoubleValue");
+        }
+
+        if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
+        {
+            text.remove_prefix(2);
+        }
+        if (text.empty() || text.size() > 16)
+        {
+            return std::nullopt;
+        }
+
+        UInt64 value = 0;
+        for (const char digit : text)
+        {
+            const auto character = static_cast<unsigned char>(digit);
+            UInt64 nibble = 0;
+            if (character >= '0' && character <= '9')
+            {
+                nibble = static_cast<UInt64>(character - '0');
+            }
+            else if (character >= 'a' && character <= 'f')
+            {
+                nibble = static_cast<UInt64>(character - 'a') + 10;
+            }
+            else if (character >= 'A' && character <= 'F')
+            {
+                nibble = static_cast<UInt64>(character - 'A') + 10;
+            }
+            else
+            {
+                return std::nullopt;
+            }
+            value = (value << 4) | nibble;
+        }
+        return static_cast<Real>(value);
+    }
+
+    /** Compares an attribute value against a rule literal, honouring the rule's radix. */
+    static bool MatchesSchematronValue(std::string_view value,
+                                       const std::vector<std::string>& literals,
+                                       MetadataSchematronNumberFormat format)
+    {
+        if (format != MetadataSchematronNumberFormat::Hexadecimal)
+        {
+            return ContainsStringValue(literals, value);
+        }
+
+        // `@w:val != 0x0040` states a number, not the spelling of one: the attribute
+        // holds the same value written as unprefixed, zero-padded digits.
+        const auto parsed = ParseSchematronNumber(value, format);
+        if (!parsed)
+        {
+            return ContainsStringValue(literals, value);
+        }
+        return std::any_of(literals.begin(), literals.end(), [&](const std::string& literal)
+                           {
+                               const auto bound = ParseSchematronNumber(literal, format);
+                               return bound ? *bound == *parsed : literal == value; });
+    }
+
+    template <typename TCallback>
+    static void ForEachNumberToken(std::string_view text, bool isList, TCallback&& callback)
+    {
+        if (!isList)
+        {
+            callback(text);
+            return;
+        }
+
+        Size start = 0;
+        bool foundToken = false;
+        while (start < text.size())
+        {
+            start = text.find_first_not_of(" \t\r\n", start);
+            if (start == std::string_view::npos)
+            {
+                break;
+            }
+            const auto end = text.find_first_of(" \t\r\n", start);
+            foundToken = true;
+            callback(text.substr(start, end == std::string_view::npos ? text.size() - start : end - start));
+            if (end == std::string_view::npos)
+            {
+                break;
+            }
+            start = end + 1;
+        }
+        if (!foundToken)
+        {
+            callback(std::string_view{});
+        }
+    }
+};
 
 MetadataParticle::MetadataParticle(MetadataParticleKind kind,
                                    UInt32 minOccurs,
@@ -791,7 +791,7 @@ ValidationResult MetadataRequiredConstraint::Validate(const OpenXMLElement& elem
     // Being required means being present. An empty value is only an error when the
     // attribute's own type cannot represent it, which is exactly the distinction
     // the simple types draw between "set to the empty string" and "not set".
-    if (value.empty() && !AllowsEmptyValue(DeclaredAttributeType(element, AttributeName())))
+    if (value.empty() && !MetadataBuilderHelper::AllowsEmptyValue(MetadataBuilderHelper::DeclaredAttributeType(element, AttributeName())))
     {
         result.AddError(ValidationErrorId::EmptyAttribute,
                         "Attribute '" + DescribeQualifiedName(AttributeName()) + "' has no value.",
@@ -842,7 +842,7 @@ ValidationResult MetadataStringConstraint::Validate(const OpenXMLElement& elemen
     const auto lengthUnit = isHexBinary_ ? std::string_view("octets") : std::string_view("characters");
     const Size measuredLength = isHexBinary_ ? value.size() / 2 : value.size();
 
-    if (isHexBinary_ && !IsHexBinary(value))
+    if (isHexBinary_ && !MetadataBuilderHelper::IsHexBinary(value))
     {
         appendError(ValidationErrorId::AttributePatternMismatch,
                     "Attribute '" + attributeLabel + "' must be an even-length sequence of hexadecimal digits.");
@@ -869,37 +869,37 @@ ValidationResult MetadataStringConstraint::Validate(const OpenXMLElement& elemen
                         std::string(lengthUnit) + ".");
     }
 
-    if (pattern_.has_value() && !MatchPattern(*pattern_, value))
+    if (pattern_.has_value() && !MetadataBuilderHelper::MatchPattern(*pattern_, value))
     {
         appendError(ValidationErrorId::AttributePatternMismatch,
                     "Attribute '" + attributeLabel + "' must match pattern '" + *pattern_ + "'.");
     }
 
-    if (isToken_ && !IsTokenString(value))
+    if (isToken_ && !MetadataBuilderHelper::IsTokenString(value))
     {
         appendError(ValidationErrorId::AttributeTokenMismatch,
                     "Attribute '" + attributeLabel + "' must be a valid XML token.");
     }
 
-    if (isNcName_ && !IsNcName(value))
+    if (isNcName_ && !MetadataBuilderHelper::IsNcName(value))
     {
         appendError(ValidationErrorId::AttributeNcNameViolation,
                     "Attribute '" + attributeLabel + "' must be a valid NCName.");
     }
 
-    if (isQName_ && !IsQName(value))
+    if (isQName_ && !MetadataBuilderHelper::IsQName(value))
     {
         appendError(ValidationErrorId::AttributeQNameViolation,
                     "Attribute '" + attributeLabel + "' must be a valid QName.");
     }
 
-    if (isId_ && !IsNcName(value))
+    if (isId_ && !MetadataBuilderHelper::IsNcName(value))
     {
         appendError(ValidationErrorId::AttributeIdViolation,
                     "Attribute '" + attributeLabel + "' must be a valid XML ID.");
     }
 
-    if (isUri_ && !IsUri(value))
+    if (isUri_ && !MetadataBuilderHelper::IsUri(value))
     {
         appendError(ValidationErrorId::AttributeUriViolation,
                     "Attribute '" + attributeLabel + "' must be a valid URI.");
@@ -924,7 +924,7 @@ MetadataNumberConstraint::MetadataNumberConstraint(OpenXmlQualifiedName attribut
 
 bool MetadataNumberConstraint::HasEnforceableBounds() const noexcept
 {
-    return IsNumericValidatorType(valueType_) || minInclusive_ || maxInclusive_ || minExclusive_ ||
+    return MetadataBuilderHelper::IsNumericValidatorType(valueType_) || minInclusive_ || maxInclusive_ || minExclusive_ ||
            maxExclusive_ || isPositive_ || isNonNegative_;
 }
 
@@ -942,9 +942,9 @@ ValidationResult MetadataNumberConstraint::Validate(const OpenXMLElement& elemen
 
     // The location is read only where a bound is actually broken: building one
     // walks the ancestors and scans the siblings, and most values are in range.
-    ForEachNumberToken(text, isList_, [&](std::string_view token)
-                       {
-        const auto parsedValue = ParseNumberValidatorValue(token, valueType_);
+    MetadataBuilderHelper::ForEachNumberToken(text, isList_, [&](std::string_view token)
+                                              {
+        const auto parsedValue = MetadataBuilderHelper::ParseNumberValidatorValue(token, valueType_);
         if (!parsedValue)
         {
             result.AddError(ValidationErrorId::AttributeNumberParsingFailed,
@@ -1033,7 +1033,7 @@ ValidationResult MetadataAttributeEnumUnionConstraint::Validate(const OpenXMLEle
 {
     ValidationResult result;
     std::string_view value;
-    if (!TryGetAttribute(element, value) || value.empty() || IsAllowedEnumValue(rules_, value))
+    if (!TryGetAttribute(element, value) || value.empty() || MetadataBuilderHelper::IsAllowedEnumValue(rules_, value))
     {
         return result;
     }
@@ -1060,7 +1060,7 @@ MetadataTextStringConstraint::MetadataTextStringConstraint(std::optional<Size> m
 ValidationResult MetadataTextStringConstraint::Validate(const OpenXMLElement& element, XmlLocationCache& locations) const
 {
     ValidationResult result;
-    const auto value = GetLeafText(element);
+    const auto value = MetadataBuilderHelper::GetLeafText(element);
 
     // Deliberately inside the callback: this validator runs on every element that
     // carries text, and building a location up front would pay for the ancestor
@@ -1082,27 +1082,27 @@ ValidationResult MetadataTextStringConstraint::Validate(const OpenXMLElement& el
     {
         add(ValidationErrorId::TextMaxLengthMismatch, "Element text is longer than " + std::to_string(*maxLength_) + " characters.");
     }
-    if (pattern_ && !MatchPattern(*pattern_, value))
+    if (pattern_ && !MetadataBuilderHelper::MatchPattern(*pattern_, value))
     {
         add(ValidationErrorId::TextPatternMismatch, "Element text must match pattern '" + *pattern_ + "'.");
     }
-    if (isToken_ && !IsTokenString(value))
+    if (isToken_ && !MetadataBuilderHelper::IsTokenString(value))
     {
         add(ValidationErrorId::TextTokenMismatch, "Element text must be a valid XML token.");
     }
-    if (isNcName_ && !IsNcName(value))
+    if (isNcName_ && !MetadataBuilderHelper::IsNcName(value))
     {
         add(ValidationErrorId::TextNcNameViolation, "Element text must be a valid NCName.");
     }
-    if (isQName_ && !IsQName(value))
+    if (isQName_ && !MetadataBuilderHelper::IsQName(value))
     {
         add(ValidationErrorId::TextQNameViolation, "Element text must be a valid QName.");
     }
-    if (isId_ && !IsNcName(value))
+    if (isId_ && !MetadataBuilderHelper::IsNcName(value))
     {
         add(ValidationErrorId::TextIdViolation, "Element text must be a valid XML ID.");
     }
-    if (isUri_ && !IsUri(value))
+    if (isUri_ && !MetadataBuilderHelper::IsUri(value))
     {
         add(ValidationErrorId::TextUriViolation, "Element text must be a valid URI.");
     }
@@ -1123,7 +1123,7 @@ MetadataTextNumberConstraint::MetadataTextNumberConstraint(std::string valueType
 
 bool MetadataTextNumberConstraint::HasEnforceableBounds() const noexcept
 {
-    return IsNumericValidatorType(valueType_) || minInclusive_ || maxInclusive_ || minExclusive_ ||
+    return MetadataBuilderHelper::IsNumericValidatorType(valueType_) || minInclusive_ || maxInclusive_ || minExclusive_ ||
            maxExclusive_ || isPositive_ || isNonNegative_;
 }
 
@@ -1139,7 +1139,7 @@ ValidationResult MetadataTextNumberConstraint::Validate(const OpenXMLElement& el
     // string validator above.
     const auto validateOne = [&](std::string_view text)
     {
-        const auto parsed = ParseNumberValidatorValue(text, valueType_);
+        const auto parsed = MetadataBuilderHelper::ParseNumberValidatorValue(text, valueType_);
         if (!parsed)
         {
             result.AddError(ValidationErrorId::TextNumberParsingFailed,
@@ -1173,7 +1173,7 @@ ValidationResult MetadataTextNumberConstraint::Validate(const OpenXMLElement& el
         }
     };
 
-    ForEachNumberToken(GetLeafText(element), isList_, validateOne);
+    MetadataBuilderHelper::ForEachNumberToken(MetadataBuilderHelper::GetLeafText(element), isList_, validateOne);
     return result;
 }
 
@@ -1190,8 +1190,8 @@ const std::vector<MetadataEnumRule>& MetadataTextEnumConstraint::Rules() const n
 ValidationResult MetadataTextEnumConstraint::Validate(const OpenXMLElement& element, XmlLocationCache& locations) const
 {
     ValidationResult result;
-    const auto value = GetLeafText(element);
-    if (!value.empty() && !IsAllowedEnumValue(rules_, value))
+    const auto value = MetadataBuilderHelper::GetLeafText(element);
+    if (!value.empty() && !MetadataBuilderHelper::IsAllowedEnumValue(rules_, value))
     {
         result.AddError(ValidationErrorId::TextEnumViolation,
                         "Element text has invalid enumeration value '" + std::string(value) + "'.",
@@ -1417,7 +1417,7 @@ ValidationResult MetadataSchematronAttributeNumericRangeConstraint::Validate(con
     std::string_view value;
     if (TryGetAttribute(element, value))
     {
-        const auto parsed = ParseSchematronNumber(value, numberFormat_);
+        const auto parsed = MetadataBuilderHelper::ParseSchematronNumber(value, numberFormat_);
         bool ok = false;
         if (parsed)
         {
@@ -1455,7 +1455,7 @@ ValidationResult MetadataSchematronAttributeNumericComparisonConstraint::Validat
     std::string_view value;
     if (TryGetAttribute(element, value))
     {
-        const auto parsed = ParseSchematronNumber(value, numberFormat_);
+        const auto parsed = MetadataBuilderHelper::ParseSchematronNumber(value, numberFormat_);
         if (!parsed || !EvaluateComparison(*parsed, comparison_, value_))
         {
             AddSchematronViolation(result, element, locations);
@@ -1484,8 +1484,8 @@ ValidationResult MetadataSchematronAttributeNumericAttributeComparisonConstraint
         return result;
     }
 
-    const auto left = ParseNumberValidatorValue(leftValue, "DoubleValue");
-    const auto right = ParseNumberValidatorValue(rightValue, "DoubleValue");
+    const auto left = MetadataBuilderHelper::ParseNumberValidatorValue(leftValue, "DoubleValue");
+    const auto right = MetadataBuilderHelper::ParseNumberValidatorValue(rightValue, "DoubleValue");
     if (!left || !right || !EvaluateComparison(*left, comparison_, *right))
     {
         AddSchematronViolation(result, element, locations);
@@ -1554,7 +1554,7 @@ ValidationResult MetadataSchematronAttributeAllowedValuesConstraint::Validate(co
         return result;
     }
 
-    if (!MatchesSchematronValue(value, allowedValues_, numberFormat_))
+    if (!MetadataBuilderHelper::MatchesSchematronValue(value, allowedValues_, numberFormat_))
     {
         AddSchematronViolation(result, element, locations);
     }
@@ -1574,7 +1574,7 @@ ValidationResult MetadataSchematronAttributeForbiddenValuesConstraint::Validate(
 {
     ValidationResult result;
     std::string_view value;
-    if (TryGetAttribute(element, value) && MatchesSchematronValue(value, disallowedValues_, numberFormat_))
+    if (TryGetAttribute(element, value) && MetadataBuilderHelper::MatchesSchematronValue(value, disallowedValues_, numberFormat_))
     {
         AddSchematronViolation(result, element, locations);
     }
@@ -1732,13 +1732,13 @@ ValidationResult MetadataSchematronAttributeConditionalAllowedValuesConstraint::
 {
     ValidationResult result;
     std::string_view condition;
-    if (!element.TryGetAttribute(conditionAttributeName_, condition) || !ContainsStringValue(conditionValues_, condition))
+    if (!element.TryGetAttribute(conditionAttributeName_, condition) || !MetadataBuilderHelper::ContainsStringValue(conditionValues_, condition))
     {
         return result;
     }
 
     std::string_view value;
-    if (!TryGetAttribute(element, value) || !ContainsStringValue(allowedValues_, value))
+    if (!TryGetAttribute(element, value) || !MetadataBuilderHelper::ContainsStringValue(allowedValues_, value))
     {
         AddSchematronViolation(result, element, locations);
     }
@@ -1765,7 +1765,7 @@ ValidationResult MetadataSchematronAttributeConditionalForbiddenValuesConstraint
     }
 
     std::string_view value;
-    if (element.TryGetAttribute(valueAttributeName_, value) && ContainsStringValue(disallowedValues_, value))
+    if (element.TryGetAttribute(valueAttributeName_, value) && MetadataBuilderHelper::ContainsStringValue(disallowedValues_, value))
     {
         AddSchematronViolation(result, element, locations);
     }
@@ -1792,7 +1792,7 @@ ValidationResult MetadataSchematronAttributeConditionalPresenceAllowedValuesCons
     }
 
     std::string_view value;
-    if (!element.TryGetAttribute(valueAttributeName_, value) || !ContainsStringValue(allowedValues_, value))
+    if (!element.TryGetAttribute(valueAttributeName_, value) || !MetadataBuilderHelper::ContainsStringValue(allowedValues_, value))
     {
         AddSchematronViolation(result, element, locations);
     }
@@ -1801,7 +1801,7 @@ ValidationResult MetadataSchematronAttributeConditionalPresenceAllowedValuesCons
 
 bool MetadataAttributeInfo::AllowsEmptyValue() const noexcept
 {
-    return ExyokiOffice::AllowsEmptyValue(TypeName);
+    return MetadataBuilderHelper::AllowsEmptyValue(TypeName);
 }
 
 const MetadataSummary& MetadataDefinition::Summary() const noexcept

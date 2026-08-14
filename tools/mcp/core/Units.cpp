@@ -4,6 +4,8 @@
 
 #include "Units.hpp"
 
+#include "AsciiText.hpp"
+
 #include <cmath>
 #include <cstdlib>
 
@@ -17,34 +19,9 @@ public:
     /// Screen pixels are converted at the 96 DPI Office assumes for `px`.
     static constexpr Real PixelsPerInch = 96.0;
 
-    static std::string_view Trim(std::string_view text)
-    {
-        while (!text.empty() && IsSpace(text.front()))
-        {
-            text.remove_prefix(1);
-        }
-
-        while (!text.empty() && IsSpace(text.back()))
-        {
-            text.remove_suffix(1);
-        }
-
-        return text;
-    }
-
     static bool IsSpace(char value) noexcept
     {
         return value == ' ' || value == '\t' || value == '\n' || value == '\r';
-    }
-
-    static char ToLower(char value) noexcept
-    {
-        if (value >= 'A' && value <= 'Z')
-        {
-            return static_cast<char>(value - 'A' + 'a');
-        }
-
-        return value;
     }
 
     static std::optional<MeasurementUnit> ParseUnit(std::string_view suffix)
@@ -53,7 +30,7 @@ public:
         lowered.reserve(suffix.size());
         for (const char character : suffix)
         {
-            lowered.push_back(ToLower(character));
+            lowered.push_back(AsciiText::ToLower(character));
         }
 
         if (lowered == "pt")
@@ -102,7 +79,7 @@ std::optional<MeasuringUnits> ParseLength(const nlohmann::json& value)
 
 std::optional<MeasuringUnits> ParseLengthText(std::string_view text)
 {
-    const auto trimmed = UnitsParser::Trim(text);
+    const auto trimmed = AsciiText::Trim(text);
     if (trimmed.empty())
     {
         return std::nullopt;
@@ -116,7 +93,7 @@ std::optional<MeasuringUnits> ParseLengthText(std::string_view text)
         return std::nullopt;
     }
 
-    const auto unitText = UnitsParser::Trim(std::string_view(suffix));
+    const auto unitText = AsciiText::Trim(std::string_view(suffix));
     if (unitText.empty())
     {
         return MeasuringUnits(amount, MeasurementUnit::Point);
@@ -124,7 +101,7 @@ std::optional<MeasuringUnits> ParseLengthText(std::string_view text)
 
     // "px" has no MeasurementUnit of its own; it is a device unit converted at
     // the fixed 96 DPI used by every Office renderer.
-    if (unitText.size() == 2 && UnitsParser::ToLower(unitText[0]) == 'p' && UnitsParser::ToLower(unitText[1]) == 'x')
+    if (unitText.size() == 2 && AsciiText::ToLower(unitText[0]) == 'p' && AsciiText::ToLower(unitText[1]) == 'x')
     {
         return MeasuringUnits(amount / UnitsParser::PixelsPerInch, MeasurementUnit::Inch);
     }
@@ -140,7 +117,7 @@ std::optional<MeasuringUnits> ParseLengthText(std::string_view text)
 
 std::optional<Color> ParseColor(std::string_view text)
 {
-    const auto trimmed = UnitsParser::Trim(text);
+    const auto trimmed = AsciiText::Trim(text);
     if (trimmed.empty())
     {
         return std::nullopt;

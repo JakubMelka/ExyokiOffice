@@ -6,6 +6,8 @@
 
 #include "ExyokiOffice/Tools/OutputNaming.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -51,38 +53,10 @@ public:
     static bool ComponentsEqual(std::string_view left, std::string_view right)
     {
 #if defined(_WIN32)
-        return EqualsIgnoringCase(left, right);
+        return AsciiText::EqualsIgnoreCase(left, right);
 #else
         return left == right;
 #endif
-    }
-
-    static bool EqualsIgnoringCase(std::string_view left, std::string_view right)
-    {
-        if (left.size() != right.size())
-        {
-            return false;
-        }
-
-        for (Size index = 0; index < left.size(); ++index)
-        {
-            if (ToLower(left[index]) != ToLower(right[index]))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    static char ToLower(char value)
-    {
-        if (value >= 'A' && value <= 'Z')
-        {
-            return static_cast<char>(value - 'A' + 'a');
-        }
-
-        return value;
     }
 
     /**
@@ -161,7 +135,7 @@ public:
                 return false;
             }
 
-            if (pattern != '?' && ToLower(pattern) != ToLower(path[pathIndex]))
+            if (pattern != '?' && AsciiText::ToLower(pattern) != AsciiText::ToLower(path[pathIndex]))
             {
                 return false;
             }

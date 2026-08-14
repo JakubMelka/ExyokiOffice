@@ -14,9 +14,6 @@
 namespace exyoki
 {
 
-namespace
-{
-
 using ExyokiOffice::Tools::ReportDocument;
 using ExyokiOffice::Tools::ReportNode;
 using ExyokiOffice::Tools::ToolDiagnostic;
@@ -338,8 +335,6 @@ private:
     std::vector<std::string> m_paths;
     std::vector<std::string> m_shadowed;
 };
-
-} // namespace
 
 ReportDocument AdaptCommands(const CLI::App& app)
 {

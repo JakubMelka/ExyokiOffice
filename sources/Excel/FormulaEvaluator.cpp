@@ -9,6 +9,8 @@
 #include "ExyokiOffice/Excel/ExcelNamedRange.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -26,33 +28,13 @@ constexpr int MaxEvaluationDepth = 128;
 /** Guard against materializing enormous matrices (16 million elements). */
 constexpr Size MaxMaterializedElements = Size(1) << 24;
 
-char AsciiUpper(char c)
-{
-    return (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
-}
-
-char AsciiLower(char c)
-{
-    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
-}
-
-std::string ToLower(std::string_view text)
-{
-    std::string result(text);
-    for (char& c : result)
-    {
-        c = AsciiLower(c);
-    }
-    return result;
-}
-
 int CompareTextIgnoreCase(std::string_view left, std::string_view right)
 {
     const Size common = std::min(left.size(), right.size());
     for (Size i = 0; i < common; ++i)
     {
-        const char l = AsciiUpper(left[i]);
-        const char r = AsciiUpper(right[i]);
+        const char l = AsciiText::ToUpper(left[i]);
+        const char r = AsciiText::ToUpper(right[i]);
         if (l != r)
         {
             return l < r ? -1 : 1;
@@ -584,11 +566,11 @@ FormulaEvaluationSession::SheetCache* FormulaEvaluationSession::FindSheet(std::s
             SheetCache cache;
             cache.worksheet = worksheet;
             cache.displayName = worksheet->Name();
-            m_sheets.emplace(FormulaEvaluatorHelpers::ToLower(cache.displayName), std::move(cache));
+            m_sheets.emplace(AsciiText::ToLower(cache.displayName), std::move(cache));
         }
     }
     const std::string key =
-        FormulaEvaluatorHelpers::ToLower(sheetName.empty() ? std::string_view(m_currentSheet) : sheetName);
+        AsciiText::ToLower(sheetName.empty() ? std::string_view(m_currentSheet) : sheetName);
     const auto it = m_sheets.find(key);
     return it != m_sheets.end() ? &it->second : nullptr;
 }
@@ -727,7 +709,7 @@ FormulaValue FormulaEvaluationSession::ReadCell(std::string_view sheetName,
     if (m_overlay)
     {
         CellKey key;
-        key.sheet = FormulaEvaluatorHelpers::ToLower(sheet->displayName);
+        key.sheet = AsciiText::ToLower(sheet->displayName);
         key.row = row;
         key.column = column;
         const auto it = m_overlay->find(key);
@@ -785,7 +767,7 @@ bool FormulaEvaluationSession::ForEachStoredCell(
     // range). Visit those as well.
     if (m_overlay && !m_overlay->empty())
     {
-        const std::string sheetKey = FormulaEvaluatorHelpers::ToLower(sheet->displayName);
+        const std::string sheetKey = AsciiText::ToLower(sheet->displayName);
         CellKey lowKey{sheetKey, area.firstRow, 0};
         for (auto it = m_overlay->lower_bound(lowKey); it != m_overlay->end(); ++it)
         {
@@ -945,9 +927,9 @@ void FormulaEvaluationSession::LoadNames()
             continue;
         }
         std::pair<std::string, std::string> key{
-            entry.Scope == NamedRangeScope::Sheet ? FormulaEvaluatorHelpers::ToLower(entry.ScopeSheet)
+            entry.Scope == NamedRangeScope::Sheet ? AsciiText::ToLower(entry.ScopeSheet)
                                                   : std::string(),
-            FormulaEvaluatorHelpers::ToLower(entry.Name)};
+            AsciiText::ToLower(entry.Name)};
         NameDefinition definition;
         definition.formula = std::move(entry.Formula);
         m_names.emplace(std::move(key), std::move(definition));
@@ -959,9 +941,9 @@ const FormulaExpression* FormulaEvaluationSession::ResolveName(std::string_view 
                                                                bool qualified)
 {
     LoadNames();
-    const std::string nameLower = FormulaEvaluatorHelpers::ToLower(name);
+    const std::string nameLower = AsciiText::ToLower(name);
     const std::string scopeLower =
-        FormulaEvaluatorHelpers::ToLower(qualified ? sheetQualifier : std::string_view(m_currentSheet));
+        AsciiText::ToLower(qualified ? sheetQualifier : std::string_view(m_currentSheet));
 
     auto it = m_names.find(std::pair<std::string, std::string>{scopeLower, nameLower});
     if (it == m_names.end())
@@ -990,7 +972,7 @@ EvalValue FormulaEvaluationSession::EvaluateNameReference(const FormulaExpressio
     }
     // A name whose definition leads back to itself would recurse forever;
     // cyclic definitions terminate as an error value instead.
-    const std::string nameLower = FormulaEvaluatorHelpers::ToLower(node.text);
+    const std::string nameLower = AsciiText::ToLower(node.text);
     if (std::find(m_nameStack.begin(), m_nameStack.end(), nameLower) != m_nameStack.end())
     {
         return EvalValue::Error(FormulaErrorCode::Value);

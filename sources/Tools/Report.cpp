@@ -102,132 +102,130 @@ ReportNode& ReportNode::SetTableHint(std::vector<std::string> columns)
     return *this;
 }
 
-namespace
+/// File-local helpers for the plain-text report renderer.
+class ReportPlainTextHelper
 {
-
-std::string ScalarToPlainText(const ReportNode& node)
-{
-    switch (node.Kind())
+public:
+    static std::string ScalarToPlainText(const ReportNode& node)
     {
-        case ReportNodeKind::Null:
-            return "null";
-        case ReportNodeKind::Bool:
-            return node.AsBool() ? "true" : "false";
-        case ReportNodeKind::Int:
-            return std::to_string(node.AsInt());
-        case ReportNodeKind::UInt:
-            return std::to_string(node.AsUInt());
-        case ReportNodeKind::Double:
+        switch (node.Kind())
         {
-            std::ostringstream stream;
-            stream << node.AsDouble();
-            return stream.str();
-        }
-        case ReportNodeKind::String:
-            return node.AsString();
-        case ReportNodeKind::Array:
-            return "[" + std::to_string(node.AsArray().size()) + " item(s)]";
-        case ReportNodeKind::Object:
-            return "{" + std::to_string(node.AsObject().size()) + " field(s)}";
-    }
-    return {};
-}
-
-bool IsScalar(const ReportNode& node)
-{
-    switch (node.Kind())
-    {
-        case ReportNodeKind::Array:
-        case ReportNodeKind::Object:
-            return false;
-        default:
-            return true;
-    }
-}
-
-void WritePlainNode(std::ostringstream& output, const ReportNode& node, int indent);
-
-void WritePlainObject(std::ostringstream& output, const ReportNode& node, int indent)
-{
-    const std::string pad(static_cast<Size>(indent) * 2, ' ');
-    for (const auto& [key, value] : node.AsObject())
-    {
-        if (IsScalar(value))
-        {
-            output << pad << key << ": " << ScalarToPlainText(value) << "\n";
-        }
-        else
-        {
-            output << pad << key << ":\n";
-            WritePlainNode(output, value, indent + 1);
-        }
-    }
-}
-
-void WritePlainTable(std::ostringstream& output, const ReportNode& node, int indent)
-{
-    const std::string pad(static_cast<Size>(indent) * 2, ' ');
-    const auto& columns = node.TableHint();
-    for (const auto& row : node.AsArray())
-    {
-        output << pad << "-";
-        bool first = true;
-        for (const auto& column : columns)
-        {
-            for (const auto& [key, value] : row.AsObject())
+            case ReportNodeKind::Null:
+                return "null";
+            case ReportNodeKind::Bool:
+                return node.AsBool() ? "true" : "false";
+            case ReportNodeKind::Int:
+                return std::to_string(node.AsInt());
+            case ReportNodeKind::UInt:
+                return std::to_string(node.AsUInt());
+            case ReportNodeKind::Double:
             {
-                if (key != column)
-                {
-                    continue;
-                }
-                output << (first ? " " : ", ") << column << "=" << ScalarToPlainText(value);
-                first = false;
+                std::ostringstream stream;
+                stream << node.AsDouble();
+                return stream.str();
+            }
+            case ReportNodeKind::String:
+                return node.AsString();
+            case ReportNodeKind::Array:
+                return "[" + std::to_string(node.AsArray().size()) + " item(s)]";
+            case ReportNodeKind::Object:
+                return "{" + std::to_string(node.AsObject().size()) + " field(s)}";
+        }
+        return {};
+    }
+
+    static bool IsScalar(const ReportNode& node)
+    {
+        switch (node.Kind())
+        {
+            case ReportNodeKind::Array:
+            case ReportNodeKind::Object:
+                return false;
+            default:
+                return true;
+        }
+    }
+
+    static void WritePlainObject(std::ostringstream& output, const ReportNode& node, int indent)
+    {
+        const std::string pad(static_cast<Size>(indent) * 2, ' ');
+        for (const auto& [key, value] : node.AsObject())
+        {
+            if (IsScalar(value))
+            {
+                output << pad << key << ": " << ScalarToPlainText(value) << "\n";
+            }
+            else
+            {
+                output << pad << key << ":\n";
+                WritePlainNode(output, value, indent + 1);
             }
         }
-        output << "\n";
-    }
-}
-
-void WritePlainArray(std::ostringstream& output, const ReportNode& node, int indent)
-{
-    const std::string pad(static_cast<Size>(indent) * 2, ' ');
-    if (node.HasTableHint())
-    {
-        WritePlainTable(output, node, indent);
-        return;
     }
 
-    for (const auto& item : node.AsArray())
+    static void WritePlainTable(std::ostringstream& output, const ReportNode& node, int indent)
     {
-        if (IsScalar(item))
+        const std::string pad(static_cast<Size>(indent) * 2, ' ');
+        const auto& columns = node.TableHint();
+        for (const auto& row : node.AsArray())
         {
-            output << pad << "- " << ScalarToPlainText(item) << "\n";
-        }
-        else
-        {
-            output << pad << "-\n";
-            WritePlainNode(output, item, indent + 1);
+            output << pad << "-";
+            bool first = true;
+            for (const auto& column : columns)
+            {
+                for (const auto& [key, value] : row.AsObject())
+                {
+                    if (key != column)
+                    {
+                        continue;
+                    }
+                    output << (first ? " " : ", ") << column << "=" << ScalarToPlainText(value);
+                    first = false;
+                }
+            }
+            output << "\n";
         }
     }
-}
 
-void WritePlainNode(std::ostringstream& output, const ReportNode& node, int indent)
-{
-    switch (node.Kind())
+    static void WritePlainArray(std::ostringstream& output, const ReportNode& node, int indent)
     {
-        case ReportNodeKind::Object:
-            WritePlainObject(output, node, indent);
-            break;
-        case ReportNodeKind::Array:
-            WritePlainArray(output, node, indent);
-            break;
-        default:
-            output << std::string(static_cast<Size>(indent) * 2, ' ') << ScalarToPlainText(node) << "\n";
-            break;
-    }
-}
+        const std::string pad(static_cast<Size>(indent) * 2, ' ');
+        if (node.HasTableHint())
+        {
+            WritePlainTable(output, node, indent);
+            return;
+        }
 
-} // namespace
+        for (const auto& item : node.AsArray())
+        {
+            if (IsScalar(item))
+            {
+                output << pad << "- " << ScalarToPlainText(item) << "\n";
+            }
+            else
+            {
+                output << pad << "-\n";
+                WritePlainNode(output, item, indent + 1);
+            }
+        }
+    }
+
+    static void WritePlainNode(std::ostringstream& output, const ReportNode& node, int indent)
+    {
+        switch (node.Kind())
+        {
+            case ReportNodeKind::Object:
+                WritePlainObject(output, node, indent);
+                break;
+            case ReportNodeKind::Array:
+                WritePlainArray(output, node, indent);
+                break;
+            default:
+                output << std::string(static_cast<Size>(indent) * 2, ' ') << ScalarToPlainText(node) << "\n";
+                break;
+        }
+    }
+};
 
 std::string RenderPlain(const ReportDocument& document)
 {
@@ -237,7 +235,7 @@ std::string RenderPlain(const ReportDocument& document)
     if (!document.Data.AsObject().empty() || document.Data.Kind() == ReportNodeKind::Array)
     {
         output << "data:\n";
-        WritePlainNode(output, document.Data, 1);
+        ReportPlainTextHelper::WritePlainNode(output, document.Data, 1);
     }
     if (!document.Diagnostics.empty())
     {
@@ -255,122 +253,120 @@ std::string RenderPlain(const ReportDocument& document)
     return output.str();
 }
 
-namespace
+/// File-local helpers for the Markdown report renderer.
+class ReportMarkdownHelper
 {
-
-std::string EscapeMarkdown(std::string_view text)
-{
-    std::string escaped;
-    escaped.reserve(text.size());
-    for (char ch : text)
+public:
+    static std::string EscapeMarkdown(std::string_view text)
     {
-        if (ch == '|' || ch == '\\')
+        std::string escaped;
+        escaped.reserve(text.size());
+        for (char ch : text)
         {
-            escaped.push_back('\\');
+            if (ch == '|' || ch == '\\')
+            {
+                escaped.push_back('\\');
+            }
+            if (ch == '\n')
+            {
+                escaped.append("<br>");
+                continue;
+            }
+            escaped.push_back(ch);
         }
-        if (ch == '\n')
-        {
-            escaped.append("<br>");
-            continue;
-        }
-        escaped.push_back(ch);
+        return escaped;
     }
-    return escaped;
-}
 
-void WriteMarkdownNode(std::ostringstream& output, const ReportNode& node, int indent);
-
-void WriteMarkdownObject(std::ostringstream& output, const ReportNode& node, int indent)
-{
-    const std::string pad(static_cast<Size>(indent) * 2, ' ');
-    for (const auto& [key, value] : node.AsObject())
+    static void WriteMarkdownObject(std::ostringstream& output, const ReportNode& node, int indent)
     {
-        if (IsScalar(value))
+        const std::string pad(static_cast<Size>(indent) * 2, ' ');
+        for (const auto& [key, value] : node.AsObject())
         {
-            output << pad << "- **" << key << "**: " << EscapeMarkdown(ScalarToPlainText(value)) << "\n";
-        }
-        else
-        {
-            output << pad << "- **" << key << "**:\n";
-            WriteMarkdownNode(output, value, indent + 1);
+            if (ReportPlainTextHelper::IsScalar(value))
+            {
+                output << pad << "- **" << key << "**: " << EscapeMarkdown(ReportPlainTextHelper::ScalarToPlainText(value)) << "\n";
+            }
+            else
+            {
+                output << pad << "- **" << key << "**:\n";
+                WriteMarkdownNode(output, value, indent + 1);
+            }
         }
     }
-}
 
-void WriteMarkdownTable(std::ostringstream& output, const ReportNode& node)
-{
-    const auto& columns = node.TableHint();
-    output << "\n";
-    for (const auto& column : columns)
+    static void WriteMarkdownTable(std::ostringstream& output, const ReportNode& node)
     {
-        output << "| " << column << " ";
-    }
-    output << "|\n";
-    for (Size i = 0; i < columns.size(); ++i)
-    {
-        output << "| --- ";
-    }
-    output << "|\n";
-    for (const auto& row : node.AsArray())
-    {
+        const auto& columns = node.TableHint();
+        output << "\n";
         for (const auto& column : columns)
         {
-            std::string cell;
-            for (const auto& [key, value] : row.AsObject())
-            {
-                if (key == column)
-                {
-                    cell = ScalarToPlainText(value);
-                }
-            }
-            output << "| " << EscapeMarkdown(cell) << " ";
+            output << "| " << column << " ";
         }
         output << "|\n";
-    }
-    output << "\n";
-}
-
-void WriteMarkdownArray(std::ostringstream& output, const ReportNode& node, int indent)
-{
-    if (node.HasTableHint())
-    {
-        WriteMarkdownTable(output, node);
-        return;
-    }
-
-    const std::string pad(static_cast<Size>(indent) * 2, ' ');
-    for (const auto& item : node.AsArray())
-    {
-        if (IsScalar(item))
+        for (Size i = 0; i < columns.size(); ++i)
         {
-            output << pad << "- " << EscapeMarkdown(ScalarToPlainText(item)) << "\n";
+            output << "| --- ";
         }
-        else
+        output << "|\n";
+        for (const auto& row : node.AsArray())
         {
-            output << pad << "-\n";
-            WriteMarkdownNode(output, item, indent + 1);
+            for (const auto& column : columns)
+            {
+                std::string cell;
+                for (const auto& [key, value] : row.AsObject())
+                {
+                    if (key == column)
+                    {
+                        cell = ReportPlainTextHelper::ScalarToPlainText(value);
+                    }
+                }
+                output << "| " << EscapeMarkdown(cell) << " ";
+            }
+            output << "|\n";
+        }
+        output << "\n";
+    }
+
+    static void WriteMarkdownArray(std::ostringstream& output, const ReportNode& node, int indent)
+    {
+        if (node.HasTableHint())
+        {
+            WriteMarkdownTable(output, node);
+            return;
+        }
+
+        const std::string pad(static_cast<Size>(indent) * 2, ' ');
+        for (const auto& item : node.AsArray())
+        {
+            if (ReportPlainTextHelper::IsScalar(item))
+            {
+                output << pad << "- " << EscapeMarkdown(ReportPlainTextHelper::ScalarToPlainText(item)) << "\n";
+            }
+            else
+            {
+                output << pad << "-\n";
+                WriteMarkdownNode(output, item, indent + 1);
+            }
         }
     }
-}
 
-void WriteMarkdownNode(std::ostringstream& output, const ReportNode& node, int indent)
-{
-    switch (node.Kind())
+    static void WriteMarkdownNode(std::ostringstream& output, const ReportNode& node, int indent)
     {
-        case ReportNodeKind::Object:
-            WriteMarkdownObject(output, node, indent);
-            break;
-        case ReportNodeKind::Array:
-            WriteMarkdownArray(output, node, indent);
-            break;
-        default:
-            output << std::string(static_cast<Size>(indent) * 2, ' ') << "- "
-                   << EscapeMarkdown(ScalarToPlainText(node)) << "\n";
-            break;
+        switch (node.Kind())
+        {
+            case ReportNodeKind::Object:
+                WriteMarkdownObject(output, node, indent);
+                break;
+            case ReportNodeKind::Array:
+                WriteMarkdownArray(output, node, indent);
+                break;
+            default:
+                output << std::string(static_cast<Size>(indent) * 2, ' ') << "- "
+                       << EscapeMarkdown(ReportPlainTextHelper::ScalarToPlainText(node)) << "\n";
+                break;
+        }
     }
-}
-
-} // namespace
+};
 
 std::string RenderMarkdown(const ReportDocument& document)
 {
@@ -380,7 +376,7 @@ std::string RenderMarkdown(const ReportDocument& document)
     if (!document.Data.AsObject().empty() || document.Data.Kind() == ReportNodeKind::Array)
     {
         output << "### Data\n\n";
-        WriteMarkdownNode(output, document.Data, 0);
+        ReportMarkdownHelper::WriteMarkdownNode(output, document.Data, 0);
         output << "\n";
     }
     if (!document.Diagnostics.empty())
@@ -388,10 +384,10 @@ std::string RenderMarkdown(const ReportDocument& document)
         output << "### Diagnostics\n\n";
         for (const auto& diagnostic : document.Diagnostics)
         {
-            output << "- **" << ToString(diagnostic.Severity) << "**: " << EscapeMarkdown(diagnostic.Message);
+            output << "- **" << ToString(diagnostic.Severity) << "**: " << ReportMarkdownHelper::EscapeMarkdown(diagnostic.Message);
             if (!diagnostic.Context.empty())
             {
-                output << " (" << EscapeMarkdown(diagnostic.Context) << ")";
+                output << " (" << ReportMarkdownHelper::EscapeMarkdown(diagnostic.Context) << ")";
             }
             output << "\n";
         }
@@ -399,102 +395,102 @@ std::string RenderMarkdown(const ReportDocument& document)
     return output.str();
 }
 
-namespace
-{
-
-class ReportJsonRenderer
+/// File-local conversion helpers for the JSON report renderer.
+class ReportJsonHelper
 {
 public:
-    static nlohmann::ordered_json Convert(const ReportNode& node)
+    class ReportJsonRenderer
     {
-        switch (node.Kind())
+    public:
+        static nlohmann::ordered_json Convert(const ReportNode& node)
         {
-            case ReportNodeKind::Null:
-                return nullptr;
-            case ReportNodeKind::Bool:
-                return node.AsBool();
-            case ReportNodeKind::Int:
-                return node.AsInt();
-            case ReportNodeKind::UInt:
-                return node.AsUInt();
-            case ReportNodeKind::Double:
-                return node.AsDouble();
-            case ReportNodeKind::String:
-                return node.AsString();
-            case ReportNodeKind::Array:
+            switch (node.Kind())
             {
-                auto array = nlohmann::ordered_json::array();
+                case ReportNodeKind::Null:
+                    return nullptr;
+                case ReportNodeKind::Bool:
+                    return node.AsBool();
+                case ReportNodeKind::Int:
+                    return node.AsInt();
+                case ReportNodeKind::UInt:
+                    return node.AsUInt();
+                case ReportNodeKind::Double:
+                    return node.AsDouble();
+                case ReportNodeKind::String:
+                    return node.AsString();
+                case ReportNodeKind::Array:
+                {
+                    auto array = nlohmann::ordered_json::array();
+                    for (const auto& item : node.AsArray())
+                    {
+                        array.push_back(Convert(item));
+                    }
+                    return array;
+                }
+                case ReportNodeKind::Object:
+                {
+                    auto object = nlohmann::ordered_json::object();
+                    for (const auto& [key, value] : node.AsObject())
+                    {
+                        object[key] = Convert(value);
+                    }
+                    return object;
+                }
+            }
+            return nullptr;
+        }
+    };
+
+    /// Sanitizes an arbitrary key into a valid XML element name (used for object members).
+    static std::string SanitizeXmlElementName(std::string_view name)
+    {
+        std::string sanitized;
+        sanitized.reserve(name.size());
+        for (char ch : name)
+        {
+            const bool isValid = std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '-' || ch == '_' || ch == '.';
+            sanitized.push_back(isValid ? ch : '_');
+        }
+        if (sanitized.empty() || (std::isalpha(static_cast<unsigned char>(sanitized.front())) == 0 && sanitized.front() != '_'))
+        {
+            sanitized.insert(sanitized.begin(), '_');
+        }
+        return sanitized;
+    }
+
+    class ReportXmlRenderer
+    {
+    public:
+        static void AppendNode(Pugi::xml_node parent, const ReportNode& node, std::string_view tag)
+        {
+            const std::string elementName(tag);
+            auto element = parent.append_child(elementName.c_str());
+            if (node.Kind() == ReportNodeKind::Object)
+            {
+                AppendObject(element, node);
+            }
+            else if (node.Kind() == ReportNodeKind::Array)
+            {
                 for (const auto& item : node.AsArray())
                 {
-                    array.push_back(Convert(item));
+                    AppendNode(element, item, "item");
                 }
-                return array;
             }
-            case ReportNodeKind::Object:
+            else
             {
-                auto object = nlohmann::ordered_json::object();
-                for (const auto& [key, value] : node.AsObject())
-                {
-                    object[key] = Convert(value);
-                }
-                return object;
+                element.text().set(ReportPlainTextHelper::ScalarToPlainText(node).c_str());
             }
         }
-        return nullptr;
-    }
-};
 
-/// Sanitizes an arbitrary key into a valid XML element name (used for object members).
-std::string SanitizeXmlElementName(std::string_view name)
-{
-    std::string sanitized;
-    sanitized.reserve(name.size());
-    for (char ch : name)
-    {
-        const bool isValid = std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '-' || ch == '_' || ch == '.';
-        sanitized.push_back(isValid ? ch : '_');
-    }
-    if (sanitized.empty() || (std::isalpha(static_cast<unsigned char>(sanitized.front())) == 0 && sanitized.front() != '_'))
-    {
-        sanitized.insert(sanitized.begin(), '_');
-    }
-    return sanitized;
-}
-
-class ReportXmlRenderer
-{
-public:
-    static void AppendNode(Pugi::xml_node parent, const ReportNode& node, std::string_view tag)
-    {
-        const std::string elementName(tag);
-        auto element = parent.append_child(elementName.c_str());
-        if (node.Kind() == ReportNodeKind::Object)
+        static void AppendObject(Pugi::xml_node parent, const ReportNode& node)
         {
-            AppendObject(element, node);
-        }
-        else if (node.Kind() == ReportNodeKind::Array)
-        {
-            for (const auto& item : node.AsArray())
+            for (const auto& [key, value] : node.AsObject())
             {
-                AppendNode(element, item, "item");
+                AppendNode(parent, value, SanitizeXmlElementName(key));
             }
         }
-        else
-        {
-            element.text().set(ScalarToPlainText(node).c_str());
-        }
-    }
-
-    static void AppendObject(Pugi::xml_node parent, const ReportNode& node)
-    {
-        for (const auto& [key, value] : node.AsObject())
-        {
-            AppendNode(parent, value, SanitizeXmlElementName(key));
-        }
-    }
+    };
 };
-
-} // namespace
 
 std::string RenderJson(const ReportDocument& document)
 {
@@ -503,7 +499,7 @@ std::string RenderJson(const ReportDocument& document)
     envelope["toolVersion"] = std::string(ExyokiOffice::GetVersion());
     envelope["command"] = document.Command;
     envelope["status"] = document.Status;
-    envelope["data"] = ReportJsonRenderer::Convert(document.Data);
+    envelope["data"] = ReportJsonHelper::ReportJsonRenderer::Convert(document.Data);
 
     auto diagnostics = nlohmann::ordered_json::array();
     for (const auto& diagnostic : document.Diagnostics)
@@ -536,18 +532,18 @@ std::string RenderXml(const ReportDocument& document)
     auto data = root.append_child("data");
     if (document.Data.Kind() == ReportNodeKind::Object)
     {
-        ReportXmlRenderer::AppendObject(data, document.Data);
+        ReportJsonHelper::ReportXmlRenderer::AppendObject(data, document.Data);
     }
     else if (document.Data.Kind() == ReportNodeKind::Array)
     {
         for (const auto& item : document.Data.AsArray())
         {
-            ReportXmlRenderer::AppendNode(data, item, "item");
+            ReportJsonHelper::ReportXmlRenderer::AppendNode(data, item, "item");
         }
     }
     else
     {
-        data.text().set(ScalarToPlainText(document.Data).c_str());
+        data.text().set(ReportPlainTextHelper::ScalarToPlainText(document.Data).c_str());
     }
 
     auto diagnostics = root.append_child("diagnostics");

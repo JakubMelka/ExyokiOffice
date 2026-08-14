@@ -19,24 +19,25 @@ namespace ExyokiOffice::Packaging
 {
 namespace ExtendedProperties = ExyokiOffice::DocumentFormat::OpenXml::ExtendedProperties;
 
-namespace
+/// File-local part lookup helpers for the PowerPoint package.
+class PowerPointDocumentHelper
 {
-bool Cancelled(const ICancellationToken* token)
-{
-    return token && token->IsCancelled();
-}
-
-OpenXmlPackageLimits LimitsFor(const OpenSettings& settings)
-{
-    auto limits = settings.PackageLimits;
-    if (limits.MaxPartBytes == 0 && settings.MaxCharactersInPart != 0)
+public:
+    static bool Cancelled(const ICancellationToken* token)
     {
-        limits.MaxPartBytes = settings.MaxCharactersInPart;
+        return token && token->IsCancelled();
     }
-    return limits;
-}
 
-} // namespace
+    static OpenXmlPackageLimits LimitsFor(const OpenSettings& settings)
+    {
+        auto limits = settings.PackageLimits;
+        if (limits.MaxPartBytes == 0 && settings.MaxCharactersInPart != 0)
+        {
+            limits.MaxPartBytes = settings.MaxCharactersInPart;
+        }
+        return limits;
+    }
+};
 
 class PowerPointPropertyXmlHelpers
 {
@@ -149,14 +150,14 @@ DocumentProperties PowerPointDocument::Properties()
 PowerPointDocument::Ptr PowerPointDocument::Open(const std::filesystem::path& path, const OpenSettings& settings,
                                                  const ICancellationToken* token)
 {
-    if (path.empty() || Cancelled(token))
+    if (path.empty() || PowerPointDocumentHelper::Cancelled(token))
     {
         return nullptr;
     }
     auto document = std::make_shared<PowerPointDocument>();
-    document->SetPackageLimits(LimitsFor(settings));
+    document->SetPackageLimits(PowerPointDocumentHelper::LimitsFor(settings));
     document->SetPartByteRetention(settings.ByteRetention);
-    if (!document->LoadFromFile(path, token) || Cancelled(token))
+    if (!document->LoadFromFile(path, token) || PowerPointDocumentHelper::Cancelled(token))
     {
         return nullptr;
     }
@@ -185,14 +186,14 @@ PowerPointDocument::Ptr PowerPointDocument::Open(const std::vector<Byte>& bytes,
 PowerPointDocument::Ptr PowerPointDocument::Open(std::span<const Byte> bytes, const OpenSettings& settings,
                                                  const ICancellationToken* token)
 {
-    if (bytes.empty() || Cancelled(token))
+    if (bytes.empty() || PowerPointDocumentHelper::Cancelled(token))
     {
         return nullptr;
     }
     auto document = std::make_shared<PowerPointDocument>();
-    document->SetPackageLimits(LimitsFor(settings));
+    document->SetPackageLimits(PowerPointDocumentHelper::LimitsFor(settings));
     document->SetPartByteRetention(settings.ByteRetention);
-    if (!document->LoadFromMemory(bytes, token) || Cancelled(token))
+    if (!document->LoadFromMemory(bytes, token) || PowerPointDocumentHelper::Cancelled(token))
     {
         return nullptr;
     }

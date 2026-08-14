@@ -17,315 +17,315 @@
 namespace ExyokiOffice::Tools
 {
 
-namespace
+/// File-local counters behind the document statistics.
+class DocumentStatsHelper
 {
+public:
+    static constexpr Real WordsPerMinute = 200.0;
 
-constexpr Real WordsPerMinute = 200.0;
-
-UInt64 CountWords(const std::string& text)
-{
-    UInt64 count = 0;
-    bool inWord = false;
-    for (const char rawCh : text)
+    static UInt64 CountWords(const std::string& text)
     {
-        const auto ch = static_cast<unsigned char>(rawCh);
-        const bool isSpace = ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\f' || ch == '\v';
-        if (isSpace)
+        UInt64 count = 0;
+        bool inWord = false;
+        for (const char rawCh : text)
         {
-            inWord = false;
-        }
-        else if (!inWord)
-        {
-            inWord = true;
-            ++count;
-        }
-    }
-    return count;
-}
-
-/// Counts Unicode codepoints in a UTF-8 string (skips continuation bytes).
-UInt64 CountCodepoints(const std::string& text)
-{
-    UInt64 count = 0;
-    for (const char rawCh : text)
-    {
-        const auto ch = static_cast<unsigned char>(rawCh);
-        if ((ch & 0xC0) != 0x80)
-        {
-            ++count;
-        }
-    }
-    return count;
-}
-
-bool IsHeadingStyle(const std::string& styleId)
-{
-    return styleId == "Title" || styleId.rfind("Heading", 0) == 0;
-}
-
-struct WordAccumulator
-{
-    UInt64 Words = 0;
-    UInt64 Characters = 0;
-    UInt64 Paragraphs = 0;
-    UInt64 Headings = 0;
-    UInt64 Images = 0;
-    UInt64 Equations = 0;
-    UInt64 Hyperlinks = 0;
-};
-
-void AccumulateParagraph(const std::shared_ptr<Word::Paragraph>& paragraph, WordAccumulator& acc)
-{
-    ++acc.Paragraphs;
-
-    const auto text = paragraph->PlainText();
-    acc.Words += CountWords(text);
-    acc.Characters += CountCodepoints(text);
-
-    if (IsHeadingStyle(paragraph->GetStyleId()))
-    {
-        ++acc.Headings;
-    }
-
-    acc.Images += paragraph->Images().size();
-    acc.Hyperlinks += paragraph->Hyperlinks().size();
-
-    if (auto element = paragraph->GetLowLevelApi())
-    {
-        acc.Equations +=
-            element->Descendants<DocumentFormat::OpenXml::Math::OfficeMath>().size();
-    }
-}
-
-void AccumulateParagraphs(const std::vector<std::shared_ptr<Word::Paragraph>>& paragraphs, WordAccumulator& acc)
-{
-    for (const auto& paragraph : paragraphs)
-    {
-        AccumulateParagraph(paragraph, acc);
-    }
-}
-
-UInt64 CountTablesRecursive(const std::shared_ptr<Word::Table>& table)
-{
-    UInt64 count = 1;
-    for (const auto& nested : table->Tables())
-    {
-        count += CountTablesRecursive(nested);
-    }
-    return count;
-}
-
-DocumentStats StatWord(Word::WordDocumentEditor& editor)
-{
-    DocumentStats result;
-    result.Family = DocumentFamily::Word;
-
-    WordAccumulator acc;
-    AccumulateParagraphs(editor.Paragraphs(), acc);
-
-    UInt64 tableCount = 0;
-    for (const auto& table : editor.Tables())
-    {
-        tableCount += CountTablesRecursive(table);
-        AccumulateParagraphs(table->Paragraphs(), acc);
-    }
-
-    UInt64 footnoteCount = 0;
-    for (const auto& note : editor.Footnotes())
-    {
-        if (note->GetEntryType() == Word::NoteEntryType::Normal)
-        {
-            ++footnoteCount;
-        }
-    }
-
-    UInt64 endnoteCount = 0;
-    for (const auto& note : editor.Endnotes())
-    {
-        if (note->GetEntryType() == Word::NoteEntryType::Normal)
-        {
-            ++endnoteCount;
-        }
-    }
-
-    result.WordCount = acc.Words;
-    result.CharacterCount = acc.Characters;
-    result.ParagraphCount = acc.Paragraphs;
-    result.HeadingCount = acc.Headings;
-    result.TableCount = tableCount;
-    result.ImageCount = acc.Images;
-    result.EquationCount = acc.Equations;
-    result.FootnoteCount = footnoteCount;
-    result.EndnoteCount = endnoteCount;
-    result.BookmarkCount = static_cast<UInt64>(editor.Bookmarks().size());
-    result.HyperlinkCount = acc.Hyperlinks;
-    result.CommentCount = static_cast<UInt64>(editor.Comments().size());
-    result.SectionCount = static_cast<UInt64>(editor.Sections().size());
-    result.ReadingTimeMinutes = static_cast<Real>(acc.Words) / WordsPerMinute;
-    result.Ok = true;
-    return result;
-}
-
-DocumentStats StatExcel(Excel::ExcelDocumentEditor& editor)
-{
-    DocumentStats result;
-    result.Family = DocumentFamily::Excel;
-
-    const auto worksheets = editor.Worksheets();
-
-    UInt64 cellCount = 0;
-    UInt64 formulaCount = 0;
-    UInt64 tableCount = 0;
-    UInt64 hyperlinkCount = 0;
-    UInt64 commentCount = 0;
-    UInt64 imageCount = 0;
-    UInt64 mergedRangeCount = 0;
-
-    for (const auto& worksheet : worksheets)
-    {
-        cellCount += worksheet->StoredCellCount();
-        for (const auto& address : worksheet->StoredCellAddresses())
-        {
-            if (worksheet->GetCellFormula(address))
+            const auto ch = static_cast<unsigned char>(rawCh);
+            const bool isSpace = ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\f' || ch == '\v';
+            if (isSpace)
             {
-                ++formulaCount;
+                inWord = false;
+            }
+            else if (!inWord)
+            {
+                inWord = true;
+                ++count;
             }
         }
-        tableCount += worksheet->Tables().size();
-        hyperlinkCount += worksheet->Hyperlinks().size();
-        commentCount += worksheet->Comments().size() + worksheet->ThreadedComments().size();
-        imageCount += worksheet->Images().size();
-        mergedRangeCount += worksheet->MergedRanges().size();
+        return count;
     }
 
-    result.WorksheetCount = static_cast<UInt64>(worksheets.size());
-    result.CellCount = cellCount;
-    result.FormulaCount = formulaCount;
-    result.TableCount = tableCount;
-    result.HyperlinkCount = hyperlinkCount;
-    result.CommentCount = commentCount;
-    result.ImageCount = imageCount;
-    result.MergedRangeCount = mergedRangeCount;
-    result.Ok = true;
-    return result;
-}
-
-struct PowerPointAccumulator
-{
-    UInt64 Words = 0;
-    UInt64 Shapes = 0;
-    UInt64 Images = 0;
-    UInt64 Tables = 0;
-    UInt64 Charts = 0;
-    UInt64 Hyperlinks = 0;
-};
-
-void WalkShapes(const std::vector<std::shared_ptr<PowerPoint::PresentationShape>>& shapes, PowerPointAccumulator& acc)
-{
-    for (const auto& shape : shapes)
+    /// Counts Unicode codepoints in a UTF-8 string (skips continuation bytes).
+    static UInt64 CountCodepoints(const std::string& text)
     {
-        ++acc.Shapes;
-
-        if (shape->IsGroup())
+        UInt64 count = 0;
+        for (const char rawCh : text)
         {
-            WalkShapes(shape->Children(), acc);
-            continue;
+            const auto ch = static_cast<unsigned char>(rawCh);
+            if ((ch & 0xC0) != 0x80)
+            {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    static bool IsHeadingStyle(const std::string& styleId)
+    {
+        return styleId == "Title" || styleId.rfind("Heading", 0) == 0;
+    }
+
+    struct WordAccumulator
+    {
+        UInt64 Words = 0;
+        UInt64 Characters = 0;
+        UInt64 Paragraphs = 0;
+        UInt64 Headings = 0;
+        UInt64 Images = 0;
+        UInt64 Equations = 0;
+        UInt64 Hyperlinks = 0;
+    };
+
+    static void AccumulateParagraph(const std::shared_ptr<Word::Paragraph>& paragraph, WordAccumulator& acc)
+    {
+        ++acc.Paragraphs;
+
+        const auto text = paragraph->PlainText();
+        acc.Words += CountWords(text);
+        acc.Characters += CountCodepoints(text);
+
+        if (IsHeadingStyle(paragraph->GetStyleId()))
+        {
+            ++acc.Headings;
         }
 
-        if (auto frame = shape->GetTextFrame())
+        acc.Images += paragraph->Images().size();
+        acc.Hyperlinks += paragraph->Hyperlinks().size();
+
+        if (auto element = paragraph->GetLowLevelApi())
         {
-            for (const auto& paragraph : frame->Paragraphs)
+            acc.Equations +=
+                element->Descendants<DocumentFormat::OpenXml::Math::OfficeMath>().size();
+        }
+    }
+
+    static void AccumulateParagraphs(const std::vector<std::shared_ptr<Word::Paragraph>>& paragraphs, WordAccumulator& acc)
+    {
+        for (const auto& paragraph : paragraphs)
+        {
+            AccumulateParagraph(paragraph, acc);
+        }
+    }
+
+    static UInt64 CountTablesRecursive(const std::shared_ptr<Word::Table>& table)
+    {
+        UInt64 count = 1;
+        for (const auto& nested : table->Tables())
+        {
+            count += CountTablesRecursive(nested);
+        }
+        return count;
+    }
+
+    static DocumentStats StatWord(Word::WordDocumentEditor& editor)
+    {
+        DocumentStats result;
+        result.Family = DocumentFamily::Word;
+
+        WordAccumulator acc;
+        AccumulateParagraphs(editor.Paragraphs(), acc);
+
+        UInt64 tableCount = 0;
+        for (const auto& table : editor.Tables())
+        {
+            tableCount += CountTablesRecursive(table);
+            AccumulateParagraphs(table->Paragraphs(), acc);
+        }
+
+        UInt64 footnoteCount = 0;
+        for (const auto& note : editor.Footnotes())
+        {
+            if (note->GetEntryType() == Word::NoteEntryType::Normal)
             {
-                for (const auto& run : paragraph.Runs)
+                ++footnoteCount;
+            }
+        }
+
+        UInt64 endnoteCount = 0;
+        for (const auto& note : editor.Endnotes())
+        {
+            if (note->GetEntryType() == Word::NoteEntryType::Normal)
+            {
+                ++endnoteCount;
+            }
+        }
+
+        result.WordCount = acc.Words;
+        result.CharacterCount = acc.Characters;
+        result.ParagraphCount = acc.Paragraphs;
+        result.HeadingCount = acc.Headings;
+        result.TableCount = tableCount;
+        result.ImageCount = acc.Images;
+        result.EquationCount = acc.Equations;
+        result.FootnoteCount = footnoteCount;
+        result.EndnoteCount = endnoteCount;
+        result.BookmarkCount = static_cast<UInt64>(editor.Bookmarks().size());
+        result.HyperlinkCount = acc.Hyperlinks;
+        result.CommentCount = static_cast<UInt64>(editor.Comments().size());
+        result.SectionCount = static_cast<UInt64>(editor.Sections().size());
+        result.ReadingTimeMinutes = static_cast<Real>(acc.Words) / WordsPerMinute;
+        result.Ok = true;
+        return result;
+    }
+
+    static DocumentStats StatExcel(Excel::ExcelDocumentEditor& editor)
+    {
+        DocumentStats result;
+        result.Family = DocumentFamily::Excel;
+
+        const auto worksheets = editor.Worksheets();
+
+        UInt64 cellCount = 0;
+        UInt64 formulaCount = 0;
+        UInt64 tableCount = 0;
+        UInt64 hyperlinkCount = 0;
+        UInt64 commentCount = 0;
+        UInt64 imageCount = 0;
+        UInt64 mergedRangeCount = 0;
+
+        for (const auto& worksheet : worksheets)
+        {
+            cellCount += worksheet->StoredCellCount();
+            for (const auto& address : worksheet->StoredCellAddresses())
+            {
+                if (worksheet->GetCellFormula(address))
                 {
-                    acc.Words += CountWords(run.Text);
-                    if (run.Hyperlink)
+                    ++formulaCount;
+                }
+            }
+            tableCount += worksheet->Tables().size();
+            hyperlinkCount += worksheet->Hyperlinks().size();
+            commentCount += worksheet->Comments().size() + worksheet->ThreadedComments().size();
+            imageCount += worksheet->Images().size();
+            mergedRangeCount += worksheet->MergedRanges().size();
+        }
+
+        result.WorksheetCount = static_cast<UInt64>(worksheets.size());
+        result.CellCount = cellCount;
+        result.FormulaCount = formulaCount;
+        result.TableCount = tableCount;
+        result.HyperlinkCount = hyperlinkCount;
+        result.CommentCount = commentCount;
+        result.ImageCount = imageCount;
+        result.MergedRangeCount = mergedRangeCount;
+        result.Ok = true;
+        return result;
+    }
+
+    struct PowerPointAccumulator
+    {
+        UInt64 Words = 0;
+        UInt64 Shapes = 0;
+        UInt64 Images = 0;
+        UInt64 Tables = 0;
+        UInt64 Charts = 0;
+        UInt64 Hyperlinks = 0;
+    };
+
+    static void WalkShapes(const std::vector<std::shared_ptr<PowerPoint::PresentationShape>>& shapes, PowerPointAccumulator& acc)
+    {
+        for (const auto& shape : shapes)
+        {
+            ++acc.Shapes;
+
+            if (shape->IsGroup())
+            {
+                WalkShapes(shape->Children(), acc);
+                continue;
+            }
+
+            if (auto frame = shape->GetTextFrame())
+            {
+                for (const auto& paragraph : frame->Paragraphs)
+                {
+                    for (const auto& run : paragraph.Runs)
                     {
-                        ++acc.Hyperlinks;
+                        acc.Words += CountWords(run.Text);
+                        if (run.Hyperlink)
+                        {
+                            ++acc.Hyperlinks;
+                        }
                     }
                 }
             }
-        }
 
-        if (shape->GetPicture())
-        {
-            ++acc.Images;
-        }
-
-        if (auto table = shape->GetTable())
-        {
-            ++acc.Tables;
-            for (const auto& row : table->Rows)
+            if (shape->GetPicture())
             {
-                for (const auto& cell : row.Cells)
+                ++acc.Images;
+            }
+
+            if (auto table = shape->GetTable())
+            {
+                ++acc.Tables;
+                for (const auto& row : table->Rows)
                 {
-                    acc.Words += CountWords(cell.Text);
+                    for (const auto& cell : row.Cells)
+                    {
+                        acc.Words += CountWords(cell.Text);
+                    }
                 }
+            }
+
+            if (auto embedded = shape->GetEmbeddedObject();
+                embedded && embedded->Kind == PowerPoint::PresentationEmbeddedObjectKind::Chart)
+            {
+                ++acc.Charts;
+            }
+        }
+    }
+
+    static DocumentStats StatPowerPoint(PowerPoint::PowerPointDocumentEditor& editor)
+    {
+        DocumentStats result;
+        result.Family = DocumentFamily::PowerPoint;
+
+        PowerPointAccumulator acc;
+        UInt64 hiddenCount = 0;
+        UInt64 notesCount = 0;
+        UInt64 commentCount = 0;
+
+        const auto slides = editor.Slides();
+        for (const auto& slide : slides)
+        {
+            if (slide->IsHidden())
+            {
+                ++hiddenCount;
+            }
+            if (!slide->NotesText().empty())
+            {
+                ++notesCount;
+            }
+            commentCount += slide->Comments().size();
+
+            if (auto tree = slide->ShapeTree())
+            {
+                WalkShapes(tree->Shapes(), acc);
             }
         }
 
-        if (auto embedded = shape->GetEmbeddedObject();
-            embedded && embedded->Kind == PowerPoint::PresentationEmbeddedObjectKind::Chart)
-        {
-            ++acc.Charts;
-        }
+        result.SlideCount = static_cast<UInt64>(slides.size());
+        result.HiddenSlideCount = hiddenCount;
+        result.SlideWithNotesCount = notesCount;
+        result.ShapeCount = acc.Shapes;
+        result.ImageCount = acc.Images;
+        result.TableCount = acc.Tables;
+        result.ChartCount = acc.Charts;
+        result.HyperlinkCount = acc.Hyperlinks;
+        result.CommentCount = commentCount;
+        result.WordCount = acc.Words;
+        result.ReadingTimeMinutes = static_cast<Real>(acc.Words) / WordsPerMinute;
+        result.Ok = true;
+        return result;
     }
-}
 
-DocumentStats StatPowerPoint(PowerPoint::PowerPointDocumentEditor& editor)
-{
-    DocumentStats result;
-    result.Family = DocumentFamily::PowerPoint;
-
-    PowerPointAccumulator acc;
-    UInt64 hiddenCount = 0;
-    UInt64 notesCount = 0;
-    UInt64 commentCount = 0;
-
-    const auto slides = editor.Slides();
-    for (const auto& slide : slides)
+    /// The result a family reports when its editor could not open the file.
+    static DocumentStats FailedToOpen(DocumentFamily family, const char* message, const std::filesystem::path& path)
     {
-        if (slide->IsHidden())
-        {
-            ++hiddenCount;
-        }
-        if (!slide->NotesText().empty())
-        {
-            ++notesCount;
-        }
-        commentCount += slide->Comments().size();
-
-        if (auto tree = slide->ShapeTree())
-        {
-            WalkShapes(tree->Shapes(), acc);
-        }
+        DocumentStats result;
+        result.Family = family;
+        result.Diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, message, path.string()});
+        return result;
     }
-
-    result.SlideCount = static_cast<UInt64>(slides.size());
-    result.HiddenSlideCount = hiddenCount;
-    result.SlideWithNotesCount = notesCount;
-    result.ShapeCount = acc.Shapes;
-    result.ImageCount = acc.Images;
-    result.TableCount = acc.Tables;
-    result.ChartCount = acc.Charts;
-    result.HyperlinkCount = acc.Hyperlinks;
-    result.CommentCount = commentCount;
-    result.WordCount = acc.Words;
-    result.ReadingTimeMinutes = static_cast<Real>(acc.Words) / WordsPerMinute;
-    result.Ok = true;
-    return result;
-}
-
-/// The result a family reports when its editor could not open the file.
-DocumentStats FailedToOpen(DocumentFamily family, const char* message, const std::filesystem::path& path)
-{
-    DocumentStats result;
-    result.Family = family;
-    result.Diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, message, path.string()});
-    return result;
-}
-
-} // namespace
+};
 
 DocumentStats Stat(const std::filesystem::path& path)
 {
@@ -348,18 +348,18 @@ DocumentStats Stat(const std::filesystem::path& path)
         case DocumentFamily::Word:
         {
             auto editor = Word::WordDocumentEditor::Open(path, UntrustedOpenSettings());
-            return editor ? Stat(*editor) : FailedToOpen(DocumentFamily::Word, "Failed to open Word document", path);
+            return editor ? Stat(*editor) : DocumentStatsHelper::FailedToOpen(DocumentFamily::Word, "Failed to open Word document", path);
         }
         case DocumentFamily::Excel:
         {
             auto editor = Excel::ExcelDocumentEditor::Open(path, UntrustedOpenSettings());
-            return editor ? Stat(*editor) : FailedToOpen(DocumentFamily::Excel, "Failed to open Excel document", path);
+            return editor ? Stat(*editor) : DocumentStatsHelper::FailedToOpen(DocumentFamily::Excel, "Failed to open Excel document", path);
         }
         case DocumentFamily::PowerPoint:
         {
             auto editor = PowerPoint::PowerPointDocumentEditor::Open(path, UntrustedOpenSettings());
             return editor ? Stat(*editor)
-                          : FailedToOpen(DocumentFamily::PowerPoint, "Failed to open PowerPoint document", path);
+                          : DocumentStatsHelper::FailedToOpen(DocumentFamily::PowerPoint, "Failed to open PowerPoint document", path);
         }
         case DocumentFamily::Unknown:
             break;
@@ -373,17 +373,17 @@ DocumentStats Stat(const std::filesystem::path& path)
 
 DocumentStats Stat(Word::WordDocumentEditor& editor)
 {
-    return StatWord(editor);
+    return DocumentStatsHelper::StatWord(editor);
 }
 
 DocumentStats Stat(Excel::ExcelDocumentEditor& editor)
 {
-    return StatExcel(editor);
+    return DocumentStatsHelper::StatExcel(editor);
 }
 
 DocumentStats Stat(PowerPoint::PowerPointDocumentEditor& editor)
 {
-    return StatPowerPoint(editor);
+    return DocumentStatsHelper::StatPowerPoint(editor);
 }
 
 } // namespace ExyokiOffice::Tools

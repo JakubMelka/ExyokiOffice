@@ -45,6 +45,10 @@ add_library(exyoki-mcp-core STATIC
 target_link_libraries(exyoki-mcp-core PUBLIC ExyokiOffice)
 
 target_include_directories(exyoki-mcp-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/core)
+# The library's own private headers, for the small building blocks a front end
+# would otherwise copy - `AsciiText.hpp` above all. `exyoki` reaches for the
+# same directory; document behavior still belongs in the library.
+target_include_directories(exyoki-mcp-core PUBLIC ${PROJECT_SOURCE_DIR}/sources)
 target_include_directories(exyoki-mcp-core SYSTEM PUBLIC
     ${PROJECT_SOURCE_DIR}/3rdparty
     ${PROJECT_SOURCE_DIR}/3rdparty/json-schema-validator

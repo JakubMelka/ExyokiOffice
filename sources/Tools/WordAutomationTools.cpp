@@ -19,99 +19,99 @@
 namespace ExyokiOffice::Tools
 {
 
-namespace
+/// File-local helpers behind the Word automation tools.
+class WordAutomationToolsHelper
 {
-
-void AddError(std::vector<ToolDiagnostic>& diagnostics, std::string message, std::string context = {})
-{
-    diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, std::move(message), std::move(context)});
-}
-
-void AddWarning(std::vector<ToolDiagnostic>& diagnostics, std::string message, std::string context = {})
-{
-    diagnostics.push_back(ToolDiagnostic{ToolSeverity::Warning, std::move(message), std::move(context)});
-}
-
-/// Converts one scalar JSON value to the literal merge text.
-std::string ScalarText(const nlohmann::json& value)
-{
-    if (value.is_string())
+public:
+    static void AddError(std::vector<ToolDiagnostic>& diagnostics, std::string message, std::string context = {})
     {
-        return value.get<std::string>();
+        diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, std::move(message), std::move(context)});
     }
-    if (value.is_boolean())
-    {
-        return value.get<bool>() ? "true" : "false";
-    }
-    if (value.is_null())
-    {
-        return {};
-    }
-    return value.dump();
-}
 
-[[nodiscard]] bool IsScalar(const nlohmann::json& value)
-{
-    return value.is_string() || value.is_number() || value.is_boolean() || value.is_null();
-}
-
-/// Maps the JSON root object onto TemplateMergeData; non-mappable members are
-/// reported and skipped.
-Word::TemplateMergeData BuildMergeData(const nlohmann::json& root,
-                                       std::vector<ToolDiagnostic>& diagnostics)
-{
-    Word::TemplateMergeData data;
-    for (const auto& [key, value] : root.items())
+    static void AddWarning(std::vector<ToolDiagnostic>& diagnostics, std::string message, std::string context = {})
     {
-        if (IsScalar(value))
+        diagnostics.push_back(ToolDiagnostic{ToolSeverity::Warning, std::move(message), std::move(context)});
+    }
+
+    /// Converts one scalar JSON value to the literal merge text.
+    static std::string ScalarText(const nlohmann::json& value)
+    {
+        if (value.is_string())
         {
-            data.Values.emplace(key, ScalarText(value));
-            continue;
+            return value.get<std::string>();
         }
-        if (value.is_array())
+        if (value.is_boolean())
         {
-            std::vector<std::unordered_map<std::string, std::string>> rows;
-            bool usable = true;
-            for (const auto& element : value)
-            {
-                if (!element.is_object())
-                {
-                    usable = false;
-                    break;
-                }
-                std::unordered_map<std::string, std::string> row;
-                for (const auto& [rowKey, rowValue] : element.items())
-                {
-                    if (IsScalar(rowValue))
-                    {
-                        row.emplace(rowKey, ScalarText(rowValue));
-                    }
-                    else
-                    {
-                        AddWarning(diagnostics, "Region row member is not a scalar; skipped",
-                                   key + "." + rowKey);
-                    }
-                }
-                rows.push_back(std::move(row));
-            }
-            if (usable)
-            {
-                data.Regions.emplace(key, std::move(rows));
-            }
-            else
-            {
-                AddWarning(diagnostics,
-                           "Array member must contain only objects to drive a repeating region; skipped",
-                           key);
-            }
-            continue;
+            return value.get<bool>() ? "true" : "false";
         }
-        AddWarning(diagnostics, "Member is neither a scalar nor an array of objects; skipped", key);
+        if (value.is_null())
+        {
+            return {};
+        }
+        return value.dump();
     }
-    return data;
-}
 
-} // namespace
+    [[nodiscard]] static bool IsScalar(const nlohmann::json& value)
+    {
+        return value.is_string() || value.is_number() || value.is_boolean() || value.is_null();
+    }
+
+    /// Maps the JSON root object onto TemplateMergeData; non-mappable members are
+    /// reported and skipped.
+    static Word::TemplateMergeData BuildMergeData(const nlohmann::json& root,
+                                                  std::vector<ToolDiagnostic>& diagnostics)
+    {
+        Word::TemplateMergeData data;
+        for (const auto& [key, value] : root.items())
+        {
+            if (IsScalar(value))
+            {
+                data.Values.emplace(key, ScalarText(value));
+                continue;
+            }
+            if (value.is_array())
+            {
+                std::vector<std::unordered_map<std::string, std::string>> rows;
+                bool usable = true;
+                for (const auto& element : value)
+                {
+                    if (!element.is_object())
+                    {
+                        usable = false;
+                        break;
+                    }
+                    std::unordered_map<std::string, std::string> row;
+                    for (const auto& [rowKey, rowValue] : element.items())
+                    {
+                        if (IsScalar(rowValue))
+                        {
+                            row.emplace(rowKey, ScalarText(rowValue));
+                        }
+                        else
+                        {
+                            AddWarning(diagnostics, "Region row member is not a scalar; skipped",
+                                       key + "." + rowKey);
+                        }
+                    }
+                    rows.push_back(std::move(row));
+                }
+                if (usable)
+                {
+                    data.Regions.emplace(key, std::move(rows));
+                }
+                else
+                {
+                    AddWarning(diagnostics,
+                               "Array member must contain only objects to drive a repeating region; skipped",
+                               key);
+                }
+                continue;
+            }
+            AddWarning(diagnostics, "Member is neither a scalar nor an array of objects; skipped", key);
+        }
+        return data;
+    }
+};
 
 TemplateFillResult FillWordTemplate(const std::filesystem::path& docxPath,
                                     const std::filesystem::path& dataJsonPath,
@@ -122,7 +122,7 @@ TemplateFillResult FillWordTemplate(const std::filesystem::path& docxPath,
     std::ifstream file(dataJsonPath, std::ios::binary);
     if (!file)
     {
-        AddError(result.Diagnostics, "Cannot read data file", dataJsonPath.string());
+        WordAutomationToolsHelper::AddError(result.Diagnostics, "Cannot read data file", dataJsonPath.string());
         return result;
     }
     std::ostringstream buffer;
@@ -131,23 +131,23 @@ TemplateFillResult FillWordTemplate(const std::filesystem::path& docxPath,
     nlohmann::json root = nlohmann::json::parse(buffer.str(), nullptr, false);
     if (root.is_discarded())
     {
-        AddError(result.Diagnostics, "Data file is not valid JSON", dataJsonPath.string());
+        WordAutomationToolsHelper::AddError(result.Diagnostics, "Data file is not valid JSON", dataJsonPath.string());
         return result;
     }
     if (!root.is_object())
     {
-        AddError(result.Diagnostics, "Data JSON root must be an object", dataJsonPath.string());
+        WordAutomationToolsHelper::AddError(result.Diagnostics, "Data JSON root must be an object", dataJsonPath.string());
         return result;
     }
 
     auto editor = Word::WordDocumentEditor::Open(docxPath, UntrustedOpenSettings());
     if (!editor)
     {
-        AddError(result.Diagnostics, "Failed to open Word document", docxPath.string());
+        WordAutomationToolsHelper::AddError(result.Diagnostics, "Failed to open Word document", docxPath.string());
         return result;
     }
 
-    const auto data = BuildMergeData(root, result.Diagnostics);
+    const auto data = WordAutomationToolsHelper::BuildMergeData(root, result.Diagnostics);
     const auto merged = editor->MergeTemplate(data);
     result.FieldsMerged = merged.FieldsMerged;
     result.BookmarksMerged = merged.BookmarksMerged;
@@ -157,7 +157,7 @@ TemplateFillResult FillWordTemplate(const std::filesystem::path& docxPath,
     const auto destination = outputPath.empty() ? docxPath : outputPath;
     if (!editor->SaveToFile(destination))
     {
-        AddError(result.Diagnostics, "Failed to save document", destination.string());
+        WordAutomationToolsHelper::AddError(result.Diagnostics, "Failed to save document", destination.string());
         return result;
     }
     result.Saved = true;
@@ -175,13 +175,13 @@ WordCompareResult CompareWordDocuments(const std::filesystem::path& originalPath
     auto original = Word::WordDocumentEditor::Open(originalPath, UntrustedOpenSettings());
     if (!original)
     {
-        AddError(result.Diagnostics, "Failed to open original document", originalPath.string());
+        WordAutomationToolsHelper::AddError(result.Diagnostics, "Failed to open original document", originalPath.string());
         return result;
     }
     auto revised = Word::WordDocumentEditor::Open(revisedPath, UntrustedOpenSettings());
     if (!revised)
     {
-        AddError(result.Diagnostics, "Failed to open revised document", revisedPath.string());
+        WordAutomationToolsHelper::AddError(result.Diagnostics, "Failed to open revised document", revisedPath.string());
         return result;
     }
 
@@ -192,7 +192,7 @@ WordCompareResult CompareWordDocuments(const std::filesystem::path& originalPath
 
     if (!original->SaveToFile(outputPath))
     {
-        AddError(result.Diagnostics, "Failed to save comparison result", outputPath.string());
+        WordAutomationToolsHelper::AddError(result.Diagnostics, "Failed to save comparison result", outputPath.string());
         return result;
     }
     result.OutputFile = outputPath;

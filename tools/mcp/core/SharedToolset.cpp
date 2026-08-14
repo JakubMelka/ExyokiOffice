@@ -21,6 +21,10 @@
 #include "ExyokiOffice/Tools/ValidationRunner.hpp"
 #include "ExyokiOffice/Tools/XmlQueryTool.hpp"
 
+#include "AsciiText.hpp"
+
+#include "Base64.hpp"
+
 #include <algorithm>
 #include <fstream>
 #include <system_error>
@@ -33,9 +37,6 @@ namespace ExyokiOffice::Mcp
 class SharedToolsetHelper
 {
 public:
-    static constexpr std::string_view Base64Alphabet =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
     /// Content types and URI shapes MediaExporter treats as media payloads.
     static bool IsMediaPart(const OpenXmlPackagePart& part)
     {
@@ -214,7 +215,7 @@ public:
             {
                 sheets.erase(std::remove_if(sheets.begin(), sheets.end(),
                                             [&sheetName](const Tools::ExcelSheetModel& sheet)
-                                            { return !EqualsIgnoringCase(sheet.Name, sheetName); }),
+                                            { return !AsciiText::EqualsIgnoreCase(sheet.Name, sheetName); }),
                              sheets.end());
             }
 
@@ -269,34 +270,6 @@ public:
         }
 
         return truncated;
-    }
-
-    static bool EqualsIgnoringCase(std::string_view left, std::string_view right)
-    {
-        if (left.size() != right.size())
-        {
-            return false;
-        }
-
-        for (Size index = 0; index < left.size(); ++index)
-        {
-            if (ToLower(left[index]) != ToLower(right[index]))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    static char ToLower(char value) noexcept
-    {
-        if (value >= 'A' && value <= 'Z')
-        {
-            return static_cast<char>(value - 'A' + 'a');
-        }
-
-        return value;
     }
 
     /// Scope schema of the model readers, narrowed to what the family has.
@@ -656,72 +629,19 @@ bool ToolSupport::CheckDestinationFamily(ToolContext& context, std::string_view 
 
 std::optional<std::vector<Byte>> ToolSupport::DecodeBase64(std::string_view text)
 {
+    // A tool argument is typed by an agent, not produced by a writer, so a
+    // final group left unpadded still names the bytes it means.
     std::vector<Byte> bytes;
-    bytes.reserve(text.size() * 3 / 4 + 3);
-
-    UInt32 accumulator = 0;
-    int bits = 0;
-    for (const char character : text)
+    if (!Base64::Decode(text, bytes, Base64::Padding::Optional))
     {
-        if (character == '=' || character == '\n' || character == '\r' || character == ' ' || character == '\t')
-        {
-            continue;
-        }
-
-        const auto position = SharedToolsetHelper::Base64Alphabet.find(character);
-        if (position == std::string_view::npos)
-        {
-            return std::nullopt;
-        }
-
-        accumulator = (accumulator << 6) | static_cast<UInt32>(position);
-        bits += 6;
-        if (bits >= 8)
-        {
-            bits -= 8;
-            bytes.push_back(static_cast<Byte>((accumulator >> bits) & 0xFFu));
-        }
+        return std::nullopt;
     }
-
     return bytes;
 }
 
 std::string ToolSupport::EncodeBase64(std::span<const Byte> bytes)
 {
-    std::string text;
-    text.reserve((bytes.size() + 2) / 3 * 4);
-
-    Size index = 0;
-    while (index + 2 < bytes.size())
-    {
-        const UInt32 triple = (static_cast<UInt32>(bytes[index]) << 16) |
-                              (static_cast<UInt32>(bytes[index + 1]) << 8) | static_cast<UInt32>(bytes[index + 2]);
-        text.push_back(SharedToolsetHelper::Base64Alphabet[(triple >> 18) & 0x3Fu]);
-        text.push_back(SharedToolsetHelper::Base64Alphabet[(triple >> 12) & 0x3Fu]);
-        text.push_back(SharedToolsetHelper::Base64Alphabet[(triple >> 6) & 0x3Fu]);
-        text.push_back(SharedToolsetHelper::Base64Alphabet[triple & 0x3Fu]);
-        index += 3;
-    }
-
-    const Size remaining = bytes.size() - index;
-    if (remaining == 1)
-    {
-        const UInt32 triple = static_cast<UInt32>(bytes[index]) << 16;
-        text.push_back(SharedToolsetHelper::Base64Alphabet[(triple >> 18) & 0x3Fu]);
-        text.push_back(SharedToolsetHelper::Base64Alphabet[(triple >> 12) & 0x3Fu]);
-        text.append("==");
-    }
-    else if (remaining == 2)
-    {
-        const UInt32 triple =
-            (static_cast<UInt32>(bytes[index]) << 16) | (static_cast<UInt32>(bytes[index + 1]) << 8);
-        text.push_back(SharedToolsetHelper::Base64Alphabet[(triple >> 18) & 0x3Fu]);
-        text.push_back(SharedToolsetHelper::Base64Alphabet[(triple >> 12) & 0x3Fu]);
-        text.push_back(SharedToolsetHelper::Base64Alphabet[(triple >> 6) & 0x3Fu]);
-        text.push_back('=');
-    }
-
-    return text;
+    return Base64::Encode(bytes);
 }
 
 bool ToolSupport::LoadImagePayload(ToolContext& context, const nlohmann::json& arguments, std::vector<Byte>& bytes,

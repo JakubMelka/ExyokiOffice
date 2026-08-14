@@ -7,6 +7,8 @@
 #include "ExyokiOffice/Excel/ExcelAddress.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <array>
 #include <cctype>
 #include <charconv>
@@ -79,27 +81,6 @@ bool IsIdentifierChar(char c)
 {
     return IsAsciiLetter(c) || IsAsciiDigit(c) || c == '_' || c == '.' || c == '$' ||
            static_cast<unsigned char>(c) >= 0x80;
-}
-
-char AsciiUpper(char c)
-{
-    return (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
-}
-
-bool EqualsIgnoreCase(std::string_view left, std::string_view right)
-{
-    if (left.size() != right.size())
-    {
-        return false;
-    }
-    for (Size i = 0; i < left.size(); ++i)
-    {
-        if (AsciiUpper(left[i]) != AsciiUpper(right[i]))
-        {
-            return false;
-        }
-    }
-    return true;
 }
 
 /** @brief Tokenizes canonical en-US formula text. */
@@ -327,7 +308,7 @@ private:
         for (const std::string_view literal : literals)
         {
             if (rest.size() >= literal.size() &&
-                EqualsIgnoreCase(rest.substr(0, literal.size()), literal))
+                AsciiText::EqualsIgnoreCase(rest.substr(0, literal.size()), literal))
             {
                 token.kind = TokenKind::ErrorLiteral;
                 token.text = std::string(literal);
@@ -919,10 +900,10 @@ private:
 
         if (!firstToken.hasSheet && m_current.kind != TokenKind::LeftParen)
         {
-            if (EqualsIgnoreCase(firstToken.text, "TRUE") || EqualsIgnoreCase(firstToken.text, "FALSE"))
+            if (AsciiText::EqualsIgnoreCase(firstToken.text, "TRUE") || AsciiText::EqualsIgnoreCase(firstToken.text, "FALSE"))
             {
                 auto node = MakeNode(FormulaExpressionKind::BooleanLiteral, firstToken.offset, firstToken.length);
-                node->boolean = EqualsIgnoreCase(firstToken.text, "TRUE");
+                node->boolean = AsciiText::EqualsIgnoreCase(firstToken.text, "TRUE");
                 return node;
             }
         }
@@ -1048,13 +1029,13 @@ private:
         std::string name = nameToken.text;
         static constexpr std::string_view xlfnPrefix = "_xlfn.";
         if (name.size() > xlfnPrefix.size() &&
-            EqualsIgnoreCase(std::string_view(name).substr(0, xlfnPrefix.size()), xlfnPrefix))
+            AsciiText::EqualsIgnoreCase(std::string_view(name).substr(0, xlfnPrefix.size()), xlfnPrefix))
         {
             name.erase(0, xlfnPrefix.size());
         }
         for (char& c : name)
         {
-            c = AsciiUpper(c);
+            c = AsciiText::ToUpper(c);
         }
         node->text = std::move(name);
 
@@ -1243,10 +1224,10 @@ private:
             case TokenKind::RefOrName:
             {
                 if (!negate && !m_current.hasSheet &&
-                    (EqualsIgnoreCase(m_current.text, "TRUE") || EqualsIgnoreCase(m_current.text, "FALSE")))
+                    (AsciiText::EqualsIgnoreCase(m_current.text, "TRUE") || AsciiText::EqualsIgnoreCase(m_current.text, "FALSE")))
                 {
                     auto node = MakeNode(FormulaExpressionKind::BooleanLiteral, m_current.offset, m_current.length);
-                    node->boolean = EqualsIgnoreCase(m_current.text, "TRUE");
+                    node->boolean = AsciiText::EqualsIgnoreCase(m_current.text, "TRUE");
                     Advance();
                     return node;
                 }

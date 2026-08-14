@@ -6,6 +6,8 @@
 
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <vector>
 
 namespace ExyokiOffice::Tools
@@ -15,34 +17,6 @@ namespace ExyokiOffice::Tools
 class OutputNamingHelper
 {
 public:
-    static bool EqualsIgnoringCase(std::string_view left, std::string_view right)
-    {
-        if (left.size() != right.size())
-        {
-            return false;
-        }
-
-        for (Size index = 0; index < left.size(); ++index)
-        {
-            if (ToLower(left[index]) != ToLower(right[index]))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    static char ToLower(char value)
-    {
-        if (value >= 'A' && value <= 'Z')
-        {
-            return static_cast<char>(value - 'A' + 'a');
-        }
-
-        return value;
-    }
-
     /**
      * @brief True when @p name reaches a DOS device rather than a file.
      *
@@ -60,7 +34,7 @@ public:
         static constexpr std::string_view devices[] = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"};
         for (const auto& device : devices)
         {
-            if (EqualsIgnoringCase(stem, device))
+            if (AsciiText::EqualsIgnoreCase(stem, device))
             {
                 return true;
             }
@@ -68,7 +42,7 @@ public:
 
         // COM0..COM9 and LPT0..LPT9.
         return stem.size() == 4 &&
-               (EqualsIgnoringCase(stem.substr(0, 3), "COM") || EqualsIgnoringCase(stem.substr(0, 3), "LPT")) &&
+               (AsciiText::EqualsIgnoreCase(stem.substr(0, 3), "COM") || AsciiText::EqualsIgnoreCase(stem.substr(0, 3), "LPT")) &&
                stem[3] >= '0' && stem[3] <= '9';
     }
 

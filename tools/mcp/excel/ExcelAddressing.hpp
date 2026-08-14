@@ -112,9 +112,6 @@ public:
 
     /// Parses a row band such as "2" or "2:5" into inclusive 1-based indices.
     [[nodiscard]] static bool ParseRowBand(const std::string& text, UInt32& first, UInt32& last);
-
-    /// Case-insensitive comparison used for sheet names.
-    [[nodiscard]] static bool EqualsIgnoringCase(std::string_view left, std::string_view right);
 };
 
 } // namespace ExyokiOffice::Mcp

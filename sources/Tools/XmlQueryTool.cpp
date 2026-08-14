@@ -15,28 +15,28 @@
 namespace ExyokiOffice::Tools
 {
 
-namespace
+/// File-local helpers behind the XML query tool.
+class XmlQueryToolHelper
 {
-
-void AddError(QueryResult& result, std::string message, std::string context = {})
-{
-    result.Diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, std::move(message), std::move(context)});
-}
-
-std::shared_ptr<OpenXmlPackagePart> FindMainDocumentPart(const OpenXmlPackage& package)
-{
-    for (const auto& relationship : package.Relationships())
+public:
+    static void AddError(QueryResult& result, std::string message, std::string context = {})
     {
-        if (ConformanceClass::IsTransitionalOfficeDocument(relationship.Type) && !relationship.IsExternal)
-        {
-            const auto resolved = Detail::ResolveRelationshipTarget("/", relationship.Target);
-            return package.GetPartByUri(resolved);
-        }
+        result.Diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, std::move(message), std::move(context)});
     }
-    return nullptr;
-}
 
-} // namespace
+    static std::shared_ptr<OpenXmlPackagePart> FindMainDocumentPart(const OpenXmlPackage& package)
+    {
+        for (const auto& relationship : package.Relationships())
+        {
+            if (ConformanceClass::IsTransitionalOfficeDocument(relationship.Type) && !relationship.IsExternal)
+            {
+                const auto resolved = Detail::ResolveRelationshipTarget("/", relationship.Target);
+                return package.GetPartByUri(resolved);
+            }
+        }
+        return nullptr;
+    }
+};
 
 QueryResult Query(const std::filesystem::path& packagePath, std::string_view xpath, const QueryOptions& options)
 {
@@ -45,7 +45,7 @@ QueryResult Query(const std::filesystem::path& packagePath, std::string_view xpa
     if (!package.LoadFromFile(packagePath))
     {
         QueryResult result;
-        AddError(result, "Failed to open package.", packagePath.string());
+        XmlQueryToolHelper::AddError(result, "Failed to open package.", packagePath.string());
         return result;
     }
 
@@ -59,10 +59,10 @@ QueryResult Query(const OpenXmlPackage& package, std::string_view xpath, const Q
     std::shared_ptr<OpenXmlPackagePart> part;
     if (options.PartName.empty())
     {
-        part = FindMainDocumentPart(package);
+        part = XmlQueryToolHelper::FindMainDocumentPart(package);
         if (!part)
         {
-            AddError(result, "Package has no main document part; specify a part explicitly.");
+            XmlQueryToolHelper::AddError(result, "Package has no main document part; specify a part explicitly.");
             return result;
         }
     }
@@ -72,14 +72,14 @@ QueryResult Query(const OpenXmlPackage& package, std::string_view xpath, const Q
         part = package.GetPartByUri(normalized);
         if (!part)
         {
-            AddError(result, "Part not found in package.", options.PartName);
+            XmlQueryToolHelper::AddError(result, "Part not found in package.", options.PartName);
             return result;
         }
     }
 
     if (!part->IsXmlPart())
     {
-        AddError(result, "Part is not an XML part.", part->Uri());
+        XmlQueryToolHelper::AddError(result, "Part is not an XML part.", part->Uri());
         return result;
     }
 
@@ -88,7 +88,7 @@ QueryResult Query(const OpenXmlPackage& package, std::string_view xpath, const Q
     const auto root = part->GetRootElement();
     if (!root)
     {
-        AddError(result, "Part has no XML root element.", part->Uri());
+        XmlQueryToolHelper::AddError(result, "Part has no XML root element.", part->Uri());
         return result;
     }
 
@@ -99,7 +99,7 @@ QueryResult Query(const OpenXmlPackage& package, std::string_view xpath, const Q
     const auto nodes = Xml::SelectNodes(root, xpath, xmlOptions, &error);
     if (!error.empty())
     {
-        AddError(result, error, std::string(xpath));
+        XmlQueryToolHelper::AddError(result, error, std::string(xpath));
         return result;
     }
 

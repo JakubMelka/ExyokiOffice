@@ -76,8 +76,9 @@ portfile makes is still the one that ships. Because vcpkg hashes the portfile
 and not the tree it copies, that mode also disables binary caching.
 
 Neither `-Head` nor `-LocalSource` reaches for the release tarball, so neither
-needs the `SHA512` the portfile carries. Until the first release is tagged they
-are the only two modes that work at all.
+needs the `SHA512` the portfile carries. They are therefore the two modes that
+work against an untagged working tree; the default mode needs a published tag
+and its matching hash in the portfile.
 
 ## A note on `-static` triplets
 

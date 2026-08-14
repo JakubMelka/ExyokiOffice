@@ -7,6 +7,8 @@
 #include "NumberFormatText.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "AsciiText.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <ctime>
@@ -21,16 +23,6 @@ namespace FormulaLibraryDetail
 using Helpers = FormulaFunctionHelpers;
 
 constexpr Size ExcelMaxTextLength = 32767;
-
-char AsciiUpper(char c)
-{
-    return (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
-}
-
-char AsciiLower(char c)
-{
-    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
-}
 
 void Add(FormulaFunctionLibrary::FunctionMap& functions,
          std::string name,
@@ -630,14 +622,14 @@ void FormulaFunctionLibrary::RegisterTextFunctions(FunctionMap& functions)
                                           {
             for (char& c : text)
             {
-                c = AsciiLower(c);
+                c = AsciiText::ToLower(c);
             }
             return text; }));
     Add(functions, "UPPER", 1, 1, mapText([](std::string text)
                                           {
             for (char& c : text)
             {
-                c = AsciiUpper(c);
+                c = AsciiText::ToUpper(c);
             }
             return text; }));
     Add(functions, "PROPER", 1, 1, mapText([](std::string text)
@@ -646,7 +638,7 @@ void FormulaFunctionLibrary::RegisterTextFunctions(FunctionMap& functions)
             for (char& c : text)
             {
                 const bool isLetter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-                c = startOfWord ? AsciiUpper(c) : AsciiLower(c);
+                c = startOfWord ? AsciiText::ToUpper(c) : AsciiText::ToLower(c);
                 startOfWord = !isLetter;
             }
             return text; }));
@@ -846,7 +838,7 @@ void FormulaFunctionLibrary::RegisterTextFunctions(FunctionMap& functions)
                     {
                         matches = std::equal(candidate.begin(), candidate.end(), needle.value.begin(),
                                              [](char a, char b)
-                                             { return AsciiUpper(a) == AsciiUpper(b); });
+                                             { return AsciiText::ToUpper(a) == AsciiText::ToUpper(b); });
                     }
                 }
                 if (matches)
