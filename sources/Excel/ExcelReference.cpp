@@ -4,6 +4,7 @@
 
 #include "ExyokiOffice/Excel/ExcelReference.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -316,19 +317,7 @@ private:
                 qualifier.erase(p, 1);
             }
         }
-        if (qualifier.size() != sheet.size())
-        {
-            return false;
-        }
-        for (Size i = 0; i < sheet.size(); ++i)
-        {
-            if (std::tolower(static_cast<unsigned char>(qualifier[i])) !=
-                std::tolower(static_cast<unsigned char>(sheet[i])))
-            {
-                return false;
-            }
-        }
-        return true;
+        return AsciiText::EqualsIgnoreCase(qualifier, sheet);
     }
     static std::string Format(const Cell& c)
     {

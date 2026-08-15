@@ -6,7 +6,12 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <format>
+#include <type_traits>
+#include <utility>
+#include <variant>
 
 namespace exyoki
 {
@@ -109,6 +114,52 @@ public:
         node.Set("application", properties.Application);
         node.Set("appVersion", properties.AppVersion);
         node.Set("company", properties.Company);
+        return node;
+    }
+
+    /// One user-defined property as its name, the type it was stored as, and its value.
+    static ReportNode CustomPropertyToNode(const ExyokiOffice::Packaging::DocumentCustomProperty& property)
+    {
+        auto node = ReportNode::MakeObject();
+        node.Set("name", property.Name);
+
+        // The type is reported alongside the value because docProps/custom.xml
+        // stores it: a property written as vt:i4 and one written as vt:lpwstr
+        // are different properties to a consumer, and rendering both as text
+        // would lose that.
+        std::visit(
+            [&node](const auto& value)
+            {
+                using Value = std::decay_t<decltype(value)>;
+                if constexpr (std::is_same_v<Value, bool>)
+                {
+                    node.Set("type", "bool");
+                    node.Set("value", value);
+                }
+                else if constexpr (std::is_same_v<Value, ExyokiOffice::Int32>)
+                {
+                    node.Set("type", "int");
+                    node.Set("value", static_cast<ExyokiOffice::Int64>(value));
+                }
+                else if constexpr (std::is_same_v<Value, ExyokiOffice::Real>)
+                {
+                    node.Set("type", "double");
+                    node.Set("value", value);
+                }
+                else if constexpr (std::is_same_v<Value, std::string>)
+                {
+                    node.Set("type", "string");
+                    node.Set("value", value);
+                }
+                else
+                {
+                    node.Set("type", "dateTime");
+                    node.Set("value",
+                             std::format("{:%FT%TZ}", std::chrono::floor<std::chrono::seconds>(value)));
+                }
+            },
+            property.Value);
+
         return node;
     }
 };
@@ -618,11 +669,21 @@ ReportDocument AdaptDiff(const DiffResult& result, bool partsOnly)
     return document;
 }
 
-ReportDocument AdaptPropsGet(const CoreProperties& properties)
+ReportDocument AdaptPropsGet(const CoreProperties& properties,
+                             const std::vector<ExyokiOffice::Packaging::DocumentCustomProperty>& custom)
 {
     ReportDocument document;
     document.Command = "props get";
     document.Data = AdapterHelper::CorePropertiesToNode(properties);
+
+    auto customNode = ReportNode::MakeArray();
+    for (const auto& property : custom)
+    {
+        customNode.Push(AdapterHelper::CustomPropertyToNode(property));
+    }
+    customNode.SetTableHint({"name", "type", "value"});
+    document.Data.Set("custom", std::move(customNode));
+
     return document;
 }
 
@@ -637,7 +698,9 @@ ReportDocument AdaptPropsSet(bool ok, const std::string& name, const std::string
     if (!ok)
     {
         document.Diagnostics.push_back(
-            ToolDiagnostic{ToolSeverity::Error, "Unknown property name or package has no properties part to update",
+            ToolDiagnostic{ToolSeverity::Error,
+                           "Property could not be written: the name is empty, or it is a timestamp "
+                           "(Created, Modified, LastPrinted) that this command does not set",
                            name});
     }
     return document;

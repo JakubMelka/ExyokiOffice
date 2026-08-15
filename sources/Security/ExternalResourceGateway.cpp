@@ -6,6 +6,7 @@
 
 #include "OpenXmlPackageInternal.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -122,12 +123,7 @@ bool ExternalResourceGateway::IsHostAllowed(const ExternalResourcePolicy& policy
             continue;
         }
 
-        std::string lowered;
-        lowered.reserve(allowed.size());
-        for (char ch : allowed)
-        {
-            lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
-        }
+        const std::string lowered = AsciiText::ToLower(allowed);
 
         // A leading dot means "this domain and everything under it".
         if (lowered.front() == '.')

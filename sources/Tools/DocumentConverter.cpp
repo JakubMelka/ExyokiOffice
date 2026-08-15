@@ -6,6 +6,7 @@
 
 #include "ExyokiOffice/Tools/DocumentModelIO.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -89,11 +90,9 @@ public:
         return "bin";
     }
 
-    static std::string ContentTypeForExtension(std::string extension)
+    static std::string ContentTypeForExtension(std::string_view rawExtension)
     {
-        std::transform(extension.begin(), extension.end(), extension.begin(),
-                       [](unsigned char c)
-                       { return static_cast<char>(std::tolower(c)); });
+        const std::string extension = AsciiText::ToLower(rawExtension);
         if (extension == ".png")
         {
             return "image/png";
@@ -329,10 +328,7 @@ ConvertFormat ParseConvertFormat(std::string_view token) noexcept
 
 ConvertFormat InferConvertFormat(const std::filesystem::path& path) noexcept
 {
-    auto extension = path.extension().string();
-    std::transform(extension.begin(), extension.end(), extension.begin(),
-                   [](unsigned char c)
-                   { return static_cast<char>(std::tolower(c)); });
+    const std::string extension = AsciiText::ToLower(path.extension().string());
     if (extension == ".docx" || extension == ".docm" || extension == ".dotx" || extension == ".dotm")
     {
         return ConvertFormat::Docx;

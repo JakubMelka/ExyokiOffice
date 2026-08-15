@@ -607,6 +607,12 @@ endif()
 
 if(EXYOKIOFFICE_BUILD_TOOL)
     add_subdirectory(tools/exyoki)
+
+    # The CLI layer calls the command implementations in process and runs the
+    # built binary, so it needs the tool to have been added first.
+    if(EXYOKIOFFICE_BUILD_UNIT_TESTS)
+        add_subdirectory(tests/cli)
+    endif()
 endif()
 
 # The MCP servers link the same public API as exyoki and are built after it, so

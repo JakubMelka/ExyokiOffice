@@ -187,22 +187,7 @@ public:
 
     static bool EqualsIgnoreAsciiCase(std::string_view left, std::string_view right)
     {
-        if (left.size() != right.size())
-        {
-            return false;
-        }
-        for (Size i = 0; i < left.size(); ++i)
-        {
-            const auto lower = [](char ch)
-            {
-                return static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-            };
-            if (lower(left[i]) != lower(right[i]))
-            {
-                return false;
-            }
-        }
-        return true;
+        return AsciiText::EqualsIgnoreCase(left, right);
     }
 
     // Value parsing delegates to the shared simple-type infrastructure so custom

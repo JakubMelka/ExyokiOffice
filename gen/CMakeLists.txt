@@ -36,6 +36,13 @@ add_executable(openxml_generator
 
 target_link_libraries(openxml_generator PRIVATE generator_support)
 
+# The generator is a standalone program and does not link the library. The one
+# thing it borrows from it is sources/AsciiText.hpp, a header with no
+# dependencies of its own: case folding decided by the machine's locale has no
+# place in a code generator either, and a second copy of the same twenty lines
+# would be exactly the duplication that header was introduced to remove.
+target_include_directories(openxml_generator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../sources)
+
 set_target_properties(openxml_generator PROPERTIES
     OUTPUT_NAME "OpenXmlGenerator"
     CXX_STANDARD 20

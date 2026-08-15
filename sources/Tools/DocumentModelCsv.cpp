@@ -40,7 +40,7 @@ public:
         while (i < address.size() && std::isalpha(static_cast<unsigned char>(address[i])))
         {
             column = column * 26 +
-                     static_cast<Size>(std::toupper(static_cast<unsigned char>(address[i])) - 'A' + 1);
+                     static_cast<Size>(AsciiText::ToUpper(address[i]) - 'A' + 1);
             ++i;
         }
         if (column == 0 || i == address.size())

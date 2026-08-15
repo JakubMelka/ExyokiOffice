@@ -59,7 +59,8 @@ ReportDocument AdaptMerge(const WordMergeResult& result);
 ReportDocument AdaptSplit(const DocumentSplitResult& result);
 ReportDocument AdaptMerge(const DocumentMergeResult& result);
 ReportDocument AdaptDiff(const DiffResult& result, bool partsOnly);
-ReportDocument AdaptPropsGet(const CoreProperties& properties);
+ReportDocument AdaptPropsGet(const CoreProperties& properties,
+                             const std::vector<ExyokiOffice::Packaging::DocumentCustomProperty>& custom);
 ReportDocument AdaptPropsSet(bool ok, const std::string& name, const std::string& value);
 ReportDocument AdaptStat(const DocumentStats& result);
 ReportDocument AdaptQuery(const QueryResult& result);

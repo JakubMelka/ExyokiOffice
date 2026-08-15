@@ -7,6 +7,7 @@
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Spreadsheet.hpp"
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -95,14 +96,7 @@ public:
             {
                 return false;
             }
-            std::string folded;
-            folded.reserve(column.Name.size());
-            for (const auto ch : column.Name)
-            {
-                folded.push_back(
-                    static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
-            }
-            if (!names.insert(std::move(folded)).second ||
+            if (!names.insert(AsciiText::ToLower(column.Name)).second ||
                 (column.Id && !ids.insert(column.Id).second))
             {
                 return false;

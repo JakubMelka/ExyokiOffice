@@ -8,6 +8,7 @@
 #include "zip/zip.h"
 #include "XmlParseOptions.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <array>
@@ -35,12 +36,7 @@ public:
             "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
             "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"};
 
-        std::string upper;
-        upper.reserve(baseName.size());
-        for (char ch : baseName)
-        {
-            upper.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(ch))));
-        }
+        const std::string upper = AsciiText::ToUpper(baseName);
         return std::find(kReserved.begin(), kReserved.end(), upper) != kReserved.end();
     }
 
@@ -536,13 +532,7 @@ public:
         {
             extension.erase(extension.begin());
         }
-        std::string lowered;
-        lowered.reserve(extension.size());
-        for (char ch : extension)
-        {
-            lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
-        }
-        return lowered;
+        return AsciiText::ToLower(extension);
     }
 
     static std::vector<Byte> BuildDefaultContentTypesXml(const std::vector<std::filesystem::path>& relativeFiles)

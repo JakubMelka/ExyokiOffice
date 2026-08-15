@@ -14,23 +14,44 @@ if(WIN32)
     set(EXYOKI_RC_FILE ${CMAKE_CURRENT_BINARY_DIR}/exyoki.rc)
 endif()
 
-add_executable(exyoki
-    main.cpp
+# Everything the tool does, with main() left out: the command implementations,
+# the report adapters, the catalog and the completion generator.
+#
+# It is a library rather than a set of sources compiled straight into the
+# executable so that tests/cli can call the commands in process - a command is
+# a structure with its options as fields and one Run(), which asserts far more
+# directly than spawning exyoki and matching its output would. What only the
+# executable has is argument parsing, and tests/cli covers that by running the
+# binary; see the CTest entries at the end of this file.
+add_library(exyoki_core STATIC
     Adapters.hpp
     Adapters.cpp
     CommandCatalog.hpp
     CommandCatalog.cpp
+    CommandLine.hpp
+    CommandLine.cpp
+    Commands.hpp
+    Commands.cpp
     Completions.hpp
     Completions.cpp
-    ExitCodes.hpp
-    ${EXYOKI_RC_FILE})
+    ExitCodes.hpp)
 
-target_link_libraries(exyoki PRIVATE ExyokiOffice)
+target_link_libraries(exyoki_core PUBLIC ExyokiOffice)
 
-target_include_directories(exyoki PRIVATE ${PROJECT_SOURCE_DIR}/sources)
-target_include_directories(exyoki SYSTEM PRIVATE
+# PUBLIC: a consumer includes "Commands.hpp", which includes CLI11.
+target_include_directories(exyoki_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(exyoki_core PRIVATE ${PROJECT_SOURCE_DIR}/sources)
+target_include_directories(exyoki_core SYSTEM PUBLIC
     ${PROJECT_SOURCE_DIR}/3rdparty/CLI11
     ${PROJECT_SOURCE_DIR}/3rdparty)
+
+exyokioffice_enable_strict_warnings(exyoki_core)
+
+add_executable(exyoki
+    main.cpp
+    ${EXYOKI_RC_FILE})
+
+target_link_libraries(exyoki PRIVATE exyoki_core)
 
 exyokioffice_enable_strict_warnings(exyoki)
 

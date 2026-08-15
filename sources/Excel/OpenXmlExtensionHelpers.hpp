@@ -6,6 +6,7 @@
 
 #include "ExyokiOffice/OpenXMLElement.hpp"
 #include "ExyokiOffice/OpenXmlSimpleTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -46,8 +47,7 @@ struct ExtensionUris
  */
 inline bool ExtensionUriEquals(std::string_view left, std::string_view right)
 {
-    return std::ranges::equal(left, right, [](unsigned char leftCharacter, unsigned char rightCharacter)
-                              { return std::tolower(leftCharacter) == std::tolower(rightCharacter); });
+    return AsciiText::EqualsIgnoreCase(left, right);
 }
 
 /**

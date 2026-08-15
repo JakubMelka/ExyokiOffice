@@ -6,6 +6,7 @@
 
 #include "ExyokiOffice/Export.hpp"
 #include "ExyokiOffice/OpenXmlPackage.hpp"
+#include "ExyokiOffice/Packaging/DocumentProperties.hpp"
 #include "ExyokiOffice/Tools/PackageModel.hpp"
 
 #include <memory>
@@ -55,14 +56,32 @@ EXYOKIOFFICE_EXPORT PackageInfo GetInfo(const OpenXmlPackage& package);
 EXYOKIOFFICE_EXPORT CoreProperties ReadCoreProperties(const OpenXmlPackage& package);
 
 /**
- * @brief Writes a single named core or extended property.
+ * @brief Reads the user-defined properties (docProps/custom.xml), if present.
  *
- * @param name Property name, matching a CoreProperties field name case-insensitively
- *             (Title, Subject, Creator, Keywords, Description, LastModifiedBy,
- *             Category, ContentStatus, Company).
- * @return True when the property was written. False when the name is
- *         unrecognized or the package has no core/extended properties part to
- *         update (this function never creates new package parts).
+ * The counterpart of the fall-through in WriteCoreProperty: a name that is not
+ * one of the document's own properties is stored here, and this is what reads
+ * it back. Returns an empty vector for a package with no custom properties
+ * part. The package is taken by reference rather than by const reference
+ * because the underlying editor is a single read/write view of it.
+ */
+EXYOKIOFFICE_EXPORT std::vector<Packaging::DocumentCustomProperty> ReadCustomProperties(
+    OpenXmlPackage& package);
+
+/**
+ * @brief Writes a single named document property.
+ *
+ * @param name Property name, matched case-insensitively against the fields of
+ *             CoreProperties and the rest of what Packaging::DocumentProperties
+ *             covers: Title, Subject, Creator, Keywords, Description,
+ *             LastModifiedBy, Category, ContentStatus, Language, Identifier,
+ *             Revision, Version, Application, AppVersion, Company, Manager and
+ *             HyperlinkBase. Any other name is written as a user-defined
+ *             property, which ReadCustomProperties reads back.
+ * @param value New value. An empty value clears the property: the underlying
+ *              element is removed rather than left behind empty.
+ * @return True when the property was written. False for an empty name, and for
+ *         Created, Modified and LastPrinted, which are timestamps rather than
+ *         text and are set through Packaging::DocumentProperties directly.
  */
 EXYOKIOFFICE_EXPORT bool WriteCoreProperty(OpenXmlPackage& package, std::string_view name, std::string_view value);
 

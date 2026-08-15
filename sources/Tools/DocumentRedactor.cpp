@@ -188,9 +188,18 @@ public:
     /// Clears identity properties and drops the custom-properties part.
     static void RedactMetadata(OpenXmlPackage& package, RedactResult& result)
     {
-        for (const auto* name : {"Creator", "LastModifiedBy", "Company"})
+        // Read first, and clear only what held something: removing a property
+        // that was never there is reported as success either way, and counting
+        // it would overstate what the redaction actually removed.
+        const auto existing = ReadCoreProperties(package);
+        const std::pair<const char*, const std::string*> identity[]{
+            {"Creator", &existing.Creator},
+            {"LastModifiedBy", &existing.LastModifiedBy},
+            {"Company", &existing.Company}};
+
+        for (const auto& [name, value] : identity)
         {
-            if (WriteCoreProperty(package, name, ""))
+            if (!value->empty() && WriteCoreProperty(package, name, ""))
             {
                 ++result.MetadataFieldsCleared;
             }

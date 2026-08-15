@@ -9,6 +9,7 @@
 #include "OpenXmlDomInternal.hpp"
 #include "XmlNamespaceResolver.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -976,7 +977,7 @@ private:
         {
             return static_cast<UInt8>(value - '0');
         }
-        value = static_cast<char>(std::toupper(static_cast<unsigned char>(value)));
+        value = AsciiText::ToUpper(value);
         return static_cast<UInt8>(10 + value - 'A');
     }
 
@@ -1144,7 +1145,8 @@ private:
     }
 };
 
-StyleRepository::StyleRepository(ExcelDocument::Ptr document) : m_document(std::move(document)) {}
+StyleRepository::StyleRepository(ExcelDocument::Ptr document)
+    : m_document(std::move(document)) {}
 bool StyleRepository::IsValid() const noexcept
 {
     return m_document != nullptr;

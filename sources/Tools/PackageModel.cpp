@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 #include "ExyokiOffice/Tools/PackageModel.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -236,12 +237,7 @@ std::optional<ExyokiOffice::OpenXml::FileFormatVersions> ParseFileFormatVersion(
 {
     using ExyokiOffice::OpenXml::FileFormatVersions;
 
-    std::string lowered;
-    lowered.reserve(text.size());
-    for (char ch : text)
-    {
-        lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
-    }
+    const std::string lowered = AsciiText::ToLower(text);
 
     if (lowered == "2007")
     {
@@ -282,7 +278,7 @@ public:
     static bool WildcardMatches(std::string_view pattern, std::string_view name)
     {
         const auto lower = [](char c)
-        { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
+        { return AsciiText::ToLower(c); };
 
         Size p = 0;
         Size n = 0;

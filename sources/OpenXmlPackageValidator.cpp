@@ -15,6 +15,7 @@
 #include "OpenXmlVersionSupport.hpp"
 #include "XmlParseOptions.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -134,13 +135,7 @@ public:
 
     static std::string NormalizeSchematronUniqueValue(std::string_view value, bool caseInsensitive)
     {
-        std::string result(value);
-        if (caseInsensitive)
-        {
-            std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch)
-                           { return static_cast<char>(std::tolower(ch)); });
-        }
-        return result;
+        return caseInsensitive ? AsciiText::ToLower(value) : std::string(value);
     }
 
     template <typename TCallback>

@@ -181,7 +181,8 @@ build\ninja-clang-debug\gen\OpenXmlGenerator.exe --data data --out-include inclu
   `Mcp.Catalog.*` CTest entries fail on drift.
 - `examples/`: runnable, CTest-registered examples.
 - `tests/`: doctest test layers — `unit/`, `dom/`, `package/`, `word/`,
-  `spreadsheet/`, `presentation/`, `tools/`, `mcp/`, `generator/`,
+  `spreadsheet/`, `presentation/`, `tools/`, `cli/` (the `exyoki` command line,
+  linking `exyoki_core` so the commands run in process), `mcp/`, `generator/`,
   `compat/` (one test per row of `docs/Compatibility.md`), and `corpus/`,
   with shared helpers in `support/`
   and a standalone installed-package smoke project in `install/`.

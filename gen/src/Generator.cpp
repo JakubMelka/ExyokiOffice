@@ -8,6 +8,7 @@
 #include "Json.h"
 #include "Logger.h"
 #include "Schematron.h"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1637,7 +1638,7 @@ public:
         std::string result(local);
         if (!result.empty())
         {
-            result[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(result[0])));
+            result[0] = ExyokiOffice::AsciiText::ToUpper(result[0]);
         }
         return result;
     }
@@ -1985,7 +1986,7 @@ public:
                     definition.propertyName = definition.qName.localName;
                     if (!definition.propertyName.empty())
                     {
-                        definition.propertyName[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(definition.propertyName[0])));
+                        definition.propertyName[0] = ExyokiOffice::AsciiText::ToUpper(definition.propertyName[0]);
                     }
                 }
 
@@ -2473,9 +2474,7 @@ public:
             return std::nullopt;
         }
 
-        std::string text = argument->value;
-        std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch)
-                       { return static_cast<char>(std::tolower(ch)); });
+        const std::string text = ExyokiOffice::AsciiText::ToLower(argument->value);
 
         if (text == "true")
         {

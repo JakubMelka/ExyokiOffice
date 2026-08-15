@@ -5,10 +5,12 @@
 #include "ExyokiOffice/Tools/PackageInspector.hpp"
 
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/ExtendedProperties.hpp"
+#include "ExyokiOffice/Packaging/DocumentProperties.hpp"
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
 #include "ExyokiOffice/Packaging/PowerPointDocument.hpp"
 #include "ExyokiOffice/Packaging/SpreadsheetDocument.hpp"
 #include "ExyokiOffice/Packaging/WordprocessingDocument.hpp"
+#include "AsciiText.hpp"
 #include "ConformanceClass.hpp"
 #include "CorePropertiesXml.hpp"
 #include "OpenXmlPackageUri.hpp"
@@ -17,10 +19,11 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include <algorithm>
-#include <cctype>
+#include <array>
 #include <deque>
-#include <sstream>
+#include <string>
 #include <unordered_set>
+#include <utility>
 
 namespace ExyokiOffice::Tools
 {
@@ -139,50 +142,6 @@ public:
             }
         }
         return nullptr;
-    }
-
-    /// Maps a friendly CoreProperties field name (case-insensitive) to its docProps/core.xml element name.
-    static std::string_view CorePropertyElementName(std::string_view name)
-    {
-        std::string lowered;
-        lowered.reserve(name.size());
-        for (char ch : name)
-        {
-            lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
-        }
-        if (lowered == "title")
-        {
-            return "dc:title";
-        }
-        if (lowered == "subject")
-        {
-            return "dc:subject";
-        }
-        if (lowered == "creator")
-        {
-            return "dc:creator";
-        }
-        if (lowered == "keywords")
-        {
-            return "cp:keywords";
-        }
-        if (lowered == "description")
-        {
-            return "dc:description";
-        }
-        if (lowered == "lastmodifiedby")
-        {
-            return "cp:lastModifiedBy";
-        }
-        if (lowered == "category")
-        {
-            return "cp:category";
-        }
-        if (lowered == "contentstatus")
-        {
-            return "cp:contentStatus";
-        }
-        return {};
     }
 };
 
@@ -377,86 +336,89 @@ CoreProperties ReadCoreProperties(const OpenXmlPackage& package)
     return properties;
 }
 
+/**
+ * @brief The property names this layer understands, mapped onto their setters.
+ *
+ * The spellings are the field names of CoreProperties, so that what
+ * ReadCoreProperties reports back is what WriteCoreProperty accepts. The list
+ * is longer than that structure because the underlying editor covers the whole
+ * of docProps/core.xml and docProps/app.xml; a name it has a slot for must go
+ * there rather than become a user-defined property that happens to share the
+ * name.
+ */
+class CorePropertySetters
+{
+public:
+    using Setter = bool (Packaging::DocumentProperties::*)(std::string_view);
+
+    static constexpr std::array<std::pair<std::string_view, Setter>, 18> All{
+        {{"Title", &Packaging::DocumentProperties::SetTitle},
+         {"Subject", &Packaging::DocumentProperties::SetSubject},
+         {"Creator", &Packaging::DocumentProperties::SetCreator},
+         {"Keywords", &Packaging::DocumentProperties::SetKeywords},
+         {"Description", &Packaging::DocumentProperties::SetDescription},
+         {"LastModifiedBy", &Packaging::DocumentProperties::SetLastModifiedBy},
+         {"Category", &Packaging::DocumentProperties::SetCategory},
+         {"ContentStatus", &Packaging::DocumentProperties::SetContentStatus},
+         {"Language", &Packaging::DocumentProperties::SetLanguage},
+         {"Identifier", &Packaging::DocumentProperties::SetIdentifier},
+         {"Revision", &Packaging::DocumentProperties::SetRevision},
+         {"Version", &Packaging::DocumentProperties::SetVersion},
+         {"Application", &Packaging::DocumentProperties::SetApplication},
+         {"AppVersion", &Packaging::DocumentProperties::SetApplicationVersion},
+         {"ApplicationVersion", &Packaging::DocumentProperties::SetApplicationVersion},
+         {"Company", &Packaging::DocumentProperties::SetCompany},
+         {"Manager", &Packaging::DocumentProperties::SetManager},
+         {"HyperlinkBase", &Packaging::DocumentProperties::SetHyperlinkBase}}};
+
+    /// The timestamps, which are typed rather than free text; see WriteCoreProperty.
+    static constexpr std::array<std::string_view, 3> Timestamps{"Created", "Modified", "LastPrinted"};
+};
+
+std::vector<Packaging::DocumentCustomProperty> ReadCustomProperties(OpenXmlPackage& package)
+{
+    return Packaging::DocumentProperties(package).GetCustomProperties();
+}
+
 bool WriteCoreProperty(OpenXmlPackage& package, std::string_view name, std::string_view value)
 {
-    std::string lowered;
-    lowered.reserve(name.size());
-    for (char ch : name)
+    if (name.empty())
     {
-        lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+        return false;
     }
 
-    if (lowered == "company")
+    Packaging::DocumentProperties properties(package);
+
+    for (const auto& [candidate, setter] : CorePropertySetters::All)
     {
-        auto extendedPart = PackageInspectorHelper::FindPartOfType<Packaging::ExtendedFilePropertiesPart>(package);
-        if (!extendedPart)
+        if (AsciiText::EqualsIgnoreCase(name, candidate))
+        {
+            return (properties.*setter)(value);
+        }
+    }
+
+    for (const auto& timestamp : CorePropertySetters::Timestamps)
+    {
+        // A timestamp is a point in time, not a string: the editor takes one,
+        // and writing whatever text arrived would produce a date no reader can
+        // parse. Refused rather than diverted into a custom property, which
+        // would leave the document with two properties of the same name.
+        if (AsciiText::EqualsIgnoreCase(name, timestamp))
         {
             return false;
         }
-        auto root = extendedPart->GetTypedRootElement();
-        if (!root)
-        {
-            return false;
-        }
-        using namespace ExyokiOffice::DocumentFormat::OpenXml::ExtendedProperties;
-        auto company = root->GetFirstChildOfType<Company>();
-        if (!company)
-        {
-            company = root->AppendChild<Company>();
-        }
-        if (!company)
-        {
-            return false;
-        }
-        company->SetText(value);
+    }
+
+    // Everything else is a user-defined property, which is what the name the
+    // caller chose says it is. An empty value clears it, matching the core
+    // setters above, and clearing one that was never there is not a failure.
+    if (value.empty())
+    {
+        properties.RemoveCustomProperty(name);
         return true;
     }
 
-    const auto elementName = PackageInspectorHelper::CorePropertyElementName(name);
-    if (elementName.empty())
-    {
-        return false;
-    }
-
-    auto corePart = PackageInspectorHelper::FindPartOfType<Packaging::CoreFilePropertiesPart>(package);
-    if (!corePart)
-    {
-        return false;
-    }
-
-    auto xml = corePart->GetXmlString();
-    Pugi::xml_document doc;
-    if (!xml.empty())
-    {
-        doc.load_buffer(xml.data(), xml.size(), Xml::ParseOptions::Preserving);
-    }
-    auto root = Xml::CorePropertiesXml::EnsureRoot(doc);
-
-    // An empty value clears the property by removing the element, matching the
-    // Packaging API. Leaving an empty element behind would keep the name in the
-    // file, which is the opposite of what clearing an identity field means.
-    if (value.empty())
-    {
-        Xml::CorePropertiesXml::RemoveChild(root, elementName);
-    }
-    else
-    {
-        auto node = Xml::CorePropertiesXml::EnsureChild(root, elementName);
-        if (!node)
-        {
-            return false;
-        }
-        if (Xml::CorePropertiesXml::IsDateProperty(elementName))
-        {
-            Xml::CorePropertiesXml::EnsureDateTypeAttribute(node);
-        }
-        node.text().set(std::string(value).c_str());
-    }
-
-    std::ostringstream output;
-    doc.save(output);
-    corePart->SetXmlString(output.str());
-    return true;
+    return properties.SetCustomProperty(name, std::string(value));
 }
 
 } // namespace ExyokiOffice::Tools

@@ -6,6 +6,7 @@
 
 #include "Security/MessageDigest.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -154,7 +155,7 @@ std::optional<PasswordHashAlgorithm> OfficePasswordVerifier::ParseAlgorithmName(
         {
             continue;
         }
-        normalized.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(character))));
+        normalized.push_back(AsciiText::ToUpper(character));
     }
 
     if (normalized == "SHA1")

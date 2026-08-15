@@ -5,6 +5,7 @@
 #pragma once
 
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -23,7 +24,7 @@ inline bool IsHexDigit(char ch) noexcept
 
 inline char UpperHexDigit(char ch) noexcept
 {
-    return static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    return AsciiText::ToUpper(ch);
 }
 
 inline bool IsPackagePathChar(char ch) noexcept
@@ -317,9 +318,7 @@ inline std::string PartExtensionForContentType(std::string_view contentType)
         contentType.remove_suffix(1);
     }
 
-    std::string normalized(contentType);
-    std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char character)
-                   { return static_cast<char>(std::tolower(character)); });
+    const std::string normalized = AsciiText::ToLower(contentType);
     for (const auto& mapping : kMappings)
     {
         if (normalized == mapping.ContentType)
