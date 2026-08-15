@@ -7,10 +7,10 @@
 
 #include "pugixml/pugixml.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <nlohmann/json.hpp>
 
-#include <cctype>
 #include <sstream>
 
 namespace ExyokiOffice::Tools
@@ -22,35 +22,43 @@ ReportNode::ReportNode(std::nullptr_t) noexcept
 {
 }
 
-ReportNode::ReportNode(bool value) noexcept : m_kind(ReportNodeKind::Bool), m_bool(value)
+ReportNode::ReportNode(bool value) noexcept
+    : m_kind(ReportNodeKind::Bool), m_bool(value)
 {
 }
 
-ReportNode::ReportNode(int value) noexcept : ReportNode(static_cast<Int64>(value))
+ReportNode::ReportNode(int value) noexcept
+    : ReportNode(static_cast<Int64>(value))
 {
 }
 
-ReportNode::ReportNode(Int64 value) noexcept : m_kind(ReportNodeKind::Int), m_int(value)
+ReportNode::ReportNode(Int64 value) noexcept
+    : m_kind(ReportNodeKind::Int), m_int(value)
 {
 }
 
-ReportNode::ReportNode(UInt64 value) noexcept : m_kind(ReportNodeKind::UInt), m_uint(value)
+ReportNode::ReportNode(UInt64 value) noexcept
+    : m_kind(ReportNodeKind::UInt), m_uint(value)
 {
 }
 
-ReportNode::ReportNode(Real value) noexcept : m_kind(ReportNodeKind::Double), m_double(value)
+ReportNode::ReportNode(Real value) noexcept
+    : m_kind(ReportNodeKind::Double), m_double(value)
 {
 }
 
-ReportNode::ReportNode(std::string value) : m_kind(ReportNodeKind::String), m_string(std::move(value))
+ReportNode::ReportNode(std::string value)
+    : m_kind(ReportNodeKind::String), m_string(std::move(value))
 {
 }
 
-ReportNode::ReportNode(const char* value) : m_kind(ReportNodeKind::String), m_string(value ? value : "")
+ReportNode::ReportNode(const char* value)
+    : m_kind(ReportNodeKind::String), m_string(value ? value : "")
 {
 }
 
-ReportNode::ReportNode(std::string_view value) : m_kind(ReportNodeKind::String), m_string(value)
+ReportNode::ReportNode(std::string_view value)
+    : m_kind(ReportNodeKind::String), m_string(value)
 {
 }
 
@@ -448,10 +456,10 @@ public:
         sanitized.reserve(name.size());
         for (char ch : name)
         {
-            const bool isValid = std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '-' || ch == '_' || ch == '.';
+            const bool isValid = AsciiText::IsAlnum(ch) || ch == '-' || ch == '_' || ch == '.';
             sanitized.push_back(isValid ? ch : '_');
         }
-        if (sanitized.empty() || (std::isalpha(static_cast<unsigned char>(sanitized.front())) == 0 && sanitized.front() != '_'))
+        if (sanitized.empty() || (!AsciiText::IsAlpha(sanitized.front()) && sanitized.front() != '_'))
         {
             sanitized.insert(sanitized.begin(), '_');
         }

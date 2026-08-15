@@ -13,9 +13,9 @@
 #include "ExyokiOffice/OpenXmlSimpleTypes.hpp"
 #include "ExyokiOffice/Packaging/PackageUtilities.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -1838,7 +1838,8 @@ class PresentationTimeNodeIdAllocator
 public:
     using IdSet = std::unordered_set<UInt32>;
 
-    explicit PresentationTimeNodeIdAllocator(IdSet reserved) : m_reserved(std::move(reserved)) {}
+    explicit PresentationTimeNodeIdAllocator(IdSet reserved)
+        : m_reserved(std::move(reserved)) {}
 
     UInt32 Next()
     {
@@ -2552,8 +2553,9 @@ public:
             return false;
         }
         if (effect.Color && (effect.Color->size() != 6 ||
-                             !std::all_of(effect.Color->begin(), effect.Color->end(), [](unsigned char character)
-                                          { return std::isxdigit(character) != 0; })))
+                             !std::all_of(effect.Color->begin(), effect.Color->end(),
+                                          [](char character)
+                                          { return AsciiText::IsHexDigit(character); })))
         {
             return false;
         }
@@ -7808,7 +7810,8 @@ std::shared_ptr<Packaging::SlidePart> PresentationSlide::GetPart() const
     return m_part;
 }
 
-PowerPointDocumentEditor::SlideBuilder::SlideBuilder(PowerPointDocumentEditor* editor) : m_editor(editor)
+PowerPointDocumentEditor::SlideBuilder::SlideBuilder(PowerPointDocumentEditor* editor)
+    : m_editor(editor)
 {
 }
 
@@ -7904,7 +7907,8 @@ PresentationSlide::Ptr PowerPointDocumentEditor::SlideBuilder::Build() const
     return m_editor ? m_editor->AddSlide(*this) : nullptr;
 }
 
-PowerPointDocumentEditor::PowerPointDocumentEditor(const PowerPointDocument::Ptr& document) : m_document(document)
+PowerPointDocumentEditor::PowerPointDocumentEditor(const PowerPointDocument::Ptr& document)
+    : m_document(document)
 {
 }
 

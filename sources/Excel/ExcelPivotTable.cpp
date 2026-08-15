@@ -12,7 +12,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <exception>
 #include <map>
@@ -2847,7 +2846,8 @@ PivotTableResult ExcelPivotTable::Update(const ExcelPivotTableDefinition& defini
 // PivotTableBuilder
 // ---------------------------------------------------------------------------
 
-PivotTableBuilder::PivotTableBuilder(std::shared_ptr<Worksheet> sheet) : m_sheet(std::move(sheet))
+PivotTableBuilder::PivotTableBuilder(std::shared_ptr<Worksheet> sheet)
+    : m_sheet(std::move(sheet))
 {
 }
 

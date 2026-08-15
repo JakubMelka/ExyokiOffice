@@ -8,7 +8,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <string>
 #include <array>
 #include <string_view>
@@ -19,7 +18,7 @@ namespace ExyokiOffice::Detail
 
 inline bool IsHexDigit(char ch) noexcept
 {
-    return std::isxdigit(static_cast<unsigned char>(ch)) != 0;
+    return AsciiText::IsHexDigit(ch);
 }
 
 inline char UpperHexDigit(char ch) noexcept
@@ -29,8 +28,7 @@ inline char UpperHexDigit(char ch) noexcept
 
 inline bool IsPackagePathChar(char ch) noexcept
 {
-    const auto value = static_cast<unsigned char>(ch);
-    if (std::isalnum(value) != 0)
+    if (AsciiText::IsAlnum(ch))
     {
         return true;
     }

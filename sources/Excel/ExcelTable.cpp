@@ -10,7 +10,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <unordered_set>
 
 namespace ExyokiOffice::Excel
@@ -123,15 +122,13 @@ bool IsValidExcelTableName(std::string_view name)
     {
         return false;
     }
-    const auto first = static_cast<unsigned char>(name.front());
-    if (!(std::isalpha(first) || name.front() == '_' || name.front() == '\\'))
+    if (!(AsciiText::IsAlpha(name.front()) || name.front() == '_' || name.front() == '\\'))
     {
         return false;
     }
     for (const auto ch : name)
     {
-        const auto value = static_cast<unsigned char>(ch);
-        if (!(std::isalnum(value) || ch == '_' || ch == '.' || ch == '\\'))
+        if (!(AsciiText::IsAlnum(ch) || ch == '_' || ch == '.' || ch == '\\'))
         {
             return false;
         }

@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
-#include <cctype>
 #include <cstddef>
 #include <limits>
 #include <map>
@@ -400,8 +399,8 @@ public:
         Size end = 0;
         while (end < text.size())
         {
-            const unsigned char ch = static_cast<unsigned char>(text[end]);
-            if (std::isspace(ch) || text[end] == '\\' || text[end] == '"' || text[end] == '\'')
+            if (AsciiText::IsSpace(text[end]) || text[end] == '\\' || text[end] == '"' ||
+                text[end] == '\'')
             {
                 break;
             }
@@ -5814,13 +5813,13 @@ public:
         {
             return std::nullopt;
         }
-        if (text.size() > prefix.size() && !std::isspace(static_cast<unsigned char>(text[prefix.size()])))
+        if (text.size() > prefix.size() && !AsciiText::IsSpace(text[prefix.size()]))
         {
             return std::nullopt;
         }
 
         Size pos = prefix.size();
-        while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
+        while (pos < text.size() && AsciiText::IsSpace(text[pos]))
         {
             ++pos;
         }
@@ -5839,7 +5838,7 @@ public:
             }
             auto fieldName = text.substr(pos, end - pos);
             pos = end + 1;
-            while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
+            while (pos < text.size() && AsciiText::IsSpace(text[pos]))
             {
                 ++pos;
             }
@@ -5853,7 +5852,7 @@ public:
         const auto end = text.find_first_of(" \t\r\n", pos);
         auto fieldName = text.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
         pos = end == std::string::npos ? text.size() : end;
-        while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])))
+        while (pos < text.size() && AsciiText::IsSpace(text[pos]))
         {
             ++pos;
         }
@@ -7096,7 +7095,8 @@ ListStyle NumberingManager::ImportList(const NumberingManager& source, int sourc
     return style;
 }
 
-StyleManager::StyleManager(const WordDocument::Ptr& document) : m_document(document) {}
+StyleManager::StyleManager(const WordDocument::Ptr& document)
+    : m_document(document) {}
 
 bool StyleManager::IsValid() const
 {

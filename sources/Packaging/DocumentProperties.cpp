@@ -18,7 +18,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <chrono>
 #include <limits>
 #include <sstream>

@@ -9,7 +9,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <memory>
 #include <string>
 #include <string_view>

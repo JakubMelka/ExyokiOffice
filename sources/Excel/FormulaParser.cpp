@@ -10,7 +10,6 @@
 #include "AsciiText.hpp"
 
 #include <array>
-#include <cctype>
 #include <charconv>
 #include <utility>
 
@@ -87,7 +86,8 @@ bool IsIdentifierChar(char c)
 class Lexer
 {
 public:
-    explicit Lexer(std::string_view text) : m_text(text) {}
+    explicit Lexer(std::string_view text)
+        : m_text(text) {}
 
     Token Next()
     {
@@ -575,7 +575,8 @@ ReferenceBody ClassifyReferenceBody(std::string_view body)
 class Parser
 {
 public:
-    explicit Parser(std::string_view text) : m_lexer(text)
+    explicit Parser(std::string_view text)
+        : m_lexer(text)
     {
         m_current = m_lexer.Next();
     }

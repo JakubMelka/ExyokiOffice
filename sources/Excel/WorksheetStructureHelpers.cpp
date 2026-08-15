@@ -10,9 +10,9 @@
 #include "OpenXmlDomInternal.hpp"
 #include "XmlNamespaceResolver.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <limits>
 #include <optional>
 #include <string>
@@ -299,7 +299,7 @@ private:
             ++cursor;
         }
         const auto columnStart = cursor;
-        while (cursor < text.size() && std::isalpha(static_cast<unsigned char>(text[cursor])))
+        while (cursor < text.size() && AsciiText::IsAlpha(text[cursor]))
         {
             ++cursor;
         }
@@ -319,7 +319,7 @@ private:
         }
         const auto rowStart = cursor;
         UInt64 row = 0;
-        while (cursor < text.size() && std::isdigit(static_cast<unsigned char>(text[cursor])))
+        while (cursor < text.size() && AsciiText::IsDigit(text[cursor]))
         {
             row = row * 10 + static_cast<unsigned char>(text[cursor] - '0');
             if (row > MaxRowIndex)
@@ -452,7 +452,7 @@ private:
         if (offset > 0)
         {
             const auto previous = formula[offset - 1];
-            if (std::isalnum(static_cast<unsigned char>(previous)) || previous == '_' || previous == '.' ||
+            if (AsciiText::IsAlnum(previous) || previous == '_' || previous == '.' ||
                 previous == '!' || previous == '[')
             {
                 return false;
@@ -462,7 +462,7 @@ private:
         if (end < formula.size())
         {
             const auto next = formula[end];
-            if (std::isalnum(static_cast<unsigned char>(next)) || next == '_' || next == '.' || next == '(' ||
+            if (AsciiText::IsAlnum(next) || next == '_' || next == '.' || next == '(' ||
                 next == ']')
             {
                 return false;
@@ -588,13 +588,13 @@ private:
             while (cursor < referenceText.size())
             {
                 while (cursor < referenceText.size() &&
-                       std::isspace(static_cast<unsigned char>(referenceText[cursor])))
+                       AsciiText::IsSpace(referenceText[cursor]))
                 {
                     ++cursor;
                 }
                 const auto start = cursor;
                 while (cursor < referenceText.size() &&
-                       !std::isspace(static_cast<unsigned char>(referenceText[cursor])))
+                       !AsciiText::IsSpace(referenceText[cursor]))
                 {
                     ++cursor;
                 }

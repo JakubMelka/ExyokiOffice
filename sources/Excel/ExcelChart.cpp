@@ -13,7 +13,6 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <charconv>
 
 namespace ExyokiOffice::Excel
@@ -631,7 +630,8 @@ bool Worksheet::RemoveChart(UInt32 id)
     return true;
 }
 
-ChartBuilder::ChartBuilder(std::shared_ptr<Worksheet> sheet) : m_sheet(std::move(sheet))
+ChartBuilder::ChartBuilder(std::shared_ptr<Worksheet> sheet)
+    : m_sheet(std::move(sheet))
 {
 }
 ChartBuilder& ChartBuilder::SetType(ExcelChartType value)

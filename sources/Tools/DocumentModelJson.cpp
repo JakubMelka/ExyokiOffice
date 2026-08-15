@@ -9,8 +9,6 @@
 
 #include "Base64.hpp"
 
-#include <cctype>
-
 namespace ExyokiOffice::Tools
 {
 

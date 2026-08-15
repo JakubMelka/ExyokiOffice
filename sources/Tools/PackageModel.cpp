@@ -6,7 +6,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 
 namespace ExyokiOffice::Tools
 {

@@ -12,7 +12,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <functional>
 #include <iomanip>
 #include <initializer_list>

@@ -11,8 +11,7 @@
 
 #include "pugixml/pugixml.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
-
-#include <cctype>
+#include "AsciiText.hpp"
 
 namespace ExyokiOffice::Xml
 {
@@ -27,14 +26,12 @@ class XmlQueryHelper
 public:
     static bool IsNameStart(char c) noexcept
     {
-        const auto uc = static_cast<unsigned char>(c);
-        return c == '_' || std::isalpha(uc) != 0;
+        return c == '_' || AsciiText::IsAlpha(c);
     }
 
     static bool IsNameChar(char c) noexcept
     {
-        const auto uc = static_cast<unsigned char>(c);
-        return IsNameStart(c) || std::isdigit(uc) != 0 || c == '-' || c == '.';
+        return IsNameStart(c) || AsciiText::IsDigit(c) || c == '-' || c == '.';
     }
 
     /// Resolves a query prefix to a namespace URI using bindings, then the document, then well-known table.

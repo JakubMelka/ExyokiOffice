@@ -18,7 +18,6 @@
 
 #include <algorithm>
 #include <charconv>
-#include <cctype>
 #include <optional>
 #include <unordered_map>
 #include <utility>

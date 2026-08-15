@@ -19,7 +19,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -76,14 +75,13 @@ std::string SanitizeCacheToken(std::string_view sourceName)
     token.reserve(sourceName.size());
     for (const char character : sourceName)
     {
-        const auto value = static_cast<unsigned char>(character);
-        token.push_back(std::isalnum(value) != 0 || character == '_' ? character : '_');
+        token.push_back(AsciiText::IsAlnum(character) || character == '_' ? character : '_');
     }
     if (token.empty())
     {
         token = "Field";
     }
-    if (std::isdigit(static_cast<unsigned char>(token.front())) != 0)
+    if (AsciiText::IsDigit(token.front()))
     {
         token.insert(token.begin(), '_');
     }
@@ -1361,7 +1359,7 @@ bool IsValidSlicerName(std::string_view name)
         return false;
     }
     return std::ranges::none_of(name, [](char character)
-                                { return std::iscntrl(static_cast<unsigned char>(character)) != 0; });
+                                { return AsciiText::IsControl(character); });
 }
 
 // ---------------------------------------------------------------------------
@@ -1841,7 +1839,8 @@ SlicerResult ExcelSlicer::Update(const ExcelSlicerDefinition& definition)
 // SlicerBuilder
 // ---------------------------------------------------------------------------
 
-SlicerBuilder::SlicerBuilder(std::shared_ptr<Worksheet> sheet) : m_sheet(std::move(sheet))
+SlicerBuilder::SlicerBuilder(std::shared_ptr<Worksheet> sheet)
+    : m_sheet(std::move(sheet))
 {
 }
 

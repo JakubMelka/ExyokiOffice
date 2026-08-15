@@ -6,11 +6,11 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include "Base64.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
 #include <array>
 #include <charconv>
-#include <cctype>
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
@@ -450,7 +450,7 @@ bool DateTimeValueTraits::TryParse(std::string_view text, value_type& value) noe
         Size digits = 0;
         Int64 fraction = 0;
 
-        while (index < text.size() && std::isdigit(static_cast<unsigned char>(text[index])))
+        while (index < text.size() && AsciiText::IsDigit(text[index]))
         {
             if (digits < 9)
             {

@@ -17,9 +17,9 @@
 
 #include "pugixml/pugixml.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <functional>
 #include <limits>
 #include <optional>
@@ -46,7 +46,7 @@ public:
         UInt32 value = 0;
         for (char ch : id.substr(prefix.size()))
         {
-            if (!std::isdigit(static_cast<unsigned char>(ch)))
+            if (!AsciiText::IsDigit(ch))
             {
                 return std::nullopt;
             }

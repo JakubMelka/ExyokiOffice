@@ -95,6 +95,65 @@ namespace ExyokiOffice::AsciiText
 }
 
 /**
+ * @brief True for '0' to '9'.
+ *
+ * The C library answers this one the same way in every locale, so this exists
+ * for uniformity rather than to fix anything: a file that classifies some of
+ * its characters here and the rest through `<cctype>` invites the next reader
+ * to copy whichever line is nearer.
+ */
+[[nodiscard]] constexpr bool IsDigit(char value) noexcept
+{
+    return value >= '0' && value <= '9';
+}
+
+/// @brief True for the sixteen hexadecimal digits, in either case.
+[[nodiscard]] constexpr bool IsHexDigit(char value) noexcept
+{
+    return IsDigit(value) || (value >= 'a' && value <= 'f') || (value >= 'A' && value <= 'F');
+}
+
+/**
+ * @brief True for 'A' to 'Z' and 'a' to 'z', and for nothing else.
+ *
+ * In particular false for every byte of a UTF-8 multi-byte sequence, which is
+ * the answer that keeps such a sequence whole: those bytes all have the high
+ * bit set, so they never collide with an ASCII character, whereas a
+ * single-byte locale would call some of them letters and split the character
+ * in half.
+ */
+[[nodiscard]] constexpr bool IsAlpha(char value) noexcept
+{
+    return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z');
+}
+
+/// @brief True for an ASCII letter or an ASCII digit.
+[[nodiscard]] constexpr bool IsAlnum(char value) noexcept
+{
+    return IsAlpha(value) || IsDigit(value);
+}
+
+/// @brief True for the printable ASCII that is neither a letter, a digit, nor a space.
+[[nodiscard]] constexpr bool IsPunct(char value) noexcept
+{
+    const auto byte = static_cast<unsigned char>(value);
+    return byte > 0x20U && byte < 0x7FU && !IsAlnum(value);
+}
+
+/**
+ * @brief True for the ASCII control characters: 0x00 to 0x1F, and DEL.
+ *
+ * A name rejected for holding a control character must not be rejected for
+ * holding a non-ASCII letter, and a locale that classifies the continuation
+ * bytes of a UTF-8 sequence would do exactly that.
+ */
+[[nodiscard]] constexpr bool IsControl(char value) noexcept
+{
+    const auto byte = static_cast<unsigned char>(value);
+    return byte < 0x20U || byte == 0x7FU;
+}
+
+/**
  * @brief @p text without leading and trailing ASCII whitespace.
  *
  * The result points into @p text, so it lives exactly as long as the argument

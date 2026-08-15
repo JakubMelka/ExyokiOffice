@@ -15,7 +15,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <map>
 #include <optional>
 
@@ -29,8 +28,8 @@ public:
     static bool IsWhitespaceOnly(std::string_view text)
     {
         return std::all_of(text.begin(), text.end(),
-                           [](unsigned char ch)
-                           { return std::isspace(ch) != 0; });
+                           [](char ch)
+                           { return AsciiText::IsSpace(ch); });
     }
 
     static bool PreservesSpace(Pugi::xml_node node)

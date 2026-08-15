@@ -14,7 +14,6 @@
 #include "Base64.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>

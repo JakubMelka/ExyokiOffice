@@ -4,9 +4,9 @@
 
 #include "ExyokiOffice/Tools/MarkdownDocument.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 
 namespace ExyokiOffice::Tools::Markdown
 {
@@ -124,11 +124,11 @@ public:
         {
             markerLength = 1;
         }
-        else if (std::isdigit(static_cast<unsigned char>(rest.front())) != 0)
+        else if (AsciiText::IsDigit(rest.front()))
         {
             Size digits = 0;
             while (digits < rest.size() && digits < 9 &&
-                   std::isdigit(static_cast<unsigned char>(rest[digits])) != 0)
+                   AsciiText::IsDigit(rest[digits]))
             {
                 ++digits;
             }
@@ -407,7 +407,7 @@ public:
     private:
         static bool IsEscapablePunctuation(char c)
         {
-            return std::ispunct(static_cast<unsigned char>(c)) != 0;
+            return AsciiText::IsPunct(c);
         }
 
         static Size FindBacktickRun(std::string_view text, Size from, Size length)

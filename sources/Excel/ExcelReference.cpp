@@ -7,7 +7,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <optional>
 
 namespace ExyokiOffice::Excel
@@ -179,7 +178,7 @@ private:
     }
     static bool Boundary(char c)
     {
-        return !std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '.';
+        return !AsciiText::IsAlnum(c) && c != '_' && c != '.';
     }
     static std::optional<Cell> ParseCell(std::string_view text, Size at)
     {
@@ -191,7 +190,7 @@ private:
             ++p;
         }
         const auto cs = p;
-        while (p < text.size() && std::isalpha(static_cast<unsigned char>(text[p])))
+        while (p < text.size() && AsciiText::IsAlpha(text[p]))
         {
             ++p;
         }
@@ -212,7 +211,7 @@ private:
         const auto rs = p;
         UInt64 row = 0;
         while (p < text.size() &&
-               std::isdigit(static_cast<unsigned char>(text[p])))
+               AsciiText::IsDigit(text[p]))
         {
             row = row * 10 + static_cast<UInt64>(text[p++] - '0');
             if (row > MaxRowIndex)
@@ -269,7 +268,7 @@ private:
                                 text.begin() + static_cast<std::string_view::difference_type>(bang),
                                 [](char c)
                                 {
-                                    return !std::isspace(static_cast<unsigned char>(c)) &&
+                                    return !AsciiText::IsSpace(c) &&
                                            c != '+' && c != '-' && c != '*' && c != '/';
                                 });
             }

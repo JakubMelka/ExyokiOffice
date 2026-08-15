@@ -9,7 +9,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <charconv>
 #include <map>
 #include <string>
@@ -37,7 +36,7 @@ public:
     {
         Size i = 0;
         column = 0;
-        while (i < address.size() && std::isalpha(static_cast<unsigned char>(address[i])))
+        while (i < address.size() && AsciiText::IsAlpha(address[i]))
         {
             column = column * 26 +
                      static_cast<Size>(AsciiText::ToUpper(address[i]) - 'A' + 1);
@@ -50,7 +49,7 @@ public:
         row = 0;
         for (; i < address.size(); ++i)
         {
-            if (!std::isdigit(static_cast<unsigned char>(address[i])))
+            if (!AsciiText::IsDigit(address[i]))
             {
                 return false;
             }
@@ -119,7 +118,7 @@ public:
             ++i;
         }
         const Size integerStart = i;
-        while (i < text.size() && std::isdigit(static_cast<unsigned char>(text[i])))
+        while (i < text.size() && AsciiText::IsDigit(text[i]))
         {
             ++i;
         }
@@ -133,7 +132,7 @@ public:
         {
             ++i;
             const Size fractionStart = i;
-            while (i < text.size() && std::isdigit(static_cast<unsigned char>(text[i])))
+            while (i < text.size() && AsciiText::IsDigit(text[i]))
             {
                 ++i;
             }
@@ -155,7 +154,7 @@ public:
                 ++i;
             }
             const Size exponentStart = i;
-            while (i < text.size() && std::isdigit(static_cast<unsigned char>(text[i])))
+            while (i < text.size() && AsciiText::IsDigit(text[i]))
             {
                 ++i;
             }

@@ -23,7 +23,8 @@ namespace
 class ScopedLocale
 {
 public:
-    explicit ScopedLocale(const char* name) : m_applied(std::setlocale(LC_ALL, name) != nullptr) {}
+    explicit ScopedLocale(const char* name)
+        : m_applied(std::setlocale(LC_ALL, name) != nullptr) {}
 
     ~ScopedLocale() { std::setlocale(LC_ALL, "C"); }
 
@@ -93,6 +94,80 @@ TEST_CASE("Case folding does not follow the global C locale [unit] [ascii-text]"
     CHECK(AsciiText::ToUpper('i') == 'I');
     CHECK(AsciiText::EqualsIgnoreCase("TITLE", "title"));
     CHECK(AsciiText::ToLower(std::string_view("INCLUDEPICTURE")) == "includepicture");
+}
+
+TEST_CASE("Character classes cover ASCII and stop there [unit] [ascii-text]")
+{
+    CHECK(AsciiText::IsAlpha('a'));
+    CHECK(AsciiText::IsAlpha('Z'));
+    CHECK_FALSE(AsciiText::IsAlpha('7'));
+    CHECK_FALSE(AsciiText::IsAlpha('_'));
+
+    CHECK(AsciiText::IsDigit('0'));
+    CHECK(AsciiText::IsDigit('9'));
+    CHECK_FALSE(AsciiText::IsDigit('a'));
+
+    CHECK(AsciiText::IsAlnum('q'));
+    CHECK(AsciiText::IsAlnum('4'));
+    CHECK_FALSE(AsciiText::IsAlnum('-'));
+
+    CHECK(AsciiText::IsHexDigit('0'));
+    CHECK(AsciiText::IsHexDigit('f'));
+    CHECK(AsciiText::IsHexDigit('F'));
+    CHECK_FALSE(AsciiText::IsHexDigit('g'));
+
+    CHECK(AsciiText::IsPunct('-'));
+    CHECK(AsciiText::IsPunct('/'));
+    CHECK_FALSE(AsciiText::IsPunct(' '));
+    CHECK_FALSE(AsciiText::IsPunct('a'));
+
+    CHECK(AsciiText::IsControl('\0'));
+    CHECK(AsciiText::IsControl('\n'));
+    CHECK(AsciiText::IsControl('\x7F'));
+    CHECK_FALSE(AsciiText::IsControl(' '));
+}
+
+TEST_CASE("No byte of a UTF-8 sequence is classified as ASCII [unit] [ascii-text]")
+{
+    // This is what makes byte-wise classification safe on UTF-8 text at all:
+    // every byte of a multi-byte sequence has the high bit set, so it can never
+    // collide with an ASCII character. A locale that classified those bytes
+    // would call some of them letters and split the character in half; these
+    // have to answer false for every one of them.
+    const std::string sequences = "\xC4\x8D"          // c with caron
+                                  "\xC5\xA1"          // s with caron
+                                  "\xE2\x82\xAC"      // euro sign
+                                  "\xF0\x9F\x93\x84"; // page emoji
+
+    for (const char byte : sequences)
+    {
+        CAPTURE(static_cast<int>(static_cast<unsigned char>(byte)));
+        CHECK_FALSE(AsciiText::IsAlpha(byte));
+        CHECK_FALSE(AsciiText::IsAlnum(byte));
+        CHECK_FALSE(AsciiText::IsDigit(byte));
+        CHECK_FALSE(AsciiText::IsHexDigit(byte));
+        CHECK_FALSE(AsciiText::IsPunct(byte));
+        CHECK_FALSE(AsciiText::IsControl(byte));
+        CHECK_FALSE(AsciiText::IsSpace(byte));
+        // Case folding leaves them alone for the same reason.
+        CHECK(AsciiText::ToLower(byte) == byte);
+        CHECK(AsciiText::ToUpper(byte) == byte);
+    }
+}
+
+TEST_CASE("Character classes do not follow the global C locale [unit] [ascii-text]")
+{
+    const ScopedLocale turkish("tr_TR.UTF-8");
+    if (!turkish.Applied())
+    {
+        MESSAGE("tr_TR.UTF-8 is not installed; the locale independence check did not run");
+        return;
+    }
+
+    CHECK(AsciiText::IsAlpha('I'));
+    CHECK(AsciiText::IsAlpha('i'));
+    CHECK_FALSE(AsciiText::IsAlpha('\xC4'));
+    CHECK_FALSE(AsciiText::IsControl('\xC4'));
 }
 
 TEST_CASE("Trimming removes the ASCII whitespace on both ends [unit] [ascii-text]")

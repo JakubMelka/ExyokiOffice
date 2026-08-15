@@ -12,7 +12,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <cstdint>
 #include <cmath>
 #include <iomanip>
@@ -987,7 +986,7 @@ private:
         {
             const bool rgbValid = color.Kind != ExcelColorKind::Rgb ||
                                   (color.Argb.size() == 8 && std::all_of(color.Argb.begin(), color.Argb.end(), [](char ch)
-                                                                         { return std::isxdigit(static_cast<unsigned char>(ch)) != 0; }));
+                                                                         { return AsciiText::IsHexDigit(ch); }));
             return rgbValid && (!color.Tint || (*color.Tint >= -1.0 && *color.Tint <= 1.0));
         };
         if (style.Font && ((style.Font->Size && *style.Font->Size <= 0.0) ||

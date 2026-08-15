@@ -10,7 +10,6 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <vector>
 
 namespace ExyokiOffice::Security
@@ -32,7 +31,7 @@ public:
     /// True for the characters a scheme may contain after its first letter.
     static bool IsSchemeCharacter(char ch) noexcept
     {
-        return std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '+' || ch == '-' || ch == '.';
+        return AsciiText::IsAlnum(ch) || ch == '+' || ch == '-' || ch == '.';
     }
 
     static bool IsDigits(std::string_view value) noexcept
@@ -40,7 +39,7 @@ public:
         return !value.empty() && std::all_of(value.begin(),
                                              value.end(),
                                              [](char ch)
-                                             { return std::isdigit(static_cast<unsigned char>(ch)) != 0; });
+                                             { return AsciiText::IsDigit(ch); });
     }
 
     /// Parses a port without throwing on an out of range value.
@@ -114,7 +113,7 @@ std::string ExternalUri::ConvertWindowsPath(std::string_view uri)
 
     // A drive path has to be recognized before the scheme is parsed, because
     // "C:" would otherwise look like a one letter scheme.
-    if (uri.size() > 2 && std::isalpha(static_cast<unsigned char>(uri[0])) != 0 && uri[1] == ':' &&
+    if (uri.size() > 2 && AsciiText::IsAlpha(uri[0]) && uri[1] == ':' &&
         (uri[2] == '\\' || uri[2] == '/'))
     {
         return "file:///" + NormalizeSeparators(uri);
@@ -281,13 +280,13 @@ bool ExternalUri::IsAbsolute(std::string_view uri) noexcept
     {
         return true;
     }
-    if (uri.size() > 2 && std::isalpha(static_cast<unsigned char>(uri[0])) != 0 && uri[1] == ':' &&
+    if (uri.size() > 2 && AsciiText::IsAlpha(uri[0]) && uri[1] == ':' &&
         (uri[2] == '\\' || uri[2] == '/'))
     {
         return true;
     }
 
-    if (uri.empty() || std::isalpha(static_cast<unsigned char>(uri.front())) == 0)
+    if (uri.empty() || !AsciiText::IsAlpha(uri.front()))
     {
         return false;
     }
@@ -316,7 +315,7 @@ std::optional<ExternalUriParts> ExternalUri::Parse(std::string_view uri)
     const std::string converted = ConvertWindowsPath(uri);
     std::string_view value(converted);
 
-    if (std::isalpha(static_cast<unsigned char>(value.front())) == 0)
+    if (!AsciiText::IsAlpha(value.front()))
     {
         return std::nullopt;
     }

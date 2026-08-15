@@ -7,9 +7,9 @@
 #include "ExyokiOffice/OpenXMLElement.hpp"
 #include "OpenXmlDiagnosticNames.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <optional>
 #include <regex>
 #include <string_view>
@@ -52,7 +52,7 @@ public:
                 return false;
             }
 
-            if (std::isspace(static_cast<unsigned char>(ch)) && ch != ' ')
+            if (AsciiText::IsSpace(ch) && ch != ' ')
             {
                 return false;
             }
@@ -97,16 +97,10 @@ public:
         }
 
         const auto isStart = [](char ch) noexcept
-        {
-            const unsigned char uch = static_cast<unsigned char>(ch);
-            return std::isalpha(uch) != 0 || ch == '_';
-        };
+        { return AsciiText::IsAlpha(ch) || ch == '_'; };
 
         const auto isNameChar = [](char ch) noexcept
-        {
-            const unsigned char uch = static_cast<unsigned char>(ch);
-            return std::isalnum(uch) != 0 || ch == '_' || ch == '-' || ch == '.';
-        };
+        { return AsciiText::IsAlnum(ch) || ch == '_' || ch == '-' || ch == '.'; };
 
         if (!isStart(value.front()))
         {
@@ -198,8 +192,8 @@ public:
 
             if (ch == '%')
             {
-                if (index + 2 >= value.size() || std::isxdigit(static_cast<unsigned char>(value[index + 1])) == 0 ||
-                    std::isxdigit(static_cast<unsigned char>(value[index + 2])) == 0)
+                if (index + 2 >= value.size() || !AsciiText::IsHexDigit(value[index + 1]) ||
+                    !AsciiText::IsHexDigit(value[index + 2]))
                 {
                     return false;
                 }
@@ -283,7 +277,7 @@ public:
         }
 
         return std::all_of(value.begin(), value.end(), [](char ch)
-                           { return std::isxdigit(static_cast<unsigned char>(ch)) != 0; });
+                           { return AsciiText::IsHexDigit(ch); });
     }
 
     /**
