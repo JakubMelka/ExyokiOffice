@@ -8,6 +8,7 @@
 #include "OpenXmlDiagnosticNames.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 #include "AsciiText.hpp"
+#include "Utf8Text.hpp"
 
 #include <algorithm>
 #include <optional>
@@ -78,44 +79,18 @@ public:
     /**
      * @brief Validates that the input matches the simplified NCName production.
      *
-     * This check ensures the name does not contain a colon and is composed of ASCII letters, digits,
-     * underscores, hyphens, or dots, with the first character restricted to letters or underscore.
+     * This check applies the XML 1.0 @c NCName production: a @c Name with no colon in it. The
+     * production is written over code points rather than bytes, and answering it byte by byte would
+     * be wrong in both directions - it would reject every name not spelled in ASCII, and it would
+     * accept a code point such as @c U+00D7 that XML forbids, writing out a document no conforming
+     * parser reads back. The text is therefore decoded as UTF-8 before it is classified.
      *
      * @param value Candidate NCName.
      * @return True if @p value represents a valid NCName; otherwise false.
      */
     static bool IsNcName(std::string_view value) noexcept
     {
-        if (value.empty())
-        {
-            return false;
-        }
-
-        if (value.front() == ':' || value.find(':') != std::string_view::npos)
-        {
-            return false;
-        }
-
-        const auto isStart = [](char ch) noexcept
-        { return AsciiText::IsAlpha(ch) || ch == '_'; };
-
-        const auto isNameChar = [](char ch) noexcept
-        { return AsciiText::IsAlnum(ch) || ch == '_' || ch == '-' || ch == '.'; };
-
-        if (!isStart(value.front()))
-        {
-            return false;
-        }
-
-        for (char ch : value.substr(1))
-        {
-            if (!isNameChar(ch))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return Utf8Text::IsNcName(value);
     }
 
     /**

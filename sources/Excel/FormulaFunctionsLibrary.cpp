@@ -634,10 +634,14 @@ void FormulaFunctionLibrary::RegisterTextFunctions(FunctionMap& functions)
             return text; }));
     Add(functions, "PROPER", 1, 1, mapText([](std::string text)
                                            {
+            // Case folding reaches ASCII only, but word breaking must not: a
+            // byte of a UTF-8 sequence counts as a letter, otherwise the second
+            // half of a character would start a new word and uppercase the
+            // letter behind it.
             bool startOfWord = true;
             for (char& c : text)
             {
-                const bool isLetter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+                const bool isLetter = AsciiText::IsAlpha(c) || AsciiText::IsNonAscii(c);
                 c = startOfWord ? AsciiText::ToUpper(c) : AsciiText::ToLower(c);
                 startOfWord = !isLetter;
             }

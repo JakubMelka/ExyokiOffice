@@ -176,9 +176,13 @@ private:
         }
         out += text.substr(start, cursor - start);
     }
+    /// True when @p c cannot be part of an identifier, so a match beside it is a whole token.
     static bool Boundary(char c)
     {
-        return !AsciiText::IsAlnum(c) && c != '_' && c != '.';
+        // A byte of a UTF-8 sequence is part of the identifier around it. Were
+        // it a boundary, the `A1` inside a defined name such as `cA1` would be
+        // taken for a cell reference and rewritten.
+        return !AsciiText::IsAlnum(c) && !AsciiText::IsNonAscii(c) && c != '_' && c != '.';
     }
     static std::optional<Cell> ParseCell(std::string_view text, Size at)
     {

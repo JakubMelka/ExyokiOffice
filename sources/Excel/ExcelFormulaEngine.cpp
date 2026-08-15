@@ -255,8 +255,7 @@ bool SheetNameNeedsQuoting(std::string_view name)
     }
     for (const char c : name)
     {
-        const bool safe = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
-                          c == '_' || c == '.' || static_cast<unsigned char>(c) >= 0x80;
+        const bool safe = AsciiText::IsAlnum(c) || AsciiText::IsNonAscii(c) || c == '_' || c == '.';
         if (!safe)
         {
             return true;

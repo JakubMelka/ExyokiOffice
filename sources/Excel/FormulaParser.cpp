@@ -68,18 +68,18 @@ struct Token
 
 bool IsAsciiLetter(char c)
 {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+    return AsciiText::IsAlpha(c);
 }
 
 bool IsAsciiDigit(char c)
 {
-    return c >= '0' && c <= '9';
+    return AsciiText::IsDigit(c);
 }
 
+/// True for a byte that can appear inside a name; anything outside ASCII belongs to one.
 bool IsIdentifierChar(char c)
 {
-    return IsAsciiLetter(c) || IsAsciiDigit(c) || c == '_' || c == '.' || c == '$' ||
-           static_cast<unsigned char>(c) >= 0x80;
+    return AsciiText::IsAlnum(c) || AsciiText::IsNonAscii(c) || c == '_' || c == '.' || c == '$';
 }
 
 /** @brief Tokenizes canonical en-US formula text. */

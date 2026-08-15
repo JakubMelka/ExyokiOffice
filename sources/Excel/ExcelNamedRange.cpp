@@ -168,16 +168,16 @@ bool NamedRangeManager::IsValidName(std::string_view name)
         return false;
     }
     const char first = name.front();
-    const bool validFirst = (first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') ||
-                            first == '_' || first == '\\' || static_cast<unsigned char>(first) >= 0x80;
+    const bool validFirst = AsciiText::IsAlpha(first) || AsciiText::IsNonAscii(first) ||
+                            first == '_' || first == '\\';
     if (!validFirst)
     {
         return false;
     }
     for (const char c : name)
     {
-        const bool valid = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
-                           c == '_' || c == '.' || c == '\\' || static_cast<unsigned char>(c) >= 0x80;
+        const bool valid = AsciiText::IsAlnum(c) || AsciiText::IsNonAscii(c) ||
+                           c == '_' || c == '.' || c == '\\';
         if (!valid)
         {
             return false;

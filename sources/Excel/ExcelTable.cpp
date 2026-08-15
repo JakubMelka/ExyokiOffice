@@ -122,13 +122,17 @@ bool IsValidExcelTableName(std::string_view name)
     {
         return false;
     }
-    if (!(AsciiText::IsAlpha(name.front()) || name.front() == '_' || name.front() == '\\'))
+    // A table name lives in the same name space as a defined name, so the rule
+    // is the one NamedRangeManager::IsValidName applies: letters in any script
+    // are allowed, which for UTF-8 means every byte outside ASCII passes.
+    if (!(AsciiText::IsAlpha(name.front()) || AsciiText::IsNonAscii(name.front()) ||
+          name.front() == '_' || name.front() == '\\'))
     {
         return false;
     }
     for (const auto ch : name)
     {
-        if (!(AsciiText::IsAlnum(ch) || ch == '_' || ch == '.' || ch == '\\'))
+        if (!(AsciiText::IsAlnum(ch) || AsciiText::IsNonAscii(ch) || ch == '_' || ch == '.' || ch == '\\'))
         {
             return false;
         }

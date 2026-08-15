@@ -66,8 +66,11 @@ SlicerResult Success()
  * Derives the token Excel uses inside a slicer cache name.
  *
  * The cache name is exposed in the spreadsheet application's object model as a
- * defined-name-like identifier, so everything outside `[A-Za-z0-9_]` collapses
- * to an underscore and a leading digit is pushed behind one.
+ * defined-name-like identifier, so the punctuation and spaces that a defined
+ * name cannot hold collapse to an underscore and a leading digit is pushed
+ * behind one. Letters outside ASCII are kept: a defined name may be written in
+ * any script, and replacing those bytes would both mangle the name and leave a
+ * half-decoded character behind.
  */
 std::string SanitizeCacheToken(std::string_view sourceName)
 {
@@ -75,7 +78,8 @@ std::string SanitizeCacheToken(std::string_view sourceName)
     token.reserve(sourceName.size());
     for (const char character : sourceName)
     {
-        token.push_back(AsciiText::IsAlnum(character) || character == '_' ? character : '_');
+        const bool keep = AsciiText::IsAlnum(character) || AsciiText::IsNonAscii(character) || character == '_';
+        token.push_back(keep ? character : '_');
     }
     if (token.empty())
     {

@@ -449,11 +449,14 @@ private:
 
     static bool IsReferenceBoundary(std::string_view formula, Size offset, Size length)
     {
+        // Bytes outside ASCII belong to the identifier they sit in, so a name
+        // written in another script keeps a reference-looking substring of its
+        // own from being rewritten as a reference.
         if (offset > 0)
         {
             const auto previous = formula[offset - 1];
-            if (AsciiText::IsAlnum(previous) || previous == '_' || previous == '.' ||
-                previous == '!' || previous == '[')
+            if (AsciiText::IsAlnum(previous) || AsciiText::IsNonAscii(previous) ||
+                previous == '_' || previous == '.' || previous == '!' || previous == '[')
             {
                 return false;
             }
@@ -462,8 +465,8 @@ private:
         if (end < formula.size())
         {
             const auto next = formula[end];
-            if (AsciiText::IsAlnum(next) || next == '_' || next == '.' || next == '(' ||
-                next == ']')
+            if (AsciiText::IsAlnum(next) || AsciiText::IsNonAscii(next) ||
+                next == '_' || next == '.' || next == '(' || next == ']')
             {
                 return false;
             }

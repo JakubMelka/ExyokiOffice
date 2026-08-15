@@ -68,6 +68,41 @@ TEST_CASE("RenderXml escapes reserved characters and produces well-formed nestin
     CHECK(rendered.find("</exyoki>") != std::string::npos);
 }
 
+TEST_CASE("RenderXml keeps keys XML allows and replaces the rest [unit] [tools]")
+{
+    // Object keys become element names, so this decides one code point at a
+    // time. Byte by byte it would have to choose between mangling every key not
+    // spelled in ASCII and emitting a name XML forbids; there is no byte-wise
+    // answer that is right in both directions. Escapes below, because the
+    // compiler is not told the source encoding.
+    ReportDocument document;
+    document.Command = "props";
+    document.Data.Set("P\xC5\x99"
+                      "ehled",
+                      std::string("kept")); // r with caron
+    document.Data.Set("\xC4\x8D"
+                      "islo",
+                      std::string("kept")); // leading c with caron
+    document.Data.Set("a\xC3\x97"
+                      "b",
+                      std::string("replaced")); // multiplication sign
+    document.Data.Set("1st", std::string("prefixed"));
+    document.Data.Set("has space", std::string("replaced"));
+    document.Data.Set("a:b", std::string("replaced"));
+
+    const auto rendered = RenderXml(document);
+    CHECK(rendered.find("<P\xC5\x99"
+                        "ehled>kept</P\xC5\x99"
+                        "ehled>") != std::string::npos);
+    CHECK(rendered.find("<\xC4\x8D"
+                        "islo>kept</\xC4\x8D"
+                        "islo>") != std::string::npos);
+    CHECK(rendered.find("<a_b>replaced</a_b>") != std::string::npos);
+    CHECK(rendered.find("<_1st>prefixed</_1st>") != std::string::npos);
+    CHECK(rendered.find("<has_space>replaced</has_space>") != std::string::npos);
+    CHECK(rendered.find("<a:b>") == std::string::npos);
+}
+
 TEST_CASE("RenderJson preserves report value types and diagnostics [unit] [tools]")
 {
     const auto document = MakeSampleDocument();

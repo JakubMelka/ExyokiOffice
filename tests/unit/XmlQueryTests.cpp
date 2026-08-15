@@ -53,18 +53,39 @@ std::filesystem::path BuildBaseDocx()
     return path;
 }
 
-// Loads a base .docx and replaces the main document part's XML with kDocumentXml,
+// An element whose local name is not spelled in ASCII: "Prehled" with the r
+// carrying a caron, written as escapes because the compiler is not told the
+// source encoding.
+constexpr const char* kAccentedNameXml =
+    "<ns0:document xmlns:ns0=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">"
+    "<ns0:body>"
+    "<ns0:P\xC5\x99"
+    "ehled>Alpha</ns0:P\xC5\x99"
+    "ehled>"
+    "<ns0:P\xC5\x99"
+    "ehled>Beta</ns0:P\xC5\x99"
+    "ehled>"
+    "</ns0:body>"
+    "</ns0:document>";
+
+// Loads a base .docx and replaces the main document part's XML with @p xml,
 // returning its root element. The package must outlive the returned root, so the
 // caller passes one in.
-std::shared_ptr<OpenXMLElement> LoadCustomRoot(OpenXmlPackage& package, const std::filesystem::path& path)
+std::shared_ptr<OpenXMLElement> LoadRootWithXml(OpenXmlPackage& package, const std::filesystem::path& path,
+                                                const char* xml)
 {
     REQUIRE(package.LoadFromFile(path));
     auto part = package.GetPartByUri("/word/document.xml");
     REQUIRE(part);
-    part->SetXmlString(kDocumentXml);
+    part->SetXmlString(xml);
     auto root = part->GetRootElement();
     REQUIRE(root);
     return root;
+}
+
+std::shared_ptr<OpenXMLElement> LoadCustomRoot(OpenXmlPackage& package, const std::filesystem::path& path)
+{
+    return LoadRootWithXml(package, path, kDocumentXml);
 }
 
 } // namespace
@@ -85,6 +106,29 @@ TEST_CASE("SelectNodes matches by namespace regardless of document prefix [unit]
         CHECK(name.localName() == "p");
         CHECK(name.namespaceUri() == kWordNs);
     }
+
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("SelectNodes matches an element name written outside ASCII [unit] [xml]")
+{
+    // The name test in a query is scanned byte by byte, so every byte of a
+    // UTF-8 sequence has to count as part of the name. A rule that admitted
+    // ASCII letters only would end the name at the first accented letter and
+    // read the rest of it as syntax, leaving the element unreachable.
+    const auto path = BuildBaseDocx();
+    OpenXmlPackage package;
+    auto root = LoadRootWithXml(package, path, kAccentedNameXml);
+
+    std::string error;
+    const auto matches = Xml::SelectNodes(root, "//w:P\xC5\x99"
+                                                "ehled",
+                                          {}, &error);
+    CHECK(error.empty());
+    REQUIRE(matches.size() == 2);
+    CHECK(matches.front()->QualifiedName().localName() == "P\xC5\x99"
+                                                          "ehled");
+    CHECK(matches.front()->QualifiedName().namespaceUri() == kWordNs);
 
     std::filesystem::remove(path);
 }

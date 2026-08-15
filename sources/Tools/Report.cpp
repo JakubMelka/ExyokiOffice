@@ -8,6 +8,7 @@
 #include "pugixml/pugixml.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 #include "AsciiText.hpp"
+#include "Utf8Text.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -449,17 +450,38 @@ public:
         }
     };
 
-    /// Sanitizes an arbitrary key into a valid XML element name (used for object members).
+    /**
+     * Sanitizes an arbitrary key into a valid XML element name (used for object members).
+     *
+     * The whole point of this function is that whatever comes back can be written out as an element
+     * name, so it decides one code point at a time rather than one byte at a time. Deciding by byte
+     * would replace every character of a key like `Přehled` with underscores, and a key holding
+     * something XML happens to forbid - `U+00D7`, say - would still slip through as a run of bytes
+     * that all look non-ASCII. A malformed sequence is replaced wholesale for the same reason: half
+     * a character is not a name.
+     */
     static std::string SanitizeXmlElementName(std::string_view name)
     {
         std::string sanitized;
         sanitized.reserve(name.size());
-        for (char ch : name)
+        for (Size offset = 0; offset < name.size();)
         {
-            const bool isValid = AsciiText::IsAlnum(ch) || ch == '-' || ch == '_' || ch == '.';
-            sanitized.push_back(isValid ? ch : '_');
+            const Utf8Text::DecodedCharacter character = Utf8Text::Decode(name, offset);
+            const bool isValid = character.Valid && character.Value != U':' &&
+                                 Utf8Text::IsXmlNameChar(character.Value);
+            if (isValid)
+            {
+                sanitized.append(name.substr(offset, character.Length));
+            }
+            else
+            {
+                sanitized.push_back('_');
+            }
+            offset += character.Length;
         }
-        if (sanitized.empty() || (!AsciiText::IsAlpha(sanitized.front()) && sanitized.front() != '_'))
+
+        const Utf8Text::DecodedCharacter first = Utf8Text::Decode(sanitized, 0);
+        if (!first.Valid || first.Value == U':' || !Utf8Text::IsXmlNameStartChar(first.Value))
         {
             sanitized.insert(sanitized.begin(), '_');
         }

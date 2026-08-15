@@ -422,6 +422,19 @@ TEST_SUITE("ExcelFormulaEngineTests")
         CHECK(H::Text(engine, "=UPPER(\"aBc\")") == "ABC");
         CHECK(H::Text(engine, "=LOWER(\"AbC\")") == "abc");
         CHECK(H::Text(engine, "=PROPER(\"hello world\")") == "Hello World");
+        // Case folding reaches ASCII only, so a word opening with a letter
+        // outside it keeps that letter as it stands. Word breaking, though, has
+        // to see the whole character: were a byte of a UTF-8 sequence not a
+        // letter, the second half of one would open a word of its own and
+        // uppercase the letter behind it - "cau svete", with carons, would come
+        // back as "cAu svEte". The second word still capitalizes, because its
+        // first letter is ASCII.
+        CHECK(H::Text(engine, "=PROPER(\"\xC4\x8D"
+                              "au sv\xC4\x9B"
+                              "te\")") ==
+              "\xC4\x8D"
+              "au Sv\xC4\x9B"
+              "te");
         CHECK(H::Text(engine, "=TRIM(\"  a   b  \")") == "a b");
         CHECK(H::Text(engine, "=SUBSTITUTE(\"aaa\",\"a\",\"b\",2)") == "aba");
         CHECK(H::Text(engine, "=SUBSTITUTE(\"aaa\",\"a\",\"b\")") == "bbb");

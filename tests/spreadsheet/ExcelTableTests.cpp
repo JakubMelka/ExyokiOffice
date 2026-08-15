@@ -179,6 +179,18 @@ TEST_SUITE("ExcelTableTests")
         CHECK_FALSE(IsValidExcelTableName("1Table"));
         CHECK_FALSE(IsValidExcelTableName("Has Space"));
 
+        // A table name shares its name space with a defined name, so it obeys
+        // the same rule: letters in any script are allowed. Spelled as escapes
+        // because the compiler is not told the source encoding.
+        CHECK(IsValidExcelTableName("P\xC5\x99"
+                                    "ehled")); // r with caron
+        CHECK(IsValidExcelTableName("\xC4\x8C"
+                                    "esko"));                     // C with caron
+        CHECK(IsValidExcelTableName("\xE5\xA3\xB2\xE4\xB8\x8A")); // CJK
+        // What the rule forbids is forbidden in any script.
+        CHECK_FALSE(IsValidExcelTableName("P\xC5\x99"
+                                          "ehled tabulky"));
+
         auto editor = ExcelDocumentEditor::CreateNew();
         auto first = editor->FirstWorksheet();
         auto second = editor->AddWorksheet("Data");

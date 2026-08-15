@@ -154,6 +154,25 @@ namespace ExyokiOffice::AsciiText
 }
 
 /**
+ * @brief True for a byte that belongs to a UTF-8 multi-byte sequence.
+ *
+ * Every rule in this library that spells out which ASCII characters it accepts
+ * has to say something about the rest, and for a rule over UTF-8 text the
+ * answer is almost always "let them through": a name may be written in any
+ * script, and a tokenizer that treated `0xC4` as a separator would cut a
+ * character in half. Spelling that as a named test rather than a bare
+ * comparison against `0x80` keeps the decision greppable.
+ *
+ * This is a test on one byte, so it cannot tell a well-formed sequence from a
+ * malformed one. Where that distinction matters - deciding whether a name is a
+ * legal XML name, for instance - decode instead, with `Utf8Text`.
+ */
+[[nodiscard]] constexpr bool IsNonAscii(char value) noexcept
+{
+    return static_cast<unsigned char>(value) >= 0x80U;
+}
+
+/**
  * @brief @p text without leading and trailing ASCII whitespace.
  *
  * The result points into @p text, so it lives exactly as long as the argument

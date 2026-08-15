@@ -12,6 +12,7 @@ exyokioffice_add_test_executable(ExyokiOfficeUnitTests
         VersionTests.cpp
         GuidTests.cpp
         AsciiTextTests.cpp
+        Utf8TextTests.cpp
         MeasuringAngleTests.cpp
         ImageFormatTests.cpp
         OpenXmlSimpleTypesTests.cpp
@@ -79,5 +80,10 @@ exyokioffice_add_test_area(unit
     NAME Unit.AsciiText
     LABELS ascii-text
     TAGS "[ascii-text]")
+
+exyokioffice_add_test_area(unit
+    NAME Unit.Utf8Text
+    LABELS utf8-text
+    TAGS "[utf8-text]")
 
 exyokioffice_finalize_test_layer(unit)

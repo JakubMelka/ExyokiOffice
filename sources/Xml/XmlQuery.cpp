@@ -24,9 +24,13 @@ using ExyokiOffice::Pugi::xml_node_type;
 class XmlQueryHelper
 {
 public:
+    // XML names may be written in any script, so every byte outside ASCII is a
+    // name byte here. This scans the query the caller wrote rather than
+    // validating a name, so recognizing the whole of a UTF-8 sequence is all
+    // that is asked of it; `Utf8Text::IsNcName` is the test with the real rule.
     static bool IsNameStart(char c) noexcept
     {
-        return c == '_' || AsciiText::IsAlpha(c);
+        return c == '_' || AsciiText::IsAlpha(c) || AsciiText::IsNonAscii(c);
     }
 
     static bool IsNameChar(char c) noexcept
