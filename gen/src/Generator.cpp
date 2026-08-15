@@ -31,14 +31,6 @@
 
 namespace exyoki::generator
 {
-namespace
-{
-std::string BuildClassQualifiedName(std::string_view className, std::string_view apiNamespace);
-
-std::string BuildVersionExpression(const JsonValue* value,
-                                   std::string_view className,
-                                   std::string_view sourceFile);
-
 constexpr std::string_view kGeneratedHeaderWarning =
     "// Copyright (c) 2026 Jakub Melka and Collaborators\n"
     "// SPDX-License-Identifier: MIT\n"
@@ -54,6 +46,9 @@ constexpr std::string_view kDefaultBaseClass = "ExyokiOffice::OpenXMLElement";
 constexpr std::string_view kDefaultVersionToken = "ExyokiOffice::OpenXml::FileFormatVersions::Office2007";
 constexpr std::string_view kOfficeDocumentRelationship =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument";
+
+// Lazily constructed on first use so a throwing constructor propagates from a
+// normal call frame rather than from uncatchable pre-main dynamic initialization.
 
 struct UnhandledPropertyEntry
 {
@@ -125,226 +120,6 @@ private:
     std::vector<UnhandledPropertyEntry> entries_;
     std::unordered_set<std::string> seen_;
 };
-
-// Lazily constructed on first use so a throwing constructor propagates from a
-// normal call frame rather than from uncatchable pre-main dynamic initialization.
-UnhandledPropertyTracker& UnhandledProperties()
-{
-    static UnhandledPropertyTracker instance;
-    return instance;
-}
-
-std::string_view TrimWhitespace(std::string_view value)
-{
-    const auto start = value.find_first_not_of(" \t\r\n");
-    if (start == std::string_view::npos)
-    {
-        return {};
-    }
-
-    const auto end = value.find_last_not_of(" \t\r\n");
-    return value.substr(start, end - start + 1);
-}
-
-std::string NormalizeTypeName(std::string_view name)
-{
-    return std::string(TrimWhitespace(name));
-}
-
-/**
- * @brief Reports whether a StringValidator's length facets count octets.
- *
- * `xsd:hexBinary` length facets are expressed in octets, each written as two hex
- * digits, so a `Length` of 3 admits the six characters of a colour like `C00000`.
- * The imported metadata does not describe simple types, only enumerations, so the
- * hexBinary-valued attributes have to be recognized from what it does carry:
- * either the property type the data assigns the attribute, or - where the
- * attribute is a union whose other branch is an enumeration and the property type
- * therefore degrades to a plain string - the simple type named on the validator.
- * The second case covers exactly two types in the current metadata.
- */
-bool IsHexBinaryLengthValidator(std::string_view attributeTypeName, std::string_view validatorTypeName)
-{
-    if (attributeTypeName == "HexBinaryValue")
-    {
-        return true;
-    }
-
-    return validatorTypeName == "w:ST_HexColorRGB" || validatorTypeName == "w:ST_StylePaneSortMethods_O12";
-}
-
-std::string ConvertTypeNameForCpp(std::string_view name)
-{
-    std::string normalized = NormalizeTypeName(name);
-    constexpr std::string_view sourcePrefix = "DocumentFormat.OpenXml";
-    constexpr std::string_view targetPrefix = "ExyokiOffice.DocumentFormat.OpenXml";
-
-    auto pos = normalized.find(sourcePrefix);
-    if (pos != std::string::npos)
-    {
-        normalized.replace(pos, sourcePrefix.size(), std::string(targetPrefix));
-    }
-
-    std::string normalzedForCpp;
-
-    for (std::size_t i = 0; i < normalized.size(); ++i)
-    {
-        char ch = normalized[i];
-        if (ch == '.')
-        {
-            normalzedForCpp.push_back(':');
-            normalzedForCpp.push_back(':');
-        }
-        else
-        {
-            normalzedForCpp.push_back(ch);
-        }
-    }
-
-    return normalzedForCpp;
-}
-
-std::string SanitizeCommentText(std::string_view text)
-{
-    std::string sanitized;
-    sanitized.reserve(text.size());
-    for (char ch : text)
-    {
-        if (ch == '\r')
-        {
-            continue;
-        }
-
-        if (ch == '\n')
-        {
-            if (!sanitized.empty() && sanitized.back() != ' ')
-            {
-                sanitized.push_back(' ');
-            }
-            continue;
-        }
-
-        sanitized.push_back(ch);
-    }
-
-    return sanitized;
-}
-
-std::string BuildSummaryText(std::string_view summary, std::string_view className)
-{
-    if (!summary.empty())
-    {
-        return SanitizeCommentText(summary);
-    }
-
-    std::string fallback = "Represents the ";
-    fallback.append(className);
-    fallback.append(" class.");
-    return fallback;
-}
-
-std::string BuildClassComment(std::string_view summary,
-                              std::string_view className,
-                              std::string_view namespaceName,
-                              std::string_view typeQName,
-                              std::string_view elementQName,
-                              std::string_view sourceFile)
-{
-    std::ostringstream comment;
-    comment << "/// \\brief " << BuildSummaryText(summary, className) << '\n';
-    comment << "///\n";
-    comment << "/// Namespace: " << namespaceName << '\n';
-    comment << "/// Type QName: " << (typeQName.empty() ? "(none)" : std::string(typeQName)) << '\n';
-    comment << "/// Element QName: " << (elementQName.empty() ? "(none)" : std::string(elementQName)) << '\n';
-    comment << "/// Source: " << sourceFile << '\n';
-    return comment.str();
-}
-
-void ReportUnhandledProperties(const JsonValue& value,
-                               std::string_view ownerKind,
-                               std::string_view ownerName,
-                               std::string_view sourceFile,
-                               std::initializer_list<std::string_view> knownKeys)
-{
-    if (!value.is_object())
-    {
-        return;
-    }
-
-    for (const auto& [key, _] : value.as_object())
-    {
-        const std::string_view keyView{key};
-        const auto it = std::find_if(knownKeys.begin(), knownKeys.end(), [keyView](std::string_view known)
-                                     { return known == keyView; });
-        if (it != knownKeys.end())
-        {
-            continue;
-        }
-
-        UnhandledProperties().Record(keyView, ownerKind, ownerName, sourceFile);
-    }
-}
-
-/// Maps a package class name onto the Office application family it represents.
-///
-/// The family decides where the few parts that move with the application are
-/// stored. A package this generator does not recognize keeps the neutral
-/// default rather than guessing.
-std::string DocumentFamilyExpression(std::string_view packageName)
-{
-    if (packageName == "WordprocessingDocument")
-    {
-        return "OpenXmlDocumentFamily::Word";
-    }
-    if (packageName == "SpreadsheetDocument")
-    {
-        return "OpenXmlDocumentFamily::Excel";
-    }
-    if (packageName == "PresentationDocument")
-    {
-        return "OpenXmlDocumentFamily::PowerPoint";
-    }
-    return "OpenXmlDocumentFamily::Unknown";
-}
-
-std::string EscapeForCpp(std::string_view value)
-{
-    std::string result;
-    result.reserve(value.size() + 2);
-    result.push_back('"');
-    for (char ch : value)
-    {
-        switch (ch)
-        {
-            case '\\':
-                result += "\\\\";
-                break;
-            case '"':
-                result += "\\\"";
-                break;
-            case '\n':
-                result += "\\n";
-                break;
-            case '\r':
-                result += "\\r";
-                break;
-            case '\t':
-                result += "\\t";
-                break;
-            default:
-                result.push_back(ch);
-                break;
-        }
-    }
-    result.push_back('"');
-    return result;
-}
-
-JsonValue LoadJson(const std::filesystem::path& path)
-{
-    const auto content = ReadFileText(path);
-    return JsonValue::Parse(content);
-}
 
 struct NamespaceRecord
 {
@@ -577,2347 +352,18 @@ struct RootElementInfo
 };
 
 using RootElementLookup = std::unordered_map<std::string, RootElementInfo>;
+
 using PartRootLookup = std::unordered_map<std::string, RootElementInfo>;
 
 using EnumIncludeLookup = std::unordered_map<std::string, EnumIncludeInfo>;
 
 using NamespaceRegistry = std::unordered_map<std::string, NamespaceRecord>;
 
-PartsData LoadPartDefinitions(const std::filesystem::path& partsDir);
-void WriteGeneratedParts(const GeneratorConfig& config,
-                         const PartsData& data,
-                         const RootElementLookup& rootLookup,
-                         const PartRootLookup& partRootLookup);
-void WritePackageFactory(const GeneratorConfig& config, const PartsData& data);
-void WriteGeneratedSchematronRules(const GeneratorConfig& config,
-                                   const std::vector<SchematronRule>& rules,
-                                   const NamespaceRegistry& namespaceRegistry);
-
-NamespaceRegistry BuildNamespaceLookup(const std::vector<NamespaceRecord>& records)
-{
-    NamespaceRegistry lookup;
-    for (const auto& record : records)
-    {
-        lookup.emplace(record.prefix, record);
-    }
-
-    if (!lookup.contains("ovml"))
-    {
-        if (auto it = lookup.find("o"); it != lookup.end())
-        {
-            auto alias = it->second;
-            alias.prefix = "ovml";
-            alias.isAlias = true;
-            lookup.emplace(alias.prefix, std::move(alias));
-        }
-    }
-
-    return lookup;
-}
-
-/**
- * @brief Maps every namespace URI to the prefix schema files are resolved to.
- *
- * More than one prefix can carry the same URI - `ovml` is an alias of `o` - so
- * the winner has to be chosen explicitly. Taking whichever prefix the
- * unordered registry happens to yield first makes the choice depend on the
- * standard library implementation, and with it the namespace group every
- * type-only schema entry (one without an element QName) lands in: the same
- * data produced `StrokeChildType` in the `o` header on one platform and in the
- * `ovml` header on another, leaving the classes deriving from it without a
- * base. Declared prefixes therefore beat aliases, and among equals the
- * lexicographically smallest name wins.
- */
-std::unordered_map<std::string, std::string> BuildUriPrefixLookup(const NamespaceRegistry& registry)
-{
-    std::unordered_map<std::string, std::string> lookup;
-    std::unordered_map<std::string, bool> chosenIsAlias;
-    for (const auto& [prefix, record] : registry)
-    {
-        if (record.uri.empty())
-        {
-            continue;
-        }
-
-        const auto [position, inserted] = lookup.emplace(record.uri, prefix);
-        if (inserted)
-        {
-            chosenIsAlias[record.uri] = record.isAlias;
-            continue;
-        }
-
-        const bool chosenWasAlias = chosenIsAlias[record.uri];
-        const bool isBetter = chosenWasAlias != record.isAlias ? !record.isAlias : prefix < position->second;
-        if (isBetter)
-        {
-            position->second = prefix;
-            chosenIsAlias[record.uri] = record.isAlias;
-        }
-    }
-    return lookup;
-}
-
-QualifiedNameParts SplitQualifiedName(std::string_view value)
-{
-    QualifiedNameParts parts;
-    if (value.empty())
-    {
-        return parts;
-    }
-
-    const auto colon = value.find(':');
-    if (colon == std::string_view::npos)
-    {
-        parts.localName.assign(value);
-        return parts;
-    }
-
-    parts.prefix.assign(value.substr(0, colon));
-    parts.localName.assign(value.substr(colon + 1));
-    return parts;
-}
-
-std::string ResolveNamespaceUri(const NamespaceRegistry& lookup, const std::string& prefix)
-{
-    if (prefix.empty())
-    {
-        return {};
-    }
-
-    if (auto it = lookup.find(prefix); it != lookup.end())
-    {
-        return it->second.uri;
-    }
-
-    Logger::Warn({"GEN-UNKNOWN-NAMESPACE-PREFIX",
-                  "namespace-resolution",
-                  "Unknown namespace prefix '" + prefix + "' used in typed schema.",
-                  {},
-                  "namespace",
-                  prefix});
-    return {};
-}
-
-std::string FormatQualifiedNameExpression(const QualifiedNameParts& parts, const NamespaceRegistry& lookup)
-{
-    const auto uri = ResolveNamespaceUri(lookup, parts.prefix);
-    return "ExyokiOffice::OpenXmlQualifiedName(" + EscapeForCpp(uri) + ", " + EscapeForCpp(parts.localName) + ")";
-}
-
-std::string FormatQualifiedNameLiteral(std::string_view namespaceUri, std::string_view localName)
-{
-    return "ExyokiOffice::OpenXmlQualifiedName(" + EscapeForCpp(namespaceUri) + ", " + EscapeForCpp(localName) + ")";
-}
-
-bool ReadBoolProperty(const JsonValue& value, std::string_view name, bool defaultValue = false)
-{
-    if (const auto* node = value.try_get(name))
-    {
-        if (node->is_bool())
-        {
-            return node->as_bool();
-        }
-    }
-    return defaultValue;
-}
-
-std::string ReadStringProperty(const JsonValue& value, std::string_view name, std::string defaultValue = {})
-{
-    if (const auto* node = value.try_get(name))
-    {
-        if (node->is_string())
-        {
-            return node->as_string();
-        }
-    }
-    return defaultValue;
-}
-
-PartKind DetectPartKind(std::string_view contentType)
-{
-    if (contentType.find("+xml") != std::string_view::npos || contentType.find("xml") == contentType.size() - 3 || contentType == "application/xml")
-    {
-        return PartKind::Xml;
-    }
-    return PartKind::Binary;
-}
-
-std::string_view DataReferenceRelationshipType(std::string_view className)
-{
-    if (className == "AudioReferenceRelationship")
-    {
-        return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio";
-    }
-    if (className == "VideoReferenceRelationship")
-    {
-        return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/video";
-    }
-    if (className == "MediaReferenceRelationship")
-    {
-        return "http://schemas.microsoft.com/office/2007/relationships/media";
-    }
-    throw std::runtime_error("Unknown data part reference relationship type '" + std::string(className) + "'.");
-}
-
-std::string_view GenericPartRootNamespace(std::string_view partName)
-{
-    if (partName == "CoreFilePropertiesPart")
-    {
-        return "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
-    }
-    if (partName == "XmlSignaturePart")
-    {
-        return "http://www.w3.org/2000/09/xmldsig#";
-    }
-    return {};
-}
-
-PartChildDefinition ParsePartChildDefinition(const JsonValue& value,
-                                             std::string_view ownerName,
-                                             std::string_view sourceFile)
-{
-    PartChildDefinition child;
-    child.apiName = value.at("ApiName").as_string();
-    child.className = value.at("Name").as_string();
-    child.maxOccurs = ReadBoolProperty(value, "MaxOccursGreatThanOne");
-    child.minOccursNonZero = ReadBoolProperty(value, "MinOccursIsNonZero");
-    child.isDataPartReference = ReadBoolProperty(value, "IsDataPartReference");
-
-    ReportUnhandledProperties(value,
-                              "part child",
-                              ownerName,
-                              sourceFile,
-                              {"ApiName",
-                               "Name",
-                               "MaxOccursGreatThanOne",
-                               "MinOccursIsNonZero",
-                               "IsDataPartReference",
-                               "HasFixedContent",
-                               "IsSpecialEmbeddedPart"});
-    return child;
-}
-
-/// Reads the Paths object of a part definition.
-///
-/// A part is normally stored in the same folder whatever package it belongs to,
-/// and then only "General" is present. A part that moves with the application
-/// carries a folder per family as well; dropping those would put the part in
-/// the wrong place, so every key is read and anything unrecognized is reported
-/// instead of being silently ignored.
-PartPaths SelectPartPaths(const JsonValue& value, std::string_view ownerName, std::string_view sourceFile)
-{
-    PartPaths paths;
-    paths.general = ".";
-
-    const auto* pathsValue = value.try_get("Paths");
-    if (!pathsValue || !pathsValue->is_object())
-    {
-        return paths;
-    }
-
-    if (auto general = pathsValue->try_get_string("General"))
-    {
-        paths.general = *general;
-    }
-    if (auto word = pathsValue->try_get_string("Word"))
-    {
-        paths.word = *word;
-    }
-    if (auto excel = pathsValue->try_get_string("Excel"))
-    {
-        paths.excel = *excel;
-    }
-    if (auto powerPoint = pathsValue->try_get_string("PowerPoint"))
-    {
-        paths.powerPoint = *powerPoint;
-    }
-
-    ReportUnhandledProperties(*pathsValue, "part paths", ownerName, sourceFile,
-                              {"General", "Word", "Excel", "PowerPoint"});
-
-    const auto& object = pathsValue->as_object();
-    if (paths.general == "." && !object.empty())
-    {
-        paths.general = object.begin()->second.as_string();
-    }
-
-    return paths;
-}
-
-PartDefinition ParsePartDefinition(const JsonValue& value, const std::filesystem::path& path)
-{
-    PartDefinition definition;
-    definition.name = value.at("Name").as_string();
-    // Set before anything that reports a diagnostic, so the report names the file.
-    definition.sourceFile = path.filename().generic_string();
-    definition.relationshipType = value.at("RelationshipType").as_string();
-    definition.contentType = ReadStringProperty(value, "ContentType");
-    definition.target = value.at("Target").as_string();
-    definition.extension = ReadStringProperty(value, "Extension");
-    definition.paths = SelectPartPaths(value, definition.name, definition.sourceFile);
-    definition.rootTypeName = ReadStringProperty(value, "Root");
-    const auto rootElementName = ReadStringProperty(value, "RootElement");
-    if (!rootElementName.empty())
-    {
-        if (!definition.rootTypeName.empty())
-        {
-            const auto colon = definition.rootTypeName.find(':');
-            if (colon != std::string::npos)
-            {
-                definition.rootElementQualifiedName = definition.rootTypeName.substr(0, colon + 1);
-                definition.rootElementQualifiedName += rootElementName;
-            }
-            else
-            {
-                definition.rootElementQualifiedName = rootElementName;
-            }
-        }
-        else
-        {
-            definition.rootElementQualifiedName = rootElementName;
-        }
-    }
-    definition.versionExpression =
-        BuildVersionExpression(value.try_get("Version"), definition.name, definition.sourceFile);
-
-    if (!definition.contentType.empty())
-    {
-        definition.kind = DetectPartKind(definition.contentType);
-    }
-    else if (definition.rootElementQualifiedName.empty())
-    {
-        definition.kind = PartKind::Binary;
-    }
-    else
-    {
-        definition.kind = PartKind::Xml;
-    }
-
-    if (definition.extension.empty())
-    {
-        definition.extension = definition.kind == PartKind::Binary ? ".bin" : ".xml";
-    }
-
-    if (const auto* children = value.try_get("Children"); children && children->is_array())
-    {
-        for (const auto& child : children->as_array())
-        {
-            definition.children.push_back(ParsePartChildDefinition(child, definition.name, definition.sourceFile));
-        }
-    }
-
-    ReportUnhandledProperties(value,
-                              "part definition",
-                              definition.name,
-                              definition.sourceFile,
-                              {"Name",
-                               "Base",
-                               "RelationshipType",
-                               "ContentType",
-                               "Target",
-                               "Extension",
-                               "Paths",
-                               "Version",
-                               "Root",
-                               "RootElement",
-                               "RootReference",
-                               "Children"});
-    return definition;
-}
-
-PackageDefinition ParsePackageDefinition(const JsonValue& value, const std::filesystem::path& path)
-{
-    PackageDefinition definition;
-    definition.name = value.at("Name").as_string();
-    definition.sourceFile = path.filename().generic_string();
-
-    if (const auto* children = value.try_get("Children"); children && children->is_array())
-    {
-        for (const auto& child : children->as_array())
-        {
-            definition.children.push_back(ParsePartChildDefinition(child, definition.name, definition.sourceFile));
-        }
-    }
-
-    ReportUnhandledProperties(value,
-                              "package definition",
-                              definition.name,
-                              definition.sourceFile,
-                              {"Name", "Base", "Paths", "Children"});
-    return definition;
-}
-
-/**
- * @brief Applies the ExyokiOffice overlay on the imported part folders.
- *
- * The imported metadata gives a part one folder relative to whatever parent it
- * is attached to, which cannot express the parts Office keeps in one fixed place
- * per document family (`/word/media`, `/ppt/theme`). The overlay supplies those
- * as absolute paths, so they no longer depend on the parent.
- *
- * @param data Parts to patch in place.
- * @param overlayPath `exyokioffice_part_paths.json`; absent means no overlay.
- * @throws std::runtime_error when the overlay names a part that does not exist,
- * which is how a rename in the imported metadata is caught.
- */
-void ApplyPartPathOverlay(PartsData& data, const std::filesystem::path& overlayPath)
-{
-    if (!std::filesystem::exists(overlayPath))
-    {
-        return;
-    }
-
-    const auto json = LoadJson(overlayPath);
-    const auto* parts = json.try_get("Parts");
-    if (!parts || !parts->is_object())
-    {
-        throw std::runtime_error("Part path overlay has no 'Parts' object: " + overlayPath.string());
-    }
-
-    std::size_t patched = 0;
-    for (const auto& [name, value] : parts->as_object())
-    {
-        const auto part = std::find_if(data.parts.begin(), data.parts.end(), [&name](const PartDefinition& candidate)
-                                       { return candidate.name == name; });
-        if (part == data.parts.end())
-        {
-            throw std::runtime_error("Part path overlay names unknown part '" + name + "' in " + overlayPath.string());
-        }
-        if (auto word = value.try_get_string("Word"))
-        {
-            part->paths.word = *word;
-        }
-        if (auto excel = value.try_get_string("Excel"))
-        {
-            part->paths.excel = *excel;
-        }
-        if (auto powerPoint = value.try_get_string("PowerPoint"))
-        {
-            part->paths.powerPoint = *powerPoint;
-        }
-        ++patched;
-    }
-    Logger::Info("Applied family folders from the part path overlay to " + std::to_string(patched) + " parts.");
-}
-
-PartsData LoadPartDefinitions(const std::filesystem::path& partsDir)
-{
-    if (!std::filesystem::exists(partsDir))
-    {
-        throw std::runtime_error("Part definitions directory does not exist: " + partsDir.string());
-    }
-
-    PartsData data;
-    for (const auto& entry : std::filesystem::directory_iterator(partsDir))
-    {
-        if (!entry.is_regular_file() || entry.path().extension() != ".json")
-        {
-            continue;
-        }
-
-        const auto json = LoadJson(entry.path());
-        const auto base = ReadStringProperty(json, "Base", "OpenXmlPart");
-        if (base == "OpenXmlPackage")
-        {
-            data.packages.push_back(ParsePackageDefinition(json, entry.path()));
-        }
-        else
-        {
-            data.parts.push_back(ParsePartDefinition(json, entry.path()));
-        }
-    }
-
-    auto sortByName = [](auto& container)
-    {
-        std::sort(container.begin(), container.end(), [](const auto& lhs, const auto& rhs)
-                  { return lhs.name < rhs.name; });
-    };
-    sortByName(data.parts);
-    sortByName(data.packages);
-    return data;
-}
-
-void CollectFactoryElements(const std::vector<TypedElement>& elements,
-                            const TypedNamespace& ns,
-                            const NamespaceRegistry& registry,
-                            std::vector<FactoryElementInfo>& output,
-                            std::unordered_set<std::string>& namespacesUsed)
-{
-    for (const auto& element : elements)
-    {
-        if (!element.hasElementQualifiedName || element.elementQualifiedName.empty())
-        {
-            continue;
-        }
-
-        const auto qualifiedName = SplitQualifiedName(element.elementQualifiedName);
-        if (qualifiedName.localName.empty())
-        {
-            continue;
-        }
-
-        FactoryElementInfo info;
-        info.namespaceUri = ResolveNamespaceUri(registry, qualifiedName.prefix);
-        info.localName = qualifiedName.localName;
-        info.classQualifiedName = BuildClassQualifiedName(element.className, ns.apiNamespace);
-        output.push_back(std::move(info));
-        namespacesUsed.insert(ns.apiNamespace);
-    }
-}
-
-EnumFacet ParseEnumFacet(const JsonValue& value, std::string_view enumName, std::string_view sourceFile)
-{
-    if (!value.is_object())
-    {
-        throw std::runtime_error("Enum facet entry is not an object");
-    }
-
-    EnumFacet facet;
-    facet.value = value.at("Value").as_string();
-    std::optional<std::string> nameString = value.try_get_string("Name");
-    facet.name = nameString.value_or(facet.value);
-    auto commentValue = value.try_get_string("Comment");
-    if ((!commentValue || commentValue->empty()))
-    {
-        auto commentsAlt = value.try_get_string("Comments");
-        if (commentsAlt && !commentsAlt->empty())
-        {
-            commentValue = commentsAlt;
-        }
-    }
-    facet.comment = commentValue.value_or("");
-    facet.versionExpression =
-        BuildVersionExpression(value.try_get("Version"), std::string(enumName) + "::" + facet.name, sourceFile);
-
-    if (facet.name == "auto")
-    {
-        facet.name = "Auto";
-    }
-    if (facet.name == "true")
-    {
-        facet.name = "True";
-    }
-    if (facet.name == "Value")
-    {
-        facet.name = "Value_";
-    }
-    if (facet.name == "static")
-    {
-        facet.name = "static_";
-    }
-    if (facet.name == "delete")
-    {
-        facet.name = "delete_";
-    }
-    if (facet.name == "default")
-    {
-        facet.name = "default_";
-    }
-
-    ReportUnhandledProperties(value,
-                              "enum facet",
-                              std::string(enumName),
-                              sourceFile,
-                              {"Value", "Name", "Comment", "Comments", "Version"});
-    return facet;
-}
-
-EnumDefinition ParseEnumDefinition(const JsonValue& value,
-                                   std::string sourceFile,
-                                   const std::string& fallbackPrefix)
-{
-    if (!value.is_object())
-    {
-        throw std::runtime_error("Enum definition entry is not an object");
-    }
-
-    EnumDefinition definition;
-    definition.className = value.at("Name").as_string();
-    definition.typeQualifiedName = value.at("Type").as_string();
-    if (auto summary = value.try_get_string("Summary"))
-    {
-        definition.summary = *summary;
-    }
-    definition.versionExpression =
-        BuildVersionExpression(value.try_get("Version"), definition.className, sourceFile);
-
-    auto ResolvePrefix = [](std::string_view qualified) -> std::string
-    {
-        auto colon = qualified.find(':');
-        if (colon == std::string_view::npos)
-        {
-            return std::string{};
-        }
-        return std::string(qualified.substr(0, colon));
-    };
-
-    auto prefix = ResolvePrefix(definition.typeQualifiedName);
-    if (prefix.empty())
-    {
-        prefix = fallbackPrefix;
-    }
-    definition.namespacePrefix = std::move(prefix);
-
-    const auto& facets = value.at("Facets");
-    if (!facets.is_array())
-    {
-        throw std::runtime_error("Enum definition '" + definition.className + "' in '" + sourceFile + "' has non-array 'Facets' property.");
-    }
-
-    for (const auto& facet : facets.as_array())
-    {
-        definition.facets.push_back(ParseEnumFacet(facet, definition.className, sourceFile));
-    }
-
-    ReportUnhandledProperties(value, "enum definition", definition.className, sourceFile,
-                              {"Type", "Name", "Summary", "Facets", "Version"});
-    definition.sourceFile = std::move(sourceFile);
-    return definition;
-}
-
-std::string SelectElementQualifiedName(const TypedElement& element)
-{
-    return element.elementQualifiedName;
-}
-
-NamespaceRecord ParseNamespaceRecord(const JsonValue& value, std::string_view sourceFile)
-{
-    if (!value.is_object())
-    {
-        throw std::runtime_error("Namespace entry is not an object");
-    }
-
-    NamespaceRecord def;
-    def.prefix = value.at("Prefix").as_string();
-    def.uri = value.at("Uri").as_string();
-    if (auto version = value.try_get_string("Version"))
-    {
-        def.version = *version;
-    }
-
-    ReportUnhandledProperties(value, "namespace definition", def.prefix, sourceFile, {"Prefix", "Uri", "Version"});
-    return def;
-}
-
-std::vector<NamespaceRecord> LoadNamespaceRecords(const std::filesystem::path& path)
-{
-    std::vector<NamespaceRecord> namespaces;
-    const auto json = LoadJson(path);
-    if (!json.is_array())
-    {
-        throw std::runtime_error("Namespace file is expected to be an array");
-    }
-
-    const auto sourceFile = path.generic_string();
-    for (const auto& item : json.as_array())
-    {
-        namespaces.push_back(ParseNamespaceRecord(item, sourceFile));
-    }
-
-    return namespaces;
-}
-
-std::string_view ResolveVersionToken(std::string_view version)
-{
-    using namespace std::string_view_literals;
-
-    if (version == "Office2007")
-    {
-        return "ExyokiOffice::OpenXml::FileFormatVersions::Office2007"sv;
-    }
-    if (version == "Office2010")
-    {
-        return "ExyokiOffice::OpenXml::FileFormatVersions::Office2010"sv;
-    }
-    if (version == "Office2013")
-    {
-        return "ExyokiOffice::OpenXml::FileFormatVersions::Office2013"sv;
-    }
-    if (version == "Office2016")
-    {
-        return "ExyokiOffice::OpenXml::FileFormatVersions::Office2016"sv;
-    }
-    if (version == "Office2019")
-    {
-        return "ExyokiOffice::OpenXml::FileFormatVersions::Office2019"sv;
-    }
-    if (version == "Office2021")
-    {
-        return "ExyokiOffice::OpenXml::FileFormatVersions::Office2021"sv;
-    }
-    if (version == "Microsoft365")
-    {
-        return "ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365"sv;
-    }
-
-    if (version == "None")
-    {
-        return "ExyokiOffice::OpenXml::FileFormatVersions::None"sv;
-    }
-
-    throw std::runtime_error("Unknown namespace version: " + std::string(version));
-}
-
-std::string_view ResolveVersionToken(const std::string& version)
-{
-    std::string_view stringView(version);
-    return ResolveVersionToken(stringView);
-}
-
-std::string_view ResolveVersionToken(const std::optional<std::string>& version)
-{
-    if (!version.has_value() || version->empty())
-    {
-        return kDefaultVersionToken;
-    }
-
-    std::string_view stringView(*version);
-    return ResolveVersionToken(stringView);
-}
-
-std::string_view ResolveVersionToken(const NamespaceRecord& record)
-{
-    return ResolveVersionToken(record.version);
-}
-
-void WriteNamespaceRegistryFiles(const GeneratorConfig& config, const std::vector<NamespaceRecord>& namespaces)
-{
-    auto headerPath = config.outputInclude / "ExyokiOffice" / "DOM" / "Namespaces.hpp";
-    auto sourcePath = config.outputSource / "DOM" / "Namespaces.cpp";
-    EnsureDirectory(headerPath.parent_path());
-    EnsureDirectory(sourcePath.parent_path());
-
-    auto namespacesCopy = namespaces;
-    std::sort(namespacesCopy.begin(), namespacesCopy.end(), [](const NamespaceRecord& lhs, const NamespaceRecord& rhs)
-              { return lhs.prefix < rhs.prefix; });
-
-    std::ostringstream header;
-    header << kGeneratedHeaderWarning;
-    header << "#pragma once\n\n";
-    header << "#include \"ExyokiOffice/FileFormatVersions.h\"\n\n";
-    header << "#include <optional>\n";
-    header << "#include <string_view>\n";
-
-    header << "namespace ExyokiOffice::OpenXml::Features\n{\n";
-
-    header << "struct NamespaceDefinition\n{\n";
-    header << "    std::string_view Prefix;\n";
-    header << "    std::string_view Uri;\n";
-    header << "    ExyokiOffice::OpenXml::FileFormatVersions Version;\n";
-    header << "};\n\n";
-
-    header << "class OpenXmlNamespaceResolver\n{\n";
-    header << "public:\n";
-    header << "    static std::optional<std::string_view> getPrefixForUrl(std::string_view uri);\n";
-    header << "    static std::optional<std::string_view> getUrlForPrefix(std::string_view prefix);\n";
-    header << "    static ExyokiOffice::OpenXml::FileFormatVersions GetVersionForPrefix(std::string_view prefix);\n";
-    header << "};\n";
-    header << "} // namespace ExyokiOffice::OpenXml::Features\n";
-
-    WriteFileText(headerPath, header.str());
-
-    std::ostringstream source;
-    source << kGeneratedHeaderWarning;
-    source << "#include \"ExyokiOffice/DOM/Namespaces.hpp\"\n\n";
-    source << "#include <algorithm>\n";
-    source << "#include <array>\n";
-    source << "#include <optional>\n\n";
-
-    source << "namespace ExyokiOffice::OpenXml::Features\n{\n";
-    source << "namespace\n{\n";
-    source << "constexpr std::array<NamespaceDefinition, " << namespacesCopy.size() << "> kNamespaces = {\n";
-
-    for (const auto& item : namespacesCopy)
-    {
-        source << "    NamespaceDefinition{ "
-               << EscapeForCpp(item.prefix) << ", "
-               << EscapeForCpp(item.uri) << ", "
-               << ResolveVersionToken(item) << " },\n";
-    }
-
-    source << "};\n";
-    source << "} // namespace\n\n";
-
-    source << "std::optional<std::string_view> OpenXmlNamespaceResolver::getPrefixForUrl(std::string_view uri)\n";
-    source << "{\n";
-    source << "    auto it = std::find_if(kNamespaces.begin(), kNamespaces.end(), [uri](const NamespaceDefinition& def) {\n";
-    source << "        return def.Uri == uri;\n";
-    source << "    });\n";
-    source << "    if (it == kNamespaces.end())\n";
-    source << "    {\n";
-    source << "        return std::nullopt;\n";
-    source << "    }\n";
-    source << "    return it->Prefix;\n";
-    source << "}\n\n";
-
-    source << "std::optional<std::string_view> OpenXmlNamespaceResolver::getUrlForPrefix(std::string_view prefix)\n";
-    source << "{\n";
-    source << "    auto it = std::lower_bound(kNamespaces.begin(), kNamespaces.end(), prefix,\n";
-    source << "        [](const NamespaceDefinition& def, std::string_view value) { return def.Prefix < value; });\n";
-    source << "    if (it == kNamespaces.end() || it->Prefix != prefix)\n";
-    source << "    {\n";
-    source << "        return std::nullopt;\n";
-    source << "    }\n";
-    source << "    return it->Uri;\n";
-    source << "}\n\n";
-
-    source << "ExyokiOffice::OpenXml::FileFormatVersions OpenXmlNamespaceResolver::GetVersionForPrefix(std::string_view prefix)\n";
-    source << "{\n";
-    source << "    auto it = std::lower_bound(kNamespaces.begin(), kNamespaces.end(), prefix,\n";
-    source << "        [](const NamespaceDefinition& def, std::string_view value) { return def.Prefix < value; });\n";
-    source << "    if (it == kNamespaces.end() || it->Prefix != prefix)\n";
-    source << "    {\n";
-    source << "        return ExyokiOffice::OpenXml::FileFormatVersions::None;\n";
-    source << "    }\n";
-    source << "    return it->Version;\n";
-    source << "}\n";
-    source << "} // namespace ExyokiOffice::OpenXml::Features\n";
-
-    WriteFileText(sourcePath, source.str());
-}
-
-TypedNamespace ParseTypedNamespace(const JsonValue& value, std::string_view sourceFile)
-{
-    if (!value.is_object())
-    {
-        throw std::runtime_error("Typed namespace entry is not an object");
-    }
-
-    TypedNamespace result;
-    result.prefix = value.at("Prefix").as_string();
-    result.apiNamespace = value.at("Namespace").as_string();
-    ReportUnhandledProperties(value, "typed namespace", result.prefix, sourceFile, {"Prefix", "Namespace"});
-    return result;
-}
-
-std::vector<std::string> ExtractVersionTokens(const JsonValue* value,
-                                              std::string_view className,
-                                              std::string_view sourceFile)
-{
-    std::vector<std::string> tokens;
-    if (value == nullptr)
-    {
-        return tokens;
-    }
-
-    auto AddFromString = [&tokens](const std::string& raw)
-    {
-        std::string_view remaining(raw);
-        while (true)
-        {
-            const auto separator = remaining.find('|');
-            const auto piece = separator == std::string_view::npos
-                                   ? remaining
-                                   : remaining.substr(0, separator);
-            const auto trimmed = TrimWhitespace(piece);
-            if (!trimmed.empty())
-            {
-                tokens.emplace_back(trimmed);
-            }
-
-            if (separator == std::string_view::npos)
-            {
-                break;
-            }
-
-            remaining.remove_prefix(separator + 1);
-        }
-    };
-
-    if (value->is_string())
-    {
-        AddFromString(value->as_string());
-        return tokens;
-    }
-
-    if (value->is_array())
-    {
-        for (const auto& entry : value->as_array())
-        {
-            if (!entry.is_string())
-            {
-                throw std::runtime_error(
-                    "Typed element '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines version using non-string entry.");
-            }
-
-            AddFromString(entry.as_string());
-        }
-        return tokens;
-    }
-
-    throw std::runtime_error(
-        "Typed element '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines version using unsupported JSON type.");
-}
-
-std::string BuildVersionExpression(const JsonValue* value,
-                                   std::string_view className,
-                                   std::string_view sourceFile)
-{
-    const std::vector<std::string> tokens = ExtractVersionTokens(value, className, sourceFile);
-    if (tokens.empty())
-    {
-        return std::string(kDefaultVersionToken);
-    }
-
-    if (tokens.size() == 1)
-    {
-        return std::string(ResolveVersionToken(tokens.front()));
-    }
-
-    std::ostringstream expression;
-    expression << '(';
-    bool first = true;
-    for (const auto& token : tokens)
-    {
-        if (!first)
-        {
-            expression << " | ";
-        }
-
-        expression << ResolveVersionToken(token);
-        first = false;
-    }
-
-    expression << ')';
-    return expression.str();
-}
-
 struct ParticleOccursRange
 {
     std::uint32_t min = 0;
     std::optional<std::uint32_t> max = 1;
 };
-
-ParticleOccursRange ParseParticleOccurs(const JsonValue* rangeValue,
-                                        std::string_view className,
-                                        std::string_view sourceFile)
-{
-    ParticleOccursRange range;
-    if (rangeValue == nullptr)
-    {
-        return range;
-    }
-
-    if (!rangeValue->is_array() || rangeValue->as_array().empty())
-    {
-        throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle occurrences using invalid data.");
-    }
-
-    const auto& entry = rangeValue->as_array().front();
-    if (!entry.is_object())
-    {
-        throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle occurrence using non-object value.");
-    }
-
-    if (const auto* minValue = entry.try_get("Min"))
-    {
-        if (!minValue->is_number())
-        {
-            throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle min occurrence using non-number value.");
-        }
-        const auto min = static_cast<std::int64_t>(minValue->as_number());
-        if (min < 0)
-        {
-            throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines negative particle min occurrence.");
-        }
-        range.min = static_cast<std::uint32_t>(min);
-    }
-
-    if (const auto* maxValue = entry.try_get("Max"))
-    {
-        if (!maxValue->is_number())
-        {
-            throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle max occurrence using non-number value.");
-        }
-        const auto max = static_cast<std::int64_t>(maxValue->as_number());
-        if (max < 0)
-        {
-            throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines negative particle max occurrence.");
-        }
-        range.max = static_cast<std::uint32_t>(max);
-    }
-    else
-    {
-        // In the imported schema snapshot an explicitly present occurrence
-        // object without Max represents xsd:maxOccurs="unbounded". A missing
-        // Occurs property still uses ParticleOccursRange's optional 0..1
-        // default, so these two cases must not be collapsed.
-        range.max = std::nullopt;
-    }
-
-    return range;
-}
-
-TypedElement::ParticleDefinition::Kind ParseParticleKind(std::string_view kindText)
-{
-    using Kind = TypedElement::ParticleDefinition::Kind;
-    if (kindText == "Sequence")
-    {
-        return Kind::Sequence;
-    }
-    if (kindText == "Choice")
-    {
-        return Kind::Choice;
-    }
-    if (kindText == "All")
-    {
-        return Kind::All;
-    }
-    if (kindText == "Group")
-    {
-        return Kind::Group;
-    }
-    if (kindText == "Any")
-    {
-        return Kind::Any;
-    }
-    return Kind::Element;
-}
-
-std::string BuildChildPropertyName(std::string_view qualifiedName)
-{
-    const auto colon = qualifiedName.find(':');
-    std::string_view local = colon == std::string_view::npos ? qualifiedName : qualifiedName.substr(colon + 1);
-    std::string result(local);
-    if (!result.empty())
-    {
-        result[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(result[0])));
-    }
-    return result;
-}
-
-std::pair<std::string, std::string> SplitParticleName(std::string_view name)
-{
-    const auto slash = name.find('/');
-    if (slash == std::string_view::npos)
-    {
-        return {std::string(name), std::string(name)};
-    }
-
-    return {std::string(name.substr(0, slash)), std::string(name.substr(slash + 1))};
-}
-
-TypedElement::ParticleDefinition ParseParticleDefinition(const JsonValue& value,
-                                                         const std::unordered_map<std::string, TypedElement::ChildDefinition>& childLookup,
-                                                         const std::string& fallbackPrefix,
-                                                         std::string_view className,
-                                                         std::string_view sourceFile)
-{
-    TypedElement::ParticleDefinition definition;
-    auto kindText = value.try_get_string("Kind");
-    if (kindText)
-    {
-        definition.kind = ParseParticleKind(*kindText);
-    }
-    else
-    {
-        definition.kind = TypedElement::ParticleDefinition::Kind::Element;
-    }
-
-    if (const auto* requireFilter = value.try_get("RequireFilter"))
-    {
-        if (!requireFilter->is_bool())
-        {
-            throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle RequireFilter using non-boolean value.");
-        }
-        definition.requireFilter = requireFilter->as_bool();
-    }
-
-    definition.versionExpression =
-        BuildVersionExpression(value.try_get("InitialVersion"), className, sourceFile);
-
-    const auto occursRange = ParseParticleOccurs(value.try_get("Occurs"), className, sourceFile);
-    definition.minOccurs = occursRange.min;
-    definition.maxOccurs = occursRange.max;
-
-    if (definition.kind == TypedElement::ParticleDefinition::Kind::Any)
-    {
-        definition.wildcard = value.try_get_string("Namespace").value_or("");
-    }
-
-    if (const auto* nameValue = value.try_get("Name"))
-    {
-        if (!nameValue->is_string())
-        {
-            throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle name using non-string value.");
-        }
-
-        definition.rawName = nameValue->as_string();
-        const auto [typeName, elementName] = SplitParticleName(definition.rawName);
-        definition.typeQualifiedName = typeName;
-        definition.elementQualifiedName = elementName;
-
-        auto normalizeQualified = [&](const std::string& qualified) -> std::string
-        {
-            auto parts = SplitQualifiedName(qualified);
-            if (parts.prefix.empty())
-            {
-                parts.prefix = fallbackPrefix;
-            }
-            return parts.prefix + ":" + parts.localName;
-        };
-
-        if (definition.typeQualifiedName.find(':') == std::string::npos)
-        {
-            definition.typeQualifiedName = normalizeQualified(definition.typeQualifiedName);
-        }
-        if (definition.elementQualifiedName.find(':') == std::string::npos)
-        {
-            definition.elementQualifiedName = normalizeQualified(definition.elementQualifiedName);
-        }
-
-        if (const auto it = childLookup.find(definition.rawName); it != childLookup.end())
-        {
-            definition.propertyName = it->second.propertyName;
-            definition.propertyComments = it->second.comments;
-            if (it->second.hasOccurs && !value.try_get("Occurs"))
-            {
-                definition.minOccurs = it->second.minOccurs;
-                definition.maxOccurs = it->second.maxOccurs;
-            }
-            else if (it->second.hasOccurs && (definition.minOccurs != it->second.minOccurs || definition.maxOccurs != it->second.maxOccurs))
-            {
-                throw std::runtime_error("Conflicting Occurs metadata for child '" + definition.rawName + "' on schema type '" + std::string(className) + "'.");
-            }
-        }
-        else
-        {
-            definition.propertyName = BuildChildPropertyName(definition.elementQualifiedName);
-        }
-    }
-
-    if (const auto* items = value.try_get("Items"))
-    {
-        if (!items->is_array())
-        {
-            throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle Items using non-array value.");
-        }
-
-        for (const auto& child : items->as_array())
-        {
-            definition.children.push_back(
-                ParseParticleDefinition(child, childLookup, fallbackPrefix, className, sourceFile));
-        }
-    }
-
-    ReportUnhandledProperties(value,
-                              "particle",
-                              std::string(className),
-                              sourceFile,
-                              {"Kind", "Name", "Items", "Occurs", "InitialVersion", "RequireFilter", "Namespace"});
-    return definition;
-}
-
-std::vector<ValidatorDefinition> ParseValidators(const JsonValue* validatorsValue,
-                                                 std::string_view ownerKind,
-                                                 std::string_view ownerName,
-                                                 std::string_view sourceFile)
-{
-    std::vector<ValidatorDefinition> validators;
-    if (!validatorsValue)
-    {
-        return validators;
-    }
-    if (!validatorsValue->is_array())
-    {
-        throw std::runtime_error(std::string(ownerKind) + " '" + std::string(ownerName) + "' in '" + std::string(sourceFile) + "' defines Validators using non-array value.");
-    }
-
-    for (const auto& validatorValue : validatorsValue->as_array())
-    {
-        if (!validatorValue.is_object())
-        {
-            throw std::runtime_error("Validator on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' in '" + std::string(sourceFile) + "' is not an object.");
-        }
-
-        ValidatorDefinition validator;
-        validator.name = validatorValue.at("Name").as_string();
-        validator.typeQualifiedName = NormalizeTypeName(validatorValue.try_get_string("Type").value_or(""));
-        validator.versionExpression = BuildVersionExpression(
-            validatorValue.try_get("Version"), std::string(ownerName) + "::" + validator.name, sourceFile);
-
-        if (const auto* unionId = validatorValue.try_get("UnionId"))
-        {
-            if (!unionId->is_number() || unionId->as_number() < 0.0)
-            {
-                throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has invalid UnionId.");
-            }
-            const double rawUnionId = unionId->as_number();
-            if (rawUnionId > static_cast<double>(std::numeric_limits<std::uint32_t>::max()))
-            {
-                throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has out-of-range UnionId.");
-            }
-            const auto parsedUnionId = static_cast<std::uint32_t>(rawUnionId);
-            if (static_cast<double>(parsedUnionId) != rawUnionId)
-            {
-                throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has non-integral UnionId.");
-            }
-            validator.unionId = parsedUnionId;
-        }
-        if (const auto* isInitial = validatorValue.try_get("IsInitialVersion"))
-        {
-            if (!isInitial->is_bool())
-            {
-                throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has non-boolean IsInitialVersion.");
-            }
-            validator.isInitialVersion = isInitial->as_bool();
-        }
-        if (const auto* isList = validatorValue.try_get("IsList"))
-        {
-            if (!isList->is_bool())
-            {
-                throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has non-boolean IsList.");
-            }
-            validator.isList = isList->as_bool();
-        }
-
-        if (const auto* argumentsValue = validatorValue.try_get("Arguments"))
-        {
-            if (!argumentsValue->is_array())
-            {
-                throw std::runtime_error("Validator '" + validator.name + "' defines Arguments using non-array value.");
-            }
-            for (const auto& argumentValue : argumentsValue->as_array())
-            {
-                if (!argumentValue.is_object())
-                {
-                    throw std::runtime_error("Validator '" + validator.name + "' has a non-object argument.");
-                }
-                ValidatorArgument argument;
-                argument.name = argumentValue.try_get_string("Name").value_or("");
-                argument.type = argumentValue.try_get_string("Type").value_or("String");
-                if (const auto* valueNode = argumentValue.try_get("Value"))
-                {
-                    if (valueNode->is_string())
-                    {
-                        argument.value = valueNode->as_string();
-                    }
-                    else if (valueNode->is_number())
-                    {
-                        const double numberValue = valueNode->as_number();
-                        const auto integerValue = static_cast<std::int64_t>(numberValue);
-                        argument.value = static_cast<double>(integerValue) == numberValue
-                                             ? std::to_string(integerValue)
-                                             : std::to_string(numberValue);
-                    }
-                    else if (valueNode->is_bool())
-                    {
-                        argument.value = valueNode->as_bool() ? "true" : "false";
-                    }
-                    else
-                    {
-                        throw std::runtime_error("Validator '" + validator.name + "' has unsupported argument value type.");
-                    }
-                }
-                validator.arguments.push_back(std::move(argument));
-            }
-        }
-
-        ReportUnhandledProperties(validatorValue, "validator", validator.name, sourceFile,
-                                  {"Name", "Type", "Version", "UnionId", "IsInitialVersion", "IsList", "Arguments"});
-        validators.push_back(std::move(validator));
-    }
-    return validators;
-}
-
-TypedElement ParseSchemaType(const JsonValue& value,
-                             std::string sourceFile,
-                             const std::string& fallbackPrefix)
-{
-    if (!value.is_object())
-    {
-        throw std::runtime_error("Schema type entry is not an object");
-    }
-
-    TypedElement element;
-    element.className = value.at("ClassName").as_string();
-    if (auto summary = value.try_get_string("Summary"))
-    {
-        element.summary = *summary;
-    }
-
-    if (auto baseClass = value.try_get_string("BaseClass"))
-    {
-        element.baseClassName = NormalizeTypeName(*baseClass);
-    }
-    else
-    {
-        element.baseClassName.assign(kDefaultBaseClass);
-    }
-    element.partClassName = value.try_get_string("Part").value_or("");
-
-    const auto& name = value.at("Name").as_string();
-    const auto separator = name.find('/');
-    if (separator == std::string::npos)
-    {
-        throw std::runtime_error("Schema type name does not contain '/' separator: " + name);
-    }
-
-    element.typeQualifiedName = name.substr(0, separator);
-    if (separator + 1 < name.size())
-    {
-        element.elementQualifiedName = name.substr(separator + 1);
-        element.hasElementQualifiedName = !element.elementQualifiedName.empty();
-    }
-
-    auto ResolvePrefix = [](std::string_view qualified) -> std::string
-    {
-        auto colon = qualified.find(':');
-        if (colon == std::string_view::npos)
-        {
-            return std::string{};
-        }
-
-        return std::string(qualified.substr(0, colon));
-    };
-
-    auto derivedPrefix = ResolvePrefix(element.elementQualifiedName);
-    if (derivedPrefix.empty())
-    {
-        derivedPrefix = fallbackPrefix;
-    }
-    element.namespacePrefix = std::move(derivedPrefix);
-
-    auto AssignBooleanProperty = [&](std::string_view key, bool& target)
-    {
-        if (const auto* flag = value.try_get(key))
-        {
-            if (!flag->is_bool())
-            {
-                throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines " + std::string(key) + " using non-boolean value.");
-            }
-
-            target = flag->as_bool();
-        }
-    };
-
-    AssignBooleanProperty("IsAbstract", element.isAbstract);
-    AssignBooleanProperty("IsDerived", element.isDerived);
-    AssignBooleanProperty("IsLeafElement", element.isLeafElement);
-    AssignBooleanProperty("IsLeafText", element.isLeafText);
-
-    if (const auto* attributes = value.try_get("Attributes"))
-    {
-        if (!attributes->is_array())
-        {
-            throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines Attributes using non-array value.");
-        }
-
-        for (const auto& attributeValue : attributes->as_array())
-        {
-            if (!attributeValue.is_object())
-            {
-                throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' has attribute entry that is not an object.");
-            }
-
-            AttributeDefinition definition;
-            const auto qNameText = attributeValue.at("QName").as_string();
-            auto parts = SplitQualifiedName(qNameText);
-            if (parts.prefix.empty() && qNameText.find(':') == std::string::npos)
-            {
-                parts.prefix = fallbackPrefix;
-            }
-
-            definition.qName = std::move(parts);
-
-            if (auto propertyName = attributeValue.try_get_string("PropertyName"))
-            {
-                definition.propertyName = *propertyName;
-            }
-            else
-            {
-                definition.propertyName = definition.qName.localName;
-                if (!definition.propertyName.empty())
-                {
-                    definition.propertyName[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(definition.propertyName[0])));
-                }
-            }
-
-            definition.typeName = ConvertTypeNameForCpp(attributeValue.at("Type").as_string());
-            definition.comment = attributeValue.try_get_string("PropertyComments").value_or("");
-            definition.versionExpression =
-                BuildVersionExpression(attributeValue.try_get("Version"),
-                                       element.className + "::" + definition.propertyName,
-                                       sourceFile);
-            definition.sourceFile = sourceFile;
-
-            definition.validators = ParseValidators(attributeValue.try_get("Validators"),
-                                                    "schema attribute",
-                                                    element.className + "::" + definition.propertyName,
-                                                    sourceFile);
-
-            ReportUnhandledProperties(attributeValue,
-                                      "schema attribute",
-                                      definition.propertyName,
-                                      sourceFile,
-                                      {"QName", "PropertyName", "Type", "PropertyComments", "Version", "Validators"});
-
-            element.attributes.push_back(std::move(definition));
-        }
-    }
-
-    if (const auto* children = value.try_get("Children"))
-    {
-        if (!children->is_array())
-        {
-            throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines Children using non-array value.");
-        }
-
-        for (const auto& childValue : children->as_array())
-        {
-            if (!childValue.is_object())
-            {
-                throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines child entry using non-object value.");
-            }
-
-            TypedElement::ChildDefinition child;
-            child.rawName = childValue.at("Name").as_string();
-            if (auto propertyName = childValue.try_get_string("PropertyName"))
-            {
-                child.propertyName = *propertyName;
-            }
-            else
-            {
-                child.propertyName = BuildChildPropertyName(child.rawName);
-            }
-            child.comments = childValue.try_get_string("PropertyComments").value_or("");
-            if (const auto* occurs = childValue.try_get("Occurs"))
-            {
-                const auto range = ParseParticleOccurs(occurs, element.className, sourceFile);
-                child.minOccurs = range.min;
-                child.maxOccurs = range.max;
-                child.hasOccurs = true;
-            }
-
-            ReportUnhandledProperties(childValue,
-                                      "typed child",
-                                      child.rawName,
-                                      sourceFile,
-                                      {"Name", "PropertyName", "PropertyComments", "Occurs"});
-            element.children.push_back(std::move(child));
-        }
-    }
-
-    if (const auto* additionalElements = value.try_get("AdditionalElements"))
-    {
-        const auto addAdditional = [&](std::string_view rawName)
-        {
-            TypedElement::AdditionalElementDefinition additional;
-            additional.rawName = std::string(rawName);
-            auto [typeName, elementName] = SplitParticleName(rawName);
-            const auto normalize = [&](std::string name)
-            {
-                return name.find(':') == std::string::npos ? fallbackPrefix + ":" + name : name;
-            };
-            additional.typeQualifiedName = normalize(std::move(typeName));
-            additional.elementQualifiedName = normalize(std::move(elementName));
-            element.additionalElements.push_back(std::move(additional));
-        };
-
-        if (additionalElements->is_string())
-        {
-            addAdditional(additionalElements->as_string());
-        }
-        else if (additionalElements->is_array())
-        {
-            for (const auto& item : additionalElements->as_array())
-            {
-                if (!item.is_string())
-                {
-                    throw std::runtime_error("Schema type '" + element.className + "' has a non-string AdditionalElements entry.");
-                }
-                addAdditional(item.as_string());
-            }
-        }
-        else
-        {
-            throw std::runtime_error("Schema type '" + element.className + "' defines AdditionalElements using unsupported JSON type.");
-        }
-    }
-
-    std::unordered_map<std::string, TypedElement::ChildDefinition> childLookup;
-    for (const auto& child : element.children)
-    {
-        childLookup.emplace(child.rawName, child);
-    }
-
-    if (const auto* particleValue = value.try_get("Particle"))
-    {
-        if (!particleValue->is_object())
-        {
-            throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines Particle using non-object value.");
-        }
-
-        element.particle = ParseParticleDefinition(*particleValue,
-                                                   childLookup,
-                                                   fallbackPrefix,
-                                                   element.className,
-                                                   sourceFile);
-    }
-
-    element.validators = ParseValidators(value.try_get("Validators"),
-                                         "schema type",
-                                         element.className,
-                                         sourceFile);
-
-    if (!element.isAbstract && !element.hasElementQualifiedName)
-    {
-        Logger::Warn({"GEN-MISSING-ELEMENT-QNAME",
-                      "schema-definition",
-                      "Schema type '" + element.className + "' defined in '" + sourceFile + "' is missing element qualified name but is not marked abstract.",
-                      sourceFile,
-                      "schema type",
-                      element.className});
-    }
-
-    const auto* version = value.try_get("Version");
-    element.versionExpression = BuildVersionExpression(version, element.className, sourceFile);
-    ReportUnhandledProperties(value, "schema type", element.className, sourceFile,
-                              {"Name", "ClassName", "BaseClass", "Summary", "Version", "IsAbstract",
-                               "IsDerived", "IsLeafElement", "IsLeafText", "Attributes", "Children", "Particle",
-                               "CompositeType", "Validators", "Part", "AdditionalElements"});
-    element.sourceFile = std::move(sourceFile);
-    return element;
-}
-
-std::vector<TypedNamespace> LoadTypedNamespaces(const std::filesystem::path& path)
-{
-    std::vector<TypedNamespace> result;
-    const auto json = LoadJson(path);
-    if (!json.is_array())
-    {
-        throw std::runtime_error("Typed namespaces file is expected to be an array");
-    }
-
-    const auto sourceFile = path.generic_string();
-    for (const auto& item : json.as_array())
-    {
-        result.push_back(ParseTypedNamespace(item, sourceFile));
-    }
-
-    return result;
-}
-
-SchemaData LoadSchemaElements(const std::filesystem::path& schemasRoot,
-                              const NamespaceRegistry& namespaceRegistry)
-{
-    SchemaData data;
-    const auto files = EnumerateFiles(schemasRoot, ".json");
-    const auto uriLookup = BuildUriPrefixLookup(namespaceRegistry);
-    for (const auto& file : files)
-    {
-        const auto json = LoadJson(file);
-        if (!json.is_object())
-        {
-            throw std::runtime_error("Schema file is expected to be an object: " + file.string());
-        }
-
-        const auto relative = std::filesystem::relative(file, schemasRoot).generic_string();
-        const auto targetNamespace = json.at("TargetNamespace").as_string();
-        auto prefixIt = uriLookup.find(targetNamespace);
-        if (prefixIt == uriLookup.end())
-        {
-            Logger::Warn({"GEN-UNREGISTERED-TARGET-NAMESPACE",
-                          "namespace-resolution",
-                          "Target namespace '" + targetNamespace + "' defined in '" + relative + "' is not registered in namespaces.json. Skipping file.",
-                          relative,
-                          "schema file",
-                          targetNamespace});
-            continue;
-        }
-
-        if (const JsonValue* typesValue = json.try_get("Types"))
-        {
-            if (!typesValue->is_array())
-            {
-                throw std::runtime_error("Schema file '" + file.string() + "' has non-array 'Types' property.");
-            }
-
-            for (const auto& item : typesValue->as_array())
-            {
-                data.elements.push_back(ParseSchemaType(item, relative, prefixIt->second));
-            }
-        }
-
-        if (const auto* enumsValue = json.try_get("Enums"))
-        {
-            if (!enumsValue->is_array())
-            {
-                throw std::runtime_error("Schema file '" + file.string() + "' has non-array 'Enums' property.");
-            }
-
-            for (const auto& entry : enumsValue->as_array())
-            {
-                data.enums.push_back(ParseEnumDefinition(entry, relative, prefixIt->second));
-            }
-        }
-
-        ReportUnhandledProperties(json, "schema file", targetNamespace, relative, {"TargetNamespace", "Types", "Enums"});
-    }
-
-    return data;
-}
-
-/**
- * @brief Extends imported content models with markup Office writes but the import omits.
- *
- * The imported metadata models a handful of types more narrowly than the
- * applications write them - `w:CT_RPrBaseStyleable` carries no run-property
- * extensions even though Word puts `w14:ligatures` into the document defaults of
- * every file it saves. The overlay appends particle items to the top-level
- * content model of a named type, and belongs to this repository rather than to
- * the import, so it survives a re-import of `data/schemas`.
- *
- * The appended items get no `Children` entry, so they add nothing to the
- * generated API: they only widen what the validator accepts.
- *
- * @param data Schema types to patch in place.
- * @param overlayPath `exyokioffice_particle_extras.json`; absent means no overlay.
- * @throws std::runtime_error when the overlay names a type that no longer exists
- * or that has no content model, which is how a rename in the import is caught.
- */
-void ApplyParticleOverlay(SchemaData& data, const std::filesystem::path& overlayPath)
-{
-    if (!std::filesystem::exists(overlayPath))
-    {
-        return;
-    }
-
-    const auto json = LoadJson(overlayPath);
-    const auto* types = json.try_get("Types");
-    if (!types || !types->is_array())
-    {
-        throw std::runtime_error("Particle overlay has no 'Types' array: " + overlayPath.string());
-    }
-
-    const auto sourceFile = overlayPath.filename().generic_string();
-    std::size_t patched = 0;
-    for (const auto& entry : types->as_array())
-    {
-        const auto name = entry.at("Type").as_string();
-        const auto element = std::find_if(data.elements.begin(), data.elements.end(),
-                                          [&name](const TypedElement& candidate)
-                                          {
-                                              return candidate.typeQualifiedName + "/" + candidate.elementQualifiedName == name;
-                                          });
-        if (element == data.elements.end())
-        {
-            throw std::runtime_error("Particle overlay names unknown schema type '" + name + "' in " + overlayPath.string());
-        }
-        if (!element->particle)
-        {
-            throw std::runtime_error("Particle overlay extends schema type '" + name + "', which has no content model, in " + overlayPath.string());
-        }
-
-        const auto& items = entry.at("AppendItems");
-        if (!items.is_array())
-        {
-            throw std::runtime_error("Particle overlay entry '" + name + "' defines AppendItems using a non-array value.");
-        }
-
-        const std::unordered_map<std::string, TypedElement::ChildDefinition> noChildren;
-        for (const auto& item : items.as_array())
-        {
-            element->particle->children.push_back(ParseParticleDefinition(item,
-                                                                          noChildren,
-                                                                          element->namespacePrefix,
-                                                                          element->className,
-                                                                          sourceFile));
-        }
-        ++patched;
-    }
-
-    Logger::Info("Applied content-model additions from the particle overlay to " + std::to_string(patched) + " schema types.");
-}
-
-std::vector<std::string> SplitNamespace(std::string_view value)
-{
-    std::vector<std::string> parts;
-    std::size_t start = 0;
-    while (start <= value.size())
-    {
-        const auto dot = value.find('.', start);
-        if (dot == std::string_view::npos)
-        {
-            parts.emplace_back(value.substr(start));
-            break;
-        }
-
-        parts.emplace_back(value.substr(start, dot - start));
-        start = dot + 1;
-    }
-
-    return parts;
-}
-
-std::filesystem::path NamespaceToPath(std::string_view ns)
-{
-    std::filesystem::path path;
-    const auto parts = SplitNamespace(ns);
-    for (const auto& part : parts)
-    {
-        path /= part;
-    }
-
-    path.replace_extension(".hpp");
-    return path;
-}
-
-std::filesystem::path NamespaceToEnumHeaderPath(std::string_view ns)
-{
-    auto path = NamespaceToPath(ns);
-    const auto extension = path.extension().string();
-    const auto stem = path.stem().string();
-    std::string enumFileName = stem;
-    enumFileName += ".Enums";
-    enumFileName += extension;
-    path.replace_filename(enumFileName);
-    return path;
-}
-
-std::string_view GetSimpleClassName(std::string_view qualified)
-{
-    const auto pos = qualified.rfind("::");
-    if (pos == std::string_view::npos)
-    {
-        return qualified;
-    }
-
-    return qualified.substr(pos + 2);
-}
-
-std::string BuildNamespaceQualifier(std::string_view apiNamespace, bool includeRoot)
-{
-    std::string qualifier;
-    if (includeRoot)
-    {
-        qualifier = "ExyokiOffice";
-    }
-
-    const auto parts = SplitNamespace(apiNamespace);
-    for (const auto& part : parts)
-    {
-        if (!qualifier.empty())
-        {
-            qualifier += "::";
-        }
-        qualifier += part;
-    }
-
-    return qualifier;
-}
-
-std::string BuildEnumQualifiedName(const std::string& className, std::string_view apiNamespace)
-{
-    auto qualifier = BuildNamespaceQualifier(apiNamespace, true);
-    if (qualifier.empty())
-    {
-        return className;
-    }
-
-    qualifier += "::";
-    qualifier += className;
-    return qualifier;
-}
-
-std::string BuildEnumIncludePath(std::string_view apiNamespace)
-{
-    const auto relativeHeader = NamespaceToEnumHeaderPath(apiNamespace);
-    const auto path = (std::filesystem::path("ExyokiOffice") / "DOM" / relativeHeader).generic_string();
-    return path;
-}
-
-std::string BuildClassQualifiedName(std::string_view className, std::string_view apiNamespace)
-{
-    auto qualifier = BuildNamespaceQualifier(apiNamespace, true);
-    if (qualifier.empty())
-    {
-        return std::string(className);
-    }
-
-    qualifier += "::";
-    qualifier += className;
-    return qualifier;
-}
-
-const ValidatorArgument* FindValidatorArgument(
-    const ValidatorDefinition& validator,
-    std::string_view name)
-{
-    for (const auto& argument : validator.arguments)
-    {
-        if (argument.name == name)
-        {
-            return &argument;
-        }
-    }
-    return nullptr;
-}
-
-std::optional<std::size_t> ReadSizeArgument(const ValidatorDefinition& validator,
-                                            std::string_view name)
-{
-    const auto* argument = FindValidatorArgument(validator, name);
-    if (!argument)
-    {
-        return std::nullopt;
-    }
-
-    try
-    {
-        const auto value = std::stoll(argument->value);
-        if (value < 0)
-        {
-            return std::nullopt;
-        }
-        return static_cast<std::size_t>(value);
-    }
-    catch (const std::exception&)
-    {
-        throw std::runtime_error("Validator '" + validator.name + "' has invalid integer argument '" + std::string(name) + "'.");
-    }
-}
-
-std::optional<double> ReadDoubleArgument(const ValidatorDefinition& validator,
-                                         std::string_view name)
-{
-    const auto* argument = FindValidatorArgument(validator, name);
-    if (!argument)
-    {
-        return std::nullopt;
-    }
-
-    try
-    {
-        return std::stod(argument->value);
-    }
-    catch (const std::exception&)
-    {
-        throw std::runtime_error("Validator '" + validator.name + "' has invalid floating-point argument '" + std::string(name) + "'.");
-    }
-}
-
-std::optional<bool> ReadBoolArgument(const ValidatorDefinition& validator,
-                                     std::string_view name)
-{
-    const auto* argument = FindValidatorArgument(validator, name);
-    if (!argument)
-    {
-        return std::nullopt;
-    }
-
-    std::string text = argument->value;
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch)
-                   { return static_cast<char>(std::tolower(ch)); });
-
-    if (text == "true")
-    {
-        return true;
-    }
-    if (text == "false")
-    {
-        return false;
-    }
-
-    throw std::runtime_error("Validator '" + validator.name + "' has invalid boolean argument '" + std::string(name) + "'.");
-}
-
-std::optional<std::string> ReadStringArgument(const ValidatorDefinition& validator,
-                                              std::string_view name)
-{
-    const auto* argument = FindValidatorArgument(validator, name);
-    if (!argument)
-    {
-        return std::nullopt;
-    }
-
-    return argument->value;
-}
-
-std::string FormatOptionalSizeExpression(const std::optional<std::size_t>& value)
-{
-    if (!value.has_value())
-    {
-        return "std::optional<ExyokiOffice::Size>{}";
-    }
-
-    std::ostringstream expr;
-    expr << "std::optional<ExyokiOffice::Size>{" << *value << "}";
-    return expr.str();
-}
-
-std::string FormatOptionalDoubleExpression(const std::optional<double>& value)
-{
-    if (!value.has_value())
-    {
-        return "std::optional<ExyokiOffice::Real>{}";
-    }
-
-    std::ostringstream expr;
-    expr << "std::optional<ExyokiOffice::Real>{" << *value << "}";
-    return expr.str();
-}
-
-std::string FormatOptionalStringExpression(const std::optional<std::string>& value)
-{
-    if (!value.has_value() || value->empty())
-    {
-        return "std::optional<std::string>{}";
-    }
-
-    return "std::optional<std::string>{std::string(" + EscapeForCpp(*value) + ")}";
-}
-
-std::string BoolLiteral(bool value)
-{
-    return value ? "true" : "false";
-}
-
-std::string FormatEnumRulesExpression(const ValidatorDefinition& validator,
-                                      const EnumFacetLookup& enumFacets,
-                                      std::string_view ownerName,
-                                      std::string_view sourceFile)
-{
-    const auto found = enumFacets.find(validator.typeQualifiedName);
-    if (found == enumFacets.end())
-    {
-        throw std::runtime_error("EnumValidator on '" + std::string(ownerName) + "' in '" + std::string(sourceFile) + "' references unknown enum type '" + validator.typeQualifiedName + "'.");
-    }
-
-    std::ostringstream expression;
-    expression << "std::vector<ExyokiOffice::MetadataEnumRule>{ExyokiOffice::MetadataEnumRule{{";
-    bool firstValue = true;
-    for (const auto& value : found->second)
-    {
-        if (!firstValue)
-        {
-            expression << ", ";
-        }
-        firstValue = false;
-        expression << EscapeForCpp(value);
-    }
-    expression << "}, " << validator.versionExpression << ", " << validator.unionId.value_or(0) << ", "
-               << BoolLiteral(validator.isInitialVersion) << "}}";
-    return expression.str();
-}
-
-std::optional<std::string> ResolveEnumValueValidatorType(const std::string& attributeType)
-{
-    constexpr std::string_view prefix = "EnumValue<";
-    if (attributeType.rfind(prefix, 0) != 0)
-    {
-        return std::nullopt;
-    }
-
-    if (attributeType.back() != '>')
-    {
-        return std::nullopt;
-    }
-
-    return attributeType;
-}
-
-bool IsElementLocalSchematronRule(SchematronPatternKind kind) noexcept
-{
-    switch (kind)
-    {
-        case SchematronPatternKind::AttributeRegex:
-        case SchematronPatternKind::AttributeStringLength:
-        case SchematronPatternKind::AttributeNumericComparison:
-        case SchematronPatternKind::AttributeNumericRange:
-        case SchematronPatternKind::AttributeEquality:
-        case SchematronPatternKind::AttributeInequality:
-        case SchematronPatternKind::AttributeAllowedValues:
-        case SchematronPatternKind::AttributePresence:
-        case SchematronPatternKind::AttributeImplication:
-        case SchematronPatternKind::AttributeMutualExclusion:
-        case SchematronPatternKind::AttributeForbiddenValues:
-        case SchematronPatternKind::AttributeNumericAttributeComparison:
-        case SchematronPatternKind::AttributeConditionalPresence:
-        case SchematronPatternKind::AttributeConditionalRequiredValue:
-        case SchematronPatternKind::AttributeConditionalAllowedValues:
-        case SchematronPatternKind::AttributeConditionalForbiddenValues:
-        case SchematronPatternKind::AttributeConditionalPresenceAllowedValues:
-            return true;
-        default:
-            return false;
-    }
-}
-
-std::string FormatSchematronComparisonExpression(const std::string& comparison)
-{
-    if (comparison == "<")
-    {
-        return "ExyokiOffice::MetadataSchematronComparisonOperator::LessThan";
-    }
-    if (comparison == "<=")
-    {
-        return "ExyokiOffice::MetadataSchematronComparisonOperator::LessThanOrEqual";
-    }
-    if (comparison == ">")
-    {
-        return "ExyokiOffice::MetadataSchematronComparisonOperator::GreaterThan";
-    }
-    if (comparison == ">=")
-    {
-        return "ExyokiOffice::MetadataSchematronComparisonOperator::GreaterThanOrEqual";
-    }
-    throw std::runtime_error("Unsupported schematron comparison operator '" + comparison + "'.");
-}
-
-std::string FormatNumericLiteral(const std::string& text)
-{
-    auto numericText = text;
-    if (!numericText.empty() && (numericText.back() == 'f' || numericText.back() == 'F'))
-    {
-        numericText.pop_back();
-    }
-
-    double value = 0.0;
-    std::size_t consumed = 0;
-    const bool negative = !numericText.empty() && numericText.front() == '-';
-    const auto hexOffset = negative ? 1u : 0u;
-    const bool isHex = numericText.size() > hexOffset + 2 && numericText[hexOffset] == '0' && (numericText[hexOffset + 1] == 'x' || numericText[hexOffset + 1] == 'X');
-    if (isHex)
-    {
-        const auto parsed = std::stoull(numericText.substr(hexOffset + 2), &consumed, 16);
-        if (consumed != numericText.size() - hexOffset - 2)
-        {
-            throw std::runtime_error("Invalid numeric schematron operand '" + text + "'.");
-        }
-        value = static_cast<double>(parsed);
-        if (negative)
-        {
-            value = -value;
-        }
-    }
-    else
-    {
-        value = std::stod(numericText, &consumed);
-        if (consumed != numericText.size())
-        {
-            throw std::runtime_error("Invalid numeric schematron operand '" + text + "'.");
-        }
-    }
-
-    std::ostringstream output;
-    output << std::setprecision(17) << value;
-    auto result = output.str();
-    if (result.find_first_of(".eE") == std::string::npos)
-    {
-        result += ".0";
-    }
-    return result;
-}
-
-/**
- * @brief Reports whether a schematron operand was written as a hexadecimal literal.
- *
- * A rule bounds an attribute with `0x80000000` only where the attribute itself
- * carries a hexadecimal value: `w14:paraId`, `w14:textId` and `w14:val` are all
- * `ST_LongHexNumber`, whose lexical space is eight hexadecimal digits with no
- * prefix. The radix of the bound is therefore also the radix of the value, and
- * it is the only place the imported rules record it.
- */
-bool IsHexNumericLiteral(std::string_view text) noexcept
-{
-    if (!text.empty() && text.front() == '-')
-    {
-        text.remove_prefix(1);
-    }
-    return text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X');
-}
-
-std::string FormatSchematronNumberFormatArgument(const SchematronRule& rule)
-{
-    const bool hex = std::any_of(rule.operands.begin(), rule.operands.end(),
-                                 [](const std::string& operand)
-                                 { return IsHexNumericLiteral(operand); });
-    return hex ? ", ExyokiOffice::MetadataSchematronNumberFormat::Hexadecimal" : std::string{};
-}
-
-std::string FormatStringVectorRange(const std::vector<std::string>& values, std::size_t firstValue, std::size_t endValue)
-{
-    std::ostringstream expression;
-    expression << "std::vector<std::string>{";
-    for (std::size_t i = firstValue; i < endValue; ++i)
-    {
-        if (i != firstValue)
-        {
-            expression << ", ";
-        }
-        expression << EscapeForCpp(values[i]);
-    }
-    expression << "}";
-    return expression.str();
-}
-
-std::string FormatStringVectorExpression(const std::vector<std::string>& values, std::size_t firstValue)
-{
-    return FormatStringVectorRange(values, firstValue, values.size());
-}
-
-QualifiedNameParts ResolveSchematronOperandAttributeName(const std::string& operand,
-                                                         const QualifiedNameParts& defaultQName)
-{
-    auto parts = SplitQualifiedName(operand);
-    if (parts.prefix.empty())
-    {
-        parts.prefix = defaultQName.prefix;
-    }
-    return parts;
-}
-
-std::string FormatSchematronOperandAttributeExpression(const std::string& operand,
-                                                       const QualifiedNameParts& defaultQName,
-                                                       const NamespaceRegistry& namespaceRegistry)
-{
-    return FormatQualifiedNameExpression(
-        ResolveSchematronOperandAttributeName(operand, defaultQName),
-        namespaceRegistry);
-}
-
-std::string FormatSchematronAttributeVectorExpression(const std::vector<std::string>& values,
-                                                      const QualifiedNameParts& defaultQName,
-                                                      const NamespaceRegistry& namespaceRegistry)
-{
-    std::ostringstream output;
-    output << "std::vector<ExyokiOffice::OpenXmlQualifiedName>{";
-    for (std::size_t i = 0; i < values.size(); ++i)
-    {
-        if (i != 0)
-        {
-            output << ", ";
-        }
-        output << FormatSchematronOperandAttributeExpression(values[i], defaultQName, namespaceRegistry);
-    }
-    output << "}";
-    return output.str();
-}
-
-std::string FormatSchematronAttributeConstraintExpression(const SchematronRule& rule,
-                                                          const QualifiedNameParts& attributeQName,
-                                                          const NamespaceRegistry& namespaceRegistry)
-{
-    const auto attributeExpression = FormatQualifiedNameExpression(attributeQName, namespaceRegistry);
-    const auto testExpression = EscapeForCpp(rule.test);
-
-    auto requireOperandCount = [&](std::size_t count)
-    {
-        if (rule.operands.size() != count)
-        {
-            throw std::runtime_error("Schematron rule for '" + rule.context + "' has unexpected operand count.");
-        }
-    };
-
-    std::ostringstream output;
-    output << "std::make_shared<";
-    switch (rule.kind)
-    {
-        case SchematronPatternKind::AttributePresence:
-            requireOperandCount(1);
-            output << "ExyokiOffice::MetadataSchematronAttributePresenceConstraint>("
-                   << attributeExpression << ", " << testExpression << ")";
-            break;
-        case SchematronPatternKind::AttributeRegex:
-            requireOperandCount(2);
-            output << "ExyokiOffice::MetadataSchematronAttributeRegexConstraint>("
-                   << attributeExpression << ", " << EscapeForCpp(rule.operands[1]) << ", " << testExpression << ")";
-            break;
-        case SchematronPatternKind::AttributeStringLength:
-            requireOperandCount(3);
-            output << "ExyokiOffice::MetadataSchematronAttributeStringLengthConstraint>(" << attributeExpression << ", ";
-            if (rule.operands[1] == "<" || rule.operands[1] == "<=" || rule.operands[1] == ">" || rule.operands[1] == ">=")
-            {
-                output << FormatSchematronComparisonExpression(rule.operands[1]) << ", "
-                       << rule.operands[2] << "u, " << testExpression << ")";
-            }
-            else
-            {
-                output << rule.operands[1] << "u, " << rule.operands[2] << "u, " << testExpression << ")";
-            }
-            break;
-        case SchematronPatternKind::AttributeNumericRange:
-            if (rule.operands.size() == 3)
-            {
-                output << "ExyokiOffice::MetadataSchematronAttributeNumericRangeConstraint>("
-                       << attributeExpression << ", " << FormatNumericLiteral(rule.operands[1]) << ", "
-                       << FormatNumericLiteral(rule.operands[2]) << ", " << testExpression
-                       << FormatSchematronNumberFormatArgument(rule) << ")";
-            }
-            else if (rule.operands.size() == 5)
-            {
-                output << "ExyokiOffice::MetadataSchematronAttributeNumericRangeConstraint>("
-                       << attributeExpression << ", " << FormatSchematronComparisonExpression(rule.operands[1]) << ", "
-                       << FormatNumericLiteral(rule.operands[2]) << ", "
-                       << FormatSchematronComparisonExpression(rule.operands[3]) << ", "
-                       << FormatNumericLiteral(rule.operands[4]) << ", " << testExpression
-                       << FormatSchematronNumberFormatArgument(rule) << ")";
-            }
-            else
-            {
-                throw std::runtime_error("Schematron numeric range rule for '" + rule.context + "' has unexpected operand count.");
-            }
-            break;
-        case SchematronPatternKind::AttributeNumericComparison:
-            requireOperandCount(3);
-            output << "ExyokiOffice::MetadataSchematronAttributeNumericComparisonConstraint>("
-                   << attributeExpression << ", " << FormatSchematronComparisonExpression(rule.operands[1]) << ", "
-                   << FormatNumericLiteral(rule.operands[2]) << ", " << testExpression
-                   << FormatSchematronNumberFormatArgument(rule) << ")";
-            break;
-        case SchematronPatternKind::AttributeNumericAttributeComparison:
-            requireOperandCount(3);
-            output << "ExyokiOffice::MetadataSchematronAttributeNumericAttributeComparisonConstraint>("
-                   << attributeExpression << ", " << FormatSchematronComparisonExpression(rule.operands[1]) << ", "
-                   << FormatSchematronOperandAttributeExpression(rule.operands[2], attributeQName, namespaceRegistry)
-                   << ", " << testExpression << ")";
-            break;
-        case SchematronPatternKind::AttributeEquality:
-            requireOperandCount(2);
-            output << "ExyokiOffice::MetadataSchematronAttributeEqualityConstraint>("
-                   << attributeExpression << ", " << EscapeForCpp(rule.operands[1]) << ", " << testExpression << ")";
-            break;
-        case SchematronPatternKind::AttributeInequality:
-            requireOperandCount(2);
-            output << "ExyokiOffice::MetadataSchematronAttributeInequalityConstraint>("
-                   << attributeExpression << ", " << EscapeForCpp(rule.operands[1]) << ", " << testExpression << ")";
-            break;
-        case SchematronPatternKind::AttributeAllowedValues:
-            if (rule.operands.size() < 3)
-            {
-                throw std::runtime_error("Schematron allowed-values rule for '" + rule.context + "' has unexpected operand count.");
-            }
-            output << "ExyokiOffice::MetadataSchematronAttributeAllowedValuesConstraint>("
-                   << attributeExpression << ", " << FormatStringVectorExpression(rule.operands, 1)
-                   << ", " << testExpression << FormatSchematronNumberFormatArgument(rule) << ")";
-            break;
-        case SchematronPatternKind::AttributeForbiddenValues:
-            if (rule.operands.size() < 3)
-            {
-                throw std::runtime_error("Schematron forbidden-values rule for '" + rule.context + "' has unexpected operand count.");
-            }
-            output << "ExyokiOffice::MetadataSchematronAttributeForbiddenValuesConstraint>("
-                   << attributeExpression << ", " << FormatStringVectorExpression(rule.operands, 1)
-                   << ", " << testExpression << FormatSchematronNumberFormatArgument(rule) << ")";
-            break;
-        case SchematronPatternKind::AttributeImplication:
-            requireOperandCount(4);
-            if (rule.operands[2] == "=")
-            {
-                output << "ExyokiOffice::MetadataSchematronAttributeRequiredValueConstraint>("
-                       << attributeExpression << ", "
-                       << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
-                       << ", " << EscapeForCpp(rule.operands[3]) << ", " << testExpression << ")";
-            }
-            else if (rule.operands[2] == "!=")
-            {
-                output << "ExyokiOffice::MetadataSchematronAttributeForbiddenValueConstraint>("
-                       << attributeExpression << ", "
-                       << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
-                       << ", " << EscapeForCpp(rule.operands[3]) << ", " << testExpression << ")";
-            }
-            else
-            {
-                throw std::runtime_error("Schematron implication rule for '" + rule.context + "' has unsupported operator '" + rule.operands[2] + "'.");
-            }
-            break;
-        case SchematronPatternKind::AttributeMutualExclusion:
-            if (rule.operands.size() < 2)
-            {
-                throw std::runtime_error("Schematron mutual-exclusion rule for '" + rule.context + "' has unexpected operand count.");
-            }
-            output << "ExyokiOffice::MetadataSchematronAttributeMutualExclusionConstraint>("
-                   << FormatSchematronAttributeVectorExpression(rule.operands, attributeQName, namespaceRegistry)
-                   << ", " << testExpression << ")";
-            break;
-        case SchematronPatternKind::AttributeConditionalPresence:
-            requireOperandCount(3);
-            output << "ExyokiOffice::MetadataSchematronAttributeConditionalPresenceConstraint>("
-                   << attributeExpression << ", "
-                   << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
-                   << ", " << EscapeForCpp(rule.operands[2]) << ", " << testExpression << ")";
-            break;
-        case SchematronPatternKind::AttributeConditionalRequiredValue:
-            requireOperandCount(4);
-            output << "ExyokiOffice::MetadataSchematronAttributeConditionalRequiredValueConstraint>("
-                   << attributeExpression << ", " << EscapeForCpp(rule.operands[1]) << ", "
-                   << FormatSchematronOperandAttributeExpression(rule.operands[2], attributeQName, namespaceRegistry)
-                   << ", " << EscapeForCpp(rule.operands[3]) << ", " << testExpression << ")";
-            break;
-        case SchematronPatternKind::AttributeConditionalAllowedValues:
-            if (rule.operands.size() < 5)
-            {
-                throw std::runtime_error("Schematron conditional allowed-values rule for '" + rule.context + "' has unexpected operand count.");
-            }
-            {
-                const auto allowedCount = static_cast<std::size_t>(std::stoul(rule.operands[1]));
-                const auto conditionAttributeIndex = 2 + allowedCount;
-                const auto conditionCountIndex = conditionAttributeIndex + 1;
-                if (conditionCountIndex >= rule.operands.size())
-                {
-                    throw std::runtime_error("Schematron conditional allowed-values rule for '" + rule.context + "' has malformed operands.");
-                }
-                const auto conditionCount = static_cast<std::size_t>(std::stoul(rule.operands[conditionCountIndex]));
-                if (conditionCountIndex + 1 + conditionCount != rule.operands.size())
-                {
-                    throw std::runtime_error("Schematron conditional allowed-values rule for '" + rule.context + "' has malformed operands.");
-                }
-                output << "ExyokiOffice::MetadataSchematronAttributeConditionalAllowedValuesConstraint>("
-                       << attributeExpression << ", "
-                       << FormatStringVectorRange(rule.operands, 2, conditionAttributeIndex) << ", "
-                       << FormatSchematronOperandAttributeExpression(rule.operands[conditionAttributeIndex],
-                                                                     attributeQName,
-                                                                     namespaceRegistry)
-                       << ", "
-                       << FormatStringVectorRange(rule.operands, conditionCountIndex + 1, rule.operands.size())
-                       << ", " << testExpression << ")";
-            }
-            break;
-        case SchematronPatternKind::AttributeConditionalForbiddenValues:
-            if (rule.operands.size() < 3)
-            {
-                throw std::runtime_error("Schematron conditional forbidden-values rule for '" + rule.context + "' has unexpected operand count.");
-            }
-            output << "ExyokiOffice::MetadataSchematronAttributeConditionalForbiddenValuesConstraint>("
-                   << attributeExpression << ", "
-                   << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
-                   << ", " << FormatStringVectorExpression(rule.operands, 2)
-                   << ", " << testExpression << ")";
-            break;
-        case SchematronPatternKind::AttributeConditionalPresenceAllowedValues:
-            if (rule.operands.size() < 3)
-            {
-                throw std::runtime_error("Schematron conditional presence allowed-values rule for '" + rule.context + "' has unexpected operand count.");
-            }
-            output << "ExyokiOffice::MetadataSchematronAttributeConditionalPresenceAllowedValuesConstraint>("
-                   << attributeExpression << ", "
-                   << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
-                   << ", " << FormatStringVectorExpression(rule.operands, 2)
-                   << ", " << testExpression << ")";
-            break;
-        default:
-            throw std::runtime_error("Unsupported element-local schematron rule kind.");
-    }
-
-    return output.str();
-}
-
-QualifiedNameParts ResolveSchematronAttributeName(const SchematronRule& rule,
-                                                  const TypedElement& element)
-{
-    if (rule.operands.empty())
-    {
-        throw std::runtime_error("Schematron rule for '" + rule.context + "' has no attribute operand.");
-    }
-
-    auto parts = SplitQualifiedName(rule.operands.front());
-    if (parts.prefix.empty())
-    {
-        parts.prefix = element.namespacePrefix;
-    }
-    return parts;
-}
 
 /**
  * @brief Elements keyed by namespace prefix and class name.
@@ -2928,443 +374,2831 @@ QualifiedNameParts ResolveSchematronAttributeName(const SchematronRule& rule,
  */
 using TypedElementsByClassName = std::map<std::pair<std::string, std::string>, const TypedElement*>;
 
-TypedElementsByClassName BuildTypedElementsByClassName(const std::vector<TypedElement>& elements)
+/// A generated attribute type resolved for the DOM test emitter.
+struct DomTestSampleType
 {
-    TypedElementsByClassName lookup;
-    for (const auto& element : elements)
-    {
-        lookup.emplace(std::make_pair(element.namespacePrefix, element.className), &element);
-    }
-    return lookup;
-}
+    std::string fqType;     ///< Fully-qualified C++ value-wrapper type.
+    std::string sampleExpr; ///< Expression yielding a defined sample value, or empty when none is known.
+};
 
 /**
- * @brief Finds the attribute an element really declares under a schematron name.
+ * @brief The class an ambiguous element name creates, keyed by namespace URI
+ * and local name.
  *
- * The schematron source names attributes with the context element's own prefix
- * even when the attribute belongs to another namespace: `a:hlinkClick/@a:id`
- * means the relationship attribute `r:id`, and `xdr:cNvPr/@xdr:id` the
- * unprefixed `id`. The prefix is therefore only a hint - what decides is which
- * attribute the element (or one of its base classes) actually has.
- *
- * @return The declared attribute, or `nullptr` when the element has none with
- * that local name, which also means the rule was written for a different
- * element that happens to share the context name.
+ * Loaded from `data/exyokioffice_ambiguous_elements.json`; see that file for
+ * why the choice is recorded rather than derived.
  */
-const AttributeDefinition* FindDeclaredAttribute(const TypedElement& element,
-                                                 const QualifiedNameParts& name,
-                                                 const TypedElementsByClassName& elementsByClassName)
+using AmbiguousElementOverlay = std::map<std::pair<std::string, std::string>, std::string>;
+
+struct UniqueValueRuleDefinition
 {
-    const AttributeDefinition* localNameMatch = nullptr;
-    std::size_t localNameMatchCount = 0;
-    const TypedElement* current = &element;
-    std::unordered_set<std::string> visited;
-    while (current && visited.insert(current->className).second)
+    const SchematronRule* Rule = nullptr;
+    std::vector<QualifiedNameParts> ElementPath;
+    QualifiedNameParts Attribute;
+    bool CaseInsensitive = false;
+};
+
+struct AncestorUniqueValueRuleDefinition
+{
+    const SchematronRule* Rule = nullptr;
+    QualifiedNameParts AncestorElement;
+    std::vector<QualifiedNameParts> DescendantPath;
+    QualifiedNameParts Attribute;
+    bool CaseInsensitive = false;
+};
+
+struct PartReferenceRuleDefinition
+{
+    const SchematronRule* Rule = nullptr;
+    QualifiedNameParts ContextElement;
+    QualifiedNameParts SourceAttribute;
+    std::string SelectorKindExpression;
+    std::vector<std::string> SelectorPath;
+    std::vector<QualifiedNameParts> TargetElementPath;
+    QualifiedNameParts TargetAttribute;
+};
+
+struct PartCountRuleDefinition
+{
+    const SchematronRule* Rule = nullptr;
+    QualifiedNameParts ContextElement;
+    QualifiedNameParts SourceAttribute;
+    std::string SelectorKindExpression;
+    std::vector<std::string> SelectorPath;
+    std::vector<QualifiedNameParts> TargetElementPath;
+};
+
+/// Text, comments and literals the emitted C++ is built from.
+class GeneratorText
+{
+public:
+    static UnhandledPropertyTracker& UnhandledProperties()
     {
-        for (const auto& attribute : current->attributes)
+        static UnhandledPropertyTracker instance;
+        return instance;
+    }
+
+    static std::string_view TrimWhitespace(std::string_view value)
+    {
+        const auto start = value.find_first_not_of(" \t\r\n");
+        if (start == std::string_view::npos)
         {
-            if (attribute.qName.localName != name.localName)
+            return {};
+        }
+
+        const auto end = value.find_last_not_of(" \t\r\n");
+        return value.substr(start, end - start + 1);
+    }
+
+    static std::string NormalizeTypeName(std::string_view name)
+    {
+        return std::string(TrimWhitespace(name));
+    }
+
+    /**
+     * @brief Reports whether a StringValidator's length facets count octets.
+     *
+     * `xsd:hexBinary` length facets are expressed in octets, each written as two hex
+     * digits, so a `Length` of 3 admits the six characters of a colour like `C00000`.
+     * The imported metadata does not describe simple types, only enumerations, so the
+     * hexBinary-valued attributes have to be recognized from what it does carry:
+     * either the property type the data assigns the attribute, or - where the
+     * attribute is a union whose other branch is an enumeration and the property type
+     * therefore degrades to a plain string - the simple type named on the validator.
+     * The second case covers exactly two types in the current metadata.
+     */
+    static bool IsHexBinaryLengthValidator(std::string_view attributeTypeName, std::string_view validatorTypeName)
+    {
+        if (attributeTypeName == "HexBinaryValue")
+        {
+            return true;
+        }
+
+        return validatorTypeName == "w:ST_HexColorRGB" || validatorTypeName == "w:ST_StylePaneSortMethods_O12";
+    }
+
+    static std::string ConvertTypeNameForCpp(std::string_view name)
+    {
+        std::string normalized = NormalizeTypeName(name);
+        constexpr std::string_view sourcePrefix = "DocumentFormat.OpenXml";
+        constexpr std::string_view targetPrefix = "ExyokiOffice.DocumentFormat.OpenXml";
+
+        auto pos = normalized.find(sourcePrefix);
+        if (pos != std::string::npos)
+        {
+            normalized.replace(pos, sourcePrefix.size(), std::string(targetPrefix));
+        }
+
+        std::string normalzedForCpp;
+
+        for (std::size_t i = 0; i < normalized.size(); ++i)
+        {
+            char ch = normalized[i];
+            if (ch == '.')
+            {
+                normalzedForCpp.push_back(':');
+                normalzedForCpp.push_back(':');
+            }
+            else
+            {
+                normalzedForCpp.push_back(ch);
+            }
+        }
+
+        return normalzedForCpp;
+    }
+
+    static std::string SanitizeCommentText(std::string_view text)
+    {
+        std::string sanitized;
+        sanitized.reserve(text.size());
+        for (char ch : text)
+        {
+            if (ch == '\r')
             {
                 continue;
             }
-            if (attribute.qName.prefix == name.prefix)
+
+            if (ch == '\n')
             {
-                return &attribute;
+                if (!sanitized.empty() && sanitized.back() != ' ')
+                {
+                    sanitized.push_back(' ');
+                }
+                continue;
             }
-            localNameMatch = &attribute;
-            ++localNameMatchCount;
+
+            sanitized.push_back(ch);
         }
 
-        auto baseName = current->baseClassName;
-        if (const auto separator = baseName.rfind("::"); separator != std::string::npos)
-        {
-            baseName = baseName.substr(separator + 2);
-        }
-        const auto base = elementsByClassName.find(std::make_pair(current->namespacePrefix, baseName));
-        current = base == elementsByClassName.end() ? nullptr : base->second;
+        return sanitized;
     }
 
-    // More than one namespace declares the local name: the prefix in the rule
-    // cannot pick between them, so leave the name alone.
-    return localNameMatchCount == 1 ? localNameMatch : nullptr;
-}
-
-std::string FormatOptionalUIntExpression(const std::optional<std::uint32_t>& value)
-{
-    if (!value.has_value())
+    static std::string BuildSummaryText(std::string_view summary, std::string_view className)
     {
-        return "std::optional<ExyokiOffice::UInt32>{}";
-    }
-
-    std::ostringstream expr;
-    expr << "std::optional<ExyokiOffice::UInt32>{" << *value << "}";
-    return expr.str();
-}
-
-std::string SimplifyEnumTypeNameForNamespace(std::string_view typeName,
-                                             std::string_view apiNamespace,
-                                             const std::vector<EnumDefinition>& enums)
-{
-    if (enums.empty())
-    {
-        return std::string(typeName);
-    }
-
-    const auto nsWithRoot = BuildNamespaceQualifier(apiNamespace, true);
-    const auto nsWithoutRoot = BuildNamespaceQualifier(apiNamespace, false);
-    std::string result(typeName);
-
-    const std::array<std::string, 2> namespaceQualifiers = {nsWithRoot, nsWithoutRoot};
-    for (const auto& qualifier : namespaceQualifiers)
-    {
-        if (qualifier.empty())
+        if (!summary.empty())
         {
-            continue;
+            return SanitizeCommentText(summary);
         }
 
-        for (const auto& enumDef : enums)
-        {
-            const std::string qualifiedEnumName = qualifier + "::" + enumDef.className;
-            std::size_t pos = 0;
-            while ((pos = result.find(qualifiedEnumName, pos)) != std::string::npos)
-            {
-                result.replace(pos, qualifiedEnumName.size(), enumDef.className);
-                pos += enumDef.className.size();
-            }
-        }
+        std::string fallback = "Represents the ";
+        fallback.append(className);
+        fallback.append(" class.");
+        return fallback;
     }
 
-    return result;
-}
-
-std::vector<TypedElement> TopologicallyOrderElements(const std::vector<TypedElement>& elements,
-                                                     const std::string& apiNamespace)
-{
-    if (elements.empty())
+    static std::string BuildClassComment(std::string_view summary,
+                                         std::string_view className,
+                                         std::string_view namespaceName,
+                                         std::string_view typeQName,
+                                         std::string_view elementQName,
+                                         std::string_view sourceFile)
     {
-        return {};
+        std::ostringstream comment;
+        comment << "/// \\brief " << BuildSummaryText(summary, className) << '\n';
+        comment << "///\n";
+        comment << "/// Namespace: " << namespaceName << '\n';
+        comment << "/// Type QName: " << (typeQName.empty() ? "(none)" : std::string(typeQName)) << '\n';
+        comment << "/// Element QName: " << (elementQName.empty() ? "(none)" : std::string(elementQName)) << '\n';
+        comment << "/// Source: " << sourceFile << '\n';
+        return comment.str();
     }
 
-    std::vector<TypedElement> ordered;
-    ordered.reserve(elements.size());
-
-    std::unordered_map<std::string, std::size_t> indexByClass;
-    for (std::size_t i = 0; i < elements.size(); ++i)
+    static void ReportUnhandledProperties(const JsonValue& value,
+                                          std::string_view ownerKind,
+                                          std::string_view ownerName,
+                                          std::string_view sourceFile,
+                                          std::initializer_list<std::string_view> knownKeys)
     {
-        indexByClass.emplace(elements[i].className, i);
-    }
-
-    std::vector<std::vector<std::size_t>> edges(elements.size());
-
-    const auto namespaceWithRoot = BuildNamespaceQualifier(apiNamespace, true);
-    const auto namespaceWithoutRoot = BuildNamespaceQualifier(apiNamespace, false);
-
-    auto resolveBaseIndex = [&](const std::string& baseName) -> std::optional<std::size_t>
-    {
-        auto findBySimpleName = [&](std::string_view simpleName) -> std::optional<std::size_t>
-        {
-            auto it = indexByClass.find(std::string(simpleName));
-            if (it != indexByClass.end())
-            {
-                return it->second;
-            }
-            return std::nullopt;
-        };
-
-        const auto separator = baseName.rfind("::");
-        std::string_view prefix;
-        std::string_view simpleName(baseName);
-        if (separator != std::string::npos)
-        {
-            prefix = std::string_view(baseName.data(), separator);
-            simpleName = std::string_view(baseName.data() + separator + 2, baseName.size() - separator - 2);
-        }
-
-        if (prefix.empty() || prefix == namespaceWithRoot || prefix == namespaceWithoutRoot)
-        {
-            if (auto match = findBySimpleName(simpleName))
-            {
-                return match;
-            }
-        }
-
-        return std::nullopt;
-    };
-
-    for (std::size_t i = 0; i < elements.size(); ++i)
-    {
-        const auto& base = elements[i].baseClassName;
-        if (auto dep = resolveBaseIndex(base))
-        {
-            edges[*dep].push_back(i);
-        }
-    }
-
-    enum class VisitState
-    {
-        NotVisited,
-        Visiting,
-        Visited
-    };
-
-    std::vector<VisitState> state(elements.size(), VisitState::NotVisited);
-
-    std::function<void(std::size_t)> dfs = [&](std::size_t node)
-    {
-        if (state[node] == VisitState::Visiting)
-        {
-            throw std::runtime_error("Cycle detected in base class hierarchy within namespace " + apiNamespace);
-        }
-        if (state[node] == VisitState::Visited)
+        if (!value.is_object())
         {
             return;
         }
 
-        state[node] = VisitState::Visiting;
-        for (auto child : edges[node])
+        for (const auto& [key, _] : value.as_object())
         {
-            dfs(child);
-        }
-        state[node] = VisitState::Visited;
-        ordered.push_back(elements[node]);
-    };
-
-    for (std::size_t i = 0; i < elements.size(); ++i)
-    {
-        if (state[i] == VisitState::NotVisited)
-        {
-            dfs(i);
-        }
-    }
-
-    std::reverse(ordered.begin(), ordered.end());
-    return ordered;
-}
-
-void WriteNamespaceEnumHeader(const GeneratorConfig& config,
-                              const TypedNamespace& ns,
-                              const std::vector<EnumDefinition>& enums)
-{
-    if (enums.empty())
-    {
-        return;
-    }
-
-    auto headerPath =
-        config.outputInclude / "ExyokiOffice" / "DOM" / NamespaceToEnumHeaderPath(ns.apiNamespace);
-    EnsureDirectory(headerPath.parent_path());
-
-    std::ostringstream output;
-    output << kGeneratedHeaderWarning;
-    output << "#pragma once\n\n";
-    output << "#include \"ExyokiOffice/OpenXMLElement.hpp\"\n\n";
-
-    auto parts = SplitNamespace(ns.apiNamespace);
-    parts.insert(parts.begin(), "ExyokiOffice");
-    for (const auto& part : parts)
-    {
-        output << "namespace " << part << " {\n";
-    }
-    output << "\n\n";
-
-    const std::string fullNamespaceName = "ExyokiOffice." + ns.apiNamespace;
-
-    std::set<std::string> emittedEnums;
-    for (const auto& enumDef : enums)
-    {
-        if (!emittedEnums.insert(enumDef.className).second)
-        {
-            continue;
-        }
-
-        output << BuildClassComment(enumDef.summary,
-                                    enumDef.className,
-                                    fullNamespaceName,
-                                    enumDef.typeQualifiedName,
-                                    std::string_view{},
-                                    enumDef.sourceFile);
-        output << "class " << enumDef.className << " : public ExyokiOffice::OpenXmlEnum\n{\n";
-        output << "public:\n";
-        output << "    enum Value\n";
-        output << "    {\n";
-        output << "        NotDefinedEnumValue = 0,\n";
-        output << "        InvalidEnumValue,\n";
-        for (const auto& facet : enumDef.facets)
-        {
-            output << "        " << facet.name << ", ";
-            if (!facet.comment.empty())
-            {
-                output << "///< " << SanitizeCommentText(facet.comment);
-            }
-            output << "\n";
-        }
-        output << "    };\n\n";
-        output << "    constexpr " << enumDef.className << "() noexcept = default;\n";
-        output << "    constexpr " << enumDef.className << "(Value value) noexcept : m_value(value) {}\n\n";
-        output << "    constexpr operator Value() const noexcept { return m_value; }\n";
-        output << "    constexpr bool IsValid() const noexcept { return m_value != NotDefinedEnumValue && m_value != InvalidEnumValue; }\n";
-        output << "    constexpr bool isUndefined() const noexcept { return m_value == NotDefinedEnumValue; }\n";
-        output << "    constexpr bool isInvalid() const noexcept { return m_value == InvalidEnumValue; }\n\n";
-        output << "    constexpr Value GetValue() const noexcept { return m_value; }\n";
-        output << "    void SetValue(Value value) noexcept { m_value = value; }\n\n";
-        // The accessor is the only out-of-line member of an enum class, and it
-        // is what OpenXmlEnumTraits (and therefore every EnumValue<T>) calls to
-        // parse and format a value. Without the export it is unreachable from
-        // outside the shared library, so it carries EXYOKIOFFICE_EXPORT while
-        // the class itself stays undecorated: exporting the class would make
-        // every dllexport enum derive from the non-exported OpenXmlEnum base
-        // and raise C4275 on MSVC, which the warnings-as-errors build rejects.
-        output << "    static EXYOKIOFFICE_EXPORT const ExyokiOffice::OpenXmlMetaEnum* GetMetaEnum() noexcept;\n\n";
-        output << "private:\n";
-        output << "    Value m_value = NotDefinedEnumValue;\n";
-        output << "};\n\n";
-    }
-
-    for (auto it = parts.rbegin(); it != parts.rend(); ++it)
-    {
-        output << "} // namespace " << *it << "\n";
-    }
-
-    WriteFileText(headerPath, output.str());
-}
-
-void WriteNamespaceHeader(const GeneratorConfig& config,
-                          const TypedNamespace& ns,
-                          const std::vector<EnumDefinition>& enums,
-                          const std::vector<TypedElement>& elements,
-                          const NamespaceRegistry& namespaceRegistry,
-                          const EnumIncludeLookup& enumIncludeLookup)
-{
-    (void)namespaceRegistry;
-
-    if (elements.empty() && enums.empty())
-    {
-        return;
-    }
-
-    auto headerPath = config.outputInclude / "ExyokiOffice" / "DOM" / NamespaceToPath(ns.apiNamespace);
-    EnsureDirectory(headerPath.parent_path());
-    const auto enumRelativeHeader = NamespaceToEnumHeaderPath(ns.apiNamespace);
-    const auto enumIncludePath =
-        (std::filesystem::path("ExyokiOffice") / "DOM" / enumRelativeHeader).generic_string();
-
-    std::set<std::string> additionalEnumIncludes;
-    auto processAttributeType = [&](std::string_view typeName)
-    {
-        for (const auto& [qualifiedName, info] : enumIncludeLookup)
-        {
-            if (info.apiNamespace == ns.apiNamespace)
+            const std::string_view keyView{key};
+            const auto it = std::find_if(knownKeys.begin(), knownKeys.end(), [keyView](std::string_view known)
+                                         { return known == keyView; });
+            if (it != knownKeys.end())
             {
                 continue;
             }
 
-            if (typeName.find(qualifiedName) != std::string_view::npos)
+            UnhandledProperties().Record(keyView, ownerKind, ownerName, sourceFile);
+        }
+    }
+
+    /// Maps a package class name onto the Office application family it represents.
+    ///
+    /// The family decides where the few parts that move with the application are
+    /// stored. A package this generator does not recognize keeps the neutral
+    /// default rather than guessing.
+    static std::string DocumentFamilyExpression(std::string_view packageName)
+    {
+        if (packageName == "WordprocessingDocument")
+        {
+            return "OpenXmlDocumentFamily::Word";
+        }
+        if (packageName == "SpreadsheetDocument")
+        {
+            return "OpenXmlDocumentFamily::Excel";
+        }
+        if (packageName == "PresentationDocument")
+        {
+            return "OpenXmlDocumentFamily::PowerPoint";
+        }
+        return "OpenXmlDocumentFamily::Unknown";
+    }
+
+    static std::string EscapeForCpp(std::string_view value)
+    {
+        std::string result;
+        result.reserve(value.size() + 2);
+        result.push_back('"');
+        for (char ch : value)
+        {
+            switch (ch)
             {
-                additionalEnumIncludes.insert(info.includePath);
+                case '\\':
+                    result += "\\\\";
+                    break;
+                case '"':
+                    result += "\\\"";
+                    break;
+                case '\n':
+                    result += "\\n";
+                    break;
+                case '\r':
+                    result += "\\r";
+                    break;
+                case '\t':
+                    result += "\\t";
+                    break;
+                default:
+                    result.push_back(ch);
+                    break;
             }
         }
-    };
-
-    for (const auto& element : elements)
-    {
-        for (const auto& attribute : element.attributes)
-        {
-            processAttributeType(attribute.typeName);
-        }
+        result.push_back('"');
+        return result;
     }
 
-    std::ostringstream output;
-    output << kGeneratedHeaderWarning;
-    output << "#pragma once\n\n";
-    output << "#include \"ExyokiOffice/OpenXMLElement.hpp\"\n";
-    if (!enums.empty())
+    static JsonValue LoadJson(const std::filesystem::path& path)
     {
-        output << "#include \"" << enumIncludePath << "\"\n";
+        const auto content = ReadFileText(path);
+        return JsonValue::Parse(content);
     }
-    for (const auto& include : additionalEnumIncludes)
-    {
-        output << "#include \"" << include << "\"\n";
-    }
-    output << '\n';
-    output << "#include <memory>\n";
-    output << "#include <span>\n";
-    output << "#include <string_view>\n\n";
+};
 
-    auto parts = SplitNamespace(ns.apiNamespace);
-    parts.insert(parts.begin(), "ExyokiOffice");
-    for (const auto& part : parts)
-    {
-        output << "namespace " << part << " {\n";
-    }
-    output << "\n\n";
-
-    output << "using OpenXMLElement = ExyokiOffice::OpenXMLElement;\n";
-    output << "using OpenXmlCompositeElement = ExyokiOffice::OpenXmlCompositeElement;\n";
-    output << "using OpenXmlPartRootElement = ExyokiOffice::OpenXmlPartRootElement;\n";
-    output << "using OpenXmlLeafElement = ExyokiOffice::OpenXmlLeafElement;\n";
-    output << "using OpenXmlLeafTextElement = ExyokiOffice::OpenXmlLeafTextElement;\n";
-
-    output << "\n";
-
-    const std::string fullNamespaceName = "ExyokiOffice." + ns.apiNamespace;
-
-    std::set<std::string> emitted;
-    std::unordered_set<std::string> localClassNames;
-    for (const auto& element : elements)
-    {
-        localClassNames.insert(element.className);
-    }
-
-    for (const auto& element : elements)
-    {
-        if (!emitted.insert(element.className).second)
-        {
-            continue;
-        }
-
-        const auto elementQualifiedName = SelectElementQualifiedName(element);
-        output << BuildClassComment(element.summary,
-                                    element.className,
-                                    fullNamespaceName,
-                                    element.typeQualifiedName,
-                                    elementQualifiedName,
-                                    element.sourceFile);
-        output << "class EXYOKIOFFICE_EXPORT " << element.className << " : public " << element.baseClassName << "\n{\n";
-        output << "public:\n";
-        output << "    using Ptr = std::shared_ptr<" << element.className << ">;\n\n";
-        output << "    inline " << element.className << "() = default;\n";
-        output << "    inline ~" << element.className << "() = default;\n\n";
-
-        for (const auto& attribute : element.attributes)
-        {
-            const auto attributeTypeName =
-                SimplifyEnumTypeNameForNamespace(attribute.typeName, ns.apiNamespace, enums);
-            if (!attribute.comment.empty())
-            {
-                output << "    /// " << SanitizeCommentText(attribute.comment) << "\n";
-            }
-            output << "    " << attributeTypeName << " Get" << attribute.propertyName << "() const;\n";
-            output << "    void Set" << attribute.propertyName << "(const " << attributeTypeName << "& value);\n\n";
-        }
-
-        output << "    static const ExyokiOffice::OpenXMLElementClass* StaticMetaClass() noexcept;\n";
-        output << "    const ExyokiOffice::OpenXMLElementClass* ElementMetaClass() const noexcept override;\n";
-        output << "};\n\n";
-    }
-
-    for (auto it = parts.rbegin(); it != parts.rend(); ++it)
-    {
-        output << "} // namespace " << *it << "\n";
-    }
-
-    WriteFileText(headerPath, output.str());
-}
-
-/** Joins a schema type QName and an element QName into one lookup key. */
-std::string MakeTypeElementKey(const std::string& typeQualifiedName, const std::string& elementQualifiedName)
+/// Reading the schema metadata: namespaces, parts, enums, particles and types, plus the naming derived from them.
+class GeneratorSchemaReader
 {
-    return typeQualifiedName + '\x1f' + elementQualifiedName;
-}
+public:
+    static NamespaceRegistry BuildNamespaceLookup(const std::vector<NamespaceRecord>& records)
+    {
+        NamespaceRegistry lookup;
+        for (const auto& record : records)
+        {
+            lookup.emplace(record.prefix, record);
+        }
+
+        if (!lookup.contains("ovml"))
+        {
+            if (auto it = lookup.find("o"); it != lookup.end())
+            {
+                auto alias = it->second;
+                alias.prefix = "ovml";
+                alias.isAlias = true;
+                lookup.emplace(alias.prefix, std::move(alias));
+            }
+        }
+
+        return lookup;
+    }
+
+    /**
+     * @brief Maps every namespace URI to the prefix schema files are resolved to.
+     *
+     * More than one prefix can carry the same URI - `ovml` is an alias of `o` - so
+     * the winner has to be chosen explicitly. Taking whichever prefix the
+     * unordered registry happens to yield first makes the choice depend on the
+     * standard library implementation, and with it the namespace group every
+     * type-only schema entry (one without an element QName) lands in: the same
+     * data produced `StrokeChildType` in the `o` header on one platform and in the
+     * `ovml` header on another, leaving the classes deriving from it without a
+     * base. Declared prefixes therefore beat aliases, and among equals the
+     * lexicographically smallest name wins.
+     */
+    static std::unordered_map<std::string, std::string> BuildUriPrefixLookup(const NamespaceRegistry& registry)
+    {
+        std::unordered_map<std::string, std::string> lookup;
+        std::unordered_map<std::string, bool> chosenIsAlias;
+        for (const auto& [prefix, record] : registry)
+        {
+            if (record.uri.empty())
+            {
+                continue;
+            }
+
+            const auto [position, inserted] = lookup.emplace(record.uri, prefix);
+            if (inserted)
+            {
+                chosenIsAlias[record.uri] = record.isAlias;
+                continue;
+            }
+
+            const bool chosenWasAlias = chosenIsAlias[record.uri];
+            const bool isBetter = chosenWasAlias != record.isAlias ? !record.isAlias : prefix < position->second;
+            if (isBetter)
+            {
+                position->second = prefix;
+                chosenIsAlias[record.uri] = record.isAlias;
+            }
+        }
+        return lookup;
+    }
+
+    static QualifiedNameParts SplitQualifiedName(std::string_view value)
+    {
+        QualifiedNameParts parts;
+        if (value.empty())
+        {
+            return parts;
+        }
+
+        const auto colon = value.find(':');
+        if (colon == std::string_view::npos)
+        {
+            parts.localName.assign(value);
+            return parts;
+        }
+
+        parts.prefix.assign(value.substr(0, colon));
+        parts.localName.assign(value.substr(colon + 1));
+        return parts;
+    }
+
+    static std::string ResolveNamespaceUri(const NamespaceRegistry& lookup, const std::string& prefix)
+    {
+        if (prefix.empty())
+        {
+            return {};
+        }
+
+        if (auto it = lookup.find(prefix); it != lookup.end())
+        {
+            return it->second.uri;
+        }
+
+        Logger::Warn({"GEN-UNKNOWN-NAMESPACE-PREFIX",
+                      "namespace-resolution",
+                      "Unknown namespace prefix '" + prefix + "' used in typed schema.",
+                      {},
+                      "namespace",
+                      prefix});
+        return {};
+    }
+
+    static std::string FormatQualifiedNameExpression(const QualifiedNameParts& parts, const NamespaceRegistry& lookup)
+    {
+        const auto uri = ResolveNamespaceUri(lookup, parts.prefix);
+        return "ExyokiOffice::OpenXmlQualifiedName(" + GeneratorText::EscapeForCpp(uri) + ", " + GeneratorText::EscapeForCpp(parts.localName) + ")";
+    }
+
+    static std::string FormatQualifiedNameLiteral(std::string_view namespaceUri, std::string_view localName)
+    {
+        return "ExyokiOffice::OpenXmlQualifiedName(" + GeneratorText::EscapeForCpp(namespaceUri) + ", " + GeneratorText::EscapeForCpp(localName) + ")";
+    }
+
+    static bool ReadBoolProperty(const JsonValue& value, std::string_view name, bool defaultValue = false)
+    {
+        if (const auto* node = value.try_get(name))
+        {
+            if (node->is_bool())
+            {
+                return node->as_bool();
+            }
+        }
+        return defaultValue;
+    }
+
+    static std::string ReadStringProperty(const JsonValue& value, std::string_view name, std::string defaultValue = {})
+    {
+        if (const auto* node = value.try_get(name))
+        {
+            if (node->is_string())
+            {
+                return node->as_string();
+            }
+        }
+        return defaultValue;
+    }
+
+    static PartKind DetectPartKind(std::string_view contentType)
+    {
+        if (contentType.find("+xml") != std::string_view::npos || contentType.find("xml") == contentType.size() - 3 || contentType == "application/xml")
+        {
+            return PartKind::Xml;
+        }
+        return PartKind::Binary;
+    }
+
+    static std::string_view DataReferenceRelationshipType(std::string_view className)
+    {
+        if (className == "AudioReferenceRelationship")
+        {
+            return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio";
+        }
+        if (className == "VideoReferenceRelationship")
+        {
+            return "http://schemas.openxmlformats.org/officeDocument/2006/relationships/video";
+        }
+        if (className == "MediaReferenceRelationship")
+        {
+            return "http://schemas.microsoft.com/office/2007/relationships/media";
+        }
+        throw std::runtime_error("Unknown data part reference relationship type '" + std::string(className) + "'.");
+    }
+
+    static std::string_view GenericPartRootNamespace(std::string_view partName)
+    {
+        if (partName == "CoreFilePropertiesPart")
+        {
+            return "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
+        }
+        if (partName == "XmlSignaturePart")
+        {
+            return "http://www.w3.org/2000/09/xmldsig#";
+        }
+        return {};
+    }
+
+    static PartChildDefinition ParsePartChildDefinition(const JsonValue& value,
+                                                        std::string_view ownerName,
+                                                        std::string_view sourceFile)
+    {
+        PartChildDefinition child;
+        child.apiName = value.at("ApiName").as_string();
+        child.className = value.at("Name").as_string();
+        child.maxOccurs = ReadBoolProperty(value, "MaxOccursGreatThanOne");
+        child.minOccursNonZero = ReadBoolProperty(value, "MinOccursIsNonZero");
+        child.isDataPartReference = ReadBoolProperty(value, "IsDataPartReference");
+
+        GeneratorText::ReportUnhandledProperties(value,
+                                                 "part child",
+                                                 ownerName,
+                                                 sourceFile,
+                                                 {"ApiName",
+                                                  "Name",
+                                                  "MaxOccursGreatThanOne",
+                                                  "MinOccursIsNonZero",
+                                                  "IsDataPartReference",
+                                                  "HasFixedContent",
+                                                  "IsSpecialEmbeddedPart"});
+        return child;
+    }
+
+    /// Reads the Paths object of a part definition.
+    ///
+    /// A part is normally stored in the same folder whatever package it belongs to,
+    /// and then only "General" is present. A part that moves with the application
+    /// carries a folder per family as well; dropping those would put the part in
+    /// the wrong place, so every key is read and anything unrecognized is reported
+    /// instead of being silently ignored.
+    static PartPaths SelectPartPaths(const JsonValue& value, std::string_view ownerName, std::string_view sourceFile)
+    {
+        PartPaths paths;
+        paths.general = ".";
+
+        const auto* pathsValue = value.try_get("Paths");
+        if (!pathsValue || !pathsValue->is_object())
+        {
+            return paths;
+        }
+
+        if (auto general = pathsValue->try_get_string("General"))
+        {
+            paths.general = *general;
+        }
+        if (auto word = pathsValue->try_get_string("Word"))
+        {
+            paths.word = *word;
+        }
+        if (auto excel = pathsValue->try_get_string("Excel"))
+        {
+            paths.excel = *excel;
+        }
+        if (auto powerPoint = pathsValue->try_get_string("PowerPoint"))
+        {
+            paths.powerPoint = *powerPoint;
+        }
+
+        GeneratorText::ReportUnhandledProperties(*pathsValue, "part paths", ownerName, sourceFile,
+                                                 {"General", "Word", "Excel", "PowerPoint"});
+
+        const auto& object = pathsValue->as_object();
+        if (paths.general == "." && !object.empty())
+        {
+            paths.general = object.begin()->second.as_string();
+        }
+
+        return paths;
+    }
+
+    static PartDefinition ParsePartDefinition(const JsonValue& value, const std::filesystem::path& path)
+    {
+        PartDefinition definition;
+        definition.name = value.at("Name").as_string();
+        // Set before anything that reports a diagnostic, so the report names the file.
+        definition.sourceFile = path.filename().generic_string();
+        definition.relationshipType = value.at("RelationshipType").as_string();
+        definition.contentType = ReadStringProperty(value, "ContentType");
+        definition.target = value.at("Target").as_string();
+        definition.extension = ReadStringProperty(value, "Extension");
+        definition.paths = SelectPartPaths(value, definition.name, definition.sourceFile);
+        definition.rootTypeName = ReadStringProperty(value, "Root");
+        const auto rootElementName = ReadStringProperty(value, "RootElement");
+        if (!rootElementName.empty())
+        {
+            if (!definition.rootTypeName.empty())
+            {
+                const auto colon = definition.rootTypeName.find(':');
+                if (colon != std::string::npos)
+                {
+                    definition.rootElementQualifiedName = definition.rootTypeName.substr(0, colon + 1);
+                    definition.rootElementQualifiedName += rootElementName;
+                }
+                else
+                {
+                    definition.rootElementQualifiedName = rootElementName;
+                }
+            }
+            else
+            {
+                definition.rootElementQualifiedName = rootElementName;
+            }
+        }
+        definition.versionExpression =
+            BuildVersionExpression(value.try_get("Version"), definition.name, definition.sourceFile);
+
+        if (!definition.contentType.empty())
+        {
+            definition.kind = DetectPartKind(definition.contentType);
+        }
+        else if (definition.rootElementQualifiedName.empty())
+        {
+            definition.kind = PartKind::Binary;
+        }
+        else
+        {
+            definition.kind = PartKind::Xml;
+        }
+
+        if (definition.extension.empty())
+        {
+            definition.extension = definition.kind == PartKind::Binary ? ".bin" : ".xml";
+        }
+
+        if (const auto* children = value.try_get("Children"); children && children->is_array())
+        {
+            for (const auto& child : children->as_array())
+            {
+                definition.children.push_back(ParsePartChildDefinition(child, definition.name, definition.sourceFile));
+            }
+        }
+
+        GeneratorText::ReportUnhandledProperties(value,
+                                                 "part definition",
+                                                 definition.name,
+                                                 definition.sourceFile,
+                                                 {"Name",
+                                                  "Base",
+                                                  "RelationshipType",
+                                                  "ContentType",
+                                                  "Target",
+                                                  "Extension",
+                                                  "Paths",
+                                                  "Version",
+                                                  "Root",
+                                                  "RootElement",
+                                                  "RootReference",
+                                                  "Children"});
+        return definition;
+    }
+
+    static PackageDefinition ParsePackageDefinition(const JsonValue& value, const std::filesystem::path& path)
+    {
+        PackageDefinition definition;
+        definition.name = value.at("Name").as_string();
+        definition.sourceFile = path.filename().generic_string();
+
+        if (const auto* children = value.try_get("Children"); children && children->is_array())
+        {
+            for (const auto& child : children->as_array())
+            {
+                definition.children.push_back(ParsePartChildDefinition(child, definition.name, definition.sourceFile));
+            }
+        }
+
+        GeneratorText::ReportUnhandledProperties(value,
+                                                 "package definition",
+                                                 definition.name,
+                                                 definition.sourceFile,
+                                                 {"Name", "Base", "Paths", "Children"});
+        return definition;
+    }
+
+    /**
+     * @brief Applies the ExyokiOffice overlay on the imported part folders.
+     *
+     * The imported metadata gives a part one folder relative to whatever parent it
+     * is attached to, which cannot express the parts Office keeps in one fixed place
+     * per document family (`/word/media`, `/ppt/theme`). The overlay supplies those
+     * as absolute paths, so they no longer depend on the parent.
+     *
+     * @param data Parts to patch in place.
+     * @param overlayPath `exyokioffice_part_paths.json`; absent means no overlay.
+     * @throws std::runtime_error when the overlay names a part that does not exist,
+     * which is how a rename in the imported metadata is caught.
+     */
+    static void ApplyPartPathOverlay(PartsData& data, const std::filesystem::path& overlayPath)
+    {
+        if (!std::filesystem::exists(overlayPath))
+        {
+            return;
+        }
+
+        const auto json = GeneratorText::LoadJson(overlayPath);
+        const auto* parts = json.try_get("Parts");
+        if (!parts || !parts->is_object())
+        {
+            throw std::runtime_error("Part path overlay has no 'Parts' object: " + overlayPath.string());
+        }
+
+        std::size_t patched = 0;
+        for (const auto& [name, value] : parts->as_object())
+        {
+            const auto part = std::find_if(data.parts.begin(), data.parts.end(), [&name](const PartDefinition& candidate)
+                                           { return candidate.name == name; });
+            if (part == data.parts.end())
+            {
+                throw std::runtime_error("Part path overlay names unknown part '" + name + "' in " + overlayPath.string());
+            }
+            if (auto word = value.try_get_string("Word"))
+            {
+                part->paths.word = *word;
+            }
+            if (auto excel = value.try_get_string("Excel"))
+            {
+                part->paths.excel = *excel;
+            }
+            if (auto powerPoint = value.try_get_string("PowerPoint"))
+            {
+                part->paths.powerPoint = *powerPoint;
+            }
+            ++patched;
+        }
+        Logger::Info("Applied family folders from the part path overlay to " + std::to_string(patched) + " parts.");
+    }
+
+    static PartsData LoadPartDefinitions(const std::filesystem::path& partsDir)
+    {
+        if (!std::filesystem::exists(partsDir))
+        {
+            throw std::runtime_error("Part definitions directory does not exist: " + partsDir.string());
+        }
+
+        PartsData data;
+        for (const auto& entry : std::filesystem::directory_iterator(partsDir))
+        {
+            if (!entry.is_regular_file() || entry.path().extension() != ".json")
+            {
+                continue;
+            }
+
+            const auto json = GeneratorText::LoadJson(entry.path());
+            const auto base = ReadStringProperty(json, "Base", "OpenXmlPart");
+            if (base == "OpenXmlPackage")
+            {
+                data.packages.push_back(ParsePackageDefinition(json, entry.path()));
+            }
+            else
+            {
+                data.parts.push_back(ParsePartDefinition(json, entry.path()));
+            }
+        }
+
+        auto sortByName = [](auto& container)
+        {
+            std::sort(container.begin(), container.end(), [](const auto& lhs, const auto& rhs)
+                      { return lhs.name < rhs.name; });
+        };
+        sortByName(data.parts);
+        sortByName(data.packages);
+        return data;
+    }
+
+    static void CollectFactoryElements(const std::vector<TypedElement>& elements,
+                                       const TypedNamespace& ns,
+                                       const NamespaceRegistry& registry,
+                                       std::vector<FactoryElementInfo>& output,
+                                       std::unordered_set<std::string>& namespacesUsed)
+    {
+        for (const auto& element : elements)
+        {
+            if (!element.hasElementQualifiedName || element.elementQualifiedName.empty())
+            {
+                continue;
+            }
+
+            const auto qualifiedName = SplitQualifiedName(element.elementQualifiedName);
+            if (qualifiedName.localName.empty())
+            {
+                continue;
+            }
+
+            FactoryElementInfo info;
+            info.namespaceUri = ResolveNamespaceUri(registry, qualifiedName.prefix);
+            info.localName = qualifiedName.localName;
+            info.classQualifiedName = BuildClassQualifiedName(element.className, ns.apiNamespace);
+            output.push_back(std::move(info));
+            namespacesUsed.insert(ns.apiNamespace);
+        }
+    }
+
+    static EnumFacet ParseEnumFacet(const JsonValue& value, std::string_view enumName, std::string_view sourceFile)
+    {
+        if (!value.is_object())
+        {
+            throw std::runtime_error("Enum facet entry is not an object");
+        }
+
+        EnumFacet facet;
+        facet.value = value.at("Value").as_string();
+        std::optional<std::string> nameString = value.try_get_string("Name");
+        facet.name = nameString.value_or(facet.value);
+        auto commentValue = value.try_get_string("Comment");
+        if ((!commentValue || commentValue->empty()))
+        {
+            auto commentsAlt = value.try_get_string("Comments");
+            if (commentsAlt && !commentsAlt->empty())
+            {
+                commentValue = commentsAlt;
+            }
+        }
+        facet.comment = commentValue.value_or("");
+        facet.versionExpression =
+            BuildVersionExpression(value.try_get("Version"), std::string(enumName) + "::" + facet.name, sourceFile);
+
+        if (facet.name == "auto")
+        {
+            facet.name = "Auto";
+        }
+        if (facet.name == "true")
+        {
+            facet.name = "True";
+        }
+        if (facet.name == "Value")
+        {
+            facet.name = "Value_";
+        }
+        if (facet.name == "static")
+        {
+            facet.name = "static_";
+        }
+        if (facet.name == "delete")
+        {
+            facet.name = "delete_";
+        }
+        if (facet.name == "default")
+        {
+            facet.name = "default_";
+        }
+
+        GeneratorText::ReportUnhandledProperties(value,
+                                                 "enum facet",
+                                                 std::string(enumName),
+                                                 sourceFile,
+                                                 {"Value", "Name", "Comment", "Comments", "Version"});
+        return facet;
+    }
+
+    static EnumDefinition ParseEnumDefinition(const JsonValue& value,
+                                              std::string sourceFile,
+                                              const std::string& fallbackPrefix)
+    {
+        if (!value.is_object())
+        {
+            throw std::runtime_error("Enum definition entry is not an object");
+        }
+
+        EnumDefinition definition;
+        definition.className = value.at("Name").as_string();
+        definition.typeQualifiedName = value.at("Type").as_string();
+        if (auto summary = value.try_get_string("Summary"))
+        {
+            definition.summary = *summary;
+        }
+        definition.versionExpression =
+            BuildVersionExpression(value.try_get("Version"), definition.className, sourceFile);
+
+        auto ResolvePrefix = [](std::string_view qualified) -> std::string
+        {
+            auto colon = qualified.find(':');
+            if (colon == std::string_view::npos)
+            {
+                return std::string{};
+            }
+            return std::string(qualified.substr(0, colon));
+        };
+
+        auto prefix = ResolvePrefix(definition.typeQualifiedName);
+        if (prefix.empty())
+        {
+            prefix = fallbackPrefix;
+        }
+        definition.namespacePrefix = std::move(prefix);
+
+        const auto& facets = value.at("Facets");
+        if (!facets.is_array())
+        {
+            throw std::runtime_error("Enum definition '" + definition.className + "' in '" + sourceFile + "' has non-array 'Facets' property.");
+        }
+
+        for (const auto& facet : facets.as_array())
+        {
+            definition.facets.push_back(ParseEnumFacet(facet, definition.className, sourceFile));
+        }
+
+        GeneratorText::ReportUnhandledProperties(value, "enum definition", definition.className, sourceFile,
+                                                 {"Type", "Name", "Summary", "Facets", "Version"});
+        definition.sourceFile = std::move(sourceFile);
+        return definition;
+    }
+
+    static std::string SelectElementQualifiedName(const TypedElement& element)
+    {
+        return element.elementQualifiedName;
+    }
+
+    static NamespaceRecord ParseNamespaceRecord(const JsonValue& value, std::string_view sourceFile)
+    {
+        if (!value.is_object())
+        {
+            throw std::runtime_error("Namespace entry is not an object");
+        }
+
+        NamespaceRecord def;
+        def.prefix = value.at("Prefix").as_string();
+        def.uri = value.at("Uri").as_string();
+        if (auto version = value.try_get_string("Version"))
+        {
+            def.version = *version;
+        }
+
+        GeneratorText::ReportUnhandledProperties(value, "namespace definition", def.prefix, sourceFile, {"Prefix", "Uri", "Version"});
+        return def;
+    }
+
+    static std::vector<NamespaceRecord> LoadNamespaceRecords(const std::filesystem::path& path)
+    {
+        std::vector<NamespaceRecord> namespaces;
+        const auto json = GeneratorText::LoadJson(path);
+        if (!json.is_array())
+        {
+            throw std::runtime_error("Namespace file is expected to be an array");
+        }
+
+        const auto sourceFile = path.generic_string();
+        for (const auto& item : json.as_array())
+        {
+            namespaces.push_back(ParseNamespaceRecord(item, sourceFile));
+        }
+
+        return namespaces;
+    }
+
+    static std::string_view ResolveVersionToken(std::string_view version)
+    {
+        using namespace std::string_view_literals;
+
+        if (version == "Office2007")
+        {
+            return "ExyokiOffice::OpenXml::FileFormatVersions::Office2007"sv;
+        }
+        if (version == "Office2010")
+        {
+            return "ExyokiOffice::OpenXml::FileFormatVersions::Office2010"sv;
+        }
+        if (version == "Office2013")
+        {
+            return "ExyokiOffice::OpenXml::FileFormatVersions::Office2013"sv;
+        }
+        if (version == "Office2016")
+        {
+            return "ExyokiOffice::OpenXml::FileFormatVersions::Office2016"sv;
+        }
+        if (version == "Office2019")
+        {
+            return "ExyokiOffice::OpenXml::FileFormatVersions::Office2019"sv;
+        }
+        if (version == "Office2021")
+        {
+            return "ExyokiOffice::OpenXml::FileFormatVersions::Office2021"sv;
+        }
+        if (version == "Microsoft365")
+        {
+            return "ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365"sv;
+        }
+
+        if (version == "None")
+        {
+            return "ExyokiOffice::OpenXml::FileFormatVersions::None"sv;
+        }
+
+        throw std::runtime_error("Unknown namespace version: " + std::string(version));
+    }
+
+    static std::string_view ResolveVersionToken(const std::string& version)
+    {
+        std::string_view stringView(version);
+        return ResolveVersionToken(stringView);
+    }
+
+    static std::string_view ResolveVersionToken(const std::optional<std::string>& version)
+    {
+        if (!version.has_value() || version->empty())
+        {
+            return kDefaultVersionToken;
+        }
+
+        std::string_view stringView(*version);
+        return ResolveVersionToken(stringView);
+    }
+
+    static std::string_view ResolveVersionToken(const NamespaceRecord& record)
+    {
+        return ResolveVersionToken(record.version);
+    }
+
+    static void WriteNamespaceRegistryFiles(const GeneratorConfig& config, const std::vector<NamespaceRecord>& namespaces)
+    {
+        auto headerPath = config.outputInclude / "ExyokiOffice" / "DOM" / "Namespaces.hpp";
+        auto sourcePath = config.outputSource / "DOM" / "Namespaces.cpp";
+        EnsureDirectory(headerPath.parent_path());
+        EnsureDirectory(sourcePath.parent_path());
+
+        auto namespacesCopy = namespaces;
+        std::sort(namespacesCopy.begin(), namespacesCopy.end(), [](const NamespaceRecord& lhs, const NamespaceRecord& rhs)
+                  { return lhs.prefix < rhs.prefix; });
+
+        std::ostringstream header;
+        header << kGeneratedHeaderWarning;
+        header << "#pragma once\n\n";
+        header << "#include \"ExyokiOffice/FileFormatVersions.h\"\n\n";
+        header << "#include <optional>\n";
+        header << "#include <string_view>\n";
+
+        header << "namespace ExyokiOffice::OpenXml::Features\n{\n";
+
+        header << "struct NamespaceDefinition\n{\n";
+        header << "    std::string_view Prefix;\n";
+        header << "    std::string_view Uri;\n";
+        header << "    ExyokiOffice::OpenXml::FileFormatVersions Version;\n";
+        header << "};\n\n";
+
+        header << "class OpenXmlNamespaceResolver\n{\n";
+        header << "public:\n";
+        header << "    static std::optional<std::string_view> getPrefixForUrl(std::string_view uri);\n";
+        header << "    static std::optional<std::string_view> getUrlForPrefix(std::string_view prefix);\n";
+        header << "    static ExyokiOffice::OpenXml::FileFormatVersions GetVersionForPrefix(std::string_view prefix);\n";
+        header << "};\n";
+        header << "} // namespace ExyokiOffice::OpenXml::Features\n";
+
+        WriteFileText(headerPath, header.str());
+
+        std::ostringstream source;
+        source << kGeneratedHeaderWarning;
+        source << "#include \"ExyokiOffice/DOM/Namespaces.hpp\"\n\n";
+        source << "#include <algorithm>\n";
+        source << "#include <array>\n";
+        source << "#include <optional>\n\n";
+
+        source << "namespace ExyokiOffice::OpenXml::Features\n{\n";
+        source << "namespace\n{\n";
+        source << "constexpr std::array<NamespaceDefinition, " << namespacesCopy.size() << "> kNamespaces = {\n";
+
+        for (const auto& item : namespacesCopy)
+        {
+            source << "    NamespaceDefinition{ "
+                   << GeneratorText::EscapeForCpp(item.prefix) << ", "
+                   << GeneratorText::EscapeForCpp(item.uri) << ", "
+                   << ResolveVersionToken(item) << " },\n";
+        }
+
+        source << "};\n";
+        source << "} // namespace\n\n";
+
+        source << "std::optional<std::string_view> OpenXmlNamespaceResolver::getPrefixForUrl(std::string_view uri)\n";
+        source << "{\n";
+        source << "    auto it = std::find_if(kNamespaces.begin(), kNamespaces.end(), [uri](const NamespaceDefinition& def) {\n";
+        source << "        return def.Uri == uri;\n";
+        source << "    });\n";
+        source << "    if (it == kNamespaces.end())\n";
+        source << "    {\n";
+        source << "        return std::nullopt;\n";
+        source << "    }\n";
+        source << "    return it->Prefix;\n";
+        source << "}\n\n";
+
+        source << "std::optional<std::string_view> OpenXmlNamespaceResolver::getUrlForPrefix(std::string_view prefix)\n";
+        source << "{\n";
+        source << "    auto it = std::lower_bound(kNamespaces.begin(), kNamespaces.end(), prefix,\n";
+        source << "        [](const NamespaceDefinition& def, std::string_view value) { return def.Prefix < value; });\n";
+        source << "    if (it == kNamespaces.end() || it->Prefix != prefix)\n";
+        source << "    {\n";
+        source << "        return std::nullopt;\n";
+        source << "    }\n";
+        source << "    return it->Uri;\n";
+        source << "}\n\n";
+
+        source << "ExyokiOffice::OpenXml::FileFormatVersions OpenXmlNamespaceResolver::GetVersionForPrefix(std::string_view prefix)\n";
+        source << "{\n";
+        source << "    auto it = std::lower_bound(kNamespaces.begin(), kNamespaces.end(), prefix,\n";
+        source << "        [](const NamespaceDefinition& def, std::string_view value) { return def.Prefix < value; });\n";
+        source << "    if (it == kNamespaces.end() || it->Prefix != prefix)\n";
+        source << "    {\n";
+        source << "        return ExyokiOffice::OpenXml::FileFormatVersions::None;\n";
+        source << "    }\n";
+        source << "    return it->Version;\n";
+        source << "}\n";
+        source << "} // namespace ExyokiOffice::OpenXml::Features\n";
+
+        WriteFileText(sourcePath, source.str());
+    }
+
+    static TypedNamespace ParseTypedNamespace(const JsonValue& value, std::string_view sourceFile)
+    {
+        if (!value.is_object())
+        {
+            throw std::runtime_error("Typed namespace entry is not an object");
+        }
+
+        TypedNamespace result;
+        result.prefix = value.at("Prefix").as_string();
+        result.apiNamespace = value.at("Namespace").as_string();
+        GeneratorText::ReportUnhandledProperties(value, "typed namespace", result.prefix, sourceFile, {"Prefix", "Namespace"});
+        return result;
+    }
+
+    static std::vector<std::string> ExtractVersionTokens(const JsonValue* value,
+                                                         std::string_view className,
+                                                         std::string_view sourceFile)
+    {
+        std::vector<std::string> tokens;
+        if (value == nullptr)
+        {
+            return tokens;
+        }
+
+        auto AddFromString = [&tokens](const std::string& raw)
+        {
+            std::string_view remaining(raw);
+            while (true)
+            {
+                const auto separator = remaining.find('|');
+                const auto piece = separator == std::string_view::npos
+                                       ? remaining
+                                       : remaining.substr(0, separator);
+                const auto trimmed = GeneratorText::TrimWhitespace(piece);
+                if (!trimmed.empty())
+                {
+                    tokens.emplace_back(trimmed);
+                }
+
+                if (separator == std::string_view::npos)
+                {
+                    break;
+                }
+
+                remaining.remove_prefix(separator + 1);
+            }
+        };
+
+        if (value->is_string())
+        {
+            AddFromString(value->as_string());
+            return tokens;
+        }
+
+        if (value->is_array())
+        {
+            for (const auto& entry : value->as_array())
+            {
+                if (!entry.is_string())
+                {
+                    throw std::runtime_error(
+                        "Typed element '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines version using non-string entry.");
+                }
+
+                AddFromString(entry.as_string());
+            }
+            return tokens;
+        }
+
+        throw std::runtime_error(
+            "Typed element '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines version using unsupported JSON type.");
+    }
+
+    static std::string BuildVersionExpression(const JsonValue* value,
+                                              std::string_view className,
+                                              std::string_view sourceFile)
+    {
+        const std::vector<std::string> tokens = ExtractVersionTokens(value, className, sourceFile);
+        if (tokens.empty())
+        {
+            return std::string(kDefaultVersionToken);
+        }
+
+        if (tokens.size() == 1)
+        {
+            return std::string(ResolveVersionToken(tokens.front()));
+        }
+
+        std::ostringstream expression;
+        expression << '(';
+        bool first = true;
+        for (const auto& token : tokens)
+        {
+            if (!first)
+            {
+                expression << " | ";
+            }
+
+            expression << ResolveVersionToken(token);
+            first = false;
+        }
+
+        expression << ')';
+        return expression.str();
+    }
+
+    static ParticleOccursRange ParseParticleOccurs(const JsonValue* rangeValue,
+                                                   std::string_view className,
+                                                   std::string_view sourceFile)
+    {
+        ParticleOccursRange range;
+        if (rangeValue == nullptr)
+        {
+            return range;
+        }
+
+        if (!rangeValue->is_array() || rangeValue->as_array().empty())
+        {
+            throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle occurrences using invalid data.");
+        }
+
+        const auto& entry = rangeValue->as_array().front();
+        if (!entry.is_object())
+        {
+            throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle occurrence using non-object value.");
+        }
+
+        if (const auto* minValue = entry.try_get("Min"))
+        {
+            if (!minValue->is_number())
+            {
+                throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle min occurrence using non-number value.");
+            }
+            const auto min = static_cast<std::int64_t>(minValue->as_number());
+            if (min < 0)
+            {
+                throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines negative particle min occurrence.");
+            }
+            range.min = static_cast<std::uint32_t>(min);
+        }
+
+        if (const auto* maxValue = entry.try_get("Max"))
+        {
+            if (!maxValue->is_number())
+            {
+                throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle max occurrence using non-number value.");
+            }
+            const auto max = static_cast<std::int64_t>(maxValue->as_number());
+            if (max < 0)
+            {
+                throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines negative particle max occurrence.");
+            }
+            range.max = static_cast<std::uint32_t>(max);
+        }
+        else
+        {
+            // In the imported schema snapshot an explicitly present occurrence
+            // object without Max represents xsd:maxOccurs="unbounded". A missing
+            // Occurs property still uses ParticleOccursRange's optional 0..1
+            // default, so these two cases must not be collapsed.
+            range.max = std::nullopt;
+        }
+
+        return range;
+    }
+
+    static TypedElement::ParticleDefinition::Kind ParseParticleKind(std::string_view kindText)
+    {
+        using Kind = TypedElement::ParticleDefinition::Kind;
+        if (kindText == "Sequence")
+        {
+            return Kind::Sequence;
+        }
+        if (kindText == "Choice")
+        {
+            return Kind::Choice;
+        }
+        if (kindText == "All")
+        {
+            return Kind::All;
+        }
+        if (kindText == "Group")
+        {
+            return Kind::Group;
+        }
+        if (kindText == "Any")
+        {
+            return Kind::Any;
+        }
+        return Kind::Element;
+    }
+
+    static std::string BuildChildPropertyName(std::string_view qualifiedName)
+    {
+        const auto colon = qualifiedName.find(':');
+        std::string_view local = colon == std::string_view::npos ? qualifiedName : qualifiedName.substr(colon + 1);
+        std::string result(local);
+        if (!result.empty())
+        {
+            result[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(result[0])));
+        }
+        return result;
+    }
+
+    static std::pair<std::string, std::string> SplitParticleName(std::string_view name)
+    {
+        const auto slash = name.find('/');
+        if (slash == std::string_view::npos)
+        {
+            return {std::string(name), std::string(name)};
+        }
+
+        return {std::string(name.substr(0, slash)), std::string(name.substr(slash + 1))};
+    }
+
+    static TypedElement::ParticleDefinition ParseParticleDefinition(const JsonValue& value,
+                                                                    const std::unordered_map<std::string, TypedElement::ChildDefinition>& childLookup,
+                                                                    const std::string& fallbackPrefix,
+                                                                    std::string_view className,
+                                                                    std::string_view sourceFile)
+    {
+        TypedElement::ParticleDefinition definition;
+        auto kindText = value.try_get_string("Kind");
+        if (kindText)
+        {
+            definition.kind = ParseParticleKind(*kindText);
+        }
+        else
+        {
+            definition.kind = TypedElement::ParticleDefinition::Kind::Element;
+        }
+
+        if (const auto* requireFilter = value.try_get("RequireFilter"))
+        {
+            if (!requireFilter->is_bool())
+            {
+                throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle RequireFilter using non-boolean value.");
+            }
+            definition.requireFilter = requireFilter->as_bool();
+        }
+
+        definition.versionExpression =
+            BuildVersionExpression(value.try_get("InitialVersion"), className, sourceFile);
+
+        const auto occursRange = ParseParticleOccurs(value.try_get("Occurs"), className, sourceFile);
+        definition.minOccurs = occursRange.min;
+        definition.maxOccurs = occursRange.max;
+
+        if (definition.kind == TypedElement::ParticleDefinition::Kind::Any)
+        {
+            definition.wildcard = value.try_get_string("Namespace").value_or("");
+        }
+
+        if (const auto* nameValue = value.try_get("Name"))
+        {
+            if (!nameValue->is_string())
+            {
+                throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle name using non-string value.");
+            }
+
+            definition.rawName = nameValue->as_string();
+            const auto [typeName, elementName] = SplitParticleName(definition.rawName);
+            definition.typeQualifiedName = typeName;
+            definition.elementQualifiedName = elementName;
+
+            auto normalizeQualified = [&](const std::string& qualified) -> std::string
+            {
+                auto parts = SplitQualifiedName(qualified);
+                if (parts.prefix.empty())
+                {
+                    parts.prefix = fallbackPrefix;
+                }
+                return parts.prefix + ":" + parts.localName;
+            };
+
+            if (definition.typeQualifiedName.find(':') == std::string::npos)
+            {
+                definition.typeQualifiedName = normalizeQualified(definition.typeQualifiedName);
+            }
+            if (definition.elementQualifiedName.find(':') == std::string::npos)
+            {
+                definition.elementQualifiedName = normalizeQualified(definition.elementQualifiedName);
+            }
+
+            if (const auto it = childLookup.find(definition.rawName); it != childLookup.end())
+            {
+                definition.propertyName = it->second.propertyName;
+                definition.propertyComments = it->second.comments;
+                if (it->second.hasOccurs && !value.try_get("Occurs"))
+                {
+                    definition.minOccurs = it->second.minOccurs;
+                    definition.maxOccurs = it->second.maxOccurs;
+                }
+                else if (it->second.hasOccurs && (definition.minOccurs != it->second.minOccurs || definition.maxOccurs != it->second.maxOccurs))
+                {
+                    throw std::runtime_error("Conflicting Occurs metadata for child '" + definition.rawName + "' on schema type '" + std::string(className) + "'.");
+                }
+            }
+            else
+            {
+                definition.propertyName = BuildChildPropertyName(definition.elementQualifiedName);
+            }
+        }
+
+        if (const auto* items = value.try_get("Items"))
+        {
+            if (!items->is_array())
+            {
+                throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines particle Items using non-array value.");
+            }
+
+            for (const auto& child : items->as_array())
+            {
+                definition.children.push_back(
+                    ParseParticleDefinition(child, childLookup, fallbackPrefix, className, sourceFile));
+            }
+        }
+
+        GeneratorText::ReportUnhandledProperties(value,
+                                                 "particle",
+                                                 std::string(className),
+                                                 sourceFile,
+                                                 {"Kind", "Name", "Items", "Occurs", "InitialVersion", "RequireFilter", "Namespace"});
+        return definition;
+    }
+
+    static std::vector<ValidatorDefinition> ParseValidators(const JsonValue* validatorsValue,
+                                                            std::string_view ownerKind,
+                                                            std::string_view ownerName,
+                                                            std::string_view sourceFile)
+    {
+        std::vector<ValidatorDefinition> validators;
+        if (!validatorsValue)
+        {
+            return validators;
+        }
+        if (!validatorsValue->is_array())
+        {
+            throw std::runtime_error(std::string(ownerKind) + " '" + std::string(ownerName) + "' in '" + std::string(sourceFile) + "' defines Validators using non-array value.");
+        }
+
+        for (const auto& validatorValue : validatorsValue->as_array())
+        {
+            if (!validatorValue.is_object())
+            {
+                throw std::runtime_error("Validator on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' in '" + std::string(sourceFile) + "' is not an object.");
+            }
+
+            ValidatorDefinition validator;
+            validator.name = validatorValue.at("Name").as_string();
+            validator.typeQualifiedName = GeneratorText::NormalizeTypeName(validatorValue.try_get_string("Type").value_or(""));
+            validator.versionExpression = BuildVersionExpression(
+                validatorValue.try_get("Version"), std::string(ownerName) + "::" + validator.name, sourceFile);
+
+            if (const auto* unionId = validatorValue.try_get("UnionId"))
+            {
+                if (!unionId->is_number() || unionId->as_number() < 0.0)
+                {
+                    throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has invalid UnionId.");
+                }
+                const double rawUnionId = unionId->as_number();
+                if (rawUnionId > static_cast<double>(std::numeric_limits<std::uint32_t>::max()))
+                {
+                    throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has out-of-range UnionId.");
+                }
+                const auto parsedUnionId = static_cast<std::uint32_t>(rawUnionId);
+                if (static_cast<double>(parsedUnionId) != rawUnionId)
+                {
+                    throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has non-integral UnionId.");
+                }
+                validator.unionId = parsedUnionId;
+            }
+            if (const auto* isInitial = validatorValue.try_get("IsInitialVersion"))
+            {
+                if (!isInitial->is_bool())
+                {
+                    throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has non-boolean IsInitialVersion.");
+                }
+                validator.isInitialVersion = isInitial->as_bool();
+            }
+            if (const auto* isList = validatorValue.try_get("IsList"))
+            {
+                if (!isList->is_bool())
+                {
+                    throw std::runtime_error("Validator '" + validator.name + "' on " + std::string(ownerKind) + " '" + std::string(ownerName) + "' has non-boolean IsList.");
+                }
+                validator.isList = isList->as_bool();
+            }
+
+            if (const auto* argumentsValue = validatorValue.try_get("Arguments"))
+            {
+                if (!argumentsValue->is_array())
+                {
+                    throw std::runtime_error("Validator '" + validator.name + "' defines Arguments using non-array value.");
+                }
+                for (const auto& argumentValue : argumentsValue->as_array())
+                {
+                    if (!argumentValue.is_object())
+                    {
+                        throw std::runtime_error("Validator '" + validator.name + "' has a non-object argument.");
+                    }
+                    ValidatorArgument argument;
+                    argument.name = argumentValue.try_get_string("Name").value_or("");
+                    argument.type = argumentValue.try_get_string("Type").value_or("String");
+                    if (const auto* valueNode = argumentValue.try_get("Value"))
+                    {
+                        if (valueNode->is_string())
+                        {
+                            argument.value = valueNode->as_string();
+                        }
+                        else if (valueNode->is_number())
+                        {
+                            const double numberValue = valueNode->as_number();
+                            const auto integerValue = static_cast<std::int64_t>(numberValue);
+                            argument.value = static_cast<double>(integerValue) == numberValue
+                                                 ? std::to_string(integerValue)
+                                                 : std::to_string(numberValue);
+                        }
+                        else if (valueNode->is_bool())
+                        {
+                            argument.value = valueNode->as_bool() ? "true" : "false";
+                        }
+                        else
+                        {
+                            throw std::runtime_error("Validator '" + validator.name + "' has unsupported argument value type.");
+                        }
+                    }
+                    validator.arguments.push_back(std::move(argument));
+                }
+            }
+
+            GeneratorText::ReportUnhandledProperties(validatorValue, "validator", validator.name, sourceFile,
+                                                     {"Name", "Type", "Version", "UnionId", "IsInitialVersion", "IsList", "Arguments"});
+            validators.push_back(std::move(validator));
+        }
+        return validators;
+    }
+
+    static TypedElement ParseSchemaType(const JsonValue& value,
+                                        std::string sourceFile,
+                                        const std::string& fallbackPrefix)
+    {
+        if (!value.is_object())
+        {
+            throw std::runtime_error("Schema type entry is not an object");
+        }
+
+        TypedElement element;
+        element.className = value.at("ClassName").as_string();
+        if (auto summary = value.try_get_string("Summary"))
+        {
+            element.summary = *summary;
+        }
+
+        if (auto baseClass = value.try_get_string("BaseClass"))
+        {
+            element.baseClassName = GeneratorText::NormalizeTypeName(*baseClass);
+        }
+        else
+        {
+            element.baseClassName.assign(kDefaultBaseClass);
+        }
+        element.partClassName = value.try_get_string("Part").value_or("");
+
+        const auto& name = value.at("Name").as_string();
+        const auto separator = name.find('/');
+        if (separator == std::string::npos)
+        {
+            throw std::runtime_error("Schema type name does not contain '/' separator: " + name);
+        }
+
+        element.typeQualifiedName = name.substr(0, separator);
+        if (separator + 1 < name.size())
+        {
+            element.elementQualifiedName = name.substr(separator + 1);
+            element.hasElementQualifiedName = !element.elementQualifiedName.empty();
+        }
+
+        auto ResolvePrefix = [](std::string_view qualified) -> std::string
+        {
+            auto colon = qualified.find(':');
+            if (colon == std::string_view::npos)
+            {
+                return std::string{};
+            }
+
+            return std::string(qualified.substr(0, colon));
+        };
+
+        auto derivedPrefix = ResolvePrefix(element.elementQualifiedName);
+        if (derivedPrefix.empty())
+        {
+            derivedPrefix = fallbackPrefix;
+        }
+        element.namespacePrefix = std::move(derivedPrefix);
+
+        auto AssignBooleanProperty = [&](std::string_view key, bool& target)
+        {
+            if (const auto* flag = value.try_get(key))
+            {
+                if (!flag->is_bool())
+                {
+                    throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines " + std::string(key) + " using non-boolean value.");
+                }
+
+                target = flag->as_bool();
+            }
+        };
+
+        AssignBooleanProperty("IsAbstract", element.isAbstract);
+        AssignBooleanProperty("IsDerived", element.isDerived);
+        AssignBooleanProperty("IsLeafElement", element.isLeafElement);
+        AssignBooleanProperty("IsLeafText", element.isLeafText);
+
+        if (const auto* attributes = value.try_get("Attributes"))
+        {
+            if (!attributes->is_array())
+            {
+                throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines Attributes using non-array value.");
+            }
+
+            for (const auto& attributeValue : attributes->as_array())
+            {
+                if (!attributeValue.is_object())
+                {
+                    throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' has attribute entry that is not an object.");
+                }
+
+                AttributeDefinition definition;
+                const auto qNameText = attributeValue.at("QName").as_string();
+                auto parts = SplitQualifiedName(qNameText);
+                if (parts.prefix.empty() && qNameText.find(':') == std::string::npos)
+                {
+                    parts.prefix = fallbackPrefix;
+                }
+
+                definition.qName = std::move(parts);
+
+                if (auto propertyName = attributeValue.try_get_string("PropertyName"))
+                {
+                    definition.propertyName = *propertyName;
+                }
+                else
+                {
+                    definition.propertyName = definition.qName.localName;
+                    if (!definition.propertyName.empty())
+                    {
+                        definition.propertyName[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(definition.propertyName[0])));
+                    }
+                }
+
+                definition.typeName = GeneratorText::ConvertTypeNameForCpp(attributeValue.at("Type").as_string());
+                definition.comment = attributeValue.try_get_string("PropertyComments").value_or("");
+                definition.versionExpression =
+                    BuildVersionExpression(attributeValue.try_get("Version"),
+                                           element.className + "::" + definition.propertyName,
+                                           sourceFile);
+                definition.sourceFile = sourceFile;
+
+                definition.validators = ParseValidators(attributeValue.try_get("Validators"),
+                                                        "schema attribute",
+                                                        element.className + "::" + definition.propertyName,
+                                                        sourceFile);
+
+                GeneratorText::ReportUnhandledProperties(attributeValue,
+                                                         "schema attribute",
+                                                         definition.propertyName,
+                                                         sourceFile,
+                                                         {"QName", "PropertyName", "Type", "PropertyComments", "Version", "Validators"});
+
+                element.attributes.push_back(std::move(definition));
+            }
+        }
+
+        if (const auto* children = value.try_get("Children"))
+        {
+            if (!children->is_array())
+            {
+                throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines Children using non-array value.");
+            }
+
+            for (const auto& childValue : children->as_array())
+            {
+                if (!childValue.is_object())
+                {
+                    throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines child entry using non-object value.");
+                }
+
+                TypedElement::ChildDefinition child;
+                child.rawName = childValue.at("Name").as_string();
+                if (auto propertyName = childValue.try_get_string("PropertyName"))
+                {
+                    child.propertyName = *propertyName;
+                }
+                else
+                {
+                    child.propertyName = BuildChildPropertyName(child.rawName);
+                }
+                child.comments = childValue.try_get_string("PropertyComments").value_or("");
+                if (const auto* occurs = childValue.try_get("Occurs"))
+                {
+                    const auto range = ParseParticleOccurs(occurs, element.className, sourceFile);
+                    child.minOccurs = range.min;
+                    child.maxOccurs = range.max;
+                    child.hasOccurs = true;
+                }
+
+                GeneratorText::ReportUnhandledProperties(childValue,
+                                                         "typed child",
+                                                         child.rawName,
+                                                         sourceFile,
+                                                         {"Name", "PropertyName", "PropertyComments", "Occurs"});
+                element.children.push_back(std::move(child));
+            }
+        }
+
+        if (const auto* additionalElements = value.try_get("AdditionalElements"))
+        {
+            const auto addAdditional = [&](std::string_view rawName)
+            {
+                TypedElement::AdditionalElementDefinition additional;
+                additional.rawName = std::string(rawName);
+                auto [typeName, elementName] = SplitParticleName(rawName);
+                const auto normalize = [&](std::string name)
+                {
+                    return name.find(':') == std::string::npos ? fallbackPrefix + ":" + name : name;
+                };
+                additional.typeQualifiedName = normalize(std::move(typeName));
+                additional.elementQualifiedName = normalize(std::move(elementName));
+                element.additionalElements.push_back(std::move(additional));
+            };
+
+            if (additionalElements->is_string())
+            {
+                addAdditional(additionalElements->as_string());
+            }
+            else if (additionalElements->is_array())
+            {
+                for (const auto& item : additionalElements->as_array())
+                {
+                    if (!item.is_string())
+                    {
+                        throw std::runtime_error("Schema type '" + element.className + "' has a non-string AdditionalElements entry.");
+                    }
+                    addAdditional(item.as_string());
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Schema type '" + element.className + "' defines AdditionalElements using unsupported JSON type.");
+            }
+        }
+
+        std::unordered_map<std::string, TypedElement::ChildDefinition> childLookup;
+        for (const auto& child : element.children)
+        {
+            childLookup.emplace(child.rawName, child);
+        }
+
+        if (const auto* particleValue = value.try_get("Particle"))
+        {
+            if (!particleValue->is_object())
+            {
+                throw std::runtime_error("Schema type '" + element.className + "' in '" + sourceFile + "' defines Particle using non-object value.");
+            }
+
+            element.particle = ParseParticleDefinition(*particleValue,
+                                                       childLookup,
+                                                       fallbackPrefix,
+                                                       element.className,
+                                                       sourceFile);
+        }
+
+        element.validators = ParseValidators(value.try_get("Validators"),
+                                             "schema type",
+                                             element.className,
+                                             sourceFile);
+
+        if (!element.isAbstract && !element.hasElementQualifiedName)
+        {
+            Logger::Warn({"GEN-MISSING-ELEMENT-QNAME",
+                          "schema-definition",
+                          "Schema type '" + element.className + "' defined in '" + sourceFile + "' is missing element qualified name but is not marked abstract.",
+                          sourceFile,
+                          "schema type",
+                          element.className});
+        }
+
+        const auto* version = value.try_get("Version");
+        element.versionExpression = BuildVersionExpression(version, element.className, sourceFile);
+        GeneratorText::ReportUnhandledProperties(value, "schema type", element.className, sourceFile,
+                                                 {"Name", "ClassName", "BaseClass", "Summary", "Version", "IsAbstract",
+                                                  "IsDerived", "IsLeafElement", "IsLeafText", "Attributes", "Children", "Particle",
+                                                  "CompositeType", "Validators", "Part", "AdditionalElements"});
+        element.sourceFile = std::move(sourceFile);
+        return element;
+    }
+
+    static std::vector<TypedNamespace> LoadTypedNamespaces(const std::filesystem::path& path)
+    {
+        std::vector<TypedNamespace> result;
+        const auto json = GeneratorText::LoadJson(path);
+        if (!json.is_array())
+        {
+            throw std::runtime_error("Typed namespaces file is expected to be an array");
+        }
+
+        const auto sourceFile = path.generic_string();
+        for (const auto& item : json.as_array())
+        {
+            result.push_back(ParseTypedNamespace(item, sourceFile));
+        }
+
+        return result;
+    }
+
+    static SchemaData LoadSchemaElements(const std::filesystem::path& schemasRoot,
+                                         const NamespaceRegistry& namespaceRegistry)
+    {
+        SchemaData data;
+        const auto files = EnumerateFiles(schemasRoot, ".json");
+        const auto uriLookup = BuildUriPrefixLookup(namespaceRegistry);
+        for (const auto& file : files)
+        {
+            const auto json = GeneratorText::LoadJson(file);
+            if (!json.is_object())
+            {
+                throw std::runtime_error("Schema file is expected to be an object: " + file.string());
+            }
+
+            const auto relative = std::filesystem::relative(file, schemasRoot).generic_string();
+            const auto targetNamespace = json.at("TargetNamespace").as_string();
+            auto prefixIt = uriLookup.find(targetNamespace);
+            if (prefixIt == uriLookup.end())
+            {
+                Logger::Warn({"GEN-UNREGISTERED-TARGET-NAMESPACE",
+                              "namespace-resolution",
+                              "Target namespace '" + targetNamespace + "' defined in '" + relative + "' is not registered in namespaces.json. Skipping file.",
+                              relative,
+                              "schema file",
+                              targetNamespace});
+                continue;
+            }
+
+            if (const JsonValue* typesValue = json.try_get("Types"))
+            {
+                if (!typesValue->is_array())
+                {
+                    throw std::runtime_error("Schema file '" + file.string() + "' has non-array 'Types' property.");
+                }
+
+                for (const auto& item : typesValue->as_array())
+                {
+                    data.elements.push_back(ParseSchemaType(item, relative, prefixIt->second));
+                }
+            }
+
+            if (const auto* enumsValue = json.try_get("Enums"))
+            {
+                if (!enumsValue->is_array())
+                {
+                    throw std::runtime_error("Schema file '" + file.string() + "' has non-array 'Enums' property.");
+                }
+
+                for (const auto& entry : enumsValue->as_array())
+                {
+                    data.enums.push_back(ParseEnumDefinition(entry, relative, prefixIt->second));
+                }
+            }
+
+            GeneratorText::ReportUnhandledProperties(json, "schema file", targetNamespace, relative, {"TargetNamespace", "Types", "Enums"});
+        }
+
+        return data;
+    }
+
+    /**
+     * @brief Extends imported content models with markup Office writes but the import omits.
+     *
+     * The imported metadata models a handful of types more narrowly than the
+     * applications write them - `w:CT_RPrBaseStyleable` carries no run-property
+     * extensions even though Word puts `w14:ligatures` into the document defaults of
+     * every file it saves. The overlay appends particle items to the top-level
+     * content model of a named type, and belongs to this repository rather than to
+     * the import, so it survives a re-import of `data/schemas`.
+     *
+     * The appended items get no `Children` entry, so they add nothing to the
+     * generated API: they only widen what the validator accepts.
+     *
+     * @param data Schema types to patch in place.
+     * @param overlayPath `exyokioffice_particle_extras.json`; absent means no overlay.
+     * @throws std::runtime_error when the overlay names a type that no longer exists
+     * or that has no content model, which is how a rename in the import is caught.
+     */
+    static void ApplyParticleOverlay(SchemaData& data, const std::filesystem::path& overlayPath)
+    {
+        if (!std::filesystem::exists(overlayPath))
+        {
+            return;
+        }
+
+        const auto json = GeneratorText::LoadJson(overlayPath);
+        const auto* types = json.try_get("Types");
+        if (!types || !types->is_array())
+        {
+            throw std::runtime_error("Particle overlay has no 'Types' array: " + overlayPath.string());
+        }
+
+        const auto sourceFile = overlayPath.filename().generic_string();
+        std::size_t patched = 0;
+        for (const auto& entry : types->as_array())
+        {
+            const auto name = entry.at("Type").as_string();
+            const auto element = std::find_if(data.elements.begin(), data.elements.end(),
+                                              [&name](const TypedElement& candidate)
+                                              {
+                                                  return candidate.typeQualifiedName + "/" + candidate.elementQualifiedName == name;
+                                              });
+            if (element == data.elements.end())
+            {
+                throw std::runtime_error("Particle overlay names unknown schema type '" + name + "' in " + overlayPath.string());
+            }
+            if (!element->particle)
+            {
+                throw std::runtime_error("Particle overlay extends schema type '" + name + "', which has no content model, in " + overlayPath.string());
+            }
+
+            const auto& items = entry.at("AppendItems");
+            if (!items.is_array())
+            {
+                throw std::runtime_error("Particle overlay entry '" + name + "' defines AppendItems using a non-array value.");
+            }
+
+            const std::unordered_map<std::string, TypedElement::ChildDefinition> noChildren;
+            for (const auto& item : items.as_array())
+            {
+                element->particle->children.push_back(ParseParticleDefinition(item,
+                                                                              noChildren,
+                                                                              element->namespacePrefix,
+                                                                              element->className,
+                                                                              sourceFile));
+            }
+            ++patched;
+        }
+
+        Logger::Info("Applied content-model additions from the particle overlay to " + std::to_string(patched) + " schema types.");
+    }
+
+    static std::vector<std::string> SplitNamespace(std::string_view value)
+    {
+        std::vector<std::string> parts;
+        std::size_t start = 0;
+        while (start <= value.size())
+        {
+            const auto dot = value.find('.', start);
+            if (dot == std::string_view::npos)
+            {
+                parts.emplace_back(value.substr(start));
+                break;
+            }
+
+            parts.emplace_back(value.substr(start, dot - start));
+            start = dot + 1;
+        }
+
+        return parts;
+    }
+
+    static std::filesystem::path NamespaceToPath(std::string_view ns)
+    {
+        std::filesystem::path path;
+        const auto parts = SplitNamespace(ns);
+        for (const auto& part : parts)
+        {
+            path /= part;
+        }
+
+        path.replace_extension(".hpp");
+        return path;
+    }
+
+    static std::filesystem::path NamespaceToEnumHeaderPath(std::string_view ns)
+    {
+        auto path = NamespaceToPath(ns);
+        const auto extension = path.extension().string();
+        const auto stem = path.stem().string();
+        std::string enumFileName = stem;
+        enumFileName += ".Enums";
+        enumFileName += extension;
+        path.replace_filename(enumFileName);
+        return path;
+    }
+
+    static std::string_view GetSimpleClassName(std::string_view qualified)
+    {
+        const auto pos = qualified.rfind("::");
+        if (pos == std::string_view::npos)
+        {
+            return qualified;
+        }
+
+        return qualified.substr(pos + 2);
+    }
+
+    static std::string BuildNamespaceQualifier(std::string_view apiNamespace, bool includeRoot)
+    {
+        std::string qualifier;
+        if (includeRoot)
+        {
+            qualifier = "ExyokiOffice";
+        }
+
+        const auto parts = SplitNamespace(apiNamespace);
+        for (const auto& part : parts)
+        {
+            if (!qualifier.empty())
+            {
+                qualifier += "::";
+            }
+            qualifier += part;
+        }
+
+        return qualifier;
+    }
+
+    static std::string BuildEnumQualifiedName(const std::string& className, std::string_view apiNamespace)
+    {
+        auto qualifier = BuildNamespaceQualifier(apiNamespace, true);
+        if (qualifier.empty())
+        {
+            return className;
+        }
+
+        qualifier += "::";
+        qualifier += className;
+        return qualifier;
+    }
+
+    static std::string BuildEnumIncludePath(std::string_view apiNamespace)
+    {
+        const auto relativeHeader = NamespaceToEnumHeaderPath(apiNamespace);
+        const auto path = (std::filesystem::path("ExyokiOffice") / "DOM" / relativeHeader).generic_string();
+        return path;
+    }
+
+    static std::string BuildClassQualifiedName(std::string_view className, std::string_view apiNamespace)
+    {
+        auto qualifier = BuildNamespaceQualifier(apiNamespace, true);
+        if (qualifier.empty())
+        {
+            return std::string(className);
+        }
+
+        qualifier += "::";
+        qualifier += className;
+        return qualifier;
+    }
+};
+
+/// Turning validator and Schematron metadata into C++ expressions.
+class GeneratorValidatorExpressions
+{
+public:
+    /** Joins a schema type QName and an element QName into one lookup key. */
+    static std::string MakeTypeElementKey(const std::string& typeQualifiedName, const std::string& elementQualifiedName)
+    {
+        return typeQualifiedName + '\x1f' + elementQualifiedName;
+    }
+
+    static const ValidatorArgument* FindValidatorArgument(
+        const ValidatorDefinition& validator,
+        std::string_view name)
+    {
+        for (const auto& argument : validator.arguments)
+        {
+            if (argument.name == name)
+            {
+                return &argument;
+            }
+        }
+        return nullptr;
+    }
+
+    static std::optional<std::size_t> ReadSizeArgument(const ValidatorDefinition& validator,
+                                                       std::string_view name)
+    {
+        const auto* argument = FindValidatorArgument(validator, name);
+        if (!argument)
+        {
+            return std::nullopt;
+        }
+
+        try
+        {
+            const auto value = std::stoll(argument->value);
+            if (value < 0)
+            {
+                return std::nullopt;
+            }
+            return static_cast<std::size_t>(value);
+        }
+        catch (const std::exception&)
+        {
+            throw std::runtime_error("Validator '" + validator.name + "' has invalid integer argument '" + std::string(name) + "'.");
+        }
+    }
+
+    static std::optional<double> ReadDoubleArgument(const ValidatorDefinition& validator,
+                                                    std::string_view name)
+    {
+        const auto* argument = FindValidatorArgument(validator, name);
+        if (!argument)
+        {
+            return std::nullopt;
+        }
+
+        try
+        {
+            return std::stod(argument->value);
+        }
+        catch (const std::exception&)
+        {
+            throw std::runtime_error("Validator '" + validator.name + "' has invalid floating-point argument '" + std::string(name) + "'.");
+        }
+    }
+
+    static std::optional<bool> ReadBoolArgument(const ValidatorDefinition& validator,
+                                                std::string_view name)
+    {
+        const auto* argument = FindValidatorArgument(validator, name);
+        if (!argument)
+        {
+            return std::nullopt;
+        }
+
+        std::string text = argument->value;
+        std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch)
+                       { return static_cast<char>(std::tolower(ch)); });
+
+        if (text == "true")
+        {
+            return true;
+        }
+        if (text == "false")
+        {
+            return false;
+        }
+
+        throw std::runtime_error("Validator '" + validator.name + "' has invalid boolean argument '" + std::string(name) + "'.");
+    }
+
+    static std::optional<std::string> ReadStringArgument(const ValidatorDefinition& validator,
+                                                         std::string_view name)
+    {
+        const auto* argument = FindValidatorArgument(validator, name);
+        if (!argument)
+        {
+            return std::nullopt;
+        }
+
+        return argument->value;
+    }
+
+    static std::string FormatOptionalSizeExpression(const std::optional<std::size_t>& value)
+    {
+        if (!value.has_value())
+        {
+            return "std::optional<ExyokiOffice::Size>{}";
+        }
+
+        std::ostringstream expr;
+        expr << "std::optional<ExyokiOffice::Size>{" << *value << "}";
+        return expr.str();
+    }
+
+    static std::string FormatOptionalDoubleExpression(const std::optional<double>& value)
+    {
+        if (!value.has_value())
+        {
+            return "std::optional<ExyokiOffice::Real>{}";
+        }
+
+        std::ostringstream expr;
+        expr << "std::optional<ExyokiOffice::Real>{" << *value << "}";
+        return expr.str();
+    }
+
+    static std::string FormatOptionalStringExpression(const std::optional<std::string>& value)
+    {
+        if (!value.has_value() || value->empty())
+        {
+            return "std::optional<std::string>{}";
+        }
+
+        return "std::optional<std::string>{std::string(" + GeneratorText::EscapeForCpp(*value) + ")}";
+    }
+
+    static std::string BoolLiteral(bool value)
+    {
+        return value ? "true" : "false";
+    }
+
+    static std::string FormatEnumRulesExpression(const ValidatorDefinition& validator,
+                                                 const EnumFacetLookup& enumFacets,
+                                                 std::string_view ownerName,
+                                                 std::string_view sourceFile)
+    {
+        const auto found = enumFacets.find(validator.typeQualifiedName);
+        if (found == enumFacets.end())
+        {
+            throw std::runtime_error("EnumValidator on '" + std::string(ownerName) + "' in '" + std::string(sourceFile) + "' references unknown enum type '" + validator.typeQualifiedName + "'.");
+        }
+
+        std::ostringstream expression;
+        expression << "std::vector<ExyokiOffice::MetadataEnumRule>{ExyokiOffice::MetadataEnumRule{{";
+        bool firstValue = true;
+        for (const auto& value : found->second)
+        {
+            if (!firstValue)
+            {
+                expression << ", ";
+            }
+            firstValue = false;
+            expression << GeneratorText::EscapeForCpp(value);
+        }
+        expression << "}, " << validator.versionExpression << ", " << validator.unionId.value_or(0) << ", "
+                   << BoolLiteral(validator.isInitialVersion) << "}}";
+        return expression.str();
+    }
+
+    static std::optional<std::string> ResolveEnumValueValidatorType(const std::string& attributeType)
+    {
+        constexpr std::string_view prefix = "EnumValue<";
+        if (attributeType.rfind(prefix, 0) != 0)
+        {
+            return std::nullopt;
+        }
+
+        if (attributeType.back() != '>')
+        {
+            return std::nullopt;
+        }
+
+        return attributeType;
+    }
+
+    static bool IsElementLocalSchematronRule(SchematronPatternKind kind) noexcept
+    {
+        switch (kind)
+        {
+            case SchematronPatternKind::AttributeRegex:
+            case SchematronPatternKind::AttributeStringLength:
+            case SchematronPatternKind::AttributeNumericComparison:
+            case SchematronPatternKind::AttributeNumericRange:
+            case SchematronPatternKind::AttributeEquality:
+            case SchematronPatternKind::AttributeInequality:
+            case SchematronPatternKind::AttributeAllowedValues:
+            case SchematronPatternKind::AttributePresence:
+            case SchematronPatternKind::AttributeImplication:
+            case SchematronPatternKind::AttributeMutualExclusion:
+            case SchematronPatternKind::AttributeForbiddenValues:
+            case SchematronPatternKind::AttributeNumericAttributeComparison:
+            case SchematronPatternKind::AttributeConditionalPresence:
+            case SchematronPatternKind::AttributeConditionalRequiredValue:
+            case SchematronPatternKind::AttributeConditionalAllowedValues:
+            case SchematronPatternKind::AttributeConditionalForbiddenValues:
+            case SchematronPatternKind::AttributeConditionalPresenceAllowedValues:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    static std::string FormatSchematronComparisonExpression(const std::string& comparison)
+    {
+        if (comparison == "<")
+        {
+            return "ExyokiOffice::MetadataSchematronComparisonOperator::LessThan";
+        }
+        if (comparison == "<=")
+        {
+            return "ExyokiOffice::MetadataSchematronComparisonOperator::LessThanOrEqual";
+        }
+        if (comparison == ">")
+        {
+            return "ExyokiOffice::MetadataSchematronComparisonOperator::GreaterThan";
+        }
+        if (comparison == ">=")
+        {
+            return "ExyokiOffice::MetadataSchematronComparisonOperator::GreaterThanOrEqual";
+        }
+        throw std::runtime_error("Unsupported schematron comparison operator '" + comparison + "'.");
+    }
+
+    static std::string FormatNumericLiteral(const std::string& text)
+    {
+        auto numericText = text;
+        if (!numericText.empty() && (numericText.back() == 'f' || numericText.back() == 'F'))
+        {
+            numericText.pop_back();
+        }
+
+        double value = 0.0;
+        std::size_t consumed = 0;
+        const bool negative = !numericText.empty() && numericText.front() == '-';
+        const auto hexOffset = negative ? 1u : 0u;
+        const bool isHex = numericText.size() > hexOffset + 2 && numericText[hexOffset] == '0' && (numericText[hexOffset + 1] == 'x' || numericText[hexOffset + 1] == 'X');
+        if (isHex)
+        {
+            const auto parsed = std::stoull(numericText.substr(hexOffset + 2), &consumed, 16);
+            if (consumed != numericText.size() - hexOffset - 2)
+            {
+                throw std::runtime_error("Invalid numeric schematron operand '" + text + "'.");
+            }
+            value = static_cast<double>(parsed);
+            if (negative)
+            {
+                value = -value;
+            }
+        }
+        else
+        {
+            value = std::stod(numericText, &consumed);
+            if (consumed != numericText.size())
+            {
+                throw std::runtime_error("Invalid numeric schematron operand '" + text + "'.");
+            }
+        }
+
+        std::ostringstream output;
+        output << std::setprecision(17) << value;
+        auto result = output.str();
+        if (result.find_first_of(".eE") == std::string::npos)
+        {
+            result += ".0";
+        }
+        return result;
+    }
+
+    /**
+     * @brief Reports whether a schematron operand was written as a hexadecimal literal.
+     *
+     * A rule bounds an attribute with `0x80000000` only where the attribute itself
+     * carries a hexadecimal value: `w14:paraId`, `w14:textId` and `w14:val` are all
+     * `ST_LongHexNumber`, whose lexical space is eight hexadecimal digits with no
+     * prefix. The radix of the bound is therefore also the radix of the value, and
+     * it is the only place the imported rules record it.
+     */
+    static bool IsHexNumericLiteral(std::string_view text) noexcept
+    {
+        if (!text.empty() && text.front() == '-')
+        {
+            text.remove_prefix(1);
+        }
+        return text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X');
+    }
+
+    static std::string FormatSchematronNumberFormatArgument(const SchematronRule& rule)
+    {
+        const bool hex = std::any_of(rule.operands.begin(), rule.operands.end(),
+                                     [](const std::string& operand)
+                                     { return IsHexNumericLiteral(operand); });
+        return hex ? ", ExyokiOffice::MetadataSchematronNumberFormat::Hexadecimal" : std::string{};
+    }
+
+    static std::string FormatStringVectorRange(const std::vector<std::string>& values, std::size_t firstValue, std::size_t endValue)
+    {
+        std::ostringstream expression;
+        expression << "std::vector<std::string>{";
+        for (std::size_t i = firstValue; i < endValue; ++i)
+        {
+            if (i != firstValue)
+            {
+                expression << ", ";
+            }
+            expression << GeneratorText::EscapeForCpp(values[i]);
+        }
+        expression << "}";
+        return expression.str();
+    }
+
+    static std::string FormatStringVectorExpression(const std::vector<std::string>& values, std::size_t firstValue)
+    {
+        return FormatStringVectorRange(values, firstValue, values.size());
+    }
+
+    static QualifiedNameParts ResolveSchematronOperandAttributeName(const std::string& operand,
+                                                                    const QualifiedNameParts& defaultQName)
+    {
+        auto parts = GeneratorSchemaReader::SplitQualifiedName(operand);
+        if (parts.prefix.empty())
+        {
+            parts.prefix = defaultQName.prefix;
+        }
+        return parts;
+    }
+
+    static std::string FormatSchematronOperandAttributeExpression(const std::string& operand,
+                                                                  const QualifiedNameParts& defaultQName,
+                                                                  const NamespaceRegistry& namespaceRegistry)
+    {
+        return GeneratorSchemaReader::FormatQualifiedNameExpression(
+            ResolveSchematronOperandAttributeName(operand, defaultQName),
+            namespaceRegistry);
+    }
+
+    static std::string FormatSchematronAttributeVectorExpression(const std::vector<std::string>& values,
+                                                                 const QualifiedNameParts& defaultQName,
+                                                                 const NamespaceRegistry& namespaceRegistry)
+    {
+        std::ostringstream output;
+        output << "std::vector<ExyokiOffice::OpenXmlQualifiedName>{";
+        for (std::size_t i = 0; i < values.size(); ++i)
+        {
+            if (i != 0)
+            {
+                output << ", ";
+            }
+            output << FormatSchematronOperandAttributeExpression(values[i], defaultQName, namespaceRegistry);
+        }
+        output << "}";
+        return output.str();
+    }
+
+    static std::string FormatSchematronAttributeConstraintExpression(const SchematronRule& rule,
+                                                                     const QualifiedNameParts& attributeQName,
+                                                                     const NamespaceRegistry& namespaceRegistry)
+    {
+        const auto attributeExpression = GeneratorSchemaReader::FormatQualifiedNameExpression(attributeQName, namespaceRegistry);
+        const auto testExpression = GeneratorText::EscapeForCpp(rule.test);
+
+        auto requireOperandCount = [&](std::size_t count)
+        {
+            if (rule.operands.size() != count)
+            {
+                throw std::runtime_error("Schematron rule for '" + rule.context + "' has unexpected operand count.");
+            }
+        };
+
+        std::ostringstream output;
+        output << "std::make_shared<";
+        switch (rule.kind)
+        {
+            case SchematronPatternKind::AttributePresence:
+                requireOperandCount(1);
+                output << "ExyokiOffice::MetadataSchematronAttributePresenceConstraint>("
+                       << attributeExpression << ", " << testExpression << ")";
+                break;
+            case SchematronPatternKind::AttributeRegex:
+                requireOperandCount(2);
+                output << "ExyokiOffice::MetadataSchematronAttributeRegexConstraint>("
+                       << attributeExpression << ", " << GeneratorText::EscapeForCpp(rule.operands[1]) << ", " << testExpression << ")";
+                break;
+            case SchematronPatternKind::AttributeStringLength:
+                requireOperandCount(3);
+                output << "ExyokiOffice::MetadataSchematronAttributeStringLengthConstraint>(" << attributeExpression << ", ";
+                if (rule.operands[1] == "<" || rule.operands[1] == "<=" || rule.operands[1] == ">" || rule.operands[1] == ">=")
+                {
+                    output << FormatSchematronComparisonExpression(rule.operands[1]) << ", "
+                           << rule.operands[2] << "u, " << testExpression << ")";
+                }
+                else
+                {
+                    output << rule.operands[1] << "u, " << rule.operands[2] << "u, " << testExpression << ")";
+                }
+                break;
+            case SchematronPatternKind::AttributeNumericRange:
+                if (rule.operands.size() == 3)
+                {
+                    output << "ExyokiOffice::MetadataSchematronAttributeNumericRangeConstraint>("
+                           << attributeExpression << ", " << FormatNumericLiteral(rule.operands[1]) << ", "
+                           << FormatNumericLiteral(rule.operands[2]) << ", " << testExpression
+                           << FormatSchematronNumberFormatArgument(rule) << ")";
+                }
+                else if (rule.operands.size() == 5)
+                {
+                    output << "ExyokiOffice::MetadataSchematronAttributeNumericRangeConstraint>("
+                           << attributeExpression << ", " << FormatSchematronComparisonExpression(rule.operands[1]) << ", "
+                           << FormatNumericLiteral(rule.operands[2]) << ", "
+                           << FormatSchematronComparisonExpression(rule.operands[3]) << ", "
+                           << FormatNumericLiteral(rule.operands[4]) << ", " << testExpression
+                           << FormatSchematronNumberFormatArgument(rule) << ")";
+                }
+                else
+                {
+                    throw std::runtime_error("Schematron numeric range rule for '" + rule.context + "' has unexpected operand count.");
+                }
+                break;
+            case SchematronPatternKind::AttributeNumericComparison:
+                requireOperandCount(3);
+                output << "ExyokiOffice::MetadataSchematronAttributeNumericComparisonConstraint>("
+                       << attributeExpression << ", " << FormatSchematronComparisonExpression(rule.operands[1]) << ", "
+                       << FormatNumericLiteral(rule.operands[2]) << ", " << testExpression
+                       << FormatSchematronNumberFormatArgument(rule) << ")";
+                break;
+            case SchematronPatternKind::AttributeNumericAttributeComparison:
+                requireOperandCount(3);
+                output << "ExyokiOffice::MetadataSchematronAttributeNumericAttributeComparisonConstraint>("
+                       << attributeExpression << ", " << FormatSchematronComparisonExpression(rule.operands[1]) << ", "
+                       << FormatSchematronOperandAttributeExpression(rule.operands[2], attributeQName, namespaceRegistry)
+                       << ", " << testExpression << ")";
+                break;
+            case SchematronPatternKind::AttributeEquality:
+                requireOperandCount(2);
+                output << "ExyokiOffice::MetadataSchematronAttributeEqualityConstraint>("
+                       << attributeExpression << ", " << GeneratorText::EscapeForCpp(rule.operands[1]) << ", " << testExpression << ")";
+                break;
+            case SchematronPatternKind::AttributeInequality:
+                requireOperandCount(2);
+                output << "ExyokiOffice::MetadataSchematronAttributeInequalityConstraint>("
+                       << attributeExpression << ", " << GeneratorText::EscapeForCpp(rule.operands[1]) << ", " << testExpression << ")";
+                break;
+            case SchematronPatternKind::AttributeAllowedValues:
+                if (rule.operands.size() < 3)
+                {
+                    throw std::runtime_error("Schematron allowed-values rule for '" + rule.context + "' has unexpected operand count.");
+                }
+                output << "ExyokiOffice::MetadataSchematronAttributeAllowedValuesConstraint>("
+                       << attributeExpression << ", " << FormatStringVectorExpression(rule.operands, 1)
+                       << ", " << testExpression << FormatSchematronNumberFormatArgument(rule) << ")";
+                break;
+            case SchematronPatternKind::AttributeForbiddenValues:
+                if (rule.operands.size() < 3)
+                {
+                    throw std::runtime_error("Schematron forbidden-values rule for '" + rule.context + "' has unexpected operand count.");
+                }
+                output << "ExyokiOffice::MetadataSchematronAttributeForbiddenValuesConstraint>("
+                       << attributeExpression << ", " << FormatStringVectorExpression(rule.operands, 1)
+                       << ", " << testExpression << FormatSchematronNumberFormatArgument(rule) << ")";
+                break;
+            case SchematronPatternKind::AttributeImplication:
+                requireOperandCount(4);
+                if (rule.operands[2] == "=")
+                {
+                    output << "ExyokiOffice::MetadataSchematronAttributeRequiredValueConstraint>("
+                           << attributeExpression << ", "
+                           << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
+                           << ", " << GeneratorText::EscapeForCpp(rule.operands[3]) << ", " << testExpression << ")";
+                }
+                else if (rule.operands[2] == "!=")
+                {
+                    output << "ExyokiOffice::MetadataSchematronAttributeForbiddenValueConstraint>("
+                           << attributeExpression << ", "
+                           << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
+                           << ", " << GeneratorText::EscapeForCpp(rule.operands[3]) << ", " << testExpression << ")";
+                }
+                else
+                {
+                    throw std::runtime_error("Schematron implication rule for '" + rule.context + "' has unsupported operator '" + rule.operands[2] + "'.");
+                }
+                break;
+            case SchematronPatternKind::AttributeMutualExclusion:
+                if (rule.operands.size() < 2)
+                {
+                    throw std::runtime_error("Schematron mutual-exclusion rule for '" + rule.context + "' has unexpected operand count.");
+                }
+                output << "ExyokiOffice::MetadataSchematronAttributeMutualExclusionConstraint>("
+                       << FormatSchematronAttributeVectorExpression(rule.operands, attributeQName, namespaceRegistry)
+                       << ", " << testExpression << ")";
+                break;
+            case SchematronPatternKind::AttributeConditionalPresence:
+                requireOperandCount(3);
+                output << "ExyokiOffice::MetadataSchematronAttributeConditionalPresenceConstraint>("
+                       << attributeExpression << ", "
+                       << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
+                       << ", " << GeneratorText::EscapeForCpp(rule.operands[2]) << ", " << testExpression << ")";
+                break;
+            case SchematronPatternKind::AttributeConditionalRequiredValue:
+                requireOperandCount(4);
+                output << "ExyokiOffice::MetadataSchematronAttributeConditionalRequiredValueConstraint>("
+                       << attributeExpression << ", " << GeneratorText::EscapeForCpp(rule.operands[1]) << ", "
+                       << FormatSchematronOperandAttributeExpression(rule.operands[2], attributeQName, namespaceRegistry)
+                       << ", " << GeneratorText::EscapeForCpp(rule.operands[3]) << ", " << testExpression << ")";
+                break;
+            case SchematronPatternKind::AttributeConditionalAllowedValues:
+                if (rule.operands.size() < 5)
+                {
+                    throw std::runtime_error("Schematron conditional allowed-values rule for '" + rule.context + "' has unexpected operand count.");
+                }
+                {
+                    const auto allowedCount = static_cast<std::size_t>(std::stoul(rule.operands[1]));
+                    const auto conditionAttributeIndex = 2 + allowedCount;
+                    const auto conditionCountIndex = conditionAttributeIndex + 1;
+                    if (conditionCountIndex >= rule.operands.size())
+                    {
+                        throw std::runtime_error("Schematron conditional allowed-values rule for '" + rule.context + "' has malformed operands.");
+                    }
+                    const auto conditionCount = static_cast<std::size_t>(std::stoul(rule.operands[conditionCountIndex]));
+                    if (conditionCountIndex + 1 + conditionCount != rule.operands.size())
+                    {
+                        throw std::runtime_error("Schematron conditional allowed-values rule for '" + rule.context + "' has malformed operands.");
+                    }
+                    output << "ExyokiOffice::MetadataSchematronAttributeConditionalAllowedValuesConstraint>("
+                           << attributeExpression << ", "
+                           << FormatStringVectorRange(rule.operands, 2, conditionAttributeIndex) << ", "
+                           << FormatSchematronOperandAttributeExpression(rule.operands[conditionAttributeIndex],
+                                                                         attributeQName,
+                                                                         namespaceRegistry)
+                           << ", "
+                           << FormatStringVectorRange(rule.operands, conditionCountIndex + 1, rule.operands.size())
+                           << ", " << testExpression << ")";
+                }
+                break;
+            case SchematronPatternKind::AttributeConditionalForbiddenValues:
+                if (rule.operands.size() < 3)
+                {
+                    throw std::runtime_error("Schematron conditional forbidden-values rule for '" + rule.context + "' has unexpected operand count.");
+                }
+                output << "ExyokiOffice::MetadataSchematronAttributeConditionalForbiddenValuesConstraint>("
+                       << attributeExpression << ", "
+                       << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
+                       << ", " << FormatStringVectorExpression(rule.operands, 2)
+                       << ", " << testExpression << ")";
+                break;
+            case SchematronPatternKind::AttributeConditionalPresenceAllowedValues:
+                if (rule.operands.size() < 3)
+                {
+                    throw std::runtime_error("Schematron conditional presence allowed-values rule for '" + rule.context + "' has unexpected operand count.");
+                }
+                output << "ExyokiOffice::MetadataSchematronAttributeConditionalPresenceAllowedValuesConstraint>("
+                       << attributeExpression << ", "
+                       << FormatSchematronOperandAttributeExpression(rule.operands[1], attributeQName, namespaceRegistry)
+                       << ", " << FormatStringVectorExpression(rule.operands, 2)
+                       << ", " << testExpression << ")";
+                break;
+            default:
+                throw std::runtime_error("Unsupported element-local schematron rule kind.");
+        }
+
+        return output.str();
+    }
+
+    static QualifiedNameParts ResolveSchematronAttributeName(const SchematronRule& rule,
+                                                             const TypedElement& element)
+    {
+        if (rule.operands.empty())
+        {
+            throw std::runtime_error("Schematron rule for '" + rule.context + "' has no attribute operand.");
+        }
+
+        auto parts = GeneratorSchemaReader::SplitQualifiedName(rule.operands.front());
+        if (parts.prefix.empty())
+        {
+            parts.prefix = element.namespacePrefix;
+        }
+        return parts;
+    }
+
+    static TypedElementsByClassName BuildTypedElementsByClassName(const std::vector<TypedElement>& elements)
+    {
+        TypedElementsByClassName lookup;
+        for (const auto& element : elements)
+        {
+            lookup.emplace(std::make_pair(element.namespacePrefix, element.className), &element);
+        }
+        return lookup;
+    }
+
+    /**
+     * @brief Finds the attribute an element really declares under a schematron name.
+     *
+     * The schematron source names attributes with the context element's own prefix
+     * even when the attribute belongs to another namespace: `a:hlinkClick/@a:id`
+     * means the relationship attribute `r:id`, and `xdr:cNvPr/@xdr:id` the
+     * unprefixed `id`. The prefix is therefore only a hint - what decides is which
+     * attribute the element (or one of its base classes) actually has.
+     *
+     * @return The declared attribute, or `nullptr` when the element has none with
+     * that local name, which also means the rule was written for a different
+     * element that happens to share the context name.
+     */
+    static const AttributeDefinition* FindDeclaredAttribute(const TypedElement& element,
+                                                            const QualifiedNameParts& name,
+                                                            const TypedElementsByClassName& elementsByClassName)
+    {
+        const AttributeDefinition* localNameMatch = nullptr;
+        std::size_t localNameMatchCount = 0;
+        const TypedElement* current = &element;
+        std::unordered_set<std::string> visited;
+        while (current && visited.insert(current->className).second)
+        {
+            for (const auto& attribute : current->attributes)
+            {
+                if (attribute.qName.localName != name.localName)
+                {
+                    continue;
+                }
+                if (attribute.qName.prefix == name.prefix)
+                {
+                    return &attribute;
+                }
+                localNameMatch = &attribute;
+                ++localNameMatchCount;
+            }
+
+            auto baseName = current->baseClassName;
+            if (const auto separator = baseName.rfind("::"); separator != std::string::npos)
+            {
+                baseName = baseName.substr(separator + 2);
+            }
+            const auto base = elementsByClassName.find(std::make_pair(current->namespacePrefix, baseName));
+            current = base == elementsByClassName.end() ? nullptr : base->second;
+        }
+
+        // More than one namespace declares the local name: the prefix in the rule
+        // cannot pick between them, so leave the name alone.
+        return localNameMatchCount == 1 ? localNameMatch : nullptr;
+    }
+
+    static std::string FormatOptionalUIntExpression(const std::optional<std::uint32_t>& value)
+    {
+        if (!value.has_value())
+        {
+            return "std::optional<ExyokiOffice::UInt32>{}";
+        }
+
+        std::ostringstream expr;
+        expr << "std::optional<ExyokiOffice::UInt32>{" << *value << "}";
+        return expr.str();
+    }
+
+    static std::string SimplifyEnumTypeNameForNamespace(std::string_view typeName,
+                                                        std::string_view apiNamespace,
+                                                        const std::vector<EnumDefinition>& enums)
+    {
+        if (enums.empty())
+        {
+            return std::string(typeName);
+        }
+
+        const auto nsWithRoot = GeneratorSchemaReader::BuildNamespaceQualifier(apiNamespace, true);
+        const auto nsWithoutRoot = GeneratorSchemaReader::BuildNamespaceQualifier(apiNamespace, false);
+        std::string result(typeName);
+
+        const std::array<std::string, 2> namespaceQualifiers = {nsWithRoot, nsWithoutRoot};
+        for (const auto& qualifier : namespaceQualifiers)
+        {
+            if (qualifier.empty())
+            {
+                continue;
+            }
+
+            for (const auto& enumDef : enums)
+            {
+                const std::string qualifiedEnumName = qualifier + "::" + enumDef.className;
+                std::size_t pos = 0;
+                while ((pos = result.find(qualifiedEnumName, pos)) != std::string::npos)
+                {
+                    result.replace(pos, qualifiedEnumName.size(), enumDef.className);
+                    pos += enumDef.className.size();
+                }
+            }
+        }
+
+        return result;
+    }
+
+    static std::vector<TypedElement> TopologicallyOrderElements(const std::vector<TypedElement>& elements,
+                                                                const std::string& apiNamespace)
+    {
+        if (elements.empty())
+        {
+            return {};
+        }
+
+        std::vector<TypedElement> ordered;
+        ordered.reserve(elements.size());
+
+        std::unordered_map<std::string, std::size_t> indexByClass;
+        for (std::size_t i = 0; i < elements.size(); ++i)
+        {
+            indexByClass.emplace(elements[i].className, i);
+        }
+
+        std::vector<std::vector<std::size_t>> edges(elements.size());
+
+        const auto namespaceWithRoot = GeneratorSchemaReader::BuildNamespaceQualifier(apiNamespace, true);
+        const auto namespaceWithoutRoot = GeneratorSchemaReader::BuildNamespaceQualifier(apiNamespace, false);
+
+        auto resolveBaseIndex = [&](const std::string& baseName) -> std::optional<std::size_t>
+        {
+            auto findBySimpleName = [&](std::string_view simpleName) -> std::optional<std::size_t>
+            {
+                auto it = indexByClass.find(std::string(simpleName));
+                if (it != indexByClass.end())
+                {
+                    return it->second;
+                }
+                return std::nullopt;
+            };
+
+            const auto separator = baseName.rfind("::");
+            std::string_view prefix;
+            std::string_view simpleName(baseName);
+            if (separator != std::string::npos)
+            {
+                prefix = std::string_view(baseName.data(), separator);
+                simpleName = std::string_view(baseName.data() + separator + 2, baseName.size() - separator - 2);
+            }
+
+            if (prefix.empty() || prefix == namespaceWithRoot || prefix == namespaceWithoutRoot)
+            {
+                if (auto match = findBySimpleName(simpleName))
+                {
+                    return match;
+                }
+            }
+
+            return std::nullopt;
+        };
+
+        for (std::size_t i = 0; i < elements.size(); ++i)
+        {
+            const auto& base = elements[i].baseClassName;
+            if (auto dep = resolveBaseIndex(base))
+            {
+                edges[*dep].push_back(i);
+            }
+        }
+
+        enum class VisitState
+        {
+            NotVisited,
+            Visiting,
+            Visited
+        };
+
+        std::vector<VisitState> state(elements.size(), VisitState::NotVisited);
+
+        std::function<void(std::size_t)> dfs = [&](std::size_t node)
+        {
+            if (state[node] == VisitState::Visiting)
+            {
+                throw std::runtime_error("Cycle detected in base class hierarchy within namespace " + apiNamespace);
+            }
+            if (state[node] == VisitState::Visited)
+            {
+                return;
+            }
+
+            state[node] = VisitState::Visiting;
+            for (auto child : edges[node])
+            {
+                dfs(child);
+            }
+            state[node] = VisitState::Visited;
+            ordered.push_back(elements[node]);
+        };
+
+        for (std::size_t i = 0; i < elements.size(); ++i)
+        {
+            if (state[i] == VisitState::NotVisited)
+            {
+                dfs(i);
+            }
+        }
+
+        std::reverse(ordered.begin(), ordered.end());
+        return ordered;
+    }
+};
 
 class ParticleCodeGenerator
 {
@@ -3422,7 +3256,7 @@ private:
     {
         builder_ << "    auto " << varName << " = std::make_shared<" << typeName << ">("
                  << node.minOccurs << ", "
-                 << FormatOptionalUIntExpression(node.maxOccurs) << ", "
+                 << GeneratorValidatorExpressions::FormatOptionalUIntExpression(node.maxOccurs) << ", "
                  << node.versionExpression << ", "
                  << (node.requireFilter ? "true" : "false") << ");\n";
         for (const auto& child : node.children)
@@ -3435,16 +3269,16 @@ private:
     void EmitAny(const TypedElement::ParticleDefinition& node, const std::string& varName)
     {
         builder_ << "    auto " << varName << " = std::make_shared<ExyokiOffice::MetadataAnyParticle>("
-                 << EscapeForCpp(node.wildcard) << ", "
+                 << GeneratorText::EscapeForCpp(node.wildcard) << ", "
                  << node.minOccurs << ", "
-                 << FormatOptionalUIntExpression(node.maxOccurs) << ", "
+                 << GeneratorValidatorExpressions::FormatOptionalUIntExpression(node.maxOccurs) << ", "
                  << node.versionExpression << ");\n";
     }
 
     void EmitElement(const TypedElement::ParticleDefinition& node, const std::string& varName)
     {
-        auto parts = SplitQualifiedName(node.elementQualifiedName);
-        const auto qualifiedExpression = FormatQualifiedNameExpression(parts, registry_);
+        auto parts = GeneratorSchemaReader::SplitQualifiedName(node.elementQualifiedName);
+        const auto qualifiedExpression = GeneratorSchemaReader::FormatQualifiedNameExpression(parts, registry_);
         std::string typeName;
         // Several schema types share one element QName - x:sheetData is both
         // CT_SheetData and CT_ExternalSheetData, x:r is both CT_Record and
@@ -3457,7 +3291,7 @@ private:
         // extension schemas that reuse base types in another namespace.
         const bool ambiguous = ambiguousElements_.find(node.elementQualifiedName) != ambiguousElements_.end();
         if (const auto compoundIt = typeElementLookup_.find(
-                MakeTypeElementKey(node.typeQualifiedName, node.elementQualifiedName));
+                GeneratorValidatorExpressions::MakeTypeElementKey(node.typeQualifiedName, node.elementQualifiedName));
             ambiguous && compoundIt != typeElementLookup_.end())
         {
             typeName = compoundIt->second;
@@ -3489,10 +3323,10 @@ private:
 
         builder_ << "    auto " << varName << " = std::make_shared<ExyokiOffice::MetadataElementParticle>("
                  << qualifiedExpression << ", "
-                 << EscapeForCpp(typeName) << ", "
-                 << EscapeForCpp(node.propertyName) << ", "
+                 << GeneratorText::EscapeForCpp(typeName) << ", "
+                 << GeneratorText::EscapeForCpp(node.propertyName) << ", "
                  << node.minOccurs << ", "
-                 << FormatOptionalUIntExpression(node.maxOccurs) << ", "
+                 << GeneratorValidatorExpressions::FormatOptionalUIntExpression(node.maxOccurs) << ", "
                  << node.versionExpression << ");\n";
     }
 
@@ -3507,2519 +3341,2713 @@ private:
     int counter_ = 0;
 };
 
-void WriteNamespaceSource(const GeneratorConfig& config,
-                          const TypedNamespace& ns,
-                          const std::vector<EnumDefinition>& enums,
-                          const std::vector<TypedElement>& elements,
-                          const NamespaceRegistry& namespaceRegistry,
-                          const std::unordered_map<std::string, std::string>& typeLookup,
-                          const std::unordered_map<std::string, std::string>& elementLookup,
-                          const std::unordered_map<std::string, std::string>& typeElementLookup,
-                          const std::unordered_set<std::string>& ambiguousElements,
-                          const EnumFacetLookup& enumFacets)
+/// Emitting the per-namespace headers and sources of the typed DOM.
+class GeneratorNamespaceWriter
 {
-    if (elements.empty() && enums.empty())
+public:
+    static void WriteNamespaceEnumHeader(const GeneratorConfig& config,
+                                         const TypedNamespace& ns,
+                                         const std::vector<EnumDefinition>& enums)
     {
-        return;
-    }
-
-    auto relativeHeader = NamespaceToPath(ns.apiNamespace);
-    auto sourcePath = config.outputSource / "DOM" / relativeHeader;
-    sourcePath.replace_extension(".cpp");
-    EnsureDirectory(sourcePath.parent_path());
-
-    std::ostringstream output;
-    output << kGeneratedHeaderWarning;
-    const auto includePath = (std::filesystem::path("ExyokiOffice") / "DOM" / relativeHeader).generic_string();
-    output << "#include \"" << includePath << "\"\n";
-    output << "#include \"ExyokiOffice/FileFormatVersions.h\"\n";
-    output << "#include \"ExyokiOffice/StandardTypes.hpp\"\n\n";
-    output << "#include <array>\n";
-    output << "#include <memory>\n";
-    output << "#include <optional>\n";
-    output << "#include <span>\n";
-    output << "#include <string_view>\n";
-    output << "#include <utility>\n";
-    output << "#include <vector>\n\n";
-
-    auto parts = SplitNamespace(ns.apiNamespace);
-    parts.insert(parts.begin(), "ExyokiOffice");
-    for (const auto& part : parts)
-    {
-        output << "namespace " << part << " {\n";
-    }
-    output << '\n';
-
-    std::set<std::string> emittedEnums;
-    for (const auto& enumDef : enums)
-    {
-        if (!emittedEnums.insert(enumDef.className).second)
+        if (enums.empty())
         {
-            continue;
+            return;
         }
 
-        const auto typeParts = SplitQualifiedName(enumDef.typeQualifiedName);
+        auto headerPath =
+            config.outputInclude / "ExyokiOffice" / "DOM" / GeneratorSchemaReader::NamespaceToEnumHeaderPath(ns.apiNamespace);
+        EnsureDirectory(headerPath.parent_path());
 
-        output << "namespace {\n";
-        output << "class " << enumDef.className << "MetaEnum final : public ExyokiOffice::OpenXmlMetaEnum\n{\n";
-        output << "public:\n";
-        output << "    ExyokiOffice::OpenXmlQualifiedName TypeQualifiedName() const noexcept override\n";
-        output << "    {\n";
-        output << "        return " << FormatQualifiedNameExpression(typeParts, namespaceRegistry) << ";\n";
-        output << "    }\n\n";
-        output << "    ExyokiOffice::OpenXml::FileFormatVersions GetVersion() const noexcept override\n";
-        output << "    {\n";
-        output << "        return " << enumDef.versionExpression << ";\n";
-        output << "    }\n\n";
-        const bool allFacetVersionsSame = [&]()
+        std::ostringstream output;
+        output << kGeneratedHeaderWarning;
+        output << "#pragma once\n\n";
+        output << "#include \"ExyokiOffice/OpenXMLElement.hpp\"\n\n";
+
+        auto parts = GeneratorSchemaReader::SplitNamespace(ns.apiNamespace);
+        parts.insert(parts.begin(), "ExyokiOffice");
+        for (const auto& part : parts)
         {
-            for (const auto& facet : enumDef.facets)
+            output << "namespace " << part << " {\n";
+        }
+        output << "\n\n";
+
+        const std::string fullNamespaceName = "ExyokiOffice." + ns.apiNamespace;
+
+        std::set<std::string> emittedEnums;
+        for (const auto& enumDef : enums)
+        {
+            if (!emittedEnums.insert(enumDef.className).second)
             {
-                const auto& expr = facet.versionExpression.empty() ? enumDef.versionExpression : facet.versionExpression;
-                if (expr != enumDef.versionExpression)
-                {
-                    return false;
-                }
+                continue;
             }
-            return true;
-        }();
 
-        output << "    ExyokiOffice::OpenXml::FileFormatVersions GetVersionForEnumValue(ExyokiOffice::UInt32 rawValue) const noexcept override\n";
-        output << "    {\n";
-        if (allFacetVersionsSame)
-        {
-            output << "        (void)rawValue;\n";
-            output << "        return " << enumDef.versionExpression << ";\n";
-        }
-        else
-        {
-            output << "        switch (static_cast<" << enumDef.className << "::Value>(rawValue))\n";
-            output << "        {\n";
-            for (const auto& facet : enumDef.facets)
-            {
-                const auto& expr = facet.versionExpression.empty() ? enumDef.versionExpression : facet.versionExpression;
-                output << "            case " << enumDef.className << "::" << facet.name << ":\n";
-                output << "                return " << expr << ";\n";
-            }
-            output << "            default:\n";
-            output << "                return " << enumDef.versionExpression << ";\n";
-            output << "        }\n";
-        }
-        output << "    }\n\n";
-        output << "    std::string_view ToString(ExyokiOffice::UInt32 rawValue) const override\n";
-        output << "    {\n";
-        output << "        switch (static_cast<" << enumDef.className << "::Value>(rawValue))\n";
-        output << "        {\n";
-        output << "            case " << enumDef.className << "::NotDefinedEnumValue:\n";
-        output << "            case " << enumDef.className << "::InvalidEnumValue:\n";
-        output << "                return std::string_view();\n";
-        for (const auto& facet : enumDef.facets)
-        {
-            output << "            case " << enumDef.className << "::" << facet.name << ":\n";
-            output << "                return " << EscapeForCpp(facet.value) << ";\n";
-        }
-        output << "            default:\n";
-        output << "                return std::string_view();\n";
-        output << "        }\n";
-        output << "    }\n\n";
-        output << "    ExyokiOffice::UInt32 FromString(std::string_view value) const override\n";
-        output << "    {\n";
-        output << "        constexpr std::array<std::pair<std::string_view, " << enumDef.className << "::Value>, "
-               << enumDef.facets.size() << "> kValidValues = {\n";
-        for (const auto& facet : enumDef.facets)
-        {
-            output << "            std::make_pair(" << EscapeForCpp(facet.value) << ", " << enumDef.className
-                   << "::" << facet.name << "),\n";
-        }
-        output << "        };\n\n";
-        output << "        for (const auto& [text, enumValue] : kValidValues)\n";
-        output << "        {\n";
-        output << "            if (text == value)\n";
-        output << "            {\n";
-        output << "                return static_cast<ExyokiOffice::UInt32>(enumValue);\n";
-        output << "            }\n";
-        output << "        }\n\n";
-        output << "        return static_cast<ExyokiOffice::UInt32>(" << enumDef.className << "::InvalidEnumValue);\n";
-        output << "    }\n";
-        output << "};\n";
-        output << "} // namespace\n\n";
-
-        output << "const ExyokiOffice::OpenXmlMetaEnum* " << enumDef.className << "::GetMetaEnum() noexcept\n";
-        output << "{\n";
-        output << "    static const " << enumDef.className << "MetaEnum kMeta{};\n";
-        output << "    return &kMeta;\n";
-        output << "}\n\n";
-    }
-
-    std::set<std::string> emitted;
-    std::unordered_set<std::string> localClassNames;
-    for (const auto& element : elements)
-    {
-        localClassNames.insert(element.className);
-    }
-
-    auto BuildElementFlagsExpression = [](const TypedElement& element)
-    {
-        std::vector<std::string> flags;
-        if (element.isAbstract)
-        {
-            flags.emplace_back("ExyokiOffice::OpenXmlElementClassFlag::IsAbstract");
-        }
-        if (element.isDerived)
-        {
-            flags.emplace_back("ExyokiOffice::OpenXmlElementClassFlag::IsDerived");
-        }
-        if (element.isLeafElement)
-        {
-            flags.emplace_back("ExyokiOffice::OpenXmlElementClassFlag::IsLeafElement");
-        }
-        if (element.isLeafText)
-        {
-            flags.emplace_back("ExyokiOffice::OpenXmlElementClassFlag::IsLeafText");
-        }
-
-        if (flags.empty())
-        {
-            return std::string("ExyokiOffice::OpenXmlElementClassFlags{}");
-        }
-
-        if (flags.size() == 1)
-        {
-            return std::string("ExyokiOffice::OpenXmlElementClassFlags{") + flags.front() + "}";
-        }
-
-        std::ostringstream expr;
-        expr << '(';
-        for (std::size_t i = 0; i < flags.size(); ++i)
-        {
-            if (i > 0)
-            {
-                expr << " | ";
-            }
-            expr << flags[i];
-        }
-        expr << ')';
-        return expr.str();
-    };
-
-    for (const auto& element : elements)
-    {
-        if (!emitted.insert(element.className).second)
-        {
-            continue;
-        }
-
-        const auto elementQualifiedName = SelectElementQualifiedName(element);
-        const auto elementParts = SplitQualifiedName(elementQualifiedName);
-        const auto typeParts = SplitQualifiedName(element.typeQualifiedName);
-        const auto flagsExpression = BuildElementFlagsExpression(element);
-        const bool hasAttributes = !element.attributes.empty();
-        const bool hasParticleMetadata = element.particle.has_value();
-
-        if (hasParticleMetadata)
-        {
-            output << "ExyokiOffice::MetadataParticlePtr Create" << element.className << "ParticleMetadata()\n";
-            output << "{\n";
-            ParticleCodeGenerator generator(namespaceRegistry,
-                                            typeLookup,
-                                            elementLookup,
-                                            typeElementLookup,
-                                            ambiguousElements,
-                                            element.className,
-                                            element.sourceFile);
-            output << generator.Build(*element.particle);
-            output << "}\n\n";
-        }
-
-        output << "namespace {\n";
-        output << "class " << element.className << "MetaClass final : public ExyokiOffice::OpenXMLElementClass\n{\n";
-        output << "public:\n";
-        output << "    const ExyokiOffice::OpenXMLElementClass* GetBaseMetaClass() const noexcept override\n";
-        output << "    {\n";
-        output << "        return " << element.baseClassName << "::StaticMetaClass();\n";
-        output << "    }\n\n";
-        output << "    ExyokiOffice::OpenXmlQualifiedName QualifiedName() const noexcept override\n";
-        output << "    {\n";
-        output << "        return " << FormatQualifiedNameExpression(elementParts, namespaceRegistry) << ";\n";
-        output << "    }\n\n";
-        output << "    ExyokiOffice::OpenXmlQualifiedName TypeQualifiedName() const noexcept override\n";
-        output << "    {\n";
-        output << "        return " << FormatQualifiedNameExpression(typeParts, namespaceRegistry) << ";\n";
-        output << "    }\n\n";
-        output << "    ExyokiOffice::OpenXml::FileFormatVersions GetVersion() const noexcept override\n";
-        output << "    {\n";
-        output << "        return " << element.versionExpression << ";\n";
-        output << "    }\n\n";
-        if (hasAttributes)
-        {
-            output << "    std::span<const ExyokiOffice::OpenXmlAttribute> GetAttributes() const noexcept override\n";
+            output << GeneratorText::BuildClassComment(enumDef.summary,
+                                                       enumDef.className,
+                                                       fullNamespaceName,
+                                                       enumDef.typeQualifiedName,
+                                                       std::string_view{},
+                                                       enumDef.sourceFile);
+            output << "class " << enumDef.className << " : public ExyokiOffice::OpenXmlEnum\n{\n";
+            output << "public:\n";
+            output << "    enum Value\n";
             output << "    {\n";
-            output << "        static constexpr std::array<ExyokiOffice::OpenXmlAttribute, " << element.attributes.size() << "> kAttributes = {\n";
-            for (const auto& attribute : element.attributes)
+            output << "        NotDefinedEnumValue = 0,\n";
+            output << "        InvalidEnumValue,\n";
+            for (const auto& facet : enumDef.facets)
             {
-                const auto attributeTypeName =
-                    SimplifyEnumTypeNameForNamespace(attribute.typeName, ns.apiNamespace, enums);
-                output << "            ExyokiOffice::OpenXmlAttribute("
-                       << FormatQualifiedNameExpression(attribute.qName, namespaceRegistry) << ", "
-                       << EscapeForCpp(attributeTypeName) << ", "
-                       << attribute.versionExpression << ", "
-                       << EscapeForCpp(attribute.comment) << "),\n";
+                output << "        " << facet.name << ", ";
+                if (!facet.comment.empty())
+                {
+                    output << "///< " << GeneratorText::SanitizeCommentText(facet.comment);
+                }
+                output << "\n";
             }
-            output << "        };\n";
-            output << "        return kAttributes;\n";
-            output << "    }\n\n";
+            output << "    };\n\n";
+            output << "    constexpr " << enumDef.className << "() noexcept = default;\n";
+            output << "    constexpr " << enumDef.className << "(Value value) noexcept : m_value(value) {}\n\n";
+            output << "    constexpr operator Value() const noexcept { return m_value; }\n";
+            output << "    constexpr bool IsValid() const noexcept { return m_value != NotDefinedEnumValue && m_value != InvalidEnumValue; }\n";
+            output << "    constexpr bool isUndefined() const noexcept { return m_value == NotDefinedEnumValue; }\n";
+            output << "    constexpr bool isInvalid() const noexcept { return m_value == InvalidEnumValue; }\n\n";
+            output << "    constexpr Value GetValue() const noexcept { return m_value; }\n";
+            output << "    void SetValue(Value value) noexcept { m_value = value; }\n\n";
+            // The accessor is the only out-of-line member of an enum class, and it
+            // is what OpenXmlEnumTraits (and therefore every EnumValue<T>) calls to
+            // parse and format a value. Without the export it is unreachable from
+            // outside the shared library, so it carries EXYOKIOFFICE_EXPORT while
+            // the class itself stays undecorated: exporting the class would make
+            // every dllexport enum derive from the non-exported OpenXmlEnum base
+            // and raise C4275 on MSVC, which the warnings-as-errors build rejects.
+            output << "    static EXYOKIOFFICE_EXPORT const ExyokiOffice::OpenXmlMetaEnum* GetMetaEnum() noexcept;\n\n";
+            output << "private:\n";
+            output << "    Value m_value = NotDefinedEnumValue;\n";
+            output << "};\n\n";
         }
-        output << "    ExyokiOffice::OpenXmlElementClassFlags GetFlags() const noexcept override\n";
-        output << "    {\n";
-        output << "        return " << flagsExpression << ";\n";
-        output << "    }\n\n";
-        output << "    std::shared_ptr<ExyokiOffice::OpenXMLElement> Create() const override\n";
-        output << "    {\n";
-        output << "        return std::make_shared<" << element.className << ">();\n";
-        output << "    }\n";
-        output << "\n";
-        output << "    void ConfigureMetadata(ExyokiOffice::MetadataBuilder& builder) const override\n";
-        output << "    {\n";
-        output << "        builder.SetSchemaName(" << EscapeForCpp(element.sourceFile) << ");\n";
-        output << "        builder.SetAvailability(" << element.versionExpression << ");\n";
-        if (hasAttributes)
+
+        for (auto it = parts.rbegin(); it != parts.rend(); ++it)
         {
-            std::size_t attributeIndex = 0;
-            for (const auto& attribute : element.attributes)
+            output << "} // namespace " << *it << "\n";
+        }
+
+        WriteFileText(headerPath, output.str());
+    }
+
+    static void WriteNamespaceHeader(const GeneratorConfig& config,
+                                     const TypedNamespace& ns,
+                                     const std::vector<EnumDefinition>& enums,
+                                     const std::vector<TypedElement>& elements,
+                                     const NamespaceRegistry& namespaceRegistry,
+                                     const EnumIncludeLookup& enumIncludeLookup)
+    {
+        (void)namespaceRegistry;
+
+        if (elements.empty() && enums.empty())
+        {
+            return;
+        }
+
+        auto headerPath = config.outputInclude / "ExyokiOffice" / "DOM" / GeneratorSchemaReader::NamespaceToPath(ns.apiNamespace);
+        EnsureDirectory(headerPath.parent_path());
+        const auto enumRelativeHeader = GeneratorSchemaReader::NamespaceToEnumHeaderPath(ns.apiNamespace);
+        const auto enumIncludePath =
+            (std::filesystem::path("ExyokiOffice") / "DOM" / enumRelativeHeader).generic_string();
+
+        std::set<std::string> additionalEnumIncludes;
+        auto processAttributeType = [&](std::string_view typeName)
+        {
+            for (const auto& [qualifiedName, info] : enumIncludeLookup)
             {
-                const auto attributeTypeName =
-                    SimplifyEnumTypeNameForNamespace(attribute.typeName, ns.apiNamespace, enums);
-                const auto attributeQNameExpr = FormatQualifiedNameExpression(attribute.qName, namespaceRegistry);
-                const auto propertyLiteral = EscapeForCpp(attribute.propertyName);
-                const auto typeLiteral = EscapeForCpp(attributeTypeName);
-                const auto commentLiteral = EscapeForCpp(attribute.comment);
-
-                output << "        auto& metadataAttribute" << attributeIndex << " = builder.AddAttribute("
-                       << attributeQNameExpr << ", "
-                       << propertyLiteral << ", "
-                       << typeLiteral << ", "
-                       << attribute.versionExpression << ", "
-                       << commentLiteral << ");\n";
-
-                std::unordered_map<std::uint32_t, std::string> validatorUnions;
-                std::size_t validatorUnionIndex = 0;
-                const auto ValidatorTarget = [&](const ValidatorDefinition& validator)
+                if (info.apiNamespace == ns.apiNamespace)
                 {
-                    if (!validator.unionId)
-                    {
-                        return "metadataAttribute" + std::to_string(attributeIndex) + ".Validators.push_back(";
-                    }
-
-                    auto found = validatorUnions.find(*validator.unionId);
-                    if (found == validatorUnions.end())
-                    {
-                        const auto variable = "metadataAttribute" + std::to_string(attributeIndex) + "Union" + std::to_string(validatorUnionIndex++);
-                        output << "        auto " << variable
-                               << " = std::make_shared<ExyokiOffice::MetadataUnionConstraint>("
-                               << "ExyokiOffice::MetadataConstraintType::AttributeValue, "
-                               << *validator.unionId << ");\n";
-                        output << "        metadataAttribute" << attributeIndex
-                               << ".Validators.push_back(" << variable << ");\n";
-                        found = validatorUnions.emplace(*validator.unionId, variable).first;
-                    }
-                    return found->second + "->AddAlternative(";
-                };
-                for (const auto& validator : attribute.validators)
-                {
-                    if (validator.name == "RequiredValidator")
-                    {
-                        const bool isRequired = ReadBoolArgument(validator, "IsRequired").value_or(true);
-                        const auto validatorTarget = ValidatorTarget(validator);
-                        output << "        " << validatorTarget
-                               << "std::make_shared<ExyokiOffice::MetadataRequiredConstraint>("
-                               << attributeQNameExpr << ", " << propertyLiteral << ", "
-                               << BoolLiteral(isRequired) << "));\n";
-                        continue;
-                    }
-
-                    if (validator.name == "StringValidator")
-                    {
-                        const auto minLengthExpr = FormatOptionalSizeExpression(ReadSizeArgument(validator, "MinLength"));
-                        const auto maxLengthExpr = FormatOptionalSizeExpression(ReadSizeArgument(validator, "MaxLength"));
-                        const auto exactLengthExpr = FormatOptionalSizeExpression(ReadSizeArgument(validator, "Length"));
-                        const auto patternExpr = FormatOptionalStringExpression(ReadStringArgument(validator, "Pattern"));
-                        const bool isToken = ReadBoolArgument(validator, "IsToken").value_or(false);
-                        const bool isNcName = ReadBoolArgument(validator, "IsNcName").value_or(false);
-                        const bool isQName = ReadBoolArgument(validator, "IsQName").value_or(false);
-                        const bool isId = ReadBoolArgument(validator, "IsId").value_or(false);
-                        const bool isUri = ReadBoolArgument(validator, "IsUri").value_or(false);
-                        const bool isHexBinary =
-                            IsHexBinaryLengthValidator(attribute.typeName, validator.typeQualifiedName);
-
-                        const auto validatorTarget = ValidatorTarget(validator);
-                        output << "        " << validatorTarget
-                               << "std::make_shared<ExyokiOffice::MetadataStringConstraint>("
-                               << attributeQNameExpr << ", " << propertyLiteral << ", "
-                               << minLengthExpr << ", " << maxLengthExpr << ", "
-                               << exactLengthExpr << ", " << patternExpr << ", "
-                               << BoolLiteral(isToken) << ", " << BoolLiteral(isNcName) << ", "
-                               << BoolLiteral(isQName) << ", " << BoolLiteral(isId) << ", "
-                               << BoolLiteral(isUri);
-                        if (isHexBinary)
-                        {
-                            // Only spelled out where it differs from the default, to
-                            // keep the emitted constructor calls readable.
-                            output << ", " << BoolLiteral(isHexBinary);
-                        }
-                        output << "));\n";
-                        continue;
-                    }
-
-                    if (validator.name == "NumberValidator")
-                    {
-                        const auto minInclusiveExpr =
-                            FormatOptionalDoubleExpression(ReadDoubleArgument(validator, "MinInclusive"));
-                        const auto maxInclusiveExpr =
-                            FormatOptionalDoubleExpression(ReadDoubleArgument(validator, "MaxInclusive"));
-                        const auto minExclusiveExpr =
-                            FormatOptionalDoubleExpression(ReadDoubleArgument(validator, "MinExclusive"));
-                        const auto maxExclusiveExpr =
-                            FormatOptionalDoubleExpression(ReadDoubleArgument(validator, "MaxExclusive"));
-                        const bool isPositive = ReadBoolArgument(validator, "IsPositive").value_or(false);
-                        const bool isNonNegative = ReadBoolArgument(validator, "IsNonNegative").value_or(false);
-
-                        const auto validatorTarget = ValidatorTarget(validator);
-                        output << "        " << validatorTarget
-                               << "std::make_shared<ExyokiOffice::MetadataNumberConstraint>("
-                               << attributeQNameExpr << ", " << propertyLiteral << ", "
-                               << EscapeForCpp(validator.typeQualifiedName) << ", "
-                               << minInclusiveExpr << ", " << maxInclusiveExpr << ", "
-                               << minExclusiveExpr << ", " << maxExclusiveExpr << ", "
-                               << BoolLiteral(isPositive) << ", " << BoolLiteral(isNonNegative) << ", "
-                               << BoolLiteral(validator.isList) << "));\n";
-                        continue;
-                    }
-
-                    if (validator.name == "EnumValidator")
-                    {
-                        if (const auto enumValueType = ResolveEnumValueValidatorType(attributeTypeName))
-                        {
-                            const auto validatorTarget = ValidatorTarget(validator);
-                            output << "        " << validatorTarget
-                                   << "ExyokiOffice::MetadataEnumConstraint::Create<"
-                                   << *enumValueType << ">(" << attributeQNameExpr << ", "
-                                   << propertyLiteral << "));\n";
-                        }
-                        else if (attributeTypeName == "StringValue")
-                        {
-                            const auto validatorTarget = ValidatorTarget(validator);
-                            output << "        " << validatorTarget
-                                   << "std::make_shared<ExyokiOffice::MetadataAttributeEnumUnionConstraint>("
-                                   << attributeQNameExpr << ", " << propertyLiteral << ", "
-                                   << FormatEnumRulesExpression(validator, enumFacets,
-                                                                element.className + "::" + attribute.propertyName,
-                                                                attribute.sourceFile)
-                                   << "));\n";
-                        }
-                        else if (attributeTypeName != "StringValue")
-                        {
-                            throw std::runtime_error("EnumValidator on attribute '" + attribute.propertyName + "' of element '" + element.className + "' uses unsupported type '" + attribute.typeName + "'.");
-                        }
-                        continue;
-                    }
-
-                    if (validator.name == "OfficeVersionValidator")
-                    {
-                        std::string_view versionToken = kDefaultVersionToken;
-                        if (!validator.arguments.empty() && !validator.arguments.front().value.empty())
-                        {
-                            versionToken = ResolveVersionToken(validator.arguments.front().value);
-                        }
-
-                        const auto validatorTarget = ValidatorTarget(validator);
-                        output << "        " << validatorTarget
-                               << "std::make_shared<ExyokiOffice::MetadataOfficeVersionConstraint>("
-                               << attributeQNameExpr << ", " << propertyLiteral << ", "
-                               << versionToken << "));\n";
-                        continue;
-                    }
-
-                    Logger::Warn({"GEN-UNSUPPORTED-VALIDATOR",
-                                  "validator",
-                                  "Unsupported validator '" + validator.name + "' on attribute '" + attribute.propertyName + "' defined in '" + attribute.sourceFile + "'.",
-                                  attribute.sourceFile,
-                                  "schema attribute",
-                                  element.className + "::" + attribute.propertyName,
-                                  validator.name});
+                    continue;
                 }
 
-                ++attributeIndex;
+                if (typeName.find(qualifiedName) != std::string_view::npos)
+                {
+                    additionalEnumIncludes.insert(info.includePath);
+                }
+            }
+        };
+
+        for (const auto& element : elements)
+        {
+            for (const auto& attribute : element.attributes)
+            {
+                processAttributeType(attribute.typeName);
             }
         }
-        for (const auto& additional : element.additionalElements)
+
+        std::ostringstream output;
+        output << kGeneratedHeaderWarning;
+        output << "#pragma once\n\n";
+        output << "#include \"ExyokiOffice/OpenXMLElement.hpp\"\n";
+        if (!enums.empty())
         {
-            std::string typeName;
-            if (const auto resolvedElement = elementLookup.find(additional.elementQualifiedName);
-                resolvedElement != elementLookup.end())
+            output << "#include \"" << enumIncludePath << "\"\n";
+        }
+        for (const auto& include : additionalEnumIncludes)
+        {
+            output << "#include \"" << include << "\"\n";
+        }
+        output << '\n';
+        output << "#include <memory>\n";
+        output << "#include <span>\n";
+        output << "#include <string_view>\n\n";
+
+        auto parts = GeneratorSchemaReader::SplitNamespace(ns.apiNamespace);
+        parts.insert(parts.begin(), "ExyokiOffice");
+        for (const auto& part : parts)
+        {
+            output << "namespace " << part << " {\n";
+        }
+        output << "\n\n";
+
+        output << "using OpenXMLElement = ExyokiOffice::OpenXMLElement;\n";
+        output << "using OpenXmlCompositeElement = ExyokiOffice::OpenXmlCompositeElement;\n";
+        output << "using OpenXmlPartRootElement = ExyokiOffice::OpenXmlPartRootElement;\n";
+        output << "using OpenXmlLeafElement = ExyokiOffice::OpenXmlLeafElement;\n";
+        output << "using OpenXmlLeafTextElement = ExyokiOffice::OpenXmlLeafTextElement;\n";
+
+        output << "\n";
+
+        const std::string fullNamespaceName = "ExyokiOffice." + ns.apiNamespace;
+
+        std::set<std::string> emitted;
+        std::unordered_set<std::string> localClassNames;
+        for (const auto& element : elements)
+        {
+            localClassNames.insert(element.className);
+        }
+
+        for (const auto& element : elements)
+        {
+            if (!emitted.insert(element.className).second)
             {
-                typeName = resolvedElement->second;
+                continue;
             }
-            else if (const auto resolvedType = typeLookup.find(additional.typeQualifiedName);
-                     resolvedType != typeLookup.end())
+
+            const auto elementQualifiedName = GeneratorSchemaReader::SelectElementQualifiedName(element);
+            output << GeneratorText::BuildClassComment(element.summary,
+                                                       element.className,
+                                                       fullNamespaceName,
+                                                       element.typeQualifiedName,
+                                                       elementQualifiedName,
+                                                       element.sourceFile);
+            output << "class EXYOKIOFFICE_EXPORT " << element.className << " : public " << element.baseClassName << "\n{\n";
+            output << "public:\n";
+            output << "    using Ptr = std::shared_ptr<" << element.className << ">;\n\n";
+            output << "    inline " << element.className << "() = default;\n";
+            output << "    inline ~" << element.className << "() = default;\n\n";
+
+            for (const auto& attribute : element.attributes)
             {
-                typeName = resolvedType->second;
+                const auto attributeTypeName =
+                    GeneratorValidatorExpressions::SimplifyEnumTypeNameForNamespace(attribute.typeName, ns.apiNamespace, enums);
+                if (!attribute.comment.empty())
+                {
+                    output << "    /// " << GeneratorText::SanitizeCommentText(attribute.comment) << "\n";
+                }
+                output << "    " << attributeTypeName << " Get" << attribute.propertyName << "() const;\n";
+                output << "    void Set" << attribute.propertyName << "(const " << attributeTypeName << "& value);\n\n";
+            }
+
+            output << "    static const ExyokiOffice::OpenXMLElementClass* StaticMetaClass() noexcept;\n";
+            output << "    const ExyokiOffice::OpenXMLElementClass* ElementMetaClass() const noexcept override;\n";
+            output << "};\n\n";
+        }
+
+        for (auto it = parts.rbegin(); it != parts.rend(); ++it)
+        {
+            output << "} // namespace " << *it << "\n";
+        }
+
+        WriteFileText(headerPath, output.str());
+    }
+
+    static void WriteNamespaceSource(const GeneratorConfig& config,
+                                     const TypedNamespace& ns,
+                                     const std::vector<EnumDefinition>& enums,
+                                     const std::vector<TypedElement>& elements,
+                                     const NamespaceRegistry& namespaceRegistry,
+                                     const std::unordered_map<std::string, std::string>& typeLookup,
+                                     const std::unordered_map<std::string, std::string>& elementLookup,
+                                     const std::unordered_map<std::string, std::string>& typeElementLookup,
+                                     const std::unordered_set<std::string>& ambiguousElements,
+                                     const EnumFacetLookup& enumFacets)
+    {
+        if (elements.empty() && enums.empty())
+        {
+            return;
+        }
+
+        auto relativeHeader = GeneratorSchemaReader::NamespaceToPath(ns.apiNamespace);
+        auto sourcePath = config.outputSource / "DOM" / relativeHeader;
+        sourcePath.replace_extension(".cpp");
+        EnsureDirectory(sourcePath.parent_path());
+
+        std::ostringstream output;
+        output << kGeneratedHeaderWarning;
+        const auto includePath = (std::filesystem::path("ExyokiOffice") / "DOM" / relativeHeader).generic_string();
+        output << "#include \"" << includePath << "\"\n";
+        output << "#include \"ExyokiOffice/FileFormatVersions.h\"\n";
+        output << "#include \"ExyokiOffice/StandardTypes.hpp\"\n\n";
+        output << "#include <array>\n";
+        output << "#include <memory>\n";
+        output << "#include <optional>\n";
+        output << "#include <span>\n";
+        output << "#include <string_view>\n";
+        output << "#include <utility>\n";
+        output << "#include <vector>\n\n";
+
+        auto parts = GeneratorSchemaReader::SplitNamespace(ns.apiNamespace);
+        parts.insert(parts.begin(), "ExyokiOffice");
+        for (const auto& part : parts)
+        {
+            output << "namespace " << part << " {\n";
+        }
+        output << '\n';
+
+        std::set<std::string> emittedEnums;
+        for (const auto& enumDef : enums)
+        {
+            if (!emittedEnums.insert(enumDef.className).second)
+            {
+                continue;
+            }
+
+            const auto typeParts = GeneratorSchemaReader::SplitQualifiedName(enumDef.typeQualifiedName);
+
+            output << "namespace {\n";
+            output << "class " << enumDef.className << "MetaEnum final : public ExyokiOffice::OpenXmlMetaEnum\n{\n";
+            output << "public:\n";
+            output << "    ExyokiOffice::OpenXmlQualifiedName TypeQualifiedName() const noexcept override\n";
+            output << "    {\n";
+            output << "        return " << GeneratorSchemaReader::FormatQualifiedNameExpression(typeParts, namespaceRegistry) << ";\n";
+            output << "    }\n\n";
+            output << "    ExyokiOffice::OpenXml::FileFormatVersions GetVersion() const noexcept override\n";
+            output << "    {\n";
+            output << "        return " << enumDef.versionExpression << ";\n";
+            output << "    }\n\n";
+            const bool allFacetVersionsSame = [&]()
+            {
+                for (const auto& facet : enumDef.facets)
+                {
+                    const auto& expr = facet.versionExpression.empty() ? enumDef.versionExpression : facet.versionExpression;
+                    if (expr != enumDef.versionExpression)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }();
+
+            output << "    ExyokiOffice::OpenXml::FileFormatVersions GetVersionForEnumValue(ExyokiOffice::UInt32 rawValue) const noexcept override\n";
+            output << "    {\n";
+            if (allFacetVersionsSame)
+            {
+                output << "        (void)rawValue;\n";
+                output << "        return " << enumDef.versionExpression << ";\n";
             }
             else
             {
-                throw std::runtime_error("Unable to resolve AdditionalElements entry '" + additional.rawName + "' on schema type '" + element.className + "'.");
+                output << "        switch (static_cast<" << enumDef.className << "::Value>(rawValue))\n";
+                output << "        {\n";
+                for (const auto& facet : enumDef.facets)
+                {
+                    const auto& expr = facet.versionExpression.empty() ? enumDef.versionExpression : facet.versionExpression;
+                    output << "            case " << enumDef.className << "::" << facet.name << ":\n";
+                    output << "                return " << expr << ";\n";
+                }
+                output << "            default:\n";
+                output << "                return " << enumDef.versionExpression << ";\n";
+                output << "        }\n";
             }
-            auto additionalQName = SplitQualifiedName(additional.elementQualifiedName);
-            output << "        builder.AddAdditionalElement("
-                   << FormatQualifiedNameExpression(additionalQName, namespaceRegistry) << ", "
-                   << EscapeForCpp(typeName) << ");\n";
-        }
-        std::unordered_map<std::uint32_t, std::string> textValidatorUnions;
-        std::size_t textValidatorUnionIndex = 0;
-        const auto TextValidatorTarget = [&](const ValidatorDefinition& validator)
-        {
-            if (!validator.unionId)
+            output << "    }\n\n";
+            output << "    std::string_view ToString(ExyokiOffice::UInt32 rawValue) const override\n";
+            output << "    {\n";
+            output << "        switch (static_cast<" << enumDef.className << "::Value>(rawValue))\n";
+            output << "        {\n";
+            output << "            case " << enumDef.className << "::NotDefinedEnumValue:\n";
+            output << "            case " << enumDef.className << "::InvalidEnumValue:\n";
+            output << "                return std::string_view();\n";
+            for (const auto& facet : enumDef.facets)
             {
-                return std::string("builder.AddConstraint(");
+                output << "            case " << enumDef.className << "::" << facet.name << ":\n";
+                output << "                return " << GeneratorText::EscapeForCpp(facet.value) << ";\n";
+            }
+            output << "            default:\n";
+            output << "                return std::string_view();\n";
+            output << "        }\n";
+            output << "    }\n\n";
+            output << "    ExyokiOffice::UInt32 FromString(std::string_view value) const override\n";
+            output << "    {\n";
+            output << "        constexpr std::array<std::pair<std::string_view, " << enumDef.className << "::Value>, "
+                   << enumDef.facets.size() << "> kValidValues = {\n";
+            for (const auto& facet : enumDef.facets)
+            {
+                output << "            std::make_pair(" << GeneratorText::EscapeForCpp(facet.value) << ", " << enumDef.className
+                       << "::" << facet.name << "),\n";
+            }
+            output << "        };\n\n";
+            output << "        for (const auto& [text, enumValue] : kValidValues)\n";
+            output << "        {\n";
+            output << "            if (text == value)\n";
+            output << "            {\n";
+            output << "                return static_cast<ExyokiOffice::UInt32>(enumValue);\n";
+            output << "            }\n";
+            output << "        }\n\n";
+            output << "        return static_cast<ExyokiOffice::UInt32>(" << enumDef.className << "::InvalidEnumValue);\n";
+            output << "    }\n";
+            output << "};\n";
+            output << "} // namespace\n\n";
+
+            output << "const ExyokiOffice::OpenXmlMetaEnum* " << enumDef.className << "::GetMetaEnum() noexcept\n";
+            output << "{\n";
+            output << "    static const " << enumDef.className << "MetaEnum kMeta{};\n";
+            output << "    return &kMeta;\n";
+            output << "}\n\n";
+        }
+
+        std::set<std::string> emitted;
+        std::unordered_set<std::string> localClassNames;
+        for (const auto& element : elements)
+        {
+            localClassNames.insert(element.className);
+        }
+
+        auto BuildElementFlagsExpression = [](const TypedElement& element)
+        {
+            std::vector<std::string> flags;
+            if (element.isAbstract)
+            {
+                flags.emplace_back("ExyokiOffice::OpenXmlElementClassFlag::IsAbstract");
+            }
+            if (element.isDerived)
+            {
+                flags.emplace_back("ExyokiOffice::OpenXmlElementClassFlag::IsDerived");
+            }
+            if (element.isLeafElement)
+            {
+                flags.emplace_back("ExyokiOffice::OpenXmlElementClassFlag::IsLeafElement");
+            }
+            if (element.isLeafText)
+            {
+                flags.emplace_back("ExyokiOffice::OpenXmlElementClassFlag::IsLeafText");
             }
 
-            auto found = textValidatorUnions.find(*validator.unionId);
-            if (found == textValidatorUnions.end())
+            if (flags.empty())
             {
-                const auto variable = "metadataTextUnion" + std::to_string(textValidatorUnionIndex++);
-                output << "        auto " << variable
-                       << " = std::make_shared<ExyokiOffice::MetadataUnionConstraint>("
-                       << "ExyokiOffice::MetadataConstraintType::TextValue, " << *validator.unionId << ");\n";
-                output << "        builder.AddConstraint(" << variable << ");\n";
-                found = textValidatorUnions.emplace(*validator.unionId, variable).first;
+                return std::string("ExyokiOffice::OpenXmlElementClassFlags{}");
             }
-            return found->second + "->AddAlternative(";
+
+            if (flags.size() == 1)
+            {
+                return std::string("ExyokiOffice::OpenXmlElementClassFlags{") + flags.front() + "}";
+            }
+
+            std::ostringstream expr;
+            expr << '(';
+            for (std::size_t i = 0; i < flags.size(); ++i)
+            {
+                if (i > 0)
+                {
+                    expr << " | ";
+                }
+                expr << flags[i];
+            }
+            expr << ')';
+            return expr.str();
         };
-        for (const auto& validator : element.validators)
+
+        for (const auto& element : elements)
         {
-            if (validator.name == "StringValidator")
+            if (!emitted.insert(element.className).second)
             {
-                const auto validatorTarget = TextValidatorTarget(validator);
-                output << "        " << validatorTarget
-                       << "std::make_shared<ExyokiOffice::MetadataTextStringConstraint>("
-                       << FormatOptionalSizeExpression(ReadSizeArgument(validator, "MinLength")) << ", "
-                       << FormatOptionalSizeExpression(ReadSizeArgument(validator, "MaxLength")) << ", "
-                       << FormatOptionalSizeExpression(ReadSizeArgument(validator, "Length")) << ", "
-                       << FormatOptionalStringExpression(ReadStringArgument(validator, "Pattern")) << ", "
-                       << BoolLiteral(ReadBoolArgument(validator, "IsToken").value_or(false)) << ", "
-                       << BoolLiteral(ReadBoolArgument(validator, "IsNcName").value_or(false)) << ", "
-                       << BoolLiteral(ReadBoolArgument(validator, "IsQName").value_or(false)) << ", "
-                       << BoolLiteral(ReadBoolArgument(validator, "IsId").value_or(false)) << ", "
-                       << BoolLiteral(ReadBoolArgument(validator, "IsUri").value_or(false)) << "));\n";
                 continue;
             }
-            if (validator.name == "NumberValidator")
+
+            const auto elementQualifiedName = GeneratorSchemaReader::SelectElementQualifiedName(element);
+            const auto elementParts = GeneratorSchemaReader::SplitQualifiedName(elementQualifiedName);
+            const auto typeParts = GeneratorSchemaReader::SplitQualifiedName(element.typeQualifiedName);
+            const auto flagsExpression = BuildElementFlagsExpression(element);
+            const bool hasAttributes = !element.attributes.empty();
+            const bool hasParticleMetadata = element.particle.has_value();
+
+            if (hasParticleMetadata)
             {
-                const auto validatorTarget = TextValidatorTarget(validator);
-                output << "        " << validatorTarget
-                       << "std::make_shared<ExyokiOffice::MetadataTextNumberConstraint>("
-                       << EscapeForCpp(validator.typeQualifiedName) << ", "
-                       << FormatOptionalDoubleExpression(ReadDoubleArgument(validator, "MinInclusive")) << ", "
-                       << FormatOptionalDoubleExpression(ReadDoubleArgument(validator, "MaxInclusive")) << ", "
-                       << FormatOptionalDoubleExpression(ReadDoubleArgument(validator, "MinExclusive")) << ", "
-                       << FormatOptionalDoubleExpression(ReadDoubleArgument(validator, "MaxExclusive")) << ", "
-                       << BoolLiteral(ReadBoolArgument(validator, "IsPositive").value_or(false)) << ", "
-                       << BoolLiteral(ReadBoolArgument(validator, "IsNonNegative").value_or(false)) << ", "
-                       << BoolLiteral(validator.isList) << "));\n";
-                continue;
+                output << "ExyokiOffice::MetadataParticlePtr Create" << element.className << "ParticleMetadata()\n";
+                output << "{\n";
+                ParticleCodeGenerator generator(namespaceRegistry,
+                                                typeLookup,
+                                                elementLookup,
+                                                typeElementLookup,
+                                                ambiguousElements,
+                                                element.className,
+                                                element.sourceFile);
+                output << generator.Build(*element.particle);
+                output << "}\n\n";
             }
-            if (validator.name == "EnumValidator")
+
+            output << "namespace {\n";
+            output << "class " << element.className << "MetaClass final : public ExyokiOffice::OpenXMLElementClass\n{\n";
+            output << "public:\n";
+            output << "    const ExyokiOffice::OpenXMLElementClass* GetBaseMetaClass() const noexcept override\n";
+            output << "    {\n";
+            output << "        return " << element.baseClassName << "::StaticMetaClass();\n";
+            output << "    }\n\n";
+            output << "    ExyokiOffice::OpenXmlQualifiedName QualifiedName() const noexcept override\n";
+            output << "    {\n";
+            output << "        return " << GeneratorSchemaReader::FormatQualifiedNameExpression(elementParts, namespaceRegistry) << ";\n";
+            output << "    }\n\n";
+            output << "    ExyokiOffice::OpenXmlQualifiedName TypeQualifiedName() const noexcept override\n";
+            output << "    {\n";
+            output << "        return " << GeneratorSchemaReader::FormatQualifiedNameExpression(typeParts, namespaceRegistry) << ";\n";
+            output << "    }\n\n";
+            output << "    ExyokiOffice::OpenXml::FileFormatVersions GetVersion() const noexcept override\n";
+            output << "    {\n";
+            output << "        return " << element.versionExpression << ";\n";
+            output << "    }\n\n";
+            if (hasAttributes)
             {
-                const auto validatorTarget = TextValidatorTarget(validator);
-                output << "        " << validatorTarget
-                       << "std::make_shared<ExyokiOffice::MetadataTextEnumConstraint>("
-                       << FormatEnumRulesExpression(validator, enumFacets,
-                                                    element.className, element.sourceFile)
-                       << "));\n";
-                continue;
+                output << "    std::span<const ExyokiOffice::OpenXmlAttribute> GetAttributes() const noexcept override\n";
+                output << "    {\n";
+                output << "        static constexpr std::array<ExyokiOffice::OpenXmlAttribute, " << element.attributes.size() << "> kAttributes = {\n";
+                for (const auto& attribute : element.attributes)
+                {
+                    const auto attributeTypeName =
+                        GeneratorValidatorExpressions::SimplifyEnumTypeNameForNamespace(attribute.typeName, ns.apiNamespace, enums);
+                    output << "            ExyokiOffice::OpenXmlAttribute("
+                           << GeneratorSchemaReader::FormatQualifiedNameExpression(attribute.qName, namespaceRegistry) << ", "
+                           << GeneratorText::EscapeForCpp(attributeTypeName) << ", "
+                           << attribute.versionExpression << ", "
+                           << GeneratorText::EscapeForCpp(attribute.comment) << "),\n";
+                }
+                output << "        };\n";
+                output << "        return kAttributes;\n";
+                output << "    }\n\n";
             }
-            throw std::runtime_error("Unsupported text validator '" + validator.name + "' on element '" + element.className + "'.");
+            output << "    ExyokiOffice::OpenXmlElementClassFlags GetFlags() const noexcept override\n";
+            output << "    {\n";
+            output << "        return " << flagsExpression << ";\n";
+            output << "    }\n\n";
+            output << "    std::shared_ptr<ExyokiOffice::OpenXMLElement> Create() const override\n";
+            output << "    {\n";
+            output << "        return std::make_shared<" << element.className << ">();\n";
+            output << "    }\n";
+            output << "\n";
+            output << "    void ConfigureMetadata(ExyokiOffice::MetadataBuilder& builder) const override\n";
+            output << "    {\n";
+            output << "        builder.SetSchemaName(" << GeneratorText::EscapeForCpp(element.sourceFile) << ");\n";
+            output << "        builder.SetAvailability(" << element.versionExpression << ");\n";
+            if (hasAttributes)
+            {
+                std::size_t attributeIndex = 0;
+                for (const auto& attribute : element.attributes)
+                {
+                    const auto attributeTypeName =
+                        GeneratorValidatorExpressions::SimplifyEnumTypeNameForNamespace(attribute.typeName, ns.apiNamespace, enums);
+                    const auto attributeQNameExpr = GeneratorSchemaReader::FormatQualifiedNameExpression(attribute.qName, namespaceRegistry);
+                    const auto propertyLiteral = GeneratorText::EscapeForCpp(attribute.propertyName);
+                    const auto typeLiteral = GeneratorText::EscapeForCpp(attributeTypeName);
+                    const auto commentLiteral = GeneratorText::EscapeForCpp(attribute.comment);
+
+                    output << "        auto& metadataAttribute" << attributeIndex << " = builder.AddAttribute("
+                           << attributeQNameExpr << ", "
+                           << propertyLiteral << ", "
+                           << typeLiteral << ", "
+                           << attribute.versionExpression << ", "
+                           << commentLiteral << ");\n";
+
+                    std::unordered_map<std::uint32_t, std::string> validatorUnions;
+                    std::size_t validatorUnionIndex = 0;
+                    const auto ValidatorTarget = [&](const ValidatorDefinition& validator)
+                    {
+                        if (!validator.unionId)
+                        {
+                            return "metadataAttribute" + std::to_string(attributeIndex) + ".Validators.push_back(";
+                        }
+
+                        auto found = validatorUnions.find(*validator.unionId);
+                        if (found == validatorUnions.end())
+                        {
+                            const auto variable = "metadataAttribute" + std::to_string(attributeIndex) + "Union" + std::to_string(validatorUnionIndex++);
+                            output << "        auto " << variable
+                                   << " = std::make_shared<ExyokiOffice::MetadataUnionConstraint>("
+                                   << "ExyokiOffice::MetadataConstraintType::AttributeValue, "
+                                   << *validator.unionId << ");\n";
+                            output << "        metadataAttribute" << attributeIndex
+                                   << ".Validators.push_back(" << variable << ");\n";
+                            found = validatorUnions.emplace(*validator.unionId, variable).first;
+                        }
+                        return found->second + "->AddAlternative(";
+                    };
+                    for (const auto& validator : attribute.validators)
+                    {
+                        if (validator.name == "RequiredValidator")
+                        {
+                            const bool isRequired = GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsRequired").value_or(true);
+                            const auto validatorTarget = ValidatorTarget(validator);
+                            output << "        " << validatorTarget
+                                   << "std::make_shared<ExyokiOffice::MetadataRequiredConstraint>("
+                                   << attributeQNameExpr << ", " << propertyLiteral << ", "
+                                   << GeneratorValidatorExpressions::BoolLiteral(isRequired) << "));\n";
+                            continue;
+                        }
+
+                        if (validator.name == "StringValidator")
+                        {
+                            const auto minLengthExpr = GeneratorValidatorExpressions::FormatOptionalSizeExpression(GeneratorValidatorExpressions::ReadSizeArgument(validator, "MinLength"));
+                            const auto maxLengthExpr = GeneratorValidatorExpressions::FormatOptionalSizeExpression(GeneratorValidatorExpressions::ReadSizeArgument(validator, "MaxLength"));
+                            const auto exactLengthExpr = GeneratorValidatorExpressions::FormatOptionalSizeExpression(GeneratorValidatorExpressions::ReadSizeArgument(validator, "Length"));
+                            const auto patternExpr = GeneratorValidatorExpressions::FormatOptionalStringExpression(GeneratorValidatorExpressions::ReadStringArgument(validator, "Pattern"));
+                            const bool isToken = GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsToken").value_or(false);
+                            const bool isNcName = GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsNcName").value_or(false);
+                            const bool isQName = GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsQName").value_or(false);
+                            const bool isId = GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsId").value_or(false);
+                            const bool isUri = GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsUri").value_or(false);
+                            const bool isHexBinary =
+                                GeneratorText::IsHexBinaryLengthValidator(attribute.typeName, validator.typeQualifiedName);
+
+                            const auto validatorTarget = ValidatorTarget(validator);
+                            output << "        " << validatorTarget
+                                   << "std::make_shared<ExyokiOffice::MetadataStringConstraint>("
+                                   << attributeQNameExpr << ", " << propertyLiteral << ", "
+                                   << minLengthExpr << ", " << maxLengthExpr << ", "
+                                   << exactLengthExpr << ", " << patternExpr << ", "
+                                   << GeneratorValidatorExpressions::BoolLiteral(isToken) << ", " << GeneratorValidatorExpressions::BoolLiteral(isNcName) << ", "
+                                   << GeneratorValidatorExpressions::BoolLiteral(isQName) << ", " << GeneratorValidatorExpressions::BoolLiteral(isId) << ", "
+                                   << GeneratorValidatorExpressions::BoolLiteral(isUri);
+                            if (isHexBinary)
+                            {
+                                // Only spelled out where it differs from the default, to
+                                // keep the emitted constructor calls readable.
+                                output << ", " << GeneratorValidatorExpressions::BoolLiteral(isHexBinary);
+                            }
+                            output << "));\n";
+                            continue;
+                        }
+
+                        if (validator.name == "NumberValidator")
+                        {
+                            const auto minInclusiveExpr =
+                                GeneratorValidatorExpressions::FormatOptionalDoubleExpression(GeneratorValidatorExpressions::ReadDoubleArgument(validator, "MinInclusive"));
+                            const auto maxInclusiveExpr =
+                                GeneratorValidatorExpressions::FormatOptionalDoubleExpression(GeneratorValidatorExpressions::ReadDoubleArgument(validator, "MaxInclusive"));
+                            const auto minExclusiveExpr =
+                                GeneratorValidatorExpressions::FormatOptionalDoubleExpression(GeneratorValidatorExpressions::ReadDoubleArgument(validator, "MinExclusive"));
+                            const auto maxExclusiveExpr =
+                                GeneratorValidatorExpressions::FormatOptionalDoubleExpression(GeneratorValidatorExpressions::ReadDoubleArgument(validator, "MaxExclusive"));
+                            const bool isPositive = GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsPositive").value_or(false);
+                            const bool isNonNegative = GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsNonNegative").value_or(false);
+
+                            const auto validatorTarget = ValidatorTarget(validator);
+                            output << "        " << validatorTarget
+                                   << "std::make_shared<ExyokiOffice::MetadataNumberConstraint>("
+                                   << attributeQNameExpr << ", " << propertyLiteral << ", "
+                                   << GeneratorText::EscapeForCpp(validator.typeQualifiedName) << ", "
+                                   << minInclusiveExpr << ", " << maxInclusiveExpr << ", "
+                                   << minExclusiveExpr << ", " << maxExclusiveExpr << ", "
+                                   << GeneratorValidatorExpressions::BoolLiteral(isPositive) << ", " << GeneratorValidatorExpressions::BoolLiteral(isNonNegative) << ", "
+                                   << GeneratorValidatorExpressions::BoolLiteral(validator.isList) << "));\n";
+                            continue;
+                        }
+
+                        if (validator.name == "EnumValidator")
+                        {
+                            if (const auto enumValueType = GeneratorValidatorExpressions::ResolveEnumValueValidatorType(attributeTypeName))
+                            {
+                                const auto validatorTarget = ValidatorTarget(validator);
+                                output << "        " << validatorTarget
+                                       << "ExyokiOffice::MetadataEnumConstraint::Create<"
+                                       << *enumValueType << ">(" << attributeQNameExpr << ", "
+                                       << propertyLiteral << "));\n";
+                            }
+                            else if (attributeTypeName == "StringValue")
+                            {
+                                const auto validatorTarget = ValidatorTarget(validator);
+                                output << "        " << validatorTarget
+                                       << "std::make_shared<ExyokiOffice::MetadataAttributeEnumUnionConstraint>("
+                                       << attributeQNameExpr << ", " << propertyLiteral << ", "
+                                       << GeneratorValidatorExpressions::FormatEnumRulesExpression(validator, enumFacets,
+                                                                                                   element.className + "::" + attribute.propertyName,
+                                                                                                   attribute.sourceFile)
+                                       << "));\n";
+                            }
+                            else if (attributeTypeName != "StringValue")
+                            {
+                                throw std::runtime_error("EnumValidator on attribute '" + attribute.propertyName + "' of element '" + element.className + "' uses unsupported type '" + attribute.typeName + "'.");
+                            }
+                            continue;
+                        }
+
+                        if (validator.name == "OfficeVersionValidator")
+                        {
+                            std::string_view versionToken = kDefaultVersionToken;
+                            if (!validator.arguments.empty() && !validator.arguments.front().value.empty())
+                            {
+                                versionToken = GeneratorSchemaReader::ResolveVersionToken(validator.arguments.front().value);
+                            }
+
+                            const auto validatorTarget = ValidatorTarget(validator);
+                            output << "        " << validatorTarget
+                                   << "std::make_shared<ExyokiOffice::MetadataOfficeVersionConstraint>("
+                                   << attributeQNameExpr << ", " << propertyLiteral << ", "
+                                   << versionToken << "));\n";
+                            continue;
+                        }
+
+                        Logger::Warn({"GEN-UNSUPPORTED-VALIDATOR",
+                                      "validator",
+                                      "Unsupported validator '" + validator.name + "' on attribute '" + attribute.propertyName + "' defined in '" + attribute.sourceFile + "'.",
+                                      attribute.sourceFile,
+                                      "schema attribute",
+                                      element.className + "::" + attribute.propertyName,
+                                      validator.name});
+                    }
+
+                    ++attributeIndex;
+                }
+            }
+            for (const auto& additional : element.additionalElements)
+            {
+                std::string typeName;
+                if (const auto resolvedElement = elementLookup.find(additional.elementQualifiedName);
+                    resolvedElement != elementLookup.end())
+                {
+                    typeName = resolvedElement->second;
+                }
+                else if (const auto resolvedType = typeLookup.find(additional.typeQualifiedName);
+                         resolvedType != typeLookup.end())
+                {
+                    typeName = resolvedType->second;
+                }
+                else
+                {
+                    throw std::runtime_error("Unable to resolve AdditionalElements entry '" + additional.rawName + "' on schema type '" + element.className + "'.");
+                }
+                auto additionalQName = GeneratorSchemaReader::SplitQualifiedName(additional.elementQualifiedName);
+                output << "        builder.AddAdditionalElement("
+                       << GeneratorSchemaReader::FormatQualifiedNameExpression(additionalQName, namespaceRegistry) << ", "
+                       << GeneratorText::EscapeForCpp(typeName) << ");\n";
+            }
+            std::unordered_map<std::uint32_t, std::string> textValidatorUnions;
+            std::size_t textValidatorUnionIndex = 0;
+            const auto TextValidatorTarget = [&](const ValidatorDefinition& validator)
+            {
+                if (!validator.unionId)
+                {
+                    return std::string("builder.AddConstraint(");
+                }
+
+                auto found = textValidatorUnions.find(*validator.unionId);
+                if (found == textValidatorUnions.end())
+                {
+                    const auto variable = "metadataTextUnion" + std::to_string(textValidatorUnionIndex++);
+                    output << "        auto " << variable
+                           << " = std::make_shared<ExyokiOffice::MetadataUnionConstraint>("
+                           << "ExyokiOffice::MetadataConstraintType::TextValue, " << *validator.unionId << ");\n";
+                    output << "        builder.AddConstraint(" << variable << ");\n";
+                    found = textValidatorUnions.emplace(*validator.unionId, variable).first;
+                }
+                return found->second + "->AddAlternative(";
+            };
+            for (const auto& validator : element.validators)
+            {
+                if (validator.name == "StringValidator")
+                {
+                    const auto validatorTarget = TextValidatorTarget(validator);
+                    output << "        " << validatorTarget
+                           << "std::make_shared<ExyokiOffice::MetadataTextStringConstraint>("
+                           << GeneratorValidatorExpressions::FormatOptionalSizeExpression(GeneratorValidatorExpressions::ReadSizeArgument(validator, "MinLength")) << ", "
+                           << GeneratorValidatorExpressions::FormatOptionalSizeExpression(GeneratorValidatorExpressions::ReadSizeArgument(validator, "MaxLength")) << ", "
+                           << GeneratorValidatorExpressions::FormatOptionalSizeExpression(GeneratorValidatorExpressions::ReadSizeArgument(validator, "Length")) << ", "
+                           << GeneratorValidatorExpressions::FormatOptionalStringExpression(GeneratorValidatorExpressions::ReadStringArgument(validator, "Pattern")) << ", "
+                           << GeneratorValidatorExpressions::BoolLiteral(GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsToken").value_or(false)) << ", "
+                           << GeneratorValidatorExpressions::BoolLiteral(GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsNcName").value_or(false)) << ", "
+                           << GeneratorValidatorExpressions::BoolLiteral(GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsQName").value_or(false)) << ", "
+                           << GeneratorValidatorExpressions::BoolLiteral(GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsId").value_or(false)) << ", "
+                           << GeneratorValidatorExpressions::BoolLiteral(GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsUri").value_or(false)) << "));\n";
+                    continue;
+                }
+                if (validator.name == "NumberValidator")
+                {
+                    const auto validatorTarget = TextValidatorTarget(validator);
+                    output << "        " << validatorTarget
+                           << "std::make_shared<ExyokiOffice::MetadataTextNumberConstraint>("
+                           << GeneratorText::EscapeForCpp(validator.typeQualifiedName) << ", "
+                           << GeneratorValidatorExpressions::FormatOptionalDoubleExpression(GeneratorValidatorExpressions::ReadDoubleArgument(validator, "MinInclusive")) << ", "
+                           << GeneratorValidatorExpressions::FormatOptionalDoubleExpression(GeneratorValidatorExpressions::ReadDoubleArgument(validator, "MaxInclusive")) << ", "
+                           << GeneratorValidatorExpressions::FormatOptionalDoubleExpression(GeneratorValidatorExpressions::ReadDoubleArgument(validator, "MinExclusive")) << ", "
+                           << GeneratorValidatorExpressions::FormatOptionalDoubleExpression(GeneratorValidatorExpressions::ReadDoubleArgument(validator, "MaxExclusive")) << ", "
+                           << GeneratorValidatorExpressions::BoolLiteral(GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsPositive").value_or(false)) << ", "
+                           << GeneratorValidatorExpressions::BoolLiteral(GeneratorValidatorExpressions::ReadBoolArgument(validator, "IsNonNegative").value_or(false)) << ", "
+                           << GeneratorValidatorExpressions::BoolLiteral(validator.isList) << "));\n";
+                    continue;
+                }
+                if (validator.name == "EnumValidator")
+                {
+                    const auto validatorTarget = TextValidatorTarget(validator);
+                    output << "        " << validatorTarget
+                           << "std::make_shared<ExyokiOffice::MetadataTextEnumConstraint>("
+                           << GeneratorValidatorExpressions::FormatEnumRulesExpression(validator, enumFacets,
+                                                                                       element.className, element.sourceFile)
+                           << "));\n";
+                    continue;
+                }
+                throw std::runtime_error("Unsupported text validator '" + validator.name + "' on element '" + element.className + "'.");
+            }
+            if (hasParticleMetadata)
+            {
+                output << "        builder.SetParticleTree(Create" << element.className << "ParticleMetadata());\n";
+            }
+            for (const auto& rule : element.schematronRules)
+            {
+                const auto attributeQName = GeneratorValidatorExpressions::ResolveSchematronAttributeName(rule, element);
+                if (!attributeQName.prefix.empty() && namespaceRegistry.find(attributeQName.prefix) == namespaceRegistry.end())
+                {
+                    Logger::Warn({"GEN-SCHEMATRON-CONSTRAINT-NOT-GENERATED",
+                                  "schematron",
+                                  "Schematron rule for '" + rule.context + "' uses unknown attribute namespace prefix '" + attributeQName.prefix + "': " + rule.test,
+                                  rule.sourceFile,
+                                  "schematron rule",
+                                  rule.context,
+                                  rule.test});
+                    continue;
+                }
+                output << "        builder.AddConstraint("
+                       << GeneratorValidatorExpressions::FormatSchematronAttributeConstraintExpression(rule, attributeQName, namespaceRegistry)
+                       << ");\n";
+            }
+            output << "    }\n";
+            output << "};\n";
+            output << "} // namespace\n\n";
+
+            output << "const ExyokiOffice::OpenXMLElementClass* " << element.className << "::StaticMetaClass() noexcept\n";
+            output << "{\n";
+            output << "    static const " << element.className << "MetaClass kMeta{};\n";
+            output << "    return &kMeta;\n";
+            output << "}\n\n";
+
+            output << "const ExyokiOffice::OpenXMLElementClass* " << element.className << "::ElementMetaClass() const noexcept\n";
+            output << "{\n";
+            output << "    return " << element.className << "::StaticMetaClass();\n";
+            output << "}\n\n";
+
+            for (const auto& attribute : element.attributes)
+            {
+                const auto attributeTypeName =
+                    GeneratorValidatorExpressions::SimplifyEnumTypeNameForNamespace(attribute.typeName, ns.apiNamespace, enums);
+                output << attributeTypeName << " " << element.className << "::Get" << attribute.propertyName << "() const\n";
+                output << "{\n";
+                output << "    constexpr ExyokiOffice::OpenXmlQualifiedName kAttribute("
+                       << GeneratorSchemaReader::FormatQualifiedNameExpression(attribute.qName, namespaceRegistry) << ");\n";
+                output << "    return GetAttributeValue<" << attributeTypeName << ">(kAttribute);\n";
+                output << "}\n\n";
+
+                output << "void " << element.className << "::Set" << attribute.propertyName
+                       << "(const " << attributeTypeName << "& value)\n";
+                output << "{\n";
+                output << "    constexpr ExyokiOffice::OpenXmlQualifiedName kAttribute("
+                       << GeneratorSchemaReader::FormatQualifiedNameExpression(attribute.qName, namespaceRegistry) << ");\n";
+                output << "    SetAttributeValue(kAttribute, value);\n";
+                output << "}\n\n";
+            }
         }
-        if (hasParticleMetadata)
+
+        for (auto it = parts.rbegin(); it != parts.rend(); ++it)
         {
-            output << "        builder.SetParticleTree(Create" << element.className << "ParticleMetadata());\n";
+            output << "} // namespace " << *it << "\n";
         }
-        for (const auto& rule : element.schematronRules)
+
+        WriteFileText(sourcePath, output.str());
+    }
+
+    static void WriteTypedNamespaceIndex(const GeneratorConfig& config, const std::vector<TypedNamespace>& namespaces)
+    {
+        auto headerPath = config.outputInclude / "ExyokiOffice" / "DOM" / "TypedNamespaces.hpp";
+        EnsureDirectory(headerPath.parent_path());
+
+        std::ostringstream output;
+        output << kGeneratedHeaderWarning;
+        output << "#pragma once\n\n";
+        output << "#include <string_view>\n";
+        output << "#include <utility>\n\n";
+
+        output << "namespace ExyokiOffice::Generated\n{\n";
+        output << "struct TypedNamespaceInfo\n{\n";
+        output << "    std::string_view Prefix;\n";
+        output << "    std::string_view Namespace;\n";
+        output << "};\n\n";
+
+        output << "inline constexpr TypedNamespaceInfo TypedNamespaces[] = {\n";
+        for (const auto& ns : namespaces)
         {
-            const auto attributeQName = ResolveSchematronAttributeName(rule, element);
-            if (!attributeQName.prefix.empty() && namespaceRegistry.find(attributeQName.prefix) == namespaceRegistry.end())
-            {
-                Logger::Warn({"GEN-SCHEMATRON-CONSTRAINT-NOT-GENERATED",
-                              "schematron",
-                              "Schematron rule for '" + rule.context + "' uses unknown attribute namespace prefix '" + attributeQName.prefix + "': " + rule.test,
-                              rule.sourceFile,
-                              "schematron rule",
-                              rule.context,
-                              rule.test});
-                continue;
-            }
-            output << "        builder.AddConstraint("
-                   << FormatSchematronAttributeConstraintExpression(rule, attributeQName, namespaceRegistry)
-                   << ");\n";
+            const auto fullNamespaceName = "ExyokiOffice." + ns.apiNamespace;
+            output << "    { " << GeneratorText::EscapeForCpp(ns.prefix) << ", " << GeneratorText::EscapeForCpp(fullNamespaceName) << " },\n";
         }
-        output << "    }\n";
         output << "};\n";
-        output << "} // namespace\n\n";
+        output << "} // namespace ExyokiOffice::Generated\n";
 
-        output << "const ExyokiOffice::OpenXMLElementClass* " << element.className << "::StaticMetaClass() noexcept\n";
-        output << "{\n";
-        output << "    static const " << element.className << "MetaClass kMeta{};\n";
-        output << "    return &kMeta;\n";
-        output << "}\n\n";
-
-        output << "const ExyokiOffice::OpenXMLElementClass* " << element.className << "::ElementMetaClass() const noexcept\n";
-        output << "{\n";
-        output << "    return " << element.className << "::StaticMetaClass();\n";
-        output << "}\n\n";
-
-        for (const auto& attribute : element.attributes)
-        {
-            const auto attributeTypeName =
-                SimplifyEnumTypeNameForNamespace(attribute.typeName, ns.apiNamespace, enums);
-            output << attributeTypeName << " " << element.className << "::Get" << attribute.propertyName << "() const\n";
-            output << "{\n";
-            output << "    constexpr ExyokiOffice::OpenXmlQualifiedName kAttribute("
-                   << FormatQualifiedNameExpression(attribute.qName, namespaceRegistry) << ");\n";
-            output << "    return GetAttributeValue<" << attributeTypeName << ">(kAttribute);\n";
-            output << "}\n\n";
-
-            output << "void " << element.className << "::Set" << attribute.propertyName
-                   << "(const " << attributeTypeName << "& value)\n";
-            output << "{\n";
-            output << "    constexpr ExyokiOffice::OpenXmlQualifiedName kAttribute("
-                   << FormatQualifiedNameExpression(attribute.qName, namespaceRegistry) << ");\n";
-            output << "    SetAttributeValue(kAttribute, value);\n";
-            output << "}\n\n";
-        }
+        WriteFileText(headerPath, output.str());
     }
 
-    for (auto it = parts.rbegin(); it != parts.rend(); ++it)
-    {
-        output << "} // namespace " << *it << "\n";
-    }
-
-    WriteFileText(sourcePath, output.str());
-}
-
-void WriteTypedNamespaceIndex(const GeneratorConfig& config, const std::vector<TypedNamespace>& namespaces)
-{
-    auto headerPath = config.outputInclude / "ExyokiOffice" / "DOM" / "TypedNamespaces.hpp";
-    EnsureDirectory(headerPath.parent_path());
-
-    std::ostringstream output;
-    output << kGeneratedHeaderWarning;
-    output << "#pragma once\n\n";
-    output << "#include <string_view>\n";
-    output << "#include <utility>\n\n";
-
-    output << "namespace ExyokiOffice::Generated\n{\n";
-    output << "struct TypedNamespaceInfo\n{\n";
-    output << "    std::string_view Prefix;\n";
-    output << "    std::string_view Namespace;\n";
-    output << "};\n\n";
-
-    output << "inline constexpr TypedNamespaceInfo TypedNamespaces[] = {\n";
-    for (const auto& ns : namespaces)
-    {
-        const auto fullNamespaceName = "ExyokiOffice." + ns.apiNamespace;
-        output << "    { " << EscapeForCpp(ns.prefix) << ", " << EscapeForCpp(fullNamespaceName) << " },\n";
-    }
-    output << "};\n";
-    output << "} // namespace ExyokiOffice::Generated\n";
-
-    WriteFileText(headerPath, output.str());
-}
-
-/// A generated attribute type resolved for the DOM test emitter.
-struct DomTestSampleType
-{
-    std::string fqType;     ///< Fully-qualified C++ value-wrapper type.
-    std::string sampleExpr; ///< Expression yielding a defined sample value, or empty when none is known.
+    /// Maps an attribute type name (as stored in AttributeDefinition::typeName, e.g.
+    /// "StringValue" or "EnumValue<ExyokiOffice::...::FooValues>") to a fully
+    /// qualified type and, when possible, an expression producing a defined sample
+    /// value. Returns std::nullopt for composite/opaque types the emitter cannot
+    /// synthesize; those stay covered by the reflective corpus test at the string
+    /// layer.
 };
 
-/// Maps an attribute type name (as stored in AttributeDefinition::typeName, e.g.
-/// "StringValue" or "EnumValue<ExyokiOffice::...::FooValues>") to a fully
-/// qualified type and, when possible, an expression producing a defined sample
-/// value. Returns std::nullopt for composite/opaque types the emitter cannot
-/// synthesize; those stay covered by the reflective corpus test at the string
-/// layer.
-std::optional<DomTestSampleType> ResolveDomTestSampleType(
-    const std::string& typeName,
-    const std::unordered_map<std::string, std::string>& enumFirstFacet)
+/// Emitting the generated DOM tests and the element factory.
+class GeneratorDomTestWriter
 {
-    constexpr std::string_view enumPrefix = "EnumValue<";
-    if (typeName.rfind(enumPrefix, 0) == 0 && !typeName.empty() && typeName.back() == '>')
+public:
+    static std::optional<DomTestSampleType> ResolveDomTestSampleType(
+        const std::string& typeName,
+        const std::unordered_map<std::string, std::string>& enumFirstFacet)
     {
-        const auto inner = typeName.substr(enumPrefix.size(), typeName.size() - enumPrefix.size() - 1);
+        constexpr std::string_view enumPrefix = "EnumValue<";
+        if (typeName.rfind(enumPrefix, 0) == 0 && !typeName.empty() && typeName.back() == '>')
+        {
+            const auto inner = typeName.substr(enumPrefix.size(), typeName.size() - enumPrefix.size() - 1);
+            DomTestSampleType result;
+            result.fqType = "ExyokiOffice::" + typeName;
+            if (const auto facet = enumFirstFacet.find(inner); facet != enumFirstFacet.end())
+            {
+                result.sampleExpr = result.fqType + "(" + inner + "::" + facet->second + ")";
+            }
+            return result;
+        }
+
+        // Only bare value-wrapper leaf types (which live in namespace ExyokiOffice)
+        // are handled; anything already qualified or templated is left to the corpus test.
+        if (typeName.find("::") != std::string::npos || typeName.find('<') != std::string::npos)
+        {
+            return std::nullopt;
+        }
+
+        static const std::unordered_map<std::string, std::string> kLeafSamples = {
+            {"StringValue", "ExyokiOffice::StringValue(std::string_view(\"eo-sample\"))"},
+            {"BooleanValue", "ExyokiOffice::BooleanValue(true)"},
+            {"OnOffValue", "ExyokiOffice::OnOffValue(true)"},
+            {"TrueFalseValue", "ExyokiOffice::TrueFalseValue(true)"},
+            {"TrueFalseBlankValue", "ExyokiOffice::TrueFalseBlankValue(true)"},
+            {"ByteValue", "ExyokiOffice::ByteValue(static_cast<ExyokiOffice::UInt8>(1))"},
+            {"SByteValue", "ExyokiOffice::SByteValue(static_cast<ExyokiOffice::Int8>(1))"},
+            {"Int16Value", "ExyokiOffice::Int16Value(static_cast<ExyokiOffice::Int16>(1))"},
+            {"Int32Value", "ExyokiOffice::Int32Value(static_cast<ExyokiOffice::Int32>(1))"},
+            {"Int64Value", "ExyokiOffice::Int64Value(static_cast<ExyokiOffice::Int64>(1))"},
+            {"IntegerValue", "ExyokiOffice::IntegerValue(static_cast<ExyokiOffice::Int64>(1))"},
+            {"UInt16Value", "ExyokiOffice::UInt16Value(static_cast<ExyokiOffice::UInt16>(1))"},
+            {"UInt32Value", "ExyokiOffice::UInt32Value(static_cast<ExyokiOffice::UInt32>(1))"},
+            {"UInt64Value", "ExyokiOffice::UInt64Value(static_cast<ExyokiOffice::UInt64>(1))"},
+            {"DoubleValue", "ExyokiOffice::DoubleValue(1.5)"},
+            {"SingleValue", "ExyokiOffice::SingleValue(1.5f)"},
+            {"DecimalValue", "ExyokiOffice::DecimalValue(std::string_view(\"1\"))"},
+            {"DateTimeValue", "ExyokiOffice::DateTimeValue(std::string_view(\"2020-01-01T00:00:00Z\"))"},
+            {"HexBinaryValue", "ExyokiOffice::HexBinaryValue(std::vector<ExyokiOffice::UInt8>{0x00, 0xFF})"},
+            {"Base64BinaryValue", "ExyokiOffice::Base64BinaryValue(std::vector<ExyokiOffice::UInt8>{0x00, 0xFF})"},
+        };
+
         DomTestSampleType result;
         result.fqType = "ExyokiOffice::" + typeName;
-        if (const auto facet = enumFirstFacet.find(inner); facet != enumFirstFacet.end())
+        if (const auto leaf = kLeafSamples.find(typeName); leaf != kLeafSamples.end())
         {
-            result.sampleExpr = result.fqType + "(" + inner + "::" + facet->second + ")";
+            result.sampleExpr = leaf->second;
         }
         return result;
     }
 
-    // Only bare value-wrapper leaf types (which live in namespace ExyokiOffice)
-    // are handled; anything already qualified or templated is left to the corpus test.
-    if (typeName.find("::") != std::string::npos || typeName.find('<') != std::string::npos)
+    /// Emits one doctest translation unit per API namespace exercising the typed
+    /// Get/Set accessors and enum conversions of every concrete generated element in
+    /// that namespace, verified through a full XML serialization round-trip.
+    static void WriteGeneratedDomTests(const GeneratorConfig& config,
+                                       const TypedNamespace& ns,
+                                       const std::vector<TypedElement>& elements,
+                                       const std::unordered_map<std::string, std::string>& enumFirstFacet)
     {
-        return std::nullopt;
-    }
-
-    static const std::unordered_map<std::string, std::string> kLeafSamples = {
-        {"StringValue", "ExyokiOffice::StringValue(std::string_view(\"eo-sample\"))"},
-        {"BooleanValue", "ExyokiOffice::BooleanValue(true)"},
-        {"OnOffValue", "ExyokiOffice::OnOffValue(true)"},
-        {"TrueFalseValue", "ExyokiOffice::TrueFalseValue(true)"},
-        {"TrueFalseBlankValue", "ExyokiOffice::TrueFalseBlankValue(true)"},
-        {"ByteValue", "ExyokiOffice::ByteValue(static_cast<ExyokiOffice::UInt8>(1))"},
-        {"SByteValue", "ExyokiOffice::SByteValue(static_cast<ExyokiOffice::Int8>(1))"},
-        {"Int16Value", "ExyokiOffice::Int16Value(static_cast<ExyokiOffice::Int16>(1))"},
-        {"Int32Value", "ExyokiOffice::Int32Value(static_cast<ExyokiOffice::Int32>(1))"},
-        {"Int64Value", "ExyokiOffice::Int64Value(static_cast<ExyokiOffice::Int64>(1))"},
-        {"IntegerValue", "ExyokiOffice::IntegerValue(static_cast<ExyokiOffice::Int64>(1))"},
-        {"UInt16Value", "ExyokiOffice::UInt16Value(static_cast<ExyokiOffice::UInt16>(1))"},
-        {"UInt32Value", "ExyokiOffice::UInt32Value(static_cast<ExyokiOffice::UInt32>(1))"},
-        {"UInt64Value", "ExyokiOffice::UInt64Value(static_cast<ExyokiOffice::UInt64>(1))"},
-        {"DoubleValue", "ExyokiOffice::DoubleValue(1.5)"},
-        {"SingleValue", "ExyokiOffice::SingleValue(1.5f)"},
-        {"DecimalValue", "ExyokiOffice::DecimalValue(std::string_view(\"1\"))"},
-        {"DateTimeValue", "ExyokiOffice::DateTimeValue(std::string_view(\"2020-01-01T00:00:00Z\"))"},
-        {"HexBinaryValue", "ExyokiOffice::HexBinaryValue(std::vector<ExyokiOffice::UInt8>{0x00, 0xFF})"},
-        {"Base64BinaryValue", "ExyokiOffice::Base64BinaryValue(std::vector<ExyokiOffice::UInt8>{0x00, 0xFF})"},
-    };
-
-    DomTestSampleType result;
-    result.fqType = "ExyokiOffice::" + typeName;
-    if (const auto leaf = kLeafSamples.find(typeName); leaf != kLeafSamples.end())
-    {
-        result.sampleExpr = leaf->second;
-    }
-    return result;
-}
-
-/// Emits one doctest translation unit per API namespace exercising the typed
-/// Get/Set accessors and enum conversions of every concrete generated element in
-/// that namespace, verified through a full XML serialization round-trip.
-void WriteGeneratedDomTests(const GeneratorConfig& config,
-                            const TypedNamespace& ns,
-                            const std::vector<TypedElement>& elements,
-                            const std::unordered_map<std::string, std::string>& enumFirstFacet)
-{
-    if (config.outputTests.empty())
-    {
-        return;
-    }
-
-    struct TestableElement
-    {
-        std::string className;
-        std::vector<const AttributeDefinition*> attributes;
-    };
-
-    std::vector<TestableElement> testable;
-    std::set<std::string> emitted;
-    for (const auto& element : elements)
-    {
-        if (element.isAbstract || !element.hasElementQualifiedName)
+        if (config.outputTests.empty())
         {
-            continue;
-        }
-        if (SelectElementQualifiedName(element).empty())
-        {
-            continue;
-        }
-        if (!emitted.insert(element.className).second)
-        {
-            continue;
+            return;
         }
 
-        TestableElement entry;
-        entry.className = element.className;
-        for (const auto& attribute : element.attributes)
+        struct TestableElement
         {
-            entry.attributes.push_back(&attribute);
-        }
-        testable.push_back(std::move(entry));
-    }
-
-    if (testable.empty())
-    {
-        return;
-    }
-
-    const auto namespaceQualifier = BuildNamespaceQualifier(ns.apiNamespace, true);
-    const auto elementInclude =
-        (std::filesystem::path("ExyokiOffice") / "DOM" / NamespaceToPath(ns.apiNamespace)).generic_string();
-
-    std::ostringstream out;
-    out << kGeneratedHeaderWarning;
-    out << "#include \"doctest.h\"\n\n";
-    out << "#include \"DomTestSupport.hpp\"\n\n";
-    out << "#include \"" << elementInclude << "\"\n";
-    out << "#include \"ExyokiOffice/StandardTypes.hpp\"\n\n";
-    out << "#include <cstdint>\n";
-    out << "#include <string_view>\n";
-    out << "#include <vector>\n\n";
-    out << "namespace EoNs = " << namespaceQualifier << ";\n\n";
-    out << "TEST_SUITE(\"" << ns.apiNamespace << ".DomGeneratedTests\")\n{\n";
-
-    for (const auto& entry : testable)
-    {
-        out << "    TEST_CASE(\"" << entry.className
-            << " typed accessors round-trip [unit] [metadata] [dom-generated]\")\n";
-        out << "    {\n";
-        out << "        auto hosted = DomTest::HostElement<EoNs::" << entry.className << ">();\n";
-        out << "        REQUIRE(hosted.element != nullptr);\n";
-
-        // Resolve each attribute once so the three phases stay in sync.
-        struct ResolvedAttribute
-        {
-            std::string propertyName;
-            DomTestSampleType type;
+            std::string className;
+            std::vector<const AttributeDefinition*> attributes;
         };
-        std::vector<ResolvedAttribute> resolved;
-        for (const auto* attribute : entry.attributes)
+
+        std::vector<TestableElement> testable;
+        std::set<std::string> emitted;
+        for (const auto& element : elements)
         {
-            auto type = ResolveDomTestSampleType(attribute->typeName, enumFirstFacet);
-            if (!type)
+            if (element.isAbstract || !element.hasElementQualifiedName)
             {
                 continue;
             }
-            resolved.push_back(ResolvedAttribute{attribute->propertyName, std::move(*type)});
-        }
-
-        bool hasSample = false;
-        if (!resolved.empty())
-        {
-            out << "\n        // Undefined contract: every typed accessor links and honours IsDefined().\n";
-            for (const auto& attribute : resolved)
+            if (GeneratorSchemaReader::SelectElementQualifiedName(element).empty())
             {
-                out << "        hosted.element->Set" << attribute.propertyName << "(" << attribute.type.fqType
-                    << "{});\n";
-                out << "        CHECK_FALSE(hosted.element->Get" << attribute.propertyName
-                    << "().IsDefined());\n";
-                hasSample = hasSample || !attribute.type.sampleExpr.empty();
+                continue;
             }
+            if (!emitted.insert(element.className).second)
+            {
+                continue;
+            }
+
+            TestableElement entry;
+            entry.className = element.className;
+            for (const auto& attribute : element.attributes)
+            {
+                entry.attributes.push_back(&attribute);
+            }
+            testable.push_back(std::move(entry));
         }
 
-        if (hasSample)
+        if (testable.empty())
         {
-            out << "\n        // Typed value round-trip through real XML serialization.\n";
-            for (const auto& attribute : resolved)
+            return;
+        }
+
+        const auto namespaceQualifier = GeneratorSchemaReader::BuildNamespaceQualifier(ns.apiNamespace, true);
+        const auto elementInclude =
+            (std::filesystem::path("ExyokiOffice") / "DOM" / GeneratorSchemaReader::NamespaceToPath(ns.apiNamespace)).generic_string();
+
+        std::ostringstream out;
+        out << kGeneratedHeaderWarning;
+        out << "#include \"doctest.h\"\n\n";
+        out << "#include \"DomTestSupport.hpp\"\n\n";
+        out << "#include \"" << elementInclude << "\"\n";
+        out << "#include \"ExyokiOffice/StandardTypes.hpp\"\n\n";
+        out << "#include <cstdint>\n";
+        out << "#include <string_view>\n";
+        out << "#include <vector>\n\n";
+        out << "namespace EoNs = " << namespaceQualifier << ";\n\n";
+        out << "TEST_SUITE(\"" << ns.apiNamespace << ".DomGeneratedTests\")\n{\n";
+
+        for (const auto& entry : testable)
+        {
+            out << "    TEST_CASE(\"" << entry.className
+                << " typed accessors round-trip [unit] [metadata] [dom-generated]\")\n";
+            out << "    {\n";
+            out << "        auto hosted = DomTest::HostElement<EoNs::" << entry.className << ">();\n";
+            out << "        REQUIRE(hosted.element != nullptr);\n";
+
+            // Resolve each attribute once so the three phases stay in sync.
+            struct ResolvedAttribute
             {
-                if (attribute.type.sampleExpr.empty())
+                std::string propertyName;
+                DomTestSampleType type;
+            };
+            std::vector<ResolvedAttribute> resolved;
+            for (const auto* attribute : entry.attributes)
+            {
+                auto type = ResolveDomTestSampleType(attribute->typeName, enumFirstFacet);
+                if (!type)
                 {
                     continue;
                 }
-                out << "        const " << attribute.type.fqType << " sample" << attribute.propertyName << " = "
-                    << attribute.type.sampleExpr << ";\n";
-                out << "        hosted.element->Set" << attribute.propertyName << "(sample"
-                    << attribute.propertyName << ");\n";
-                out << "        CHECK(hosted.element->Get" << attribute.propertyName << "() == sample"
-                    << attribute.propertyName << ");\n";
+                resolved.push_back(ResolvedAttribute{attribute->propertyName, std::move(*type)});
             }
-            out << "        const auto reloaded = hosted.RoundTrip();\n";
-            out << "        REQUIRE(reloaded.element != nullptr);\n";
-            for (const auto& attribute : resolved)
+
+            bool hasSample = false;
+            if (!resolved.empty())
             {
-                if (attribute.type.sampleExpr.empty())
+                out << "\n        // Undefined contract: every typed accessor links and honours IsDefined().\n";
+                for (const auto& attribute : resolved)
                 {
-                    continue;
+                    out << "        hosted.element->Set" << attribute.propertyName << "(" << attribute.type.fqType
+                        << "{});\n";
+                    out << "        CHECK_FALSE(hosted.element->Get" << attribute.propertyName
+                        << "().IsDefined());\n";
+                    hasSample = hasSample || !attribute.type.sampleExpr.empty();
                 }
-                out << "        CHECK(reloaded.element->Get" << attribute.propertyName << "() == sample"
-                    << attribute.propertyName << ");\n";
             }
+
+            if (hasSample)
+            {
+                out << "\n        // Typed value round-trip through real XML serialization.\n";
+                for (const auto& attribute : resolved)
+                {
+                    if (attribute.type.sampleExpr.empty())
+                    {
+                        continue;
+                    }
+                    out << "        const " << attribute.type.fqType << " sample" << attribute.propertyName << " = "
+                        << attribute.type.sampleExpr << ";\n";
+                    out << "        hosted.element->Set" << attribute.propertyName << "(sample"
+                        << attribute.propertyName << ");\n";
+                    out << "        CHECK(hosted.element->Get" << attribute.propertyName << "() == sample"
+                        << attribute.propertyName << ");\n";
+                }
+                out << "        const auto reloaded = hosted.RoundTrip();\n";
+                out << "        REQUIRE(reloaded.element != nullptr);\n";
+                for (const auto& attribute : resolved)
+                {
+                    if (attribute.type.sampleExpr.empty())
+                    {
+                        continue;
+                    }
+                    out << "        CHECK(reloaded.element->Get" << attribute.propertyName << "() == sample"
+                        << attribute.propertyName << ");\n";
+                }
+            }
+
+            out << "    }\n\n";
         }
 
-        out << "    }\n\n";
+        out << "}\n";
+
+        std::filesystem::path outputPath = config.outputTests / (ns.apiNamespace + "Tests.cpp");
+        EnsureDirectory(outputPath.parent_path());
+        WriteFileText(outputPath, out.str());
     }
 
-    out << "}\n";
-
-    std::filesystem::path outputPath = config.outputTests / (ns.apiNamespace + "Tests.cpp");
-    EnsureDirectory(outputPath.parent_path());
-    WriteFileText(outputPath, out.str());
-}
-
-/**
- * @brief The class an ambiguous element name creates, keyed by namespace URI
- * and local name.
- *
- * Loaded from `data/exyokioffice_ambiguous_elements.json`; see that file for
- * why the choice is recorded rather than derived.
- */
-using AmbiguousElementOverlay = std::map<std::pair<std::string, std::string>, std::string>;
-
-AmbiguousElementOverlay LoadAmbiguousElementOverlay(const std::filesystem::path& path)
-{
-    AmbiguousElementOverlay overlay;
-    if (!std::filesystem::exists(path))
+    static AmbiguousElementOverlay LoadAmbiguousElementOverlay(const std::filesystem::path& path)
     {
-        Logger::Warn({"GEN-AMBIGUOUS-ELEMENT-OVERLAY-MISSING",
-                      "element-factory",
-                      "The ambiguous element overlay '" + path.generic_string() +
-                          "' does not exist. Every ambiguous element name falls back to the first class that declares it.",
-                      path.filename().generic_string()});
+        AmbiguousElementOverlay overlay;
+        if (!std::filesystem::exists(path))
+        {
+            Logger::Warn({"GEN-AMBIGUOUS-ELEMENT-OVERLAY-MISSING",
+                          "element-factory",
+                          "The ambiguous element overlay '" + path.generic_string() +
+                              "' does not exist. Every ambiguous element name falls back to the first class that declares it.",
+                          path.filename().generic_string()});
+            return overlay;
+        }
+
+        const auto json = GeneratorText::LoadJson(path);
+        if (!json.is_object())
+        {
+            throw std::runtime_error("Ambiguous element overlay is expected to be an object: " + path.string());
+        }
+
+        const auto* elements = json.try_get("Elements");
+        if (!elements || !elements->is_object())
+        {
+            throw std::runtime_error("Ambiguous element overlay '" + path.string() + "' has no 'Elements' object.");
+        }
+
+        for (const auto& [namespaceUri, names] : elements->as_object())
+        {
+            if (!names.is_object())
+            {
+                throw std::runtime_error("Ambiguous element overlay entry '" + namespaceUri + "' is not an object.");
+            }
+
+            for (const auto& [localName, className] : names.as_object())
+            {
+                if (!className.is_string())
+                {
+                    throw std::runtime_error("Ambiguous element overlay entry '" + namespaceUri + "/" + localName +
+                                             "' does not name a class.");
+                }
+
+                overlay.emplace(std::make_pair(namespaceUri, localName), className.as_string());
+            }
+        }
+
+        GeneratorText::ReportUnhandledProperties(json, "ambiguous element overlay", "Elements", path.filename().generic_string(), {"Comment", "Elements"});
         return overlay;
     }
 
-    const auto json = LoadJson(path);
-    if (!json.is_object())
+    static void WriteOpenXmlElementFactory(const GeneratorConfig& config,
+                                           const std::vector<FactoryElementInfo>& factoryElements,
+                                           const std::vector<std::string>& namespacesUsed)
     {
-        throw std::runtime_error("Ambiguous element overlay is expected to be an object: " + path.string());
-    }
+        auto headerPath = config.outputInclude / "ExyokiOffice" / "DOM" / "OpenXmlElementFactory.hpp";
+        EnsureDirectory(headerPath.parent_path());
 
-    const auto* elements = json.try_get("Elements");
-    if (!elements || !elements->is_object())
-    {
-        throw std::runtime_error("Ambiguous element overlay '" + path.string() + "' has no 'Elements' object.");
-    }
+        std::ostringstream header;
+        header << kGeneratedHeaderWarning;
+        header << "#pragma once\n\n";
+        header << "#include \"ExyokiOffice/Export.hpp\"\n";
+        header << "#include \"ExyokiOffice/OpenXMLElement.hpp\"\n";
+        header << "#include \"ExyokiOffice/OpenXmlQualifiedName.hpp\"\n";
+        header << "#include <memory>\n";
+        header << "#include <span>\n";
+        header << "#include <string_view>\n\n";
+        header << "namespace ExyokiOffice::Generated\n{\n";
+        header << "class EXYOKIOFFICE_EXPORT OpenXmlElementFactory\n";
+        header << "{\n";
+        header << "public:\n";
+        header << "    static const ExyokiOffice::OpenXMLElementClass* ResolveClass(const ExyokiOffice::OpenXmlQualifiedName& name);\n";
+        header << "    static std::shared_ptr<ExyokiOffice::OpenXMLElement> Create(const ExyokiOffice::OpenXmlQualifiedName& name);\n\n";
+        header << "    /// Reports whether more than one element class declares this element name.\n";
+        header << "    /// Such names cannot be resolved without the surrounding content model.\n";
+        header << "    [[nodiscard]] static bool IsAmbiguousElementName(const ExyokiOffice::OpenXmlQualifiedName& name);\n\n";
+        header << "    /// Resolves a class from its fully qualified C++ name, as recorded by\n";
+        header << "    /// MetadataElementParticle::ElementType().\n";
+        header << "    static const ExyokiOffice::OpenXMLElementClass* ResolveClassByTypeName(std::string_view qualifiedTypeName);\n\n";
+        header << "    /// Enumerates the meta-class of every generated element, deduplicated by class.\n";
+        header << "    /// Intended for reflective tooling and tests that must visit the whole element corpus.\n";
+        header << "    static std::span<const ExyokiOffice::OpenXMLElementClass* const> AllElementClasses();\n";
+        header << "};\n";
+        header << "} // namespace ExyokiOffice::Generated\n";
 
-    for (const auto& [namespaceUri, names] : elements->as_object())
-    {
-        if (!names.is_object())
+        WriteFileText(headerPath, header.str());
+
+        auto sourcePath = config.outputSource / "DOM" / "OpenXmlElementFactory.cpp";
+        EnsureDirectory(sourcePath.parent_path());
+
+        // Element names declared by more than one class, and the reverse lookup
+        // from a class name to its meta-class. Both are computed from the
+        // undeduplicated element list, because deduplication is exactly what
+        // discards the losing class of an ambiguous name.
+        std::map<std::pair<std::string, std::string>, std::set<std::string>> classesByName;
+        for (const auto& element : factoryElements)
         {
-            throw std::runtime_error("Ambiguous element overlay entry '" + namespaceUri + "' is not an object.");
+            classesByName[{element.namespaceUri, element.localName}].insert(element.classQualifiedName);
         }
 
-        for (const auto& [localName, className] : names.as_object())
+        std::vector<FactoryElementInfo> ambiguousNames;
+        std::vector<FactoryElementInfo> typeNameEntries = factoryElements;
+        for (const auto& [name, classes] : classesByName)
         {
-            if (!className.is_string())
+            if (classes.size() > 1)
             {
-                throw std::runtime_error("Ambiguous element overlay entry '" + namespaceUri + "/" + localName +
-                                         "' does not name a class.");
+                ambiguousNames.push_back(FactoryElementInfo{name.first, name.second, {}});
+            }
+        }
+
+        const auto overlay = LoadAmbiguousElementOverlay(config.dataRoot / "exyokioffice_ambiguous_elements.json");
+        for (const auto& [name, className] : overlay)
+        {
+            const auto classes = classesByName.find(name);
+            if (classes == classesByName.end() || classes->second.size() < 2)
+            {
+                throw std::runtime_error("The ambiguous element overlay resolves '" + name.second + "' in '" + name.first +
+                                         "', which no longer is declared by more than one class. Remove the entry.");
+            }
+            if (!classes->second.contains(className))
+            {
+                throw std::runtime_error("The ambiguous element overlay resolves '" + name.second + "' in '" + name.first +
+                                         "' to '" + className + "', which does not declare that element.");
+            }
+        }
+
+        // One entry per element name. Which class an ambiguous name creates is the
+        // overlay's decision - deriving it from the element order would tie the
+        // parsed class to whatever order the sort left behind, and that differs
+        // between standard library implementations.
+        for (const auto& name : ambiguousNames)
+        {
+            if (!overlay.contains({name.namespaceUri, name.localName}))
+            {
+                Logger::Warn({"GEN-AMBIGUOUS-ELEMENT-NOT-RESOLVED",
+                              "element-factory",
+                              "Element name '" + name.localName + "' in '" + name.namespaceUri +
+                                  "' is declared by more than one class and the ambiguous element overlay does not say "
+                                  "which one the factory creates. Falling back to the first declared class.",
+                              "exyokioffice_ambiguous_elements.json",
+                              "element name",
+                              name.localName});
+            }
+        }
+
+        std::vector<FactoryElementInfo> sortedElements;
+        sortedElements.reserve(factoryElements.size());
+        for (const auto& element : factoryElements)
+        {
+            const auto name = std::make_pair(element.namespaceUri, element.localName);
+            if (const auto resolved = overlay.find(name);
+                resolved != overlay.end() && resolved->second != element.classQualifiedName)
+            {
+                continue;
             }
 
-            overlay.emplace(std::make_pair(namespaceUri, localName), className.as_string());
+            sortedElements.push_back(element);
         }
+
+        // Stable on purpose: for a name the overlay does not cover, the first
+        // declared class has to win on every standard library.
+        std::stable_sort(sortedElements.begin(),
+                         sortedElements.end(),
+                         [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
+                         {
+                             return lhs.namespaceUri == rhs.namespaceUri ? lhs.localName < rhs.localName
+                                                                         : lhs.namespaceUri < rhs.namespaceUri;
+                         });
+        sortedElements.erase(std::unique(sortedElements.begin(),
+                                         sortedElements.end(),
+                                         [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
+                                         {
+                                             return lhs.namespaceUri == rhs.namespaceUri && lhs.localName == rhs.localName;
+                                         }),
+                             sortedElements.end());
+        std::sort(ambiguousNames.begin(),
+                  ambiguousNames.end(),
+                  [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
+                  {
+                      return lhs.namespaceUri == rhs.namespaceUri ? lhs.localName < rhs.localName
+                                                                  : lhs.namespaceUri < rhs.namespaceUri;
+                  });
+        std::sort(typeNameEntries.begin(),
+                  typeNameEntries.end(),
+                  [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
+                  {
+                      return lhs.classQualifiedName < rhs.classQualifiedName;
+                  });
+        typeNameEntries.erase(std::unique(typeNameEntries.begin(),
+                                          typeNameEntries.end(),
+                                          [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
+                                          {
+                                              return lhs.classQualifiedName == rhs.classQualifiedName;
+                                          }),
+                              typeNameEntries.end());
+
+        std::set<std::string> includePaths;
+        for (const auto& ns : namespacesUsed)
+        {
+            auto relativeHeader = GeneratorSchemaReader::NamespaceToPath(ns);
+            auto includePath = (std::filesystem::path("ExyokiOffice") / "DOM" / relativeHeader).generic_string();
+            includePaths.insert(includePath);
+        }
+
+        std::ostringstream source;
+        source << kGeneratedHeaderWarning;
+        source << "#include \"ExyokiOffice/DOM/OpenXmlElementFactory.hpp\"\n";
+        for (const auto& include : includePaths)
+        {
+            source << "#include \"" << include << "\"\n";
+        }
+        source << "#include <algorithm>\n";
+        source << "#include <array>\n";
+        source << "#include <span>\n";
+        source << "#include <string_view>\n\n";
+        source << "namespace ExyokiOffice::Generated\n{\n";
+        source << "namespace\n{\n";
+        source << "struct ElementEntry\n";
+        source << "{\n";
+        source << "    ExyokiOffice::OpenXmlQualifiedName Name;\n";
+        source << "    const ExyokiOffice::OpenXMLElementClass* MetaClass;\n";
+        source << "};\n\n";
+
+        source << "const std::array<ElementEntry, " << sortedElements.size() << "> kElementEntries = {\n";
+        for (const auto& element : sortedElements)
+        {
+            source << "    ElementEntry{ " << GeneratorSchemaReader::FormatQualifiedNameLiteral(element.namespaceUri, element.localName)
+                   << ", " << element.classQualifiedName << "::StaticMetaClass() },\n";
+        }
+        source << "};\n\n";
+
+        source << "struct TypeNameEntry\n";
+        source << "{\n";
+        source << "    std::string_view TypeName;\n";
+        source << "    const ExyokiOffice::OpenXMLElementClass* MetaClass;\n";
+        source << "};\n\n";
+
+        source << "const std::array<TypeNameEntry, " << typeNameEntries.size() << "> kTypeNameEntries = {\n";
+        for (const auto& element : typeNameEntries)
+        {
+            source << "    TypeNameEntry{ " << GeneratorText::EscapeForCpp(element.classQualifiedName) << ", "
+                   << element.classQualifiedName << "::StaticMetaClass() },\n";
+        }
+        source << "};\n\n";
+
+        source << "const std::array<ExyokiOffice::OpenXmlQualifiedName, " << ambiguousNames.size()
+               << "> kAmbiguousElementNames = {\n";
+        for (const auto& element : ambiguousNames)
+        {
+            source << "    " << GeneratorSchemaReader::FormatQualifiedNameLiteral(element.namespaceUri, element.localName) << ",\n";
+        }
+        source << "};\n\n";
+
+        source << "const std::array<const ExyokiOffice::OpenXMLElementClass*, " << typeNameEntries.size()
+               << "> kAllElementClasses = {\n";
+        for (const auto& element : typeNameEntries)
+        {
+            source << "    " << element.classQualifiedName << "::StaticMetaClass(),\n";
+        }
+        source << "};\n";
+        source << "} // namespace\n\n";
+
+        source << "const ExyokiOffice::OpenXMLElementClass* OpenXmlElementFactory::ResolveClass(const ExyokiOffice::OpenXmlQualifiedName& name)\n";
+        source << "{\n";
+        source << "    const auto it = std::lower_bound(kElementEntries.begin(),\n";
+        source << "                                         kElementEntries.end(),\n";
+        source << "                                         name,\n";
+        source << "                                         [](const ElementEntry& entry, const ExyokiOffice::OpenXmlQualifiedName& value) {\n";
+        source << "                                             return entry.Name < value;\n";
+        source << "                                         });\n";
+        source << "    if (it != kElementEntries.end() && it->Name == name)\n";
+        source << "    {\n";
+        source << "        return it->MetaClass;\n";
+        source << "    }\n";
+        source << "    return nullptr;\n";
+        source << "}\n\n";
+
+        source << "std::shared_ptr<ExyokiOffice::OpenXMLElement> OpenXmlElementFactory::Create(const ExyokiOffice::OpenXmlQualifiedName& name)\n";
+        source << "{\n";
+        source << "    if (const auto* metaClass = ResolveClass(name))\n";
+        source << "    {\n";
+        source << "        auto instance = metaClass->Create();\n";
+        source << "        if (instance)\n";
+        source << "        {\n";
+        source << "            return instance;\n";
+        source << "        }\n";
+        source << "    }\n";
+        source << "    return nullptr;\n";
+        source << "}\n\n";
+
+        source << "bool OpenXmlElementFactory::IsAmbiguousElementName(const ExyokiOffice::OpenXmlQualifiedName& name)\n";
+        source << "{\n";
+        source << "    return std::binary_search(kAmbiguousElementNames.begin(), kAmbiguousElementNames.end(), name);\n";
+        source << "}\n\n";
+
+        source << "const ExyokiOffice::OpenXMLElementClass* OpenXmlElementFactory::ResolveClassByTypeName(std::string_view qualifiedTypeName)\n";
+        source << "{\n";
+        source << "    const auto it = std::lower_bound(kTypeNameEntries.begin(),\n";
+        source << "                                     kTypeNameEntries.end(),\n";
+        source << "                                     qualifiedTypeName,\n";
+        source << "                                     [](const TypeNameEntry& entry, std::string_view value) {\n";
+        source << "                                         return entry.TypeName < value;\n";
+        source << "                                     });\n";
+        source << "    if (it != kTypeNameEntries.end() && it->TypeName == qualifiedTypeName)\n";
+        source << "    {\n";
+        source << "        return it->MetaClass;\n";
+        source << "    }\n";
+        source << "    return nullptr;\n";
+        source << "}\n\n";
+
+        source << "std::span<const ExyokiOffice::OpenXMLElementClass* const> OpenXmlElementFactory::AllElementClasses()\n";
+        source << "{\n";
+        source << "    return kAllElementClasses;\n";
+        source << "}\n";
+        source << "} // namespace ExyokiOffice::Generated\n";
+
+        WriteFileText(sourcePath, source.str());
     }
+};
 
-    ReportUnhandledProperties(json, "ambiguous element overlay", "Elements", path.filename().generic_string(), {"Comment", "Elements"});
-    return overlay;
-}
-
-void WriteOpenXmlElementFactory(const GeneratorConfig& config,
-                                const std::vector<FactoryElementInfo>& factoryElements,
-                                const std::vector<std::string>& namespacesUsed)
+/// Emitting the packaging parts and the package part factory.
+class GeneratorPartsWriter
 {
-    auto headerPath = config.outputInclude / "ExyokiOffice" / "DOM" / "OpenXmlElementFactory.hpp";
-    EnsureDirectory(headerPath.parent_path());
-
-    std::ostringstream header;
-    header << kGeneratedHeaderWarning;
-    header << "#pragma once\n\n";
-    header << "#include \"ExyokiOffice/Export.hpp\"\n";
-    header << "#include \"ExyokiOffice/OpenXMLElement.hpp\"\n";
-    header << "#include \"ExyokiOffice/OpenXmlQualifiedName.hpp\"\n";
-    header << "#include <memory>\n";
-    header << "#include <span>\n";
-    header << "#include <string_view>\n\n";
-    header << "namespace ExyokiOffice::Generated\n{\n";
-    header << "class EXYOKIOFFICE_EXPORT OpenXmlElementFactory\n";
-    header << "{\n";
-    header << "public:\n";
-    header << "    static const ExyokiOffice::OpenXMLElementClass* ResolveClass(const ExyokiOffice::OpenXmlQualifiedName& name);\n";
-    header << "    static std::shared_ptr<ExyokiOffice::OpenXMLElement> Create(const ExyokiOffice::OpenXmlQualifiedName& name);\n\n";
-    header << "    /// Reports whether more than one element class declares this element name.\n";
-    header << "    /// Such names cannot be resolved without the surrounding content model.\n";
-    header << "    [[nodiscard]] static bool IsAmbiguousElementName(const ExyokiOffice::OpenXmlQualifiedName& name);\n\n";
-    header << "    /// Resolves a class from its fully qualified C++ name, as recorded by\n";
-    header << "    /// MetadataElementParticle::ElementType().\n";
-    header << "    static const ExyokiOffice::OpenXMLElementClass* ResolveClassByTypeName(std::string_view qualifiedTypeName);\n\n";
-    header << "    /// Enumerates the meta-class of every generated element, deduplicated by class.\n";
-    header << "    /// Intended for reflective tooling and tests that must visit the whole element corpus.\n";
-    header << "    static std::span<const ExyokiOffice::OpenXMLElementClass* const> AllElementClasses();\n";
-    header << "};\n";
-    header << "} // namespace ExyokiOffice::Generated\n";
-
-    WriteFileText(headerPath, header.str());
-
-    auto sourcePath = config.outputSource / "DOM" / "OpenXmlElementFactory.cpp";
-    EnsureDirectory(sourcePath.parent_path());
-
-    // Element names declared by more than one class, and the reverse lookup
-    // from a class name to its meta-class. Both are computed from the
-    // undeduplicated element list, because deduplication is exactly what
-    // discards the losing class of an ambiguous name.
-    std::map<std::pair<std::string, std::string>, std::set<std::string>> classesByName;
-    for (const auto& element : factoryElements)
+public:
+    static void WriteGeneratedParts(const GeneratorConfig& config,
+                                    const PartsData& data,
+                                    const RootElementLookup& rootLookup,
+                                    const PartRootLookup& partRootLookup)
     {
-        classesByName[{element.namespaceUri, element.localName}].insert(element.classQualifiedName);
-    }
-
-    std::vector<FactoryElementInfo> ambiguousNames;
-    std::vector<FactoryElementInfo> typeNameEntries = factoryElements;
-    for (const auto& [name, classes] : classesByName)
-    {
-        if (classes.size() > 1)
+        if (data.parts.empty() && data.packages.empty())
         {
-            ambiguousNames.push_back(FactoryElementInfo{name.first, name.second, {}});
-        }
-    }
-
-    const auto overlay = LoadAmbiguousElementOverlay(config.dataRoot / "exyokioffice_ambiguous_elements.json");
-    for (const auto& [name, className] : overlay)
-    {
-        const auto classes = classesByName.find(name);
-        if (classes == classesByName.end() || classes->second.size() < 2)
-        {
-            throw std::runtime_error("The ambiguous element overlay resolves '" + name.second + "' in '" + name.first +
-                                     "', which no longer is declared by more than one class. Remove the entry.");
-        }
-        if (!classes->second.contains(className))
-        {
-            throw std::runtime_error("The ambiguous element overlay resolves '" + name.second + "' in '" + name.first +
-                                     "' to '" + className + "', which does not declare that element.");
-        }
-    }
-
-    // One entry per element name. Which class an ambiguous name creates is the
-    // overlay's decision - deriving it from the element order would tie the
-    // parsed class to whatever order the sort left behind, and that differs
-    // between standard library implementations.
-    for (const auto& name : ambiguousNames)
-    {
-        if (!overlay.contains({name.namespaceUri, name.localName}))
-        {
-            Logger::Warn({"GEN-AMBIGUOUS-ELEMENT-NOT-RESOLVED",
-                          "element-factory",
-                          "Element name '" + name.localName + "' in '" + name.namespaceUri +
-                              "' is declared by more than one class and the ambiguous element overlay does not say "
-                              "which one the factory creates. Falling back to the first declared class.",
-                          "exyokioffice_ambiguous_elements.json",
-                          "element name",
-                          name.localName});
-        }
-    }
-
-    std::vector<FactoryElementInfo> sortedElements;
-    sortedElements.reserve(factoryElements.size());
-    for (const auto& element : factoryElements)
-    {
-        const auto name = std::make_pair(element.namespaceUri, element.localName);
-        if (const auto resolved = overlay.find(name);
-            resolved != overlay.end() && resolved->second != element.classQualifiedName)
-        {
-            continue;
+            return;
         }
 
-        sortedElements.push_back(element);
-    }
+        std::vector<PartDefinition> parts = data.parts;
+        std::vector<PackageDefinition> packages = data.packages;
 
-    // Stable on purpose: for a name the overlay does not cover, the first
-    // declared class has to win on every standard library.
-    std::stable_sort(sortedElements.begin(),
-                     sortedElements.end(),
-                     [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
-                     {
-                         return lhs.namespaceUri == rhs.namespaceUri ? lhs.localName < rhs.localName
-                                                                     : lhs.namespaceUri < rhs.namespaceUri;
-                     });
-    sortedElements.erase(std::unique(sortedElements.begin(),
-                                     sortedElements.end(),
-                                     [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
-                                     {
-                                         return lhs.namespaceUri == rhs.namespaceUri && lhs.localName == rhs.localName;
-                                     }),
-                         sortedElements.end());
-    std::sort(ambiguousNames.begin(),
-              ambiguousNames.end(),
-              [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
-              {
-                  return lhs.namespaceUri == rhs.namespaceUri ? lhs.localName < rhs.localName
-                                                              : lhs.namespaceUri < rhs.namespaceUri;
-              });
-    std::sort(typeNameEntries.begin(),
-              typeNameEntries.end(),
-              [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
-              {
-                  return lhs.classQualifiedName < rhs.classQualifiedName;
-              });
-    typeNameEntries.erase(std::unique(typeNameEntries.begin(),
-                                      typeNameEntries.end(),
-                                      [](const FactoryElementInfo& lhs, const FactoryElementInfo& rhs)
-                                      {
-                                          return lhs.classQualifiedName == rhs.classQualifiedName;
-                                      }),
-                          typeNameEntries.end());
+        std::unordered_map<std::string, PartDefinition*> partLookup;
+        partLookup.reserve(parts.size());
+        std::set<std::string> rootIncludes;
+        std::set<std::string> rootClassQualifiedNames;
 
-    std::set<std::string> includePaths;
-    for (const auto& ns : namespacesUsed)
-    {
-        auto relativeHeader = NamespaceToPath(ns);
-        auto includePath = (std::filesystem::path("ExyokiOffice") / "DOM" / relativeHeader).generic_string();
-        includePaths.insert(includePath);
-    }
-
-    std::ostringstream source;
-    source << kGeneratedHeaderWarning;
-    source << "#include \"ExyokiOffice/DOM/OpenXmlElementFactory.hpp\"\n";
-    for (const auto& include : includePaths)
-    {
-        source << "#include \"" << include << "\"\n";
-    }
-    source << "#include <algorithm>\n";
-    source << "#include <array>\n";
-    source << "#include <span>\n";
-    source << "#include <string_view>\n\n";
-    source << "namespace ExyokiOffice::Generated\n{\n";
-    source << "namespace\n{\n";
-    source << "struct ElementEntry\n";
-    source << "{\n";
-    source << "    ExyokiOffice::OpenXmlQualifiedName Name;\n";
-    source << "    const ExyokiOffice::OpenXMLElementClass* MetaClass;\n";
-    source << "};\n\n";
-
-    source << "const std::array<ElementEntry, " << sortedElements.size() << "> kElementEntries = {\n";
-    for (const auto& element : sortedElements)
-    {
-        source << "    ElementEntry{ " << FormatQualifiedNameLiteral(element.namespaceUri, element.localName)
-               << ", " << element.classQualifiedName << "::StaticMetaClass() },\n";
-    }
-    source << "};\n\n";
-
-    source << "struct TypeNameEntry\n";
-    source << "{\n";
-    source << "    std::string_view TypeName;\n";
-    source << "    const ExyokiOffice::OpenXMLElementClass* MetaClass;\n";
-    source << "};\n\n";
-
-    source << "const std::array<TypeNameEntry, " << typeNameEntries.size() << "> kTypeNameEntries = {\n";
-    for (const auto& element : typeNameEntries)
-    {
-        source << "    TypeNameEntry{ " << EscapeForCpp(element.classQualifiedName) << ", "
-               << element.classQualifiedName << "::StaticMetaClass() },\n";
-    }
-    source << "};\n\n";
-
-    source << "const std::array<ExyokiOffice::OpenXmlQualifiedName, " << ambiguousNames.size()
-           << "> kAmbiguousElementNames = {\n";
-    for (const auto& element : ambiguousNames)
-    {
-        source << "    " << FormatQualifiedNameLiteral(element.namespaceUri, element.localName) << ",\n";
-    }
-    source << "};\n\n";
-
-    source << "const std::array<const ExyokiOffice::OpenXMLElementClass*, " << typeNameEntries.size()
-           << "> kAllElementClasses = {\n";
-    for (const auto& element : typeNameEntries)
-    {
-        source << "    " << element.classQualifiedName << "::StaticMetaClass(),\n";
-    }
-    source << "};\n";
-    source << "} // namespace\n\n";
-
-    source << "const ExyokiOffice::OpenXMLElementClass* OpenXmlElementFactory::ResolveClass(const ExyokiOffice::OpenXmlQualifiedName& name)\n";
-    source << "{\n";
-    source << "    const auto it = std::lower_bound(kElementEntries.begin(),\n";
-    source << "                                         kElementEntries.end(),\n";
-    source << "                                         name,\n";
-    source << "                                         [](const ElementEntry& entry, const ExyokiOffice::OpenXmlQualifiedName& value) {\n";
-    source << "                                             return entry.Name < value;\n";
-    source << "                                         });\n";
-    source << "    if (it != kElementEntries.end() && it->Name == name)\n";
-    source << "    {\n";
-    source << "        return it->MetaClass;\n";
-    source << "    }\n";
-    source << "    return nullptr;\n";
-    source << "}\n\n";
-
-    source << "std::shared_ptr<ExyokiOffice::OpenXMLElement> OpenXmlElementFactory::Create(const ExyokiOffice::OpenXmlQualifiedName& name)\n";
-    source << "{\n";
-    source << "    if (const auto* metaClass = ResolveClass(name))\n";
-    source << "    {\n";
-    source << "        auto instance = metaClass->Create();\n";
-    source << "        if (instance)\n";
-    source << "        {\n";
-    source << "            return instance;\n";
-    source << "        }\n";
-    source << "    }\n";
-    source << "    return nullptr;\n";
-    source << "}\n\n";
-
-    source << "bool OpenXmlElementFactory::IsAmbiguousElementName(const ExyokiOffice::OpenXmlQualifiedName& name)\n";
-    source << "{\n";
-    source << "    return std::binary_search(kAmbiguousElementNames.begin(), kAmbiguousElementNames.end(), name);\n";
-    source << "}\n\n";
-
-    source << "const ExyokiOffice::OpenXMLElementClass* OpenXmlElementFactory::ResolveClassByTypeName(std::string_view qualifiedTypeName)\n";
-    source << "{\n";
-    source << "    const auto it = std::lower_bound(kTypeNameEntries.begin(),\n";
-    source << "                                     kTypeNameEntries.end(),\n";
-    source << "                                     qualifiedTypeName,\n";
-    source << "                                     [](const TypeNameEntry& entry, std::string_view value) {\n";
-    source << "                                         return entry.TypeName < value;\n";
-    source << "                                     });\n";
-    source << "    if (it != kTypeNameEntries.end() && it->TypeName == qualifiedTypeName)\n";
-    source << "    {\n";
-    source << "        return it->MetaClass;\n";
-    source << "    }\n";
-    source << "    return nullptr;\n";
-    source << "}\n\n";
-
-    source << "std::span<const ExyokiOffice::OpenXMLElementClass* const> OpenXmlElementFactory::AllElementClasses()\n";
-    source << "{\n";
-    source << "    return kAllElementClasses;\n";
-    source << "}\n";
-    source << "} // namespace ExyokiOffice::Generated\n";
-
-    WriteFileText(sourcePath, source.str());
-}
-
-void WriteGeneratedParts(const GeneratorConfig& config,
-                         const PartsData& data,
-                         const RootElementLookup& rootLookup,
-                         const PartRootLookup& partRootLookup)
-{
-    if (data.parts.empty() && data.packages.empty())
-    {
-        return;
-    }
-
-    std::vector<PartDefinition> parts = data.parts;
-    std::vector<PackageDefinition> packages = data.packages;
-
-    std::unordered_map<std::string, PartDefinition*> partLookup;
-    partLookup.reserve(parts.size());
-    std::set<std::string> rootIncludes;
-    std::set<std::string> rootClassQualifiedNames;
-
-    for (auto& part : parts)
-    {
-        if (const auto schemaRoot = partRootLookup.find(part.name); schemaRoot != partRootLookup.end())
+        for (auto& part : parts)
         {
-            part.rootClassQualifiedName = schemaRoot->second.classQualifiedName;
-            rootIncludes.insert(schemaRoot->second.includeHeader);
-            rootClassQualifiedNames.insert(part.rootClassQualifiedName);
-        }
-        else if (!part.rootElementQualifiedName.empty())
-        {
-            if (auto it = rootLookup.find(part.rootElementQualifiedName); it != rootLookup.end())
+            if (const auto schemaRoot = partRootLookup.find(part.name); schemaRoot != partRootLookup.end())
             {
-                part.rootClassQualifiedName = it->second.classQualifiedName;
-                rootIncludes.insert(it->second.includeHeader);
+                part.rootClassQualifiedName = schemaRoot->second.classQualifiedName;
+                rootIncludes.insert(schemaRoot->second.includeHeader);
                 rootClassQualifiedNames.insert(part.rootClassQualifiedName);
             }
-            else
+            else if (!part.rootElementQualifiedName.empty())
             {
-                const auto expectedLocalName = SplitQualifiedName(part.rootElementQualifiedName).localName;
-                const RootElementInfo* localMatch = nullptr;
-                const RootElementInfo* uniqueLocalMatch = nullptr;
-                bool localNameIsAmbiguous = false;
-                for (const auto& [qualifiedName, candidate] : rootLookup)
+                if (auto it = rootLookup.find(part.rootElementQualifiedName); it != rootLookup.end())
                 {
-                    if (SplitQualifiedName(qualifiedName).localName != expectedLocalName)
-                    {
-                        continue;
-                    }
-                    if (uniqueLocalMatch)
-                    {
-                        localNameIsAmbiguous = true;
-                    }
-                    else
-                    {
-                        uniqueLocalMatch = &candidate;
-                    }
-
-                    if (candidate.versionExpression != part.versionExpression)
-                    {
-                        continue;
-                    }
-                    if (localMatch)
-                    {
-                        localMatch = nullptr;
-                        break;
-                    }
-                    localMatch = &candidate;
-                }
-                if (!localMatch && !localNameIsAmbiguous)
-                {
-                    localMatch = uniqueLocalMatch;
-                }
-                if (localMatch)
-                {
-                    part.rootClassQualifiedName = localMatch->classQualifiedName;
-                    rootIncludes.insert(localMatch->includeHeader);
+                    part.rootClassQualifiedName = it->second.classQualifiedName;
+                    rootIncludes.insert(it->second.includeHeader);
                     rootClassQualifiedNames.insert(part.rootClassQualifiedName);
                 }
                 else
                 {
-                    part.genericRootNamespace = GenericPartRootNamespace(part.name);
-                    if (part.genericRootNamespace.empty())
+                    const auto expectedLocalName = GeneratorSchemaReader::SplitQualifiedName(part.rootElementQualifiedName).localName;
+                    const RootElementInfo* localMatch = nullptr;
+                    const RootElementInfo* uniqueLocalMatch = nullptr;
+                    bool localNameIsAmbiguous = false;
+                    for (const auto& [qualifiedName, candidate] : rootLookup)
                     {
-                        throw std::runtime_error("Unable to resolve root element '" + part.rootElementQualifiedName + "' for part '" + part.name + "'.");
+                        if (GeneratorSchemaReader::SplitQualifiedName(qualifiedName).localName != expectedLocalName)
+                        {
+                            continue;
+                        }
+                        if (uniqueLocalMatch)
+                        {
+                            localNameIsAmbiguous = true;
+                        }
+                        else
+                        {
+                            uniqueLocalMatch = &candidate;
+                        }
+
+                        if (candidate.versionExpression != part.versionExpression)
+                        {
+                            continue;
+                        }
+                        if (localMatch)
+                        {
+                            localMatch = nullptr;
+                            break;
+                        }
+                        localMatch = &candidate;
+                    }
+                    if (!localMatch && !localNameIsAmbiguous)
+                    {
+                        localMatch = uniqueLocalMatch;
+                    }
+                    if (localMatch)
+                    {
+                        part.rootClassQualifiedName = localMatch->classQualifiedName;
+                        rootIncludes.insert(localMatch->includeHeader);
+                        rootClassQualifiedNames.insert(part.rootClassQualifiedName);
+                    }
+                    else
+                    {
+                        part.genericRootNamespace = GeneratorSchemaReader::GenericPartRootNamespace(part.name);
+                        if (part.genericRootNamespace.empty())
+                        {
+                            throw std::runtime_error("Unable to resolve root element '" + part.rootElementQualifiedName + "' for part '" + part.name + "'.");
+                        }
                     }
                 }
             }
+
+            partLookup.emplace(part.name, &part);
         }
 
-        partLookup.emplace(part.name, &part);
-    }
-
-    struct ResolvedChild
-    {
-        const PartChildDefinition* definition = nullptr;
-        PartDefinition* part = nullptr;
-    };
-
-    auto ResolveChildren = [&](const std::string& ownerKind,
-                               const std::string& ownerName,
-                               const std::vector<PartChildDefinition>& children,
-                               std::vector<ResolvedChild>& output)
-    {
-        for (const auto& child : children)
+        struct ResolvedChild
         {
-            if (child.isDataPartReference)
-            {
-                (void)DataReferenceRelationshipType(child.className);
-                continue;
-            }
+            const PartChildDefinition* definition = nullptr;
+            PartDefinition* part = nullptr;
+        };
 
-            auto it = partLookup.find(child.className);
-            if (it == partLookup.end())
-            {
-                Logger::Warn({"GEN-UNKNOWN-CHILD-PART",
-                              "part",
-                              "Unknown child part '" + child.className + "' referenced by " + ownerKind + " '" + ownerName + "'.",
-                              {},
-                              std::string(ownerKind),
-                              std::string(ownerName),
-                              child.className});
-                continue;
-            }
-
-            output.push_back(ResolvedChild{&child, it->second});
-        }
-    };
-
-    std::vector<std::vector<ResolvedChild>> partChildren(parts.size());
-    std::vector<std::vector<const PartChildDefinition*>> dataReferenceChildren(parts.size());
-    for (std::size_t index = 0; index < parts.size(); ++index)
-    {
-        ResolveChildren("part", parts[index].name, parts[index].children, partChildren[index]);
-        for (const auto& child : parts[index].children)
+        auto ResolveChildren = [&](const std::string& ownerKind,
+                                   const std::string& ownerName,
+                                   const std::vector<PartChildDefinition>& children,
+                                   std::vector<ResolvedChild>& output)
         {
-            if (child.isDataPartReference)
+            for (const auto& child : children)
             {
-                dataReferenceChildren[index].push_back(&child);
+                if (child.isDataPartReference)
+                {
+                    (void)GeneratorSchemaReader::DataReferenceRelationshipType(child.className);
+                    continue;
+                }
+
+                auto it = partLookup.find(child.className);
+                if (it == partLookup.end())
+                {
+                    Logger::Warn({"GEN-UNKNOWN-CHILD-PART",
+                                  "part",
+                                  "Unknown child part '" + child.className + "' referenced by " + ownerKind + " '" + ownerName + "'.",
+                                  {},
+                                  std::string(ownerKind),
+                                  std::string(ownerName),
+                                  child.className});
+                    continue;
+                }
+
+                output.push_back(ResolvedChild{&child, it->second});
+            }
+        };
+
+        std::vector<std::vector<ResolvedChild>> partChildren(parts.size());
+        std::vector<std::vector<const PartChildDefinition*>> dataReferenceChildren(parts.size());
+        for (std::size_t index = 0; index < parts.size(); ++index)
+        {
+            ResolveChildren("part", parts[index].name, parts[index].children, partChildren[index]);
+            for (const auto& child : parts[index].children)
+            {
+                if (child.isDataPartReference)
+                {
+                    dataReferenceChildren[index].push_back(&child);
+                }
             }
         }
-    }
 
-    std::vector<std::vector<ResolvedChild>> packageChildren(packages.size());
-    for (std::size_t index = 0; index < packages.size(); ++index)
-    {
-        ResolveChildren("package", packages[index].name, packages[index].children, packageChildren[index]);
-    }
-
-    auto headerPath = config.outputInclude / "ExyokiOffice" / "Packaging" / "GeneratedParts.hpp";
-    auto sourcePath = config.outputSource / "Packaging" / "GeneratedParts.cpp";
-    EnsureDirectory(headerPath.parent_path());
-    EnsureDirectory(sourcePath.parent_path());
-
-    auto ExtractSimpleName = [](std::string_view qualified) -> std::string_view
-    {
-        const auto pos = qualified.rfind("::");
-        if (pos == std::string_view::npos)
+        std::vector<std::vector<ResolvedChild>> packageChildren(packages.size());
+        for (std::size_t index = 0; index < packages.size(); ++index)
         {
-            return qualified;
+            ResolveChildren("package", packages[index].name, packages[index].children, packageChildren[index]);
         }
-        return qualified.substr(pos + 2);
-    };
-    auto WriteForwardDeclarations = [](std::ostringstream& header,
-                                       const std::set<std::string>& qualifiedNames)
-    {
-        std::map<std::string, std::set<std::string>> namespaces;
-        std::set<std::string> globalClasses;
-        for (const auto& qualified : qualifiedNames)
+
+        auto headerPath = config.outputInclude / "ExyokiOffice" / "Packaging" / "GeneratedParts.hpp";
+        auto sourcePath = config.outputSource / "Packaging" / "GeneratedParts.cpp";
+        EnsureDirectory(headerPath.parent_path());
+        EnsureDirectory(sourcePath.parent_path());
+
+        auto ExtractSimpleName = [](std::string_view qualified) -> std::string_view
         {
             const auto pos = qualified.rfind("::");
-            if (pos == std::string::npos)
+            if (pos == std::string_view::npos)
             {
-                globalClasses.insert(qualified);
-                continue;
+                return qualified;
             }
-            namespaces[qualified.substr(0, pos)].insert(qualified.substr(pos + 2));
-        }
+            return qualified.substr(pos + 2);
+        };
+        auto WriteForwardDeclarations = [](std::ostringstream& header,
+                                           const std::set<std::string>& qualifiedNames)
+        {
+            std::map<std::string, std::set<std::string>> namespaces;
+            std::set<std::string> globalClasses;
+            for (const auto& qualified : qualifiedNames)
+            {
+                const auto pos = qualified.rfind("::");
+                if (pos == std::string::npos)
+                {
+                    globalClasses.insert(qualified);
+                    continue;
+                }
+                namespaces[qualified.substr(0, pos)].insert(qualified.substr(pos + 2));
+            }
 
-        bool wrote = false;
-        for (const auto& className : globalClasses)
-        {
-            header << "class " << className << ";\n";
-            wrote = true;
-        }
-        for (const auto& [ns, classes] : namespaces)
-        {
-            header << "namespace " << ns << " {\n";
-            for (const auto& className : classes)
+            bool wrote = false;
+            for (const auto& className : globalClasses)
             {
                 header << "class " << className << ";\n";
+                wrote = true;
             }
-            header << "}\n";
-            wrote = true;
+            for (const auto& [ns, classes] : namespaces)
+            {
+                header << "namespace " << ns << " {\n";
+                for (const auto& className : classes)
+                {
+                    header << "class " << className << ";\n";
+                }
+                header << "}\n";
+                wrote = true;
+            }
+            if (wrote)
+            {
+                header << '\n';
+            }
+        };
+
+        std::ostringstream header;
+        header << kGeneratedHeaderWarning;
+        header << "#pragma once\n\n";
+        header << "#include \"ExyokiOffice/Export.hpp\"\n";
+        header << "#include \"ExyokiOffice/OpenXmlPackage.hpp\"\n";
+        header << "#include \"ExyokiOffice/OpenXmlPackagePart.hpp\"\n";
+        header << "#include \"ExyokiOffice/OpenXMLElement.hpp\"\n\n";
+        WriteForwardDeclarations(header, rootClassQualifiedNames);
+        header << "#include <memory>\n";
+        header << "#include <vector>\n\n";
+        header << "namespace ExyokiOffice::Packaging\n{\n";
+
+        for (const auto& part : parts)
+        {
+            header << "class " << part.name << ";\n";
         }
-        if (wrote)
+        if (!packages.empty())
+        {
+            header << '\n';
+            for (const auto& package : packages)
+            {
+                header << "class " << package.name << ";\n";
+            }
+        }
+        if (!parts.empty() || !packages.empty())
         {
             header << '\n';
         }
-    };
 
-    std::ostringstream header;
-    header << kGeneratedHeaderWarning;
-    header << "#pragma once\n\n";
-    header << "#include \"ExyokiOffice/Export.hpp\"\n";
-    header << "#include \"ExyokiOffice/OpenXmlPackage.hpp\"\n";
-    header << "#include \"ExyokiOffice/OpenXmlPackagePart.hpp\"\n";
-    header << "#include \"ExyokiOffice/OpenXMLElement.hpp\"\n\n";
-    WriteForwardDeclarations(header, rootClassQualifiedNames);
-    header << "#include <memory>\n";
-    header << "#include <vector>\n\n";
-    header << "namespace ExyokiOffice::Packaging\n{\n";
-
-    for (const auto& part : parts)
-    {
-        header << "class " << part.name << ";\n";
-    }
-    if (!packages.empty())
-    {
-        header << '\n';
-        for (const auto& package : packages)
+        for (std::size_t index = 0; index < parts.size(); ++index)
         {
-            header << "class " << package.name << ";\n";
-        }
-    }
-    if (!parts.empty() || !packages.empty())
-    {
-        header << '\n';
-    }
-
-    for (std::size_t index = 0; index < parts.size(); ++index)
-    {
-        const auto& part = parts[index];
-        header << "class EXYOKIOFFICE_EXPORT " << part.name << " : public OpenXmlPackagePart\n";
-        header << "{\n";
-        header << "public:\n";
-        header << "    using Ptr = std::shared_ptr<" << part.name << ">;\n\n";
-        header << "    " << part.name << "();\n";
-        header << "    ~" << part.name << "() override;\n\n";
-        header << "    static const OpenXmlPartDescriptor& Descriptor() noexcept;\n";
-        if (!part.rootClassQualifiedName.empty())
-        {
-            const auto rootMethod = ExtractSimpleName(part.rootClassQualifiedName);
-            header << "\n    std::shared_ptr<" << part.rootClassQualifiedName << "> Get" << rootMethod
-                   << "() const;\n";
-            header << "    std::shared_ptr<" << part.rootClassQualifiedName << "> GetTypedRootElement() const;\n";
-        }
-        if (!partChildren[index].empty() || !dataReferenceChildren[index].empty())
-        {
-            header << '\n';
-        }
-        for (const auto* dataReference : dataReferenceChildren[index])
-        {
-            header << "    std::vector<OpenXmlRelationship> Get" << dataReference->apiName << "() const;\n";
-            header << "    std::string Add" << dataReference->className << "(std::string targetUri);\n";
-            header << "    bool Remove" << dataReference->className << "(std::string_view relationshipId);\n\n";
-        }
-        for (const auto& child : partChildren[index])
-        {
-            const auto& childDef = *child.definition;
-            const auto& targetPart = *child.part;
-            const auto& typeName = targetPart.name;
-            if (childDef.maxOccurs)
+            const auto& part = parts[index];
+            header << "class EXYOKIOFFICE_EXPORT " << part.name << " : public OpenXmlPackagePart\n";
+            header << "{\n";
+            header << "public:\n";
+            header << "    using Ptr = std::shared_ptr<" << part.name << ">;\n\n";
+            header << "    " << part.name << "();\n";
+            header << "    ~" << part.name << "() override;\n\n";
+            header << "    static const OpenXmlPartDescriptor& Descriptor() noexcept;\n";
+            if (!part.rootClassQualifiedName.empty())
             {
-                header << "    std::vector<std::shared_ptr<" << typeName << ">> Get" << childDef.apiName
+                const auto rootMethod = ExtractSimpleName(part.rootClassQualifiedName);
+                header << "\n    std::shared_ptr<" << part.rootClassQualifiedName << "> Get" << rootMethod
                        << "() const;\n";
-                header << "    std::shared_ptr<" << typeName << "> Add" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part = nullptr);\n";
-                header << "    bool Remove" << targetPart.name << "(const std::shared_ptr<" << typeName
-                       << ">& part);\n\n";
+                header << "    std::shared_ptr<" << part.rootClassQualifiedName << "> GetTypedRootElement() const;\n";
             }
-            else
+            if (!partChildren[index].empty() || !dataReferenceChildren[index].empty())
             {
-                header << "    std::shared_ptr<" << typeName << "> Get" << childDef.apiName << "() const;\n";
-                header << "    std::shared_ptr<" << typeName << "> Add" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part = nullptr);\n";
-                header << "    void Set" << childDef.apiName << "(const std::shared_ptr<" << typeName
-                       << ">& part);\n";
-                header << "    bool Remove" << childDef.apiName << "();\n\n";
+                header << '\n';
             }
-        }
-        header << "};\n\n";
-    }
-
-    for (std::size_t index = 0; index < packages.size(); ++index)
-    {
-        const auto& package = packages[index];
-        header << "class EXYOKIOFFICE_EXPORT " << package.name << " : public OpenXmlPackage\n";
-        header << "{\n";
-        header << "public:\n";
-        header << "    using Ptr = std::shared_ptr<" << package.name << ">;\n\n";
-        header << "    " << package.name << "();\n";
-        header << "    ~" << package.name << "() override;\n\n";
-        header << "    OpenXmlDocumentFamily DocumentFamily() const noexcept override { return "
-               << DocumentFamilyExpression(package.name) << "; }\n\n";
-        for (const auto& child : packageChildren[index])
-        {
-            const auto& childDef = *child.definition;
-            const auto& targetPart = *child.part;
-            const auto& typeName = targetPart.name;
-            if (childDef.maxOccurs)
+            for (const auto* dataReference : dataReferenceChildren[index])
             {
-                header << "    std::vector<std::shared_ptr<" << typeName << ">> Get" << childDef.apiName
-                       << "() const;\n";
-                header << "    std::shared_ptr<" << typeName << "> Add" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part = nullptr);\n";
-                header << "    bool Remove" << targetPart.name << "(const std::shared_ptr<" << typeName
-                       << ">& part);\n\n";
+                header << "    std::vector<OpenXmlRelationship> Get" << dataReference->apiName << "() const;\n";
+                header << "    std::string Add" << dataReference->className << "(std::string targetUri);\n";
+                header << "    bool Remove" << dataReference->className << "(std::string_view relationshipId);\n\n";
             }
-            else
+            for (const auto& child : partChildren[index])
             {
-                header << "    std::shared_ptr<" << typeName << "> Get" << childDef.apiName << "() const;\n";
-                header << "    std::shared_ptr<" << typeName << "> Add" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part = nullptr);\n";
-                header << "    void Set" << childDef.apiName << "(const std::shared_ptr<" << typeName
-                       << ">& part);\n";
-                header << "    bool Remove" << childDef.apiName << "();\n\n";
-            }
-        }
-        header << "};\n\n";
-    }
-
-    header << "} // namespace ExyokiOffice::Packaging\n";
-    WriteFileText(headerPath, header.str());
-
-    std::ostringstream source;
-    source << kGeneratedHeaderWarning;
-    source << "#include \"ExyokiOffice/Packaging/GeneratedParts.hpp\"\n";
-    for (const auto& include : rootIncludes)
-    {
-        source << "#include \"" << include << "\"\n";
-    }
-    source << "\n";
-    source << "#include <memory>\n";
-    source << "#include <utility>\n\n";
-    source << "namespace ExyokiOffice::Packaging\n{\n";
-    source << "namespace\n{\n";
-    source << "template <typename TPart>\n";
-    source << "std::shared_ptr<TPart> PreparePart(const std::shared_ptr<TPart>& part)\n";
-    source << "{\n";
-    source << "    if (part)\n";
-    source << "    {\n";
-    source << "        return part;\n";
-    source << "    }\n";
-    source << "    return std::make_shared<TPart>();\n";
-    source << "}\n\n";
-    for (const auto& part : parts)
-    {
-        source << "constexpr OpenXmlPartDescriptor k" << part.name << "Descriptor = {\n";
-        source << "    " << EscapeForCpp(part.name) << ",\n";
-        source << "    " << EscapeForCpp(part.relationshipType) << ",\n";
-        source << "    " << EscapeForCpp(part.contentType) << ",\n";
-        source << "    " << EscapeForCpp(part.target) << ",\n";
-        source << "    " << EscapeForCpp(part.extension) << ",\n";
-        source << "    " << EscapeForCpp(part.paths.general) << ",\n";
-        source << "    OpenXmlPartKind::" << (part.kind == PartKind::Xml ? "Xml" : "Binary") << ",\n";
-        source << "    " << part.versionExpression << ",\n";
-        source << "    " << EscapeForCpp(part.paths.word) << ",\n";
-        source << "    " << EscapeForCpp(part.paths.excel) << ",\n";
-        source << "    " << EscapeForCpp(part.paths.powerPoint) << "\n";
-        source << "};\n";
-    }
-    source << "} // namespace\n\n";
-
-    auto WriteSingleRemove = [&](std::ostringstream& output,
-                                 const std::string& ownerName,
-                                 const std::string& getterName,
-                                 bool useRoot)
-    {
-        output << "bool " << ownerName << "::Remove" << getterName << "()\n";
-        output << "{\n";
-        output << "    auto current = Get" << getterName << "();\n";
-        output << "    if (!current)\n";
-        output << "    {\n";
-        output << "        return false;\n";
-        output << "    }\n";
-        if (useRoot)
-        {
-            output << "    return DetachRootPart(current);\n";
-        }
-        else
-        {
-            output << "    return DetachChildPart(current);\n";
-        }
-        output << "}\n\n";
-    };
-
-    for (std::size_t index = 0; index < parts.size(); ++index)
-    {
-        const auto& part = parts[index];
-        source << part.name << "::" << part.name << "()\n";
-        source << "    : OpenXmlPackagePart(Descriptor())\n";
-        source << "{\n";
-        if (!part.rootClassQualifiedName.empty())
-        {
-            source << "    InitializeRootElement(" << part.rootClassQualifiedName << "::StaticMetaClass());\n";
-        }
-        else if (!part.genericRootNamespace.empty())
-        {
-            source << "    InitializeRootElement(OpenXmlQualifiedName("
-                   << EscapeForCpp(part.genericRootNamespace) << ", "
-                   << EscapeForCpp(SplitQualifiedName(part.rootElementQualifiedName).localName) << "));\n";
-        }
-        source << "}\n\n";
-        source << part.name << "::~" << part.name << "() = default;\n\n";
-        source << "const OpenXmlPartDescriptor& " << part.name << "::Descriptor() noexcept\n";
-        source << "{\n";
-        source << "    return k" << part.name << "Descriptor;\n";
-        source << "}\n\n";
-        if (!part.rootClassQualifiedName.empty())
-        {
-            const auto rootMethod = ExtractSimpleName(part.rootClassQualifiedName);
-            source << "std::shared_ptr<" << part.rootClassQualifiedName << "> " << part.name << "::Get" << rootMethod
-                   << "() const\n";
-            source << "{\n";
-            source << "    return GetTypedRootElement();\n";
-            source << "}\n\n";
-            source << "std::shared_ptr<" << part.rootClassQualifiedName << "> " << part.name
-                   << "::GetTypedRootElement() const\n";
-            source << "{\n";
-            source << "    auto root = GetRootElement();\n";
-            source << "    if (!root)\n";
-            source << "    {\n";
-            source << "        return nullptr;\n";
-            source << "    }\n";
-            source << "    return openxmlelement_cast<" << part.rootClassQualifiedName << ">(root);\n";
-            source << "}\n\n";
-        }
-
-        for (const auto* dataReference : dataReferenceChildren[index])
-        {
-            const auto relationshipType = DataReferenceRelationshipType(dataReference->className);
-            source << "std::vector<OpenXmlRelationship> " << part.name << "::Get"
-                   << dataReference->apiName << "() const\n";
-            source << "{\n";
-            source << "    return RelationshipsByType(" << EscapeForCpp(relationshipType) << ");\n";
-            source << "}\n\n";
-            source << "std::string " << part.name << "::Add" << dataReference->className
-                   << "(std::string targetUri)\n";
-            source << "{\n";
-            source << "    return AddDataPartReferenceRelationship(" << EscapeForCpp(relationshipType)
-                   << ", std::move(targetUri));\n";
-            source << "}\n\n";
-            source << "bool " << part.name << "::Remove" << dataReference->className
-                   << "(std::string_view relationshipId)\n";
-            source << "{\n";
-            source << "    return RemoveDataPartReferenceRelationship(" << EscapeForCpp(relationshipType)
-                   << ", relationshipId);\n";
-            source << "}\n\n";
-        }
-
-        for (const auto& child : partChildren[index])
-        {
-            const auto& childDef = *child.definition;
-            const auto& targetPart = *child.part;
-            const auto& typeName = targetPart.name;
-            if (childDef.maxOccurs)
-            {
-                source << "std::vector<std::shared_ptr<" << typeName << ">> " << part.name << "::Get"
-                       << childDef.apiName << "() const\n";
-                source << "{\n";
-                source << "    return GetPartsOfType<" << typeName << ">();\n";
-                source << "}\n\n";
-                source << "std::shared_ptr<" << typeName << "> " << part.name << "::Add" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part)\n";
-                source << "{\n";
-                source << "    auto instance = PreparePart(part);\n";
-                source << "    AttachChildPart(instance, " << typeName << "::Descriptor(), true);\n";
-                source << "    return instance;\n";
-                source << "}\n\n";
-                source << "bool " << part.name << "::Remove" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part)\n";
-                source << "{\n";
-                source << "    if (!part)\n";
-                source << "    {\n";
-                source << "        return false;\n";
-                source << "    }\n";
-                source << "    return DetachChildPart(part);\n";
-                source << "}\n\n";
-            }
-            else
-            {
-                source << "std::shared_ptr<" << typeName << "> " << part.name << "::Get" << childDef.apiName
-                       << "() const\n";
-                source << "{\n";
-                source << "    return GetPartOfType<" << typeName << ">();\n";
-                source << "}\n\n";
-                source << "std::shared_ptr<" << typeName << "> " << part.name << "::Add" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part)\n";
-                source << "{\n";
-                source << "    auto instance = PreparePart(part);\n";
-                source << "    Set" << childDef.apiName << "(instance);\n";
-                source << "    return instance;\n";
-                source << "}\n\n";
-                source << "void " << part.name << "::Set" << childDef.apiName
-                       << "(const std::shared_ptr<" << typeName << ">& part)\n";
-                source << "{\n";
-                source << "    auto current = Get" << childDef.apiName << "();\n";
-                source << "    if (current == part)\n";
-                source << "    {\n";
-                source << "        return;\n";
-                source << "    }\n";
-                source << "    if (current)\n";
-                source << "    {\n";
-                source << "        DetachChildPart(current);\n";
-                source << "    }\n";
-                source << "    if (part)\n";
-                source << "    {\n";
-                source << "        AttachChildPart(part, " << typeName << "::Descriptor(), false);\n";
-                source << "    }\n";
-                source << "}\n\n";
-                WriteSingleRemove(source, part.name, childDef.apiName, false);
-            }
-        }
-    }
-
-    for (std::size_t index = 0; index < packages.size(); ++index)
-    {
-        const auto& package = packages[index];
-        source << package.name << "::" << package.name << "() = default;\n";
-        source << package.name << "::~" << package.name << "() = default;\n\n";
-        for (const auto& child : packageChildren[index])
-        {
-            const auto& childDef = *child.definition;
-            const auto& targetPart = *child.part;
-            const auto& typeName = targetPart.name;
-            const bool isRootRelationship = targetPart.relationshipType == kOfficeDocumentRelationship;
-            if (childDef.maxOccurs)
-            {
-                source << "std::vector<std::shared_ptr<" << typeName << ">> " << package.name << "::Get"
-                       << childDef.apiName << "() const\n";
-                source << "{\n";
-                source << "    return GetPartsOfType<" << typeName << ">();\n";
-                source << "}\n\n";
-                source << "std::shared_ptr<" << typeName << "> " << package.name << "::Add" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part)\n";
-                source << "{\n";
-                source << "    auto instance = PreparePart(part);\n";
-                source << "    AttachChildPart(instance, " << typeName << "::Descriptor(), true);\n";
-                source << "    return instance;\n";
-                source << "}\n\n";
-                source << "bool " << package.name << "::Remove" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part)\n";
-                source << "{\n";
-                source << "    if (!part)\n";
-                source << "    {\n";
-                source << "        return false;\n";
-                source << "    }\n";
-                source << "    return DetachChildPart(part);\n";
-                source << "}\n\n";
-            }
-            else
-            {
-                source << "std::shared_ptr<" << typeName << "> " << package.name << "::Get" << childDef.apiName
-                       << "() const\n";
-                source << "{\n";
-                source << "    return GetPartOfType<" << typeName << ">();\n";
-                source << "}\n\n";
-                source << "std::shared_ptr<" << typeName << "> " << package.name << "::Add" << targetPart.name
-                       << "(const std::shared_ptr<" << typeName << ">& part)\n";
-                source << "{\n";
-                source << "    auto instance = PreparePart(part);\n";
-                source << "    Set" << childDef.apiName << "(instance);\n";
-                source << "    return instance;\n";
-                source << "}\n\n";
-                source << "void " << package.name << "::Set" << childDef.apiName
-                       << "(const std::shared_ptr<" << typeName << ">& part)\n";
-                source << "{\n";
-                source << "    auto current = Get" << childDef.apiName << "();\n";
-                source << "    if (current == part)\n";
-                source << "    {\n";
-                source << "        return;\n";
-                source << "    }\n";
-                source << "    if (current)\n";
-                source << "    {\n";
-                if (isRootRelationship)
+                const auto& childDef = *child.definition;
+                const auto& targetPart = *child.part;
+                const auto& typeName = targetPart.name;
+                if (childDef.maxOccurs)
                 {
-                    source << "        DetachRootPart(current);\n";
+                    header << "    std::vector<std::shared_ptr<" << typeName << ">> Get" << childDef.apiName
+                           << "() const;\n";
+                    header << "    std::shared_ptr<" << typeName << "> Add" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part = nullptr);\n";
+                    header << "    bool Remove" << targetPart.name << "(const std::shared_ptr<" << typeName
+                           << ">& part);\n\n";
                 }
                 else
                 {
-                    source << "        DetachChildPart(current);\n";
+                    header << "    std::shared_ptr<" << typeName << "> Get" << childDef.apiName << "() const;\n";
+                    header << "    std::shared_ptr<" << typeName << "> Add" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part = nullptr);\n";
+                    header << "    void Set" << childDef.apiName << "(const std::shared_ptr<" << typeName
+                           << ">& part);\n";
+                    header << "    bool Remove" << childDef.apiName << "();\n\n";
                 }
-                source << "    }\n";
-                source << "    if (part)\n";
-                source << "    {\n";
-                if (isRootRelationship)
+            }
+            header << "};\n\n";
+        }
+
+        for (std::size_t index = 0; index < packages.size(); ++index)
+        {
+            const auto& package = packages[index];
+            header << "class EXYOKIOFFICE_EXPORT " << package.name << " : public OpenXmlPackage\n";
+            header << "{\n";
+            header << "public:\n";
+            header << "    using Ptr = std::shared_ptr<" << package.name << ">;\n\n";
+            header << "    " << package.name << "();\n";
+            header << "    ~" << package.name << "() override;\n\n";
+            header << "    OpenXmlDocumentFamily DocumentFamily() const noexcept override { return "
+                   << GeneratorText::DocumentFamilyExpression(package.name) << "; }\n\n";
+            for (const auto& child : packageChildren[index])
+            {
+                const auto& childDef = *child.definition;
+                const auto& targetPart = *child.part;
+                const auto& typeName = targetPart.name;
+                if (childDef.maxOccurs)
                 {
-                    source << "        AttachRootPart(part, " << typeName << "::Descriptor(), false);\n";
+                    header << "    std::vector<std::shared_ptr<" << typeName << ">> Get" << childDef.apiName
+                           << "() const;\n";
+                    header << "    std::shared_ptr<" << typeName << "> Add" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part = nullptr);\n";
+                    header << "    bool Remove" << targetPart.name << "(const std::shared_ptr<" << typeName
+                           << ">& part);\n\n";
                 }
                 else
                 {
-                    source << "        AttachChildPart(part, " << typeName << "::Descriptor(), false);\n";
+                    header << "    std::shared_ptr<" << typeName << "> Get" << childDef.apiName << "() const;\n";
+                    header << "    std::shared_ptr<" << typeName << "> Add" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part = nullptr);\n";
+                    header << "    void Set" << childDef.apiName << "(const std::shared_ptr<" << typeName
+                           << ">& part);\n";
+                    header << "    bool Remove" << childDef.apiName << "();\n\n";
                 }
-                source << "    }\n";
-                source << "}\n\n";
-                WriteSingleRemove(source, package.name, childDef.apiName, isRootRelationship);
             }
+            header << "};\n\n";
         }
-    }
 
-    source << "} // namespace ExyokiOffice::Packaging\n";
-    WriteFileText(sourcePath, source.str());
-}
+        header << "} // namespace ExyokiOffice::Packaging\n";
+        WriteFileText(headerPath, header.str());
 
-void WritePackageFactory(const GeneratorConfig& config, const PartsData& data)
-{
-    auto sourcePath = config.outputSource / "Packaging" / "OpenXmlPackageFactory.cpp";
-    EnsureDirectory(sourcePath.parent_path());
-
-    std::unordered_map<std::string, std::vector<const PartDefinition*>> partsByRelationship;
-    for (const auto& part : data.parts)
-    {
-        if (part.relationshipType.empty())
+        std::ostringstream source;
+        source << kGeneratedHeaderWarning;
+        source << "#include \"ExyokiOffice/Packaging/GeneratedParts.hpp\"\n";
+        for (const auto& include : rootIncludes)
         {
-            continue;
+            source << "#include \"" << include << "\"\n";
         }
-        partsByRelationship[part.relationshipType].push_back(&part);
-    }
-
-    std::ostringstream source;
-    source << kGeneratedHeaderWarning;
-    source << "#include \"ExyokiOffice/Packaging/OpenXmlPackageFactory.hpp\"\n";
-    source << "#include \"ExyokiOffice/Packaging/GeneratedParts.hpp\"\n\n";
-    source << "#include <string_view>\n\n";
-    source << "namespace ExyokiOffice::Generated\n{\n";
-    source << "namespace\n{\n";
-    source << "bool ContainsToken(std::string_view text, std::string_view token)\n";
-    source << "{\n";
-    source << "    return text.find(token) != std::string_view::npos;\n";
-    source << "}\n\n";
-    source << "std::shared_ptr<OpenXmlPackagePart> CreateOfficeDocumentPart(std::string_view contentType)\n";
-    source << "{\n";
-    source << "    if (ContainsToken(contentType, \"wordprocessingml\") || ContainsToken(contentType, \"ms-word\"))\n";
-    source << "    {\n";
-    source << "        return std::make_shared<ExyokiOffice::Packaging::MainDocumentPart>();\n";
-    source << "    }\n";
-    source << "    if (ContainsToken(contentType, \"spreadsheetml\") || ContainsToken(contentType, \"ms-excel\"))\n";
-    source << "    {\n";
-    source << "        return std::make_shared<ExyokiOffice::Packaging::WorkbookPart>();\n";
-    source << "    }\n";
-    source << "    if (ContainsToken(contentType, \"presentationml\") || ContainsToken(contentType, \"ms-powerpoint\"))\n";
-    source << "    {\n";
-    source << "        return std::make_shared<ExyokiOffice::Packaging::PresentationPart>();\n";
-    source << "    }\n";
-    source << "    return nullptr;\n";
-    source << "}\n";
-    source << "} // namespace\n\n";
-    source << "std::shared_ptr<OpenXmlPackagePart> CreatePackagePart(std::string_view relationshipType,\n";
-    source << "                                                      std::string_view contentType,\n";
-    source << "                                                      OpenXmlPackage& package)\n";
-    source << "{\n";
-    source << "    (void)package;\n";
-
-    std::vector<std::string> relationships;
-    relationships.reserve(partsByRelationship.size());
-    for (const auto& [relationship, _] : partsByRelationship)
-    {
-        relationships.push_back(relationship);
-    }
-    std::sort(relationships.begin(), relationships.end());
-
-    for (const auto& relationship : relationships)
-    {
-        const auto& entries = partsByRelationship[relationship];
-        if (relationship == kOfficeDocumentRelationship)
-        {
-            source << "    if (relationshipType == " << EscapeForCpp(relationship) << ")\n";
-            source << "    {\n";
-            source << "        if (auto part = CreateOfficeDocumentPart(contentType))\n";
-            source << "        {\n";
-            source << "            return part;\n";
-            source << "        }\n";
-            source << "        return nullptr;\n";
-            source << "    }\n";
-            continue;
-        }
-
-        if (entries.size() == 1)
-        {
-            source << "    if (relationshipType == " << EscapeForCpp(relationship) << ")\n";
-            source << "    {\n";
-            source << "        return std::make_shared<ExyokiOffice::Packaging::" << entries.front()->name << ">();\n";
-            source << "    }\n";
-            continue;
-        }
-
-        source << "    if (relationshipType == " << EscapeForCpp(relationship) << ")\n";
+        source << "\n";
+        source << "#include <memory>\n";
+        source << "#include <utility>\n\n";
+        source << "namespace ExyokiOffice::Packaging\n{\n";
+        // A helper class rather than an anonymous namespace, which is what
+        // CONTRIBUTING.md asks of hand-written code; generated code has no reason
+        // to read differently from the rest of the tree.
+        source << "/// File-local part descriptors and the reuse-or-create helper.\n";
+        source << "class GeneratedPartsHelper\n";
+        source << "{\n";
+        source << "public:\n";
+        source << "    template <typename TPart>\n";
+        source << "    static std::shared_ptr<TPart> PreparePart(const std::shared_ptr<TPart>& part)\n";
         source << "    {\n";
-        for (const auto* part : entries)
+        source << "        if (part)\n";
+        source << "        {\n";
+        source << "            return part;\n";
+        source << "        }\n";
+        source << "        return std::make_shared<TPart>();\n";
+        source << "    }\n\n";
+        for (const auto& part : parts)
         {
-            if (part->contentType.empty())
+            source << "    static constexpr OpenXmlPartDescriptor k" << part.name << "Descriptor = {\n";
+            source << "        " << GeneratorText::EscapeForCpp(part.name) << ",\n";
+            source << "        " << GeneratorText::EscapeForCpp(part.relationshipType) << ",\n";
+            source << "        " << GeneratorText::EscapeForCpp(part.contentType) << ",\n";
+            source << "        " << GeneratorText::EscapeForCpp(part.target) << ",\n";
+            source << "        " << GeneratorText::EscapeForCpp(part.extension) << ",\n";
+            source << "        " << GeneratorText::EscapeForCpp(part.paths.general) << ",\n";
+            source << "        OpenXmlPartKind::" << (part.kind == PartKind::Xml ? "Xml" : "Binary") << ",\n";
+            source << "        " << part.versionExpression << ",\n";
+            source << "        " << GeneratorText::EscapeForCpp(part.paths.word) << ",\n";
+            source << "        " << GeneratorText::EscapeForCpp(part.paths.excel) << ",\n";
+            source << "        " << GeneratorText::EscapeForCpp(part.paths.powerPoint) << "\n";
+            source << "    };\n";
+        }
+        source << "};\n\n";
+
+        auto WriteSingleRemove = [&](std::ostringstream& output,
+                                     const std::string& ownerName,
+                                     const std::string& getterName,
+                                     bool useRoot)
+        {
+            output << "bool " << ownerName << "::Remove" << getterName << "()\n";
+            output << "{\n";
+            output << "    auto current = Get" << getterName << "();\n";
+            output << "    if (!current)\n";
+            output << "    {\n";
+            output << "        return false;\n";
+            output << "    }\n";
+            if (useRoot)
+            {
+                output << "    return DetachRootPart(current);\n";
+            }
+            else
+            {
+                output << "    return DetachChildPart(current);\n";
+            }
+            output << "}\n\n";
+        };
+
+        for (std::size_t index = 0; index < parts.size(); ++index)
+        {
+            const auto& part = parts[index];
+            source << part.name << "::" << part.name << "()\n";
+            source << "    : OpenXmlPackagePart(Descriptor())\n";
+            source << "{\n";
+            if (!part.rootClassQualifiedName.empty())
+            {
+                source << "    InitializeRootElement(" << part.rootClassQualifiedName << "::StaticMetaClass());\n";
+            }
+            else if (!part.genericRootNamespace.empty())
+            {
+                source << "    InitializeRootElement(OpenXmlQualifiedName("
+                       << GeneratorText::EscapeForCpp(part.genericRootNamespace) << ", "
+                       << GeneratorText::EscapeForCpp(GeneratorSchemaReader::SplitQualifiedName(part.rootElementQualifiedName).localName) << "));\n";
+            }
+            source << "}\n\n";
+            source << part.name << "::~" << part.name << "() = default;\n\n";
+            source << "const OpenXmlPartDescriptor& " << part.name << "::Descriptor() noexcept\n";
+            source << "{\n";
+            source << "    return GeneratedPartsHelper::k" << part.name << "Descriptor;\n";
+            source << "}\n\n";
+            if (!part.rootClassQualifiedName.empty())
+            {
+                const auto rootMethod = ExtractSimpleName(part.rootClassQualifiedName);
+                source << "std::shared_ptr<" << part.rootClassQualifiedName << "> " << part.name << "::Get" << rootMethod
+                       << "() const\n";
+                source << "{\n";
+                source << "    return GetTypedRootElement();\n";
+                source << "}\n\n";
+                source << "std::shared_ptr<" << part.rootClassQualifiedName << "> " << part.name
+                       << "::GetTypedRootElement() const\n";
+                source << "{\n";
+                source << "    auto root = GetRootElement();\n";
+                source << "    if (!root)\n";
+                source << "    {\n";
+                source << "        return nullptr;\n";
+                source << "    }\n";
+                source << "    return openxmlelement_cast<" << part.rootClassQualifiedName << ">(root);\n";
+                source << "}\n\n";
+            }
+
+            for (const auto* dataReference : dataReferenceChildren[index])
+            {
+                const auto relationshipType = GeneratorSchemaReader::DataReferenceRelationshipType(dataReference->className);
+                source << "std::vector<OpenXmlRelationship> " << part.name << "::Get"
+                       << dataReference->apiName << "() const\n";
+                source << "{\n";
+                source << "    return RelationshipsByType(" << GeneratorText::EscapeForCpp(relationshipType) << ");\n";
+                source << "}\n\n";
+                source << "std::string " << part.name << "::Add" << dataReference->className
+                       << "(std::string targetUri)\n";
+                source << "{\n";
+                source << "    return AddDataPartReferenceRelationship(" << GeneratorText::EscapeForCpp(relationshipType)
+                       << ", std::move(targetUri));\n";
+                source << "}\n\n";
+                source << "bool " << part.name << "::Remove" << dataReference->className
+                       << "(std::string_view relationshipId)\n";
+                source << "{\n";
+                source << "    return RemoveDataPartReferenceRelationship(" << GeneratorText::EscapeForCpp(relationshipType)
+                       << ", relationshipId);\n";
+                source << "}\n\n";
+            }
+
+            for (const auto& child : partChildren[index])
+            {
+                const auto& childDef = *child.definition;
+                const auto& targetPart = *child.part;
+                const auto& typeName = targetPart.name;
+                if (childDef.maxOccurs)
+                {
+                    source << "std::vector<std::shared_ptr<" << typeName << ">> " << part.name << "::Get"
+                           << childDef.apiName << "() const\n";
+                    source << "{\n";
+                    source << "    return GetPartsOfType<" << typeName << ">();\n";
+                    source << "}\n\n";
+                    source << "std::shared_ptr<" << typeName << "> " << part.name << "::Add" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part)\n";
+                    source << "{\n";
+                    source << "    auto instance = GeneratedPartsHelper::PreparePart(part);\n";
+                    source << "    AttachChildPart(instance, " << typeName << "::Descriptor(), true);\n";
+                    source << "    return instance;\n";
+                    source << "}\n\n";
+                    source << "bool " << part.name << "::Remove" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part)\n";
+                    source << "{\n";
+                    source << "    if (!part)\n";
+                    source << "    {\n";
+                    source << "        return false;\n";
+                    source << "    }\n";
+                    source << "    return DetachChildPart(part);\n";
+                    source << "}\n\n";
+                }
+                else
+                {
+                    source << "std::shared_ptr<" << typeName << "> " << part.name << "::Get" << childDef.apiName
+                           << "() const\n";
+                    source << "{\n";
+                    source << "    return GetPartOfType<" << typeName << ">();\n";
+                    source << "}\n\n";
+                    source << "std::shared_ptr<" << typeName << "> " << part.name << "::Add" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part)\n";
+                    source << "{\n";
+                    source << "    auto instance = GeneratedPartsHelper::PreparePart(part);\n";
+                    source << "    Set" << childDef.apiName << "(instance);\n";
+                    source << "    return instance;\n";
+                    source << "}\n\n";
+                    source << "void " << part.name << "::Set" << childDef.apiName
+                           << "(const std::shared_ptr<" << typeName << ">& part)\n";
+                    source << "{\n";
+                    source << "    auto current = Get" << childDef.apiName << "();\n";
+                    source << "    if (current == part)\n";
+                    source << "    {\n";
+                    source << "        return;\n";
+                    source << "    }\n";
+                    source << "    if (current)\n";
+                    source << "    {\n";
+                    source << "        DetachChildPart(current);\n";
+                    source << "    }\n";
+                    source << "    if (part)\n";
+                    source << "    {\n";
+                    source << "        AttachChildPart(part, " << typeName << "::Descriptor(), false);\n";
+                    source << "    }\n";
+                    source << "}\n\n";
+                    WriteSingleRemove(source, part.name, childDef.apiName, false);
+                }
+            }
+        }
+
+        for (std::size_t index = 0; index < packages.size(); ++index)
+        {
+            const auto& package = packages[index];
+            source << package.name << "::" << package.name << "() = default;\n";
+            source << package.name << "::~" << package.name << "() = default;\n\n";
+            for (const auto& child : packageChildren[index])
+            {
+                const auto& childDef = *child.definition;
+                const auto& targetPart = *child.part;
+                const auto& typeName = targetPart.name;
+                const bool isRootRelationship = targetPart.relationshipType == kOfficeDocumentRelationship;
+                if (childDef.maxOccurs)
+                {
+                    source << "std::vector<std::shared_ptr<" << typeName << ">> " << package.name << "::Get"
+                           << childDef.apiName << "() const\n";
+                    source << "{\n";
+                    source << "    return GetPartsOfType<" << typeName << ">();\n";
+                    source << "}\n\n";
+                    source << "std::shared_ptr<" << typeName << "> " << package.name << "::Add" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part)\n";
+                    source << "{\n";
+                    source << "    auto instance = GeneratedPartsHelper::PreparePart(part);\n";
+                    source << "    AttachChildPart(instance, " << typeName << "::Descriptor(), true);\n";
+                    source << "    return instance;\n";
+                    source << "}\n\n";
+                    source << "bool " << package.name << "::Remove" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part)\n";
+                    source << "{\n";
+                    source << "    if (!part)\n";
+                    source << "    {\n";
+                    source << "        return false;\n";
+                    source << "    }\n";
+                    source << "    return DetachChildPart(part);\n";
+                    source << "}\n\n";
+                }
+                else
+                {
+                    source << "std::shared_ptr<" << typeName << "> " << package.name << "::Get" << childDef.apiName
+                           << "() const\n";
+                    source << "{\n";
+                    source << "    return GetPartOfType<" << typeName << ">();\n";
+                    source << "}\n\n";
+                    source << "std::shared_ptr<" << typeName << "> " << package.name << "::Add" << targetPart.name
+                           << "(const std::shared_ptr<" << typeName << ">& part)\n";
+                    source << "{\n";
+                    source << "    auto instance = GeneratedPartsHelper::PreparePart(part);\n";
+                    source << "    Set" << childDef.apiName << "(instance);\n";
+                    source << "    return instance;\n";
+                    source << "}\n\n";
+                    source << "void " << package.name << "::Set" << childDef.apiName
+                           << "(const std::shared_ptr<" << typeName << ">& part)\n";
+                    source << "{\n";
+                    source << "    auto current = Get" << childDef.apiName << "();\n";
+                    source << "    if (current == part)\n";
+                    source << "    {\n";
+                    source << "        return;\n";
+                    source << "    }\n";
+                    source << "    if (current)\n";
+                    source << "    {\n";
+                    if (isRootRelationship)
+                    {
+                        source << "        DetachRootPart(current);\n";
+                    }
+                    else
+                    {
+                        source << "        DetachChildPart(current);\n";
+                    }
+                    source << "    }\n";
+                    source << "    if (part)\n";
+                    source << "    {\n";
+                    if (isRootRelationship)
+                    {
+                        source << "        AttachRootPart(part, " << typeName << "::Descriptor(), false);\n";
+                    }
+                    else
+                    {
+                        source << "        AttachChildPart(part, " << typeName << "::Descriptor(), false);\n";
+                    }
+                    source << "    }\n";
+                    source << "}\n\n";
+                    WriteSingleRemove(source, package.name, childDef.apiName, isRootRelationship);
+                }
+            }
+        }
+
+        source << "} // namespace ExyokiOffice::Packaging\n";
+        WriteFileText(sourcePath, source.str());
+    }
+
+    static void WritePackageFactory(const GeneratorConfig& config, const PartsData& data)
+    {
+        auto sourcePath = config.outputSource / "Packaging" / "OpenXmlPackageFactory.cpp";
+        EnsureDirectory(sourcePath.parent_path());
+
+        std::unordered_map<std::string, std::vector<const PartDefinition*>> partsByRelationship;
+        for (const auto& part : data.parts)
+        {
+            if (part.relationshipType.empty())
             {
                 continue;
             }
-            source << "        if (contentType == " << EscapeForCpp(part->contentType) << ")\n";
-            source << "        {\n";
-            source << "            return std::make_shared<ExyokiOffice::Packaging::" << part->name << ">();\n";
-            source << "        }\n";
+            partsByRelationship[part.relationshipType].push_back(&part);
         }
+
+        std::ostringstream source;
+        source << kGeneratedHeaderWarning;
+        source << "#include \"ExyokiOffice/Packaging/OpenXmlPackageFactory.hpp\"\n";
+        source << "#include \"ExyokiOffice/Packaging/GeneratedParts.hpp\"\n\n";
+        source << "#include <string_view>\n\n";
+        source << "namespace ExyokiOffice::Generated\n{\n";
+        source << "/// File-local content-type probing behind the part factory.\n";
+        source << "class PackageFactoryHelper\n";
+        source << "{\n";
+        source << "public:\n";
+        source << "    static bool ContainsToken(std::string_view text, std::string_view token)\n";
+        source << "    {\n";
+        source << "        return text.find(token) != std::string_view::npos;\n";
+        source << "    }\n\n";
+        source << "    static std::shared_ptr<OpenXmlPackagePart> CreateOfficeDocumentPart(std::string_view contentType)\n";
+        source << "    {\n";
+        source << "        if (ContainsToken(contentType, \"wordprocessingml\") || ContainsToken(contentType, \"ms-word\"))\n";
+        source << "        {\n";
+        source << "            return std::make_shared<ExyokiOffice::Packaging::MainDocumentPart>();\n";
+        source << "        }\n";
+        source << "        if (ContainsToken(contentType, \"spreadsheetml\") || ContainsToken(contentType, \"ms-excel\"))\n";
+        source << "        {\n";
+        source << "            return std::make_shared<ExyokiOffice::Packaging::WorkbookPart>();\n";
+        source << "        }\n";
+        source << "        if (ContainsToken(contentType, \"presentationml\") || ContainsToken(contentType, \"ms-powerpoint\"))\n";
+        source << "        {\n";
+        source << "            return std::make_shared<ExyokiOffice::Packaging::PresentationPart>();\n";
+        source << "        }\n";
         source << "        return nullptr;\n";
         source << "    }\n";
+        source << "};\n\n";
+        source << "std::shared_ptr<OpenXmlPackagePart> CreatePackagePart(std::string_view relationshipType,\n";
+        source << "                                                      std::string_view contentType,\n";
+        source << "                                                      OpenXmlPackage& package)\n";
+        source << "{\n";
+        source << "    (void)package;\n";
+
+        std::vector<std::string> relationships;
+        relationships.reserve(partsByRelationship.size());
+        for (const auto& [relationship, _] : partsByRelationship)
+        {
+            relationships.push_back(relationship);
+        }
+        std::sort(relationships.begin(), relationships.end());
+
+        for (const auto& relationship : relationships)
+        {
+            const auto& entries = partsByRelationship[relationship];
+            if (relationship == kOfficeDocumentRelationship)
+            {
+                source << "    if (relationshipType == " << GeneratorText::EscapeForCpp(relationship) << ")\n";
+                source << "    {\n";
+                source << "        if (auto part = PackageFactoryHelper::CreateOfficeDocumentPart(contentType))\n";
+                source << "        {\n";
+                source << "            return part;\n";
+                source << "        }\n";
+                source << "        return nullptr;\n";
+                source << "    }\n";
+                continue;
+            }
+
+            if (entries.size() == 1)
+            {
+                source << "    if (relationshipType == " << GeneratorText::EscapeForCpp(relationship) << ")\n";
+                source << "    {\n";
+                source << "        return std::make_shared<ExyokiOffice::Packaging::" << entries.front()->name << ">();\n";
+                source << "    }\n";
+                continue;
+            }
+
+            source << "    if (relationshipType == " << GeneratorText::EscapeForCpp(relationship) << ")\n";
+            source << "    {\n";
+            for (const auto* part : entries)
+            {
+                if (part->contentType.empty())
+                {
+                    continue;
+                }
+                source << "        if (contentType == " << GeneratorText::EscapeForCpp(part->contentType) << ")\n";
+                source << "        {\n";
+                source << "            return std::make_shared<ExyokiOffice::Packaging::" << part->name << ">();\n";
+                source << "        }\n";
+            }
+            source << "        return nullptr;\n";
+            source << "    }\n";
+        }
+
+        source << "    return nullptr;\n";
+        source << "}\n";
+        source << "} // namespace ExyokiOffice::Generated\n";
+
+        WriteFileText(sourcePath, source.str());
     }
-
-    source << "    return nullptr;\n";
-    source << "}\n";
-    source << "} // namespace ExyokiOffice::Generated\n";
-
-    WriteFileText(sourcePath, source.str());
-}
-
-struct UniqueValueRuleDefinition
-{
-    const SchematronRule* Rule = nullptr;
-    std::vector<QualifiedNameParts> ElementPath;
-    QualifiedNameParts Attribute;
-    bool CaseInsensitive = false;
 };
 
-struct AncestorUniqueValueRuleDefinition
+/// Parsing package-level Schematron rules and emitting them.
+class GeneratorSchematronWriter
 {
-    const SchematronRule* Rule = nullptr;
-    QualifiedNameParts AncestorElement;
-    std::vector<QualifiedNameParts> DescendantPath;
-    QualifiedNameParts Attribute;
-    bool CaseInsensitive = false;
-};
-
-struct PartReferenceRuleDefinition
-{
-    const SchematronRule* Rule = nullptr;
-    QualifiedNameParts ContextElement;
-    QualifiedNameParts SourceAttribute;
-    std::string SelectorKindExpression;
-    std::vector<std::string> SelectorPath;
-    std::vector<QualifiedNameParts> TargetElementPath;
-    QualifiedNameParts TargetAttribute;
-};
-
-struct PartCountRuleDefinition
-{
-    const SchematronRule* Rule = nullptr;
-    QualifiedNameParts ContextElement;
-    QualifiedNameParts SourceAttribute;
-    std::string SelectorKindExpression;
-    std::vector<std::string> SelectorPath;
-    std::vector<QualifiedNameParts> TargetElementPath;
-};
-
-bool StripLowerCaseWrapper(std::string& expression)
-{
-    constexpr std::string_view lowerCasePrefix = "lower-case(";
-    if (expression.rfind(lowerCasePrefix, 0) == 0 && !expression.empty() && expression.back() == ')')
+public:
+    static bool StripLowerCaseWrapper(std::string& expression)
     {
-        expression = expression.substr(lowerCasePrefix.size(), expression.size() - lowerCasePrefix.size() - 1);
-        return true;
-    }
-    return false;
-}
-
-std::optional<UniqueValueRuleDefinition> ParseUniqueValueSchematronRule(const SchematronRule& rule)
-{
-    if (rule.kind != SchematronPatternKind::UniqueValues || rule.operands.size() != 2 || rule.operands[0] != rule.operands[1])
-    {
-        return std::nullopt;
+        constexpr std::string_view lowerCasePrefix = "lower-case(";
+        if (expression.rfind(lowerCasePrefix, 0) == 0 && !expression.empty() && expression.back() == ')')
+        {
+            expression = expression.substr(lowerCasePrefix.size(), expression.size() - lowerCasePrefix.size() - 1);
+            return true;
+        }
+        return false;
     }
 
-    std::string expression = rule.operands[0];
-    const bool caseInsensitive = StripLowerCaseWrapper(expression);
-
-    if (expression.rfind("//", 0) != 0)
+    static std::optional<UniqueValueRuleDefinition> ParseUniqueValueSchematronRule(const SchematronRule& rule)
     {
-        return std::nullopt;
-    }
-
-    const auto attributeMarker = expression.rfind("/@");
-    if (attributeMarker == std::string::npos || attributeMarker <= 2)
-    {
-        return std::nullopt;
-    }
-
-    UniqueValueRuleDefinition definition;
-    definition.Rule = &rule;
-    definition.CaseInsensitive = caseInsensitive;
-    definition.Attribute = SplitQualifiedName(expression.substr(attributeMarker + 2));
-
-    const auto pathExpression = expression.substr(2, attributeMarker - 2);
-    std::size_t start = 0;
-    while (start < pathExpression.size())
-    {
-        const auto end = pathExpression.find('/', start);
-        const auto token = pathExpression.substr(start, end == std::string::npos ? std::string::npos : end - start);
-        if (token.empty())
+        if (rule.kind != SchematronPatternKind::UniqueValues || rule.operands.size() != 2 || rule.operands[0] != rule.operands[1])
         {
             return std::nullopt;
         }
-        definition.ElementPath.push_back(SplitQualifiedName(token));
-        if (end == std::string::npos)
-        {
-            break;
-        }
-        start = end + 1;
-    }
 
-    if (definition.ElementPath.empty())
-    {
-        return std::nullopt;
-    }
+        std::string expression = rule.operands[0];
+        const bool caseInsensitive = StripLowerCaseWrapper(expression);
 
-    return definition;
-}
-
-std::optional<AncestorUniqueValueRuleDefinition> ParseAncestorUniqueValueSchematronRule(const SchematronRule& rule)
-{
-    if (rule.kind != SchematronPatternKind::AncestorUniqueValues || rule.operands.size() != 2 || rule.operands[0] != rule.operands[1])
-    {
-        return std::nullopt;
-    }
-
-    std::string expression = rule.operands[0];
-    const bool caseInsensitive = StripLowerCaseWrapper(expression);
-
-    constexpr std::string_view ancestorPrefix = "ancestor::";
-    if (expression.rfind(ancestorPrefix, 0) != 0)
-    {
-        return std::nullopt;
-    }
-
-    const auto descendantMarker = expression.find("//", ancestorPrefix.size());
-    const auto attributeMarker = expression.rfind("/@");
-    if (descendantMarker == std::string::npos || attributeMarker == std::string::npos || attributeMarker <= descendantMarker + 2)
-    {
-        return std::nullopt;
-    }
-
-    AncestorUniqueValueRuleDefinition definition;
-    definition.Rule = &rule;
-    definition.CaseInsensitive = caseInsensitive;
-    definition.AncestorElement = SplitQualifiedName(expression.substr(ancestorPrefix.size(),
-                                                                      descendantMarker - ancestorPrefix.size()));
-    definition.Attribute = SplitQualifiedName(expression.substr(attributeMarker + 2));
-
-    const auto pathExpression = expression.substr(descendantMarker + 2, attributeMarker - descendantMarker - 2);
-    std::size_t start = 0;
-    while (start < pathExpression.size())
-    {
-        const auto end = pathExpression.find('/', start);
-        const auto token = pathExpression.substr(start, end == std::string::npos ? std::string::npos : end - start);
-        if (token.empty())
+        if (expression.rfind("//", 0) != 0)
         {
             return std::nullopt;
         }
-        definition.DescendantPath.push_back(SplitQualifiedName(token));
-        if (end == std::string::npos)
-        {
-            break;
-        }
-        start = end + 1;
-    }
 
-    if (definition.AncestorElement.localName.empty() || definition.DescendantPath.empty())
-    {
-        return std::nullopt;
-    }
-
-    return definition;
-}
-
-std::optional<QualifiedNameParts> ParseElementPathAndAttribute(std::string_view path,
-                                                               std::vector<QualifiedNameParts>& elementPath)
-{
-    const auto attributeMarker = path.rfind("/@");
-    if (attributeMarker == std::string_view::npos || attributeMarker == 0)
-    {
-        return std::nullopt;
-    }
-
-    elementPath.clear();
-    const auto pathExpression = path.substr(0, attributeMarker);
-    std::size_t start = 0;
-    while (start < pathExpression.size())
-    {
-        const auto end = pathExpression.find('/', start);
-        const auto token = pathExpression.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start);
-        if (token.empty())
+        const auto attributeMarker = expression.rfind("/@");
+        if (attributeMarker == std::string::npos || attributeMarker <= 2)
         {
             return std::nullopt;
         }
-        elementPath.push_back(SplitQualifiedName(std::string(token)));
-        if (end == std::string_view::npos)
+
+        UniqueValueRuleDefinition definition;
+        definition.Rule = &rule;
+        definition.CaseInsensitive = caseInsensitive;
+        definition.Attribute = GeneratorSchemaReader::SplitQualifiedName(expression.substr(attributeMarker + 2));
+
+        const auto pathExpression = expression.substr(2, attributeMarker - 2);
+        std::size_t start = 0;
+        while (start < pathExpression.size())
         {
-            break;
+            const auto end = pathExpression.find('/', start);
+            const auto token = pathExpression.substr(start, end == std::string::npos ? std::string::npos : end - start);
+            if (token.empty())
+            {
+                return std::nullopt;
+            }
+            definition.ElementPath.push_back(GeneratorSchemaReader::SplitQualifiedName(token));
+            if (end == std::string::npos)
+            {
+                break;
+            }
+            start = end + 1;
         }
-        start = end + 1;
-    }
 
-    if (elementPath.empty())
-    {
-        return std::nullopt;
-    }
-
-    return SplitQualifiedName(std::string(path.substr(attributeMarker + 2)));
-}
-
-std::vector<std::string> SplitPartSelectorPathForCodegen(std::string_view value)
-{
-    std::vector<std::string> result;
-    std::size_t start = 0;
-    while (start < value.size())
-    {
-        while (start < value.size() && value[start] == '/')
+        if (definition.ElementPath.empty())
         {
-            ++start;
+            return std::nullopt;
         }
-        const auto end = value.find('/', start);
-        if (start < value.size())
+
+        return definition;
+    }
+
+    static std::optional<AncestorUniqueValueRuleDefinition> ParseAncestorUniqueValueSchematronRule(const SchematronRule& rule)
+    {
+        if (rule.kind != SchematronPatternKind::AncestorUniqueValues || rule.operands.size() != 2 || rule.operands[0] != rule.operands[1])
         {
-            result.emplace_back(value.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start));
+            return std::nullopt;
         }
-        if (end == std::string_view::npos)
+
+        std::string expression = rule.operands[0];
+        const bool caseInsensitive = StripLowerCaseWrapper(expression);
+
+        constexpr std::string_view ancestorPrefix = "ancestor::";
+        if (expression.rfind(ancestorPrefix, 0) != 0)
         {
-            break;
+            return std::nullopt;
         }
-        start = end + 1;
-    }
-    return result;
-}
 
-std::optional<std::pair<std::string, std::vector<std::string>>> ParsePartSelectorForCodegen(std::string_view selector)
-{
-    constexpr std::string_view prefix = "Part:";
-    if (selector.rfind(prefix, 0) != 0)
-    {
-        return std::nullopt;
+        const auto descendantMarker = expression.find("//", ancestorPrefix.size());
+        const auto attributeMarker = expression.rfind("/@");
+        if (descendantMarker == std::string::npos || attributeMarker == std::string::npos || attributeMarker <= descendantMarker + 2)
+        {
+            return std::nullopt;
+        }
+
+        AncestorUniqueValueRuleDefinition definition;
+        definition.Rule = &rule;
+        definition.CaseInsensitive = caseInsensitive;
+        definition.AncestorElement = GeneratorSchemaReader::SplitQualifiedName(expression.substr(ancestorPrefix.size(),
+                                                                                                 descendantMarker - ancestorPrefix.size()));
+        definition.Attribute = GeneratorSchemaReader::SplitQualifiedName(expression.substr(attributeMarker + 2));
+
+        const auto pathExpression = expression.substr(descendantMarker + 2, attributeMarker - descendantMarker - 2);
+        std::size_t start = 0;
+        while (start < pathExpression.size())
+        {
+            const auto end = pathExpression.find('/', start);
+            const auto token = pathExpression.substr(start, end == std::string::npos ? std::string::npos : end - start);
+            if (token.empty())
+            {
+                return std::nullopt;
+            }
+            definition.DescendantPath.push_back(GeneratorSchemaReader::SplitQualifiedName(token));
+            if (end == std::string::npos)
+            {
+                break;
+            }
+            start = end + 1;
+        }
+
+        if (definition.AncestorElement.localName.empty() || definition.DescendantPath.empty())
+        {
+            return std::nullopt;
+        }
+
+        return definition;
     }
 
-    const auto value = selector.substr(prefix.size());
-    if (value == ".")
+    static std::optional<QualifiedNameParts> ParseElementPathAndAttribute(std::string_view path,
+                                                                          std::vector<QualifiedNameParts>& elementPath)
     {
-        return std::make_pair("ExyokiOffice::Generated::PackageSchematronPartSelectorKind::CurrentPart",
-                              std::vector<std::string>{});
-    }
-    if (value == "..")
-    {
-        return std::make_pair("ExyokiOffice::Generated::PackageSchematronPartSelectorKind::ParentPart",
-                              std::vector<std::string>{});
+        const auto attributeMarker = path.rfind("/@");
+        if (attributeMarker == std::string_view::npos || attributeMarker == 0)
+        {
+            return std::nullopt;
+        }
+
+        elementPath.clear();
+        const auto pathExpression = path.substr(0, attributeMarker);
+        std::size_t start = 0;
+        while (start < pathExpression.size())
+        {
+            const auto end = pathExpression.find('/', start);
+            const auto token = pathExpression.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start);
+            if (token.empty())
+            {
+                return std::nullopt;
+            }
+            elementPath.push_back(GeneratorSchemaReader::SplitQualifiedName(std::string(token)));
+            if (end == std::string_view::npos)
+            {
+                break;
+            }
+            start = end + 1;
+        }
+
+        if (elementPath.empty())
+        {
+            return std::nullopt;
+        }
+
+        return GeneratorSchemaReader::SplitQualifiedName(std::string(path.substr(attributeMarker + 2)));
     }
 
-    auto path = SplitPartSelectorPathForCodegen(value);
-    if (path.empty())
+    static std::vector<std::string> SplitPartSelectorPathForCodegen(std::string_view value)
     {
-        return std::nullopt;
+        std::vector<std::string> result;
+        std::size_t start = 0;
+        while (start < value.size())
+        {
+            while (start < value.size() && value[start] == '/')
+            {
+                ++start;
+            }
+            const auto end = value.find('/', start);
+            if (start < value.size())
+            {
+                result.emplace_back(value.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start));
+            }
+            if (end == std::string_view::npos)
+            {
+                break;
+            }
+            start = end + 1;
+        }
+        return result;
     }
 
-    if (!value.empty() && value.front() == '/')
+    static std::optional<std::pair<std::string, std::vector<std::string>>> ParsePartSelectorForCodegen(std::string_view selector)
     {
-        return std::make_pair("ExyokiOffice::Generated::PackageSchematronPartSelectorKind::AbsolutePartPath",
+        constexpr std::string_view prefix = "Part:";
+        if (selector.rfind(prefix, 0) != 0)
+        {
+            return std::nullopt;
+        }
+
+        const auto value = selector.substr(prefix.size());
+        if (value == ".")
+        {
+            return std::make_pair("ExyokiOffice::Generated::PackageSchematronPartSelectorKind::CurrentPart",
+                                  std::vector<std::string>{});
+        }
+        if (value == "..")
+        {
+            return std::make_pair("ExyokiOffice::Generated::PackageSchematronPartSelectorKind::ParentPart",
+                                  std::vector<std::string>{});
+        }
+
+        auto path = SplitPartSelectorPathForCodegen(value);
+        if (path.empty())
+        {
+            return std::nullopt;
+        }
+
+        if (!value.empty() && value.front() == '/')
+        {
+            return std::make_pair("ExyokiOffice::Generated::PackageSchematronPartSelectorKind::AbsolutePartPath",
+                                  std::move(path));
+        }
+        return std::make_pair("ExyokiOffice::Generated::PackageSchematronPartSelectorKind::RelativePartPath",
                               std::move(path));
     }
-    return std::make_pair("ExyokiOffice::Generated::PackageSchematronPartSelectorKind::RelativePartPath",
-                          std::move(path));
-}
 
-std::string FormatPackageSchematronComparisonExpression(const std::string& comparison)
-{
-    if (comparison == "<")
+    static std::string FormatPackageSchematronComparisonExpression(const std::string& comparison)
     {
-        return "ExyokiOffice::Generated::PackageSchematronComparisonOperator::LessThan";
-    }
-    if (comparison == "<=")
-    {
-        return "ExyokiOffice::Generated::PackageSchematronComparisonOperator::LessThanOrEqual";
-    }
-    if (comparison == ">")
-    {
-        return "ExyokiOffice::Generated::PackageSchematronComparisonOperator::GreaterThan";
-    }
-    if (comparison == ">=")
-    {
-        return "ExyokiOffice::Generated::PackageSchematronComparisonOperator::GreaterThanOrEqual";
-    }
-    throw std::runtime_error("Unsupported package schematron comparison operator '" + comparison + "'.");
-}
-
-std::optional<PartReferenceRuleDefinition> ParsePartReferenceSchematronRule(const SchematronRule& rule)
-{
-    if (rule.kind != SchematronPatternKind::PartReferenceExists || rule.operands.size() != 3)
-    {
-        return std::nullopt;
+        if (comparison == "<")
+        {
+            return "ExyokiOffice::Generated::PackageSchematronComparisonOperator::LessThan";
+        }
+        if (comparison == "<=")
+        {
+            return "ExyokiOffice::Generated::PackageSchematronComparisonOperator::LessThanOrEqual";
+        }
+        if (comparison == ">")
+        {
+            return "ExyokiOffice::Generated::PackageSchematronComparisonOperator::GreaterThan";
+        }
+        if (comparison == ">=")
+        {
+            return "ExyokiOffice::Generated::PackageSchematronComparisonOperator::GreaterThanOrEqual";
+        }
+        throw std::runtime_error("Unsupported package schematron comparison operator '" + comparison + "'.");
     }
 
-    PartReferenceRuleDefinition definition;
-    definition.Rule = &rule;
-    definition.ContextElement = SplitQualifiedName(rule.context);
-    definition.SourceAttribute = SplitQualifiedName(rule.operands[2]);
-    if (definition.SourceAttribute.prefix.empty())
+    static std::optional<PartReferenceRuleDefinition> ParsePartReferenceSchematronRule(const SchematronRule& rule)
     {
-        definition.SourceAttribute.prefix = definition.ContextElement.prefix;
-    }
-    auto selector = ParsePartSelectorForCodegen(rule.operands[0]);
-    if (!selector)
-    {
-        return std::nullopt;
-    }
-    definition.SelectorKindExpression = std::move(selector->first);
-    definition.SelectorPath = std::move(selector->second);
-    auto targetAttribute = ParseElementPathAndAttribute(rule.operands[1], definition.TargetElementPath);
-    if (!targetAttribute)
-    {
-        return std::nullopt;
-    }
-    definition.TargetAttribute = std::move(*targetAttribute);
-    return definition;
-}
-
-std::optional<PartCountRuleDefinition> ParsePartCountSchematronRule(const SchematronRule& rule)
-{
-    if (rule.kind != SchematronPatternKind::PartCountComparison || rule.operands.size() != 5)
-    {
-        return std::nullopt;
-    }
-
-    PartCountRuleDefinition definition;
-    definition.Rule = &rule;
-    definition.ContextElement = SplitQualifiedName(rule.context);
-    definition.SourceAttribute = SplitQualifiedName(rule.operands[0]);
-    if (definition.SourceAttribute.prefix.empty())
-    {
-        definition.SourceAttribute.prefix = definition.ContextElement.prefix;
-    }
-    auto selector = ParsePartSelectorForCodegen(rule.operands[2]);
-    if (!selector)
-    {
-        return std::nullopt;
-    }
-    definition.SelectorKindExpression = std::move(selector->first);
-    definition.SelectorPath = std::move(selector->second);
-
-    std::vector<QualifiedNameParts> path;
-    std::size_t start = 0;
-    while (start < rule.operands[3].size())
-    {
-        const auto end = rule.operands[3].find('/', start);
-        const auto token = rule.operands[3].substr(start, end == std::string::npos ? std::string::npos : end - start);
-        if (token.empty())
+        if (rule.kind != SchematronPatternKind::PartReferenceExists || rule.operands.size() != 3)
         {
             return std::nullopt;
         }
-        path.push_back(SplitQualifiedName(token));
-        if (end == std::string::npos)
+
+        PartReferenceRuleDefinition definition;
+        definition.Rule = &rule;
+        definition.ContextElement = GeneratorSchemaReader::SplitQualifiedName(rule.context);
+        definition.SourceAttribute = GeneratorSchemaReader::SplitQualifiedName(rule.operands[2]);
+        if (definition.SourceAttribute.prefix.empty())
         {
-            break;
+            definition.SourceAttribute.prefix = definition.ContextElement.prefix;
         }
-        start = end + 1;
+        auto selector = ParsePartSelectorForCodegen(rule.operands[0]);
+        if (!selector)
+        {
+            return std::nullopt;
+        }
+        definition.SelectorKindExpression = std::move(selector->first);
+        definition.SelectorPath = std::move(selector->second);
+        auto targetAttribute = ParseElementPathAndAttribute(rule.operands[1], definition.TargetElementPath);
+        if (!targetAttribute)
+        {
+            return std::nullopt;
+        }
+        definition.TargetAttribute = std::move(*targetAttribute);
+        return definition;
     }
 
-    if (path.empty())
+    static std::optional<PartCountRuleDefinition> ParsePartCountSchematronRule(const SchematronRule& rule)
     {
-        return std::nullopt;
+        if (rule.kind != SchematronPatternKind::PartCountComparison || rule.operands.size() != 5)
+        {
+            return std::nullopt;
+        }
+
+        PartCountRuleDefinition definition;
+        definition.Rule = &rule;
+        definition.ContextElement = GeneratorSchemaReader::SplitQualifiedName(rule.context);
+        definition.SourceAttribute = GeneratorSchemaReader::SplitQualifiedName(rule.operands[0]);
+        if (definition.SourceAttribute.prefix.empty())
+        {
+            definition.SourceAttribute.prefix = definition.ContextElement.prefix;
+        }
+        auto selector = ParsePartSelectorForCodegen(rule.operands[2]);
+        if (!selector)
+        {
+            return std::nullopt;
+        }
+        definition.SelectorKindExpression = std::move(selector->first);
+        definition.SelectorPath = std::move(selector->second);
+
+        std::vector<QualifiedNameParts> path;
+        std::size_t start = 0;
+        while (start < rule.operands[3].size())
+        {
+            const auto end = rule.operands[3].find('/', start);
+            const auto token = rule.operands[3].substr(start, end == std::string::npos ? std::string::npos : end - start);
+            if (token.empty())
+            {
+                return std::nullopt;
+            }
+            path.push_back(GeneratorSchemaReader::SplitQualifiedName(token));
+            if (end == std::string::npos)
+            {
+                break;
+            }
+            start = end + 1;
+        }
+
+        if (path.empty())
+        {
+            return std::nullopt;
+        }
+        definition.TargetElementPath = std::move(path);
+        return definition;
     }
-    definition.TargetElementPath = std::move(path);
-    return definition;
-}
 
-void WriteGeneratedSchematronRules(const GeneratorConfig& config,
-                                   const std::vector<SchematronRule>& rules,
-                                   const NamespaceRegistry& namespaceRegistry)
-{
-    std::vector<const SchematronRule*> relationshipRules;
-    std::vector<UniqueValueRuleDefinition> uniqueValueRules;
-    std::vector<AncestorUniqueValueRuleDefinition> ancestorUniqueValueRules;
-    std::vector<PartReferenceRuleDefinition> partReferenceRules;
-    std::vector<PartCountRuleDefinition> partCountRules;
-    for (const auto& rule : rules)
+    static void WriteGeneratedSchematronRules(const GeneratorConfig& config,
+                                              const std::vector<SchematronRule>& rules,
+                                              const NamespaceRegistry& namespaceRegistry)
     {
-        if (rule.kind == SchematronPatternKind::RelationshipExists || rule.kind == SchematronPatternKind::RelationshipType)
+        std::vector<const SchematronRule*> relationshipRules;
+        std::vector<UniqueValueRuleDefinition> uniqueValueRules;
+        std::vector<AncestorUniqueValueRuleDefinition> ancestorUniqueValueRules;
+        std::vector<PartReferenceRuleDefinition> partReferenceRules;
+        std::vector<PartCountRuleDefinition> partCountRules;
+        for (const auto& rule : rules)
         {
-            relationshipRules.push_back(&rule);
+            if (rule.kind == SchematronPatternKind::RelationshipExists || rule.kind == SchematronPatternKind::RelationshipType)
+            {
+                relationshipRules.push_back(&rule);
+            }
+            else if (auto uniqueRule = ParseUniqueValueSchematronRule(rule))
+            {
+                uniqueValueRules.push_back(std::move(*uniqueRule));
+            }
+            else if (auto ancestorUniqueRule = ParseAncestorUniqueValueSchematronRule(rule))
+            {
+                ancestorUniqueValueRules.push_back(std::move(*ancestorUniqueRule));
+            }
+            else if (auto partReferenceRule = ParsePartReferenceSchematronRule(rule))
+            {
+                partReferenceRules.push_back(std::move(*partReferenceRule));
+            }
+            else if (auto partCountRule = ParsePartCountSchematronRule(rule))
+            {
+                partCountRules.push_back(std::move(*partCountRule));
+            }
         }
-        else if (auto uniqueRule = ParseUniqueValueSchematronRule(rule))
-        {
-            uniqueValueRules.push_back(std::move(*uniqueRule));
-        }
-        else if (auto ancestorUniqueRule = ParseAncestorUniqueValueSchematronRule(rule))
-        {
-            ancestorUniqueValueRules.push_back(std::move(*ancestorUniqueRule));
-        }
-        else if (auto partReferenceRule = ParsePartReferenceSchematronRule(rule))
-        {
-            partReferenceRules.push_back(std::move(*partReferenceRule));
-        }
-        else if (auto partCountRule = ParsePartCountSchematronRule(rule))
-        {
-            partCountRules.push_back(std::move(*partCountRule));
-        }
-    }
 
-    auto headerPath = config.outputInclude / "ExyokiOffice" / "Packaging" / "GeneratedSchematron.hpp";
-    auto sourcePath = config.outputSource / "Packaging" / "GeneratedSchematron.cpp";
-    EnsureDirectory(headerPath.parent_path());
-    EnsureDirectory(sourcePath.parent_path());
+        auto headerPath = config.outputInclude / "ExyokiOffice" / "Packaging" / "GeneratedSchematron.hpp";
+        auto sourcePath = config.outputSource / "Packaging" / "GeneratedSchematron.cpp";
+        EnsureDirectory(headerPath.parent_path());
+        EnsureDirectory(sourcePath.parent_path());
 
-    std::ostringstream header;
-    header << kGeneratedHeaderWarning;
-    header << "#pragma once\n\n";
-    header << "#include \"ExyokiOffice/OpenXmlQualifiedName.hpp\"\n\n";
-    header << "#include <span>\n";
-    header << "#include <string_view>\n\n";
-    header << "namespace ExyokiOffice::Generated\n{\n";
-    header << "struct PackageSchematronRelationshipRule\n{\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName ContextElement;\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName RelationshipAttribute;\n";
-    header << "    std::string_view RequiredRelationshipType;\n";
-    header << "    std::string_view TestExpression;\n";
-    header << "};\n\n";
-    header << "struct PackageSchematronUniqueValueRule\n{\n";
-    header << "    std::span<const ExyokiOffice::OpenXmlQualifiedName> ElementPath;\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName Attribute;\n";
-    header << "    bool CaseInsensitive;\n";
-    header << "    std::string_view TestExpression;\n";
-    header << "};\n\n";
-    header << "struct PackageSchematronAncestorUniqueValueRule\n{\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName AncestorElement;\n";
-    header << "    std::span<const ExyokiOffice::OpenXmlQualifiedName> DescendantPath;\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName Attribute;\n";
-    header << "    bool CaseInsensitive;\n";
-    header << "    std::string_view TestExpression;\n";
-    header << "};\n\n";
-    header << "enum class PackageSchematronPartSelectorKind\n{\n";
-    header << "    CurrentPart,\n";
-    header << "    ParentPart,\n";
-    header << "    RelativePartPath,\n";
-    header << "    AbsolutePartPath,\n";
-    header << "};\n\n";
-    header << "struct PackageSchematronPartSelector\n{\n";
-    header << "    PackageSchematronPartSelectorKind Kind;\n";
-    header << "    std::span<const std::string_view> Path;\n";
-    header << "    std::string_view OriginalExpression;\n";
-    header << "};\n\n";
-    header << "enum class PackageSchematronComparisonOperator\n{\n";
-    header << "    LessThan,\n";
-    header << "    LessThanOrEqual,\n";
-    header << "    GreaterThan,\n";
-    header << "    GreaterThanOrEqual,\n";
-    header << "};\n\n";
-    header << "struct PackageSchematronPartReferenceRule\n{\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName ContextElement;\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName SourceAttribute;\n";
-    header << "    PackageSchematronPartSelector PartSelector;\n";
-    header << "    std::span<const ExyokiOffice::OpenXmlQualifiedName> TargetElementPath;\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName TargetAttribute;\n";
-    header << "    std::string_view TestExpression;\n";
-    header << "};\n\n";
-    header << "struct PackageSchematronPartCountRule\n{\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName ContextElement;\n";
-    header << "    ExyokiOffice::OpenXmlQualifiedName SourceAttribute;\n";
-    header << "    PackageSchematronComparisonOperator ComparisonOperator;\n";
-    header << "    PackageSchematronPartSelector PartSelector;\n";
-    header << "    std::span<const ExyokiOffice::OpenXmlQualifiedName> TargetElementPath;\n";
-    header << "    int Offset;\n";
-    header << "    std::string_view TestExpression;\n";
-    header << "};\n\n";
-    header << "std::span<const PackageSchematronRelationshipRule> PackageSchematronRelationshipRules() noexcept;\n";
-    header << "std::span<const PackageSchematronUniqueValueRule> PackageSchematronUniqueValueRules() noexcept;\n";
-    header << "std::span<const PackageSchematronAncestorUniqueValueRule> PackageSchematronAncestorUniqueValueRules() noexcept;\n";
-    header << "std::span<const PackageSchematronPartReferenceRule> PackageSchematronPartReferenceRules() noexcept;\n";
-    header << "std::span<const PackageSchematronPartCountRule> PackageSchematronPartCountRules() noexcept;\n";
-    header << "} // namespace ExyokiOffice::Generated\n";
-    WriteFileText(headerPath, header.str());
+        std::ostringstream header;
+        header << kGeneratedHeaderWarning;
+        header << "#pragma once\n\n";
+        header << "#include \"ExyokiOffice/OpenXmlQualifiedName.hpp\"\n\n";
+        header << "#include <span>\n";
+        header << "#include <string_view>\n\n";
+        header << "namespace ExyokiOffice::Generated\n{\n";
+        header << "struct PackageSchematronRelationshipRule\n{\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName ContextElement;\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName RelationshipAttribute;\n";
+        header << "    std::string_view RequiredRelationshipType;\n";
+        header << "    std::string_view TestExpression;\n";
+        header << "};\n\n";
+        header << "struct PackageSchematronUniqueValueRule\n{\n";
+        header << "    std::span<const ExyokiOffice::OpenXmlQualifiedName> ElementPath;\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName Attribute;\n";
+        header << "    bool CaseInsensitive;\n";
+        header << "    std::string_view TestExpression;\n";
+        header << "};\n\n";
+        header << "struct PackageSchematronAncestorUniqueValueRule\n{\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName AncestorElement;\n";
+        header << "    std::span<const ExyokiOffice::OpenXmlQualifiedName> DescendantPath;\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName Attribute;\n";
+        header << "    bool CaseInsensitive;\n";
+        header << "    std::string_view TestExpression;\n";
+        header << "};\n\n";
+        header << "enum class PackageSchematronPartSelectorKind\n{\n";
+        header << "    CurrentPart,\n";
+        header << "    ParentPart,\n";
+        header << "    RelativePartPath,\n";
+        header << "    AbsolutePartPath,\n";
+        header << "};\n\n";
+        header << "struct PackageSchematronPartSelector\n{\n";
+        header << "    PackageSchematronPartSelectorKind Kind;\n";
+        header << "    std::span<const std::string_view> Path;\n";
+        header << "    std::string_view OriginalExpression;\n";
+        header << "};\n\n";
+        header << "enum class PackageSchematronComparisonOperator\n{\n";
+        header << "    LessThan,\n";
+        header << "    LessThanOrEqual,\n";
+        header << "    GreaterThan,\n";
+        header << "    GreaterThanOrEqual,\n";
+        header << "};\n\n";
+        header << "struct PackageSchematronPartReferenceRule\n{\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName ContextElement;\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName SourceAttribute;\n";
+        header << "    PackageSchematronPartSelector PartSelector;\n";
+        header << "    std::span<const ExyokiOffice::OpenXmlQualifiedName> TargetElementPath;\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName TargetAttribute;\n";
+        header << "    std::string_view TestExpression;\n";
+        header << "};\n\n";
+        header << "struct PackageSchematronPartCountRule\n{\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName ContextElement;\n";
+        header << "    ExyokiOffice::OpenXmlQualifiedName SourceAttribute;\n";
+        header << "    PackageSchematronComparisonOperator ComparisonOperator;\n";
+        header << "    PackageSchematronPartSelector PartSelector;\n";
+        header << "    std::span<const ExyokiOffice::OpenXmlQualifiedName> TargetElementPath;\n";
+        header << "    int Offset;\n";
+        header << "    std::string_view TestExpression;\n";
+        header << "};\n\n";
+        header << "std::span<const PackageSchematronRelationshipRule> PackageSchematronRelationshipRules() noexcept;\n";
+        header << "std::span<const PackageSchematronUniqueValueRule> PackageSchematronUniqueValueRules() noexcept;\n";
+        header << "std::span<const PackageSchematronAncestorUniqueValueRule> PackageSchematronAncestorUniqueValueRules() noexcept;\n";
+        header << "std::span<const PackageSchematronPartReferenceRule> PackageSchematronPartReferenceRules() noexcept;\n";
+        header << "std::span<const PackageSchematronPartCountRule> PackageSchematronPartCountRules() noexcept;\n";
+        header << "} // namespace ExyokiOffice::Generated\n";
+        WriteFileText(headerPath, header.str());
 
-    std::ostringstream source;
-    source << kGeneratedHeaderWarning;
-    source << "#include \"ExyokiOffice/Packaging/GeneratedSchematron.hpp\"\n\n";
-    source << "#include <array>\n\n";
-    source << "namespace ExyokiOffice::Generated\n{\n";
-    source << "std::span<const PackageSchematronRelationshipRule> PackageSchematronRelationshipRules() noexcept\n";
-    source << "{\n";
-    source << "    static constexpr std::array<PackageSchematronRelationshipRule, " << relationshipRules.size() << "> kRules = {\n";
-    for (const auto* rule : relationshipRules)
-    {
-        const auto contextName = SplitQualifiedName(rule->context);
-        auto attributeName = SplitQualifiedName(rule->operands.front());
-        if (attributeName.prefix.empty())
+        std::ostringstream source;
+        source << kGeneratedHeaderWarning;
+        source << "#include \"ExyokiOffice/Packaging/GeneratedSchematron.hpp\"\n\n";
+        source << "#include <array>\n\n";
+        source << "namespace ExyokiOffice::Generated\n{\n";
+        source << "std::span<const PackageSchematronRelationshipRule> PackageSchematronRelationshipRules() noexcept\n";
+        source << "{\n";
+        source << "    static constexpr std::array<PackageSchematronRelationshipRule, " << relationshipRules.size() << "> kRules = {\n";
+        for (const auto* rule : relationshipRules)
         {
-            attributeName.prefix = contextName.prefix;
+            const auto contextName = GeneratorSchemaReader::SplitQualifiedName(rule->context);
+            auto attributeName = GeneratorSchemaReader::SplitQualifiedName(rule->operands.front());
+            if (attributeName.prefix.empty())
+            {
+                attributeName.prefix = contextName.prefix;
+            }
+            source << "        PackageSchematronRelationshipRule{"
+                   << GeneratorSchemaReader::FormatQualifiedNameExpression(contextName, namespaceRegistry) << ", "
+                   << GeneratorSchemaReader::FormatQualifiedNameExpression(attributeName, namespaceRegistry) << ", ";
+            if (rule->kind == SchematronPatternKind::RelationshipType && rule->operands.size() > 1)
+            {
+                source << GeneratorText::EscapeForCpp(rule->operands[1]);
+            }
+            else
+            {
+                source << "std::string_view{}";
+            }
+            source << ", " << GeneratorText::EscapeForCpp(rule->test) << "},\n";
         }
-        source << "        PackageSchematronRelationshipRule{"
-               << FormatQualifiedNameExpression(contextName, namespaceRegistry) << ", "
-               << FormatQualifiedNameExpression(attributeName, namespaceRegistry) << ", ";
-        if (rule->kind == SchematronPatternKind::RelationshipType && rule->operands.size() > 1)
-        {
-            source << EscapeForCpp(rule->operands[1]);
-        }
-        else
-        {
-            source << "std::string_view{}";
-        }
-        source << ", " << EscapeForCpp(rule->test) << "},\n";
-    }
-    source << "    };\n";
-    source << "    return kRules;\n";
-    source << "}\n";
+        source << "    };\n";
+        source << "    return kRules;\n";
+        source << "}\n";
 
-    for (std::size_t i = 0; i < uniqueValueRules.size(); ++i)
-    {
-        const auto& rule = uniqueValueRules[i];
+        for (std::size_t i = 0; i < uniqueValueRules.size(); ++i)
+        {
+            const auto& rule = uniqueValueRules[i];
+            source << "\n";
+            source << "static constexpr std::array<ExyokiOffice::OpenXmlQualifiedName, " << rule.ElementPath.size()
+                   << "> kUniqueValueRulePath" << i << " = {\n";
+            for (const auto& element : rule.ElementPath)
+            {
+                source << "    " << GeneratorSchemaReader::FormatQualifiedNameExpression(element, namespaceRegistry) << ",\n";
+            }
+            source << "};\n";
+        }
+
         source << "\n";
-        source << "static constexpr std::array<ExyokiOffice::OpenXmlQualifiedName, " << rule.ElementPath.size()
-               << "> kUniqueValueRulePath" << i << " = {\n";
-        for (const auto& element : rule.ElementPath)
+        source << "std::span<const PackageSchematronUniqueValueRule> PackageSchematronUniqueValueRules() noexcept\n";
+        source << "{\n";
+        source << "    static constexpr std::array<PackageSchematronUniqueValueRule, " << uniqueValueRules.size() << "> kRules = {\n";
+        for (std::size_t i = 0; i < uniqueValueRules.size(); ++i)
         {
-            source << "    " << FormatQualifiedNameExpression(element, namespaceRegistry) << ",\n";
+            const auto& rule = uniqueValueRules[i];
+            source << "        PackageSchematronUniqueValueRule{std::span<const ExyokiOffice::OpenXmlQualifiedName>(kUniqueValueRulePath"
+                   << i << "), " << GeneratorSchemaReader::FormatQualifiedNameExpression(rule.Attribute, namespaceRegistry) << ", "
+                   << (rule.CaseInsensitive ? "true" : "false") << ", " << GeneratorText::EscapeForCpp(rule.Rule->test) << "},\n";
         }
-        source << "};\n";
-    }
+        source << "    };\n";
+        source << "    return kRules;\n";
+        source << "}\n";
 
-    source << "\n";
-    source << "std::span<const PackageSchematronUniqueValueRule> PackageSchematronUniqueValueRules() noexcept\n";
-    source << "{\n";
-    source << "    static constexpr std::array<PackageSchematronUniqueValueRule, " << uniqueValueRules.size() << "> kRules = {\n";
-    for (std::size_t i = 0; i < uniqueValueRules.size(); ++i)
-    {
-        const auto& rule = uniqueValueRules[i];
-        source << "        PackageSchematronUniqueValueRule{std::span<const ExyokiOffice::OpenXmlQualifiedName>(kUniqueValueRulePath"
-               << i << "), " << FormatQualifiedNameExpression(rule.Attribute, namespaceRegistry) << ", "
-               << (rule.CaseInsensitive ? "true" : "false") << ", " << EscapeForCpp(rule.Rule->test) << "},\n";
-    }
-    source << "    };\n";
-    source << "    return kRules;\n";
-    source << "}\n";
+        for (std::size_t i = 0; i < ancestorUniqueValueRules.size(); ++i)
+        {
+            const auto& rule = ancestorUniqueValueRules[i];
+            source << "\n";
+            source << "static constexpr std::array<ExyokiOffice::OpenXmlQualifiedName, " << rule.DescendantPath.size()
+                   << "> kAncestorUniqueValueRulePath" << i << " = {\n";
+            for (const auto& element : rule.DescendantPath)
+            {
+                source << "    " << GeneratorSchemaReader::FormatQualifiedNameExpression(element, namespaceRegistry) << ",\n";
+            }
+            source << "};\n";
+        }
 
-    for (std::size_t i = 0; i < ancestorUniqueValueRules.size(); ++i)
-    {
-        const auto& rule = ancestorUniqueValueRules[i];
         source << "\n";
-        source << "static constexpr std::array<ExyokiOffice::OpenXmlQualifiedName, " << rule.DescendantPath.size()
-               << "> kAncestorUniqueValueRulePath" << i << " = {\n";
-        for (const auto& element : rule.DescendantPath)
+        source << "std::span<const PackageSchematronAncestorUniqueValueRule> PackageSchematronAncestorUniqueValueRules() noexcept\n";
+        source << "{\n";
+        source << "    static constexpr std::array<PackageSchematronAncestorUniqueValueRule, "
+               << ancestorUniqueValueRules.size() << "> kRules = {\n";
+        for (std::size_t i = 0; i < ancestorUniqueValueRules.size(); ++i)
         {
-            source << "    " << FormatQualifiedNameExpression(element, namespaceRegistry) << ",\n";
+            const auto& rule = ancestorUniqueValueRules[i];
+            source << "        PackageSchematronAncestorUniqueValueRule{"
+                   << GeneratorSchemaReader::FormatQualifiedNameExpression(rule.AncestorElement, namespaceRegistry)
+                   << ", std::span<const ExyokiOffice::OpenXmlQualifiedName>(kAncestorUniqueValueRulePath" << i << "), "
+                   << GeneratorSchemaReader::FormatQualifiedNameExpression(rule.Attribute, namespaceRegistry) << ", "
+                   << (rule.CaseInsensitive ? "true" : "false") << ", " << GeneratorText::EscapeForCpp(rule.Rule->test) << "},\n";
         }
-        source << "};\n";
-    }
+        source << "    };\n";
+        source << "    return kRules;\n";
+        source << "}\n";
 
-    source << "\n";
-    source << "std::span<const PackageSchematronAncestorUniqueValueRule> PackageSchematronAncestorUniqueValueRules() noexcept\n";
-    source << "{\n";
-    source << "    static constexpr std::array<PackageSchematronAncestorUniqueValueRule, "
-           << ancestorUniqueValueRules.size() << "> kRules = {\n";
-    for (std::size_t i = 0; i < ancestorUniqueValueRules.size(); ++i)
-    {
-        const auto& rule = ancestorUniqueValueRules[i];
-        source << "        PackageSchematronAncestorUniqueValueRule{"
-               << FormatQualifiedNameExpression(rule.AncestorElement, namespaceRegistry)
-               << ", std::span<const ExyokiOffice::OpenXmlQualifiedName>(kAncestorUniqueValueRulePath" << i << "), "
-               << FormatQualifiedNameExpression(rule.Attribute, namespaceRegistry) << ", "
-               << (rule.CaseInsensitive ? "true" : "false") << ", " << EscapeForCpp(rule.Rule->test) << "},\n";
-    }
-    source << "    };\n";
-    source << "    return kRules;\n";
-    source << "}\n";
+        for (std::size_t i = 0; i < partReferenceRules.size(); ++i)
+        {
+            const auto& rule = partReferenceRules[i];
+            source << "\n";
+            source << "static constexpr std::array<std::string_view, " << rule.SelectorPath.size()
+                   << "> kPartReferenceRuleSelectorPath" << i << " = {\n";
+            for (const auto& segment : rule.SelectorPath)
+            {
+                source << "    " << GeneratorText::EscapeForCpp(segment) << ",\n";
+            }
+            source << "};\n";
+            source << "\n";
+            source << "static constexpr std::array<ExyokiOffice::OpenXmlQualifiedName, " << rule.TargetElementPath.size()
+                   << "> kPartReferenceRulePath" << i << " = {\n";
+            for (const auto& element : rule.TargetElementPath)
+            {
+                source << "    " << GeneratorSchemaReader::FormatQualifiedNameExpression(element, namespaceRegistry) << ",\n";
+            }
+            source << "};\n";
+        }
 
-    for (std::size_t i = 0; i < partReferenceRules.size(); ++i)
-    {
-        const auto& rule = partReferenceRules[i];
         source << "\n";
-        source << "static constexpr std::array<std::string_view, " << rule.SelectorPath.size()
-               << "> kPartReferenceRuleSelectorPath" << i << " = {\n";
-        for (const auto& segment : rule.SelectorPath)
+        source << "std::span<const PackageSchematronPartReferenceRule> PackageSchematronPartReferenceRules() noexcept\n";
+        source << "{\n";
+        source << "    static constexpr std::array<PackageSchematronPartReferenceRule, " << partReferenceRules.size()
+               << "> kRules = {\n";
+        for (std::size_t i = 0; i < partReferenceRules.size(); ++i)
         {
-            source << "    " << EscapeForCpp(segment) << ",\n";
+            const auto& rule = partReferenceRules[i];
+            source << "        PackageSchematronPartReferenceRule{"
+                   << GeneratorSchemaReader::FormatQualifiedNameExpression(rule.ContextElement, namespaceRegistry) << ", "
+                   << GeneratorSchemaReader::FormatQualifiedNameExpression(rule.SourceAttribute, namespaceRegistry) << ", "
+                   << "PackageSchematronPartSelector{" << rule.SelectorKindExpression
+                   << ", std::span<const std::string_view>(kPartReferenceRuleSelectorPath" << i << "), "
+                   << GeneratorText::EscapeForCpp(rule.Rule->operands[0]) << "}"
+                   << ", std::span<const ExyokiOffice::OpenXmlQualifiedName>(kPartReferenceRulePath" << i << "), "
+                   << GeneratorSchemaReader::FormatQualifiedNameExpression(rule.TargetAttribute, namespaceRegistry) << ", "
+                   << GeneratorText::EscapeForCpp(rule.Rule->test) << "},\n";
         }
-        source << "};\n";
-        source << "\n";
-        source << "static constexpr std::array<ExyokiOffice::OpenXmlQualifiedName, " << rule.TargetElementPath.size()
-               << "> kPartReferenceRulePath" << i << " = {\n";
-        for (const auto& element : rule.TargetElementPath)
-        {
-            source << "    " << FormatQualifiedNameExpression(element, namespaceRegistry) << ",\n";
-        }
-        source << "};\n";
-    }
+        source << "    };\n";
+        source << "    return kRules;\n";
+        source << "}\n";
 
-    source << "\n";
-    source << "std::span<const PackageSchematronPartReferenceRule> PackageSchematronPartReferenceRules() noexcept\n";
-    source << "{\n";
-    source << "    static constexpr std::array<PackageSchematronPartReferenceRule, " << partReferenceRules.size()
-           << "> kRules = {\n";
-    for (std::size_t i = 0; i < partReferenceRules.size(); ++i)
-    {
-        const auto& rule = partReferenceRules[i];
-        source << "        PackageSchematronPartReferenceRule{"
-               << FormatQualifiedNameExpression(rule.ContextElement, namespaceRegistry) << ", "
-               << FormatQualifiedNameExpression(rule.SourceAttribute, namespaceRegistry) << ", "
-               << "PackageSchematronPartSelector{" << rule.SelectorKindExpression
-               << ", std::span<const std::string_view>(kPartReferenceRuleSelectorPath" << i << "), "
-               << EscapeForCpp(rule.Rule->operands[0]) << "}"
-               << ", std::span<const ExyokiOffice::OpenXmlQualifiedName>(kPartReferenceRulePath" << i << "), "
-               << FormatQualifiedNameExpression(rule.TargetAttribute, namespaceRegistry) << ", "
-               << EscapeForCpp(rule.Rule->test) << "},\n";
-    }
-    source << "    };\n";
-    source << "    return kRules;\n";
-    source << "}\n";
-
-    for (std::size_t i = 0; i < partCountRules.size(); ++i)
-    {
-        const auto& rule = partCountRules[i];
-        source << "\n";
-        source << "static constexpr std::array<std::string_view, " << rule.SelectorPath.size()
-               << "> kPartCountRuleSelectorPath" << i << " = {\n";
-        for (const auto& segment : rule.SelectorPath)
+        for (std::size_t i = 0; i < partCountRules.size(); ++i)
         {
-            source << "    " << EscapeForCpp(segment) << ",\n";
+            const auto& rule = partCountRules[i];
+            source << "\n";
+            source << "static constexpr std::array<std::string_view, " << rule.SelectorPath.size()
+                   << "> kPartCountRuleSelectorPath" << i << " = {\n";
+            for (const auto& segment : rule.SelectorPath)
+            {
+                source << "    " << GeneratorText::EscapeForCpp(segment) << ",\n";
+            }
+            source << "};\n";
+            source << "\n";
+            source << "static constexpr std::array<ExyokiOffice::OpenXmlQualifiedName, " << rule.TargetElementPath.size()
+                   << "> kPartCountRulePath" << i << " = {\n";
+            for (const auto& element : rule.TargetElementPath)
+            {
+                source << "    " << GeneratorSchemaReader::FormatQualifiedNameExpression(element, namespaceRegistry) << ",\n";
+            }
+            source << "};\n";
         }
-        source << "};\n";
-        source << "\n";
-        source << "static constexpr std::array<ExyokiOffice::OpenXmlQualifiedName, " << rule.TargetElementPath.size()
-               << "> kPartCountRulePath" << i << " = {\n";
-        for (const auto& element : rule.TargetElementPath)
-        {
-            source << "    " << FormatQualifiedNameExpression(element, namespaceRegistry) << ",\n";
-        }
-        source << "};\n";
-    }
 
-    source << "\n";
-    source << "std::span<const PackageSchematronPartCountRule> PackageSchematronPartCountRules() noexcept\n";
-    source << "{\n";
-    source << "    static constexpr std::array<PackageSchematronPartCountRule, " << partCountRules.size()
-           << "> kRules = {\n";
-    for (std::size_t i = 0; i < partCountRules.size(); ++i)
-    {
-        const auto& rule = partCountRules[i];
-        source << "        PackageSchematronPartCountRule{"
-               << FormatQualifiedNameExpression(rule.ContextElement, namespaceRegistry) << ", "
-               << FormatQualifiedNameExpression(rule.SourceAttribute, namespaceRegistry) << ", "
-               << FormatPackageSchematronComparisonExpression(rule.Rule->operands[1]) << ", "
-               << "PackageSchematronPartSelector{" << rule.SelectorKindExpression
-               << ", std::span<const std::string_view>(kPartCountRuleSelectorPath" << i << "), "
-               << EscapeForCpp(rule.Rule->operands[2]) << "}"
-               << ", std::span<const ExyokiOffice::OpenXmlQualifiedName>(kPartCountRulePath" << i << "), "
-               << rule.Rule->operands[4] << ", " << EscapeForCpp(rule.Rule->test) << "},\n";
+        source << "\n";
+        source << "std::span<const PackageSchematronPartCountRule> PackageSchematronPartCountRules() noexcept\n";
+        source << "{\n";
+        source << "    static constexpr std::array<PackageSchematronPartCountRule, " << partCountRules.size()
+               << "> kRules = {\n";
+        for (std::size_t i = 0; i < partCountRules.size(); ++i)
+        {
+            const auto& rule = partCountRules[i];
+            source << "        PackageSchematronPartCountRule{"
+                   << GeneratorSchemaReader::FormatQualifiedNameExpression(rule.ContextElement, namespaceRegistry) << ", "
+                   << GeneratorSchemaReader::FormatQualifiedNameExpression(rule.SourceAttribute, namespaceRegistry) << ", "
+                   << FormatPackageSchematronComparisonExpression(rule.Rule->operands[1]) << ", "
+                   << "PackageSchematronPartSelector{" << rule.SelectorKindExpression
+                   << ", std::span<const std::string_view>(kPartCountRuleSelectorPath" << i << "), "
+                   << GeneratorText::EscapeForCpp(rule.Rule->operands[2]) << "}"
+                   << ", std::span<const ExyokiOffice::OpenXmlQualifiedName>(kPartCountRulePath" << i << "), "
+                   << rule.Rule->operands[4] << ", " << GeneratorText::EscapeForCpp(rule.Rule->test) << "},\n";
+        }
+        source << "    };\n";
+        source << "    return kRules;\n";
+        source << "}\n";
+        source << "} // namespace ExyokiOffice::Generated\n";
+        WriteFileText(sourcePath, source.str());
     }
-    source << "    };\n";
-    source << "    return kRules;\n";
-    source << "}\n";
-    source << "} // namespace ExyokiOffice::Generated\n";
-    WriteFileText(sourcePath, source.str());
-}
-} // namespace
+};
 
 Generator::Generator(GeneratorConfig config)
     : config_(std::move(config))
@@ -6028,7 +6056,7 @@ Generator::Generator(GeneratorConfig config)
 
 void Generator::Run()
 {
-    UnhandledProperties().Clear();
+    GeneratorText::UnhandledProperties().Clear();
 
     if (!std::filesystem::exists(config_.dataRoot))
     {
@@ -6041,13 +6069,13 @@ void Generator::Run()
         throw std::runtime_error("Namespace file does not exist: " + namespacesPath.string());
     }
 
-    auto knownNamespaces = LoadNamespaceRecords(namespacesPath);
-    auto namespaceRegistry = BuildNamespaceLookup(knownNamespaces);
+    auto knownNamespaces = GeneratorSchemaReader::LoadNamespaceRecords(namespacesPath);
+    auto namespaceRegistry = GeneratorSchemaReader::BuildNamespaceLookup(knownNamespaces);
 
     if (config_.generateNamespaces)
     {
         Logger::Info("Generating namespace registry...");
-        WriteNamespaceRegistryFiles(config_, knownNamespaces);
+        GeneratorSchemaReader::WriteNamespaceRegistryFiles(config_, knownNamespaces);
         Logger::Info("Generated " + std::to_string(knownNamespaces.size()) + " namespace definitions.");
     }
     else
@@ -6058,7 +6086,7 @@ void Generator::Run()
     if (!config_.generateSchema)
     {
         Logger::Info("Schema generation disabled.");
-        UnhandledProperties().EmitWarnings();
+        GeneratorText::UnhandledProperties().EmitWarnings();
         return;
     }
 
@@ -6069,7 +6097,7 @@ void Generator::Run()
     }
 
     Logger::Info("Loading strongly typed namespaces...");
-    auto namespaces = LoadTypedNamespaces(config_.dataRoot / "typed" / "namespaces.json");
+    auto namespaces = GeneratorSchemaReader::LoadTypedNamespaces(config_.dataRoot / "typed" / "namespaces.json");
     std::unordered_map<std::string, TypedNamespace> typedNamespaceMap;
     for (const auto& ns : namespaces)
     {
@@ -6077,8 +6105,8 @@ void Generator::Run()
     }
 
     Logger::Info("Loading schema definitions (enums and types)...");
-    auto schemaData = LoadSchemaElements(schemasDir, namespaceRegistry);
-    ApplyParticleOverlay(schemaData, config_.dataRoot / "exyokioffice_particle_extras.json");
+    auto schemaData = GeneratorSchemaReader::LoadSchemaElements(schemasDir, namespaceRegistry);
+    GeneratorSchemaReader::ApplyParticleOverlay(schemaData, config_.dataRoot / "exyokioffice_particle_extras.json");
     const auto totalElements = schemaData.elements.size();
     std::vector<SchematronRule> packageSchematronRules;
     const auto schematronsPath = config_.dataRoot / "schematrons.json";
@@ -6102,7 +6130,7 @@ void Generator::Run()
                 }
             }
         }
-        const auto elementsByClassName = BuildTypedElementsByClassName(schemaData.elements);
+        const auto elementsByClassName = GeneratorValidatorExpressions::BuildTypedElementsByClassName(schemaData.elements);
         std::size_t retargetedSchematrons = 0;
         std::size_t skippedSchematrons = 0;
 
@@ -6137,7 +6165,7 @@ void Generator::Run()
                 continue;
             }
 
-            if (!IsElementLocalSchematronRule(rule.kind))
+            if (!GeneratorValidatorExpressions::IsElementLocalSchematronRule(rule.kind))
             {
                 if (rule.kind == SchematronPatternKind::RelationshipExists || rule.kind == SchematronPatternKind::RelationshipType || rule.kind == SchematronPatternKind::UniqueValues || rule.kind == SchematronPatternKind::AncestorUniqueValues || rule.kind == SchematronPatternKind::PartReferenceExists || rule.kind == SchematronPatternKind::PartCountComparison)
                 {
@@ -6162,8 +6190,8 @@ void Generator::Run()
             for (auto candidate = candidates.first; candidate != candidates.second; ++candidate)
             {
                 auto& element = *candidate->second;
-                const auto requestedQName = ResolveSchematronAttributeName(rule, element);
-                const auto* declared = FindDeclaredAttribute(element, requestedQName, elementsByClassName);
+                const auto requestedQName = GeneratorValidatorExpressions::ResolveSchematronAttributeName(rule, element);
+                const auto* declared = GeneratorValidatorExpressions::FindDeclaredAttribute(element, requestedQName, elementsByClassName);
                 if (!declared)
                 {
                     continue;
@@ -6215,7 +6243,7 @@ void Generator::Run()
         Logger::Info("Skipped " + std::to_string(skippedSchematrons) +
                      " schematron rules whose attribute no element of that name declares.");
     }
-    WriteGeneratedSchematronRules(config_, packageSchematronRules, namespaceRegistry);
+    GeneratorSchematronWriter::WriteGeneratedSchematronRules(config_, packageSchematronRules, namespaceRegistry);
     EnumFacetLookup enumFacetLookup;
     for (const auto& enumDefinition : schemaData.enums)
     {
@@ -6275,10 +6303,10 @@ void Generator::Run()
     for (const auto& [prefix, enumsForPrefix] : groupedEnums)
     {
         const auto& ns = ensureTypedNamespace(prefix);
-        const auto includePath = BuildEnumIncludePath(ns.apiNamespace);
+        const auto includePath = GeneratorSchemaReader::BuildEnumIncludePath(ns.apiNamespace);
         for (const auto& enumDef : enumsForPrefix)
         {
-            const auto qualifiedName = BuildEnumQualifiedName(enumDef.className, ns.apiNamespace);
+            const auto qualifiedName = GeneratorSchemaReader::BuildEnumQualifiedName(enumDef.className, ns.apiNamespace);
             enumIncludeLookup.emplace(qualifiedName, EnumIncludeInfo{includePath, ns.apiNamespace});
         }
     }
@@ -6338,12 +6366,12 @@ void Generator::Run()
         (void)apiNamespace;
         for (const auto& element : aggregation.elements)
         {
-            auto className = BuildClassQualifiedName(element.className, aggregation.ns.apiNamespace);
+            auto className = GeneratorSchemaReader::BuildClassQualifiedName(element.className, aggregation.ns.apiNamespace);
             typeLookup.emplace(element.typeQualifiedName, className);
             if (element.hasElementQualifiedName)
             {
                 typeElementLookup.emplace(
-                    MakeTypeElementKey(element.typeQualifiedName, element.elementQualifiedName), className);
+                    GeneratorValidatorExpressions::MakeTypeElementKey(element.typeQualifiedName, element.elementQualifiedName), className);
                 const auto [position, inserted] =
                     elementLookup.emplace(element.elementQualifiedName, className);
                 if (!inserted && position->second != className)
@@ -6368,7 +6396,7 @@ void Generator::Run()
             {
                 continue;
             }
-            const auto qualifiedName = BuildEnumQualifiedName(enumDef.className, aggregation.ns.apiNamespace);
+            const auto qualifiedName = GeneratorSchemaReader::BuildEnumQualifiedName(enumDef.className, aggregation.ns.apiNamespace);
             enumFirstFacet.emplace(qualifiedName, enumDef.facets.front().name);
         }
     }
@@ -6377,18 +6405,18 @@ void Generator::Run()
     for (auto& [apiNamespace, aggregation] : aggregatedNamespaces)
     {
         (void)apiNamespace;
-        auto orderedElements = TopologicallyOrderElements(aggregation.elements, aggregation.ns.apiNamespace);
+        auto orderedElements = GeneratorValidatorExpressions::TopologicallyOrderElements(aggregation.elements, aggregation.ns.apiNamespace);
 
-        WriteNamespaceEnumHeader(config_, aggregation.ns, aggregation.enums);
-        WriteNamespaceHeader(config_, aggregation.ns, aggregation.enums, orderedElements, namespaceRegistry, enumIncludeLookup);
-        WriteNamespaceSource(config_, aggregation.ns, aggregation.enums, orderedElements, namespaceRegistry, typeLookup,
-                             elementLookup, typeElementLookup, ambiguousElements, enumFacetLookup);
+        GeneratorNamespaceWriter::WriteNamespaceEnumHeader(config_, aggregation.ns, aggregation.enums);
+        GeneratorNamespaceWriter::WriteNamespaceHeader(config_, aggregation.ns, aggregation.enums, orderedElements, namespaceRegistry, enumIncludeLookup);
+        GeneratorNamespaceWriter::WriteNamespaceSource(config_, aggregation.ns, aggregation.enums, orderedElements, namespaceRegistry, typeLookup,
+                                                       elementLookup, typeElementLookup, ambiguousElements, enumFacetLookup);
         if (config_.generateTests)
         {
-            WriteGeneratedDomTests(config_, aggregation.ns, orderedElements, enumFirstFacet);
+            GeneratorDomTestWriter::WriteGeneratedDomTests(config_, aggregation.ns, orderedElements, enumFirstFacet);
         }
         const auto includeHeader =
-            (std::filesystem::path("ExyokiOffice") / "DOM" / NamespaceToPath(aggregation.ns.apiNamespace)).generic_string();
+            (std::filesystem::path("ExyokiOffice") / "DOM" / GeneratorSchemaReader::NamespaceToPath(aggregation.ns.apiNamespace)).generic_string();
         for (const auto& element : orderedElements)
         {
             if (!element.hasElementQualifiedName || element.elementQualifiedName.empty())
@@ -6397,7 +6425,7 @@ void Generator::Run()
             }
 
             RootElementInfo info;
-            info.classQualifiedName = BuildClassQualifiedName(element.className, aggregation.ns.apiNamespace);
+            info.classQualifiedName = GeneratorSchemaReader::BuildClassQualifiedName(element.className, aggregation.ns.apiNamespace);
             info.includeHeader = includeHeader;
             info.versionExpression = element.versionExpression;
             rootLookup.emplace(element.elementQualifiedName, info);
@@ -6410,23 +6438,23 @@ void Generator::Run()
                 }
             }
         }
-        CollectFactoryElements(orderedElements, aggregation.ns, namespaceRegistry, factoryElements, factoryNamespaceUsage);
+        GeneratorSchemaReader::CollectFactoryElements(orderedElements, aggregation.ns, namespaceRegistry, factoryElements, factoryNamespaceUsage);
         ++generatedNamespaces;
     }
 
-    WriteTypedNamespaceIndex(config_, resolvedNamespaces);
+    GeneratorNamespaceWriter::WriteTypedNamespaceIndex(config_, resolvedNamespaces);
     std::vector<std::string> factoryNamespaces(factoryNamespaceUsage.begin(), factoryNamespaceUsage.end());
     std::sort(factoryNamespaces.begin(), factoryNamespaces.end());
-    WriteOpenXmlElementFactory(config_, factoryElements, factoryNamespaces);
+    GeneratorDomTestWriter::WriteOpenXmlElementFactory(config_, factoryElements, factoryNamespaces);
 
     if (config_.generateParts)
     {
         Logger::Info("Generating packaging parts...");
         const auto partsDir = config_.dataRoot / "parts";
-        auto partsData = LoadPartDefinitions(partsDir);
-        ApplyPartPathOverlay(partsData, config_.dataRoot / "exyokioffice_part_paths.json");
-        WriteGeneratedParts(config_, partsData, rootLookup, partRootLookup);
-        WritePackageFactory(config_, partsData);
+        auto partsData = GeneratorSchemaReader::LoadPartDefinitions(partsDir);
+        GeneratorSchemaReader::ApplyPartPathOverlay(partsData, config_.dataRoot / "exyokioffice_part_paths.json");
+        GeneratorPartsWriter::WriteGeneratedParts(config_, partsData, rootLookup, partRootLookup);
+        GeneratorPartsWriter::WritePackageFactory(config_, partsData);
         Logger::Info("Generated " + std::to_string(partsData.parts.size()) + " part descriptors and " + std::to_string(partsData.packages.size()) + " packages.");
     }
     else
@@ -6434,7 +6462,7 @@ void Generator::Run()
         Logger::Info("Part generation disabled.");
     }
 
-    UnhandledProperties().EmitWarnings();
+    GeneratorText::UnhandledProperties().EmitWarnings();
     Logger::Info("Generated " + std::to_string(generatedNamespaces) + " typed namespace headers with " + std::to_string(totalElements) + " element descriptors.");
 }
 } // namespace exyoki::generator

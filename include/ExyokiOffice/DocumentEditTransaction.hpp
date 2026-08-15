@@ -75,6 +75,8 @@ private:
     std::atomic<bool> m_transactionActive = false;
 };
 
+class DocumentEditTransactionStarter;
+
 } // namespace detail
 
 namespace Excel
@@ -230,6 +232,7 @@ private:
     friend class Excel::ExcelDocumentEditor;
     friend class PowerPoint::PowerPointDocumentEditor;
     friend class Word::WordDocumentEditor;
+    friend class detail::DocumentEditTransactionStarter;
 
     using RestoreFunction = std::function<bool(const DocumentEditMemento&)>;
 
@@ -242,5 +245,68 @@ private:
     struct Impl;
     std::unique_ptr<Impl> m_impl;
 };
+
+namespace detail
+{
+
+/**
+ * @brief The begin-transaction protocol, shared by the three document editors.
+ *
+ * Word, Excel and PowerPoint differ only in how they snapshot and restore
+ * themselves; the ordering around that is identical and easy to get subtly
+ * wrong. Ownership has to be (re)established before the flag is claimed, a
+ * refused claim must not run the snapshot, and a snapshot that fails - by
+ * returning nothing or by throwing - has to release the flag again, or the
+ * editor stays locked out of transactions for the rest of its life.
+ */
+class DocumentEditTransactionStarter
+{
+public:
+    /**
+     * @param owner The editor's owner handle; created or replaced when the
+     *              editor does not own a live one yet.
+     * @param identity The editor address the owner handle is keyed on.
+     * @param createMemento Returns `std::optional<DocumentEditMemento>`.
+     * @param restoreMemento Restores a memento into the same editor.
+     * @return An inactive transaction when another one is already running or
+     *         the snapshot could not be taken.
+     */
+    template <typename TCreateMemento, typename TRestoreMemento>
+    static DocumentEditTransaction Begin(std::shared_ptr<DocumentEditTransactionOwner>& owner,
+                                         const void* identity,
+                                         TCreateMemento&& createMemento,
+                                         TRestoreMemento&& restoreMemento)
+    {
+        if (!owner || !owner->IsAlive(identity))
+        {
+            owner = std::make_shared<DocumentEditTransactionOwner>(identity);
+        }
+
+        if (!owner->TryBeginTransaction(identity))
+        {
+            return {};
+        }
+
+        try
+        {
+            auto memento = createMemento();
+            if (!memento)
+            {
+                owner->EndTransaction(identity);
+                return {};
+            }
+
+            return DocumentEditTransaction(
+                std::move(*memento), std::forward<TRestoreMemento>(restoreMemento), owner, identity);
+        }
+        catch (...)
+        {
+            owner->EndTransaction(identity);
+            throw;
+        }
+    }
+};
+
+} // namespace detail
 
 } // namespace ExyokiOffice

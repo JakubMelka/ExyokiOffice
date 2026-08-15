@@ -119,7 +119,9 @@ public:
     /// @brief The streaming pass, which stops reading once padding begins.
     static bool DecodeLenient(std::string_view filtered, std::vector<Byte>& value)
     {
-        int accumulator = 0;
+        // Unsigned: the accumulator is a bit buffer, and mixing it with the
+        // unsigned mask below would otherwise convert a signed value.
+        UInt32 accumulator = 0;
         int bits = -8;
         bool padded = false;
         for (const char character : filtered)
@@ -141,7 +143,7 @@ public:
                 return false;
             }
 
-            accumulator = (accumulator << 6) | digit;
+            accumulator = (accumulator << 6) | static_cast<UInt32>(digit);
             bits += 6;
             if (bits >= 0)
             {

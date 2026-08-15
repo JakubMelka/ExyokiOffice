@@ -10,6 +10,8 @@
 #include "ExyokiOffice/Word/WordDocument.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include "Tools/TextPatternHelpers.hpp"
+
 #include <functional>
 #include <optional>
 #include <regex>
@@ -60,53 +62,6 @@ public:
                 return "first";
         }
         return "default";
-    }
-
-    /// Escapes ECMAScript regex metacharacters so a literal needle can be matched via std::regex.
-    static std::string EscapeRegexLiteral(std::string_view text)
-    {
-        static constexpr std::string_view special = "\\^$.|?*+()[]{}";
-        std::string escaped;
-        escaped.reserve(text.size());
-        for (const char c : text)
-        {
-            if (special.find(c) != std::string_view::npos)
-            {
-                escaped += '\\';
-            }
-            escaped += c;
-        }
-        return escaped;
-    }
-
-    /// Builds a compiled pattern for regex or case-insensitive matching, or std::nullopt when
-    /// neither is requested (callers then take the plain substring code path). On an invalid
-    /// regex, appends a diagnostic and returns std::nullopt as well; distinguish the two cases
-    /// via useRegex/ignoreCase at the call site.
-    static std::optional<std::regex> BuildPattern(std::string_view needle, bool useRegex, bool ignoreCase,
-                                                  std::vector<ToolDiagnostic>& diagnostics)
-    {
-        if (!useRegex && !ignoreCase)
-        {
-            return std::nullopt;
-        }
-
-        const std::string patternText = useRegex ? std::string(needle) : EscapeRegexLiteral(needle);
-        auto flags = std::regex::ECMAScript;
-        if (ignoreCase)
-        {
-            flags |= std::regex::icase;
-        }
-
-        try
-        {
-            return std::regex(patternText, flags);
-        }
-        catch (const std::regex_error& error)
-        {
-            diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, "Invalid regular expression", error.what()});
-            return std::nullopt;
-        }
     }
 
     static bool IsWordFamily(const std::filesystem::path& path, std::vector<ToolDiagnostic>& diagnostics)
@@ -259,7 +214,7 @@ SearchResult Search(Word::WordDocumentEditor& editor, std::string_view needle, S
 {
     SearchResult result;
 
-    const auto pattern = WordTextToolsHelper::BuildPattern(needle, useRegex, ignoreCase, result.Diagnostics);
+    const auto pattern = TextPattern::BuildPattern(needle, useRegex, ignoreCase, result.Diagnostics);
     if ((useRegex || ignoreCase) && !pattern)
     {
         return result;
@@ -359,7 +314,7 @@ ReplaceResult Replace(Word::WordDocumentEditor& editor, std::string_view needle,
 {
     ReplaceResult result;
 
-    const auto pattern = WordTextToolsHelper::BuildPattern(needle, useRegex, ignoreCase, result.Diagnostics);
+    const auto pattern = TextPattern::BuildPattern(needle, useRegex, ignoreCase, result.Diagnostics);
     if ((useRegex || ignoreCase) && !pattern)
     {
         return result;

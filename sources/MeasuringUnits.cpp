@@ -11,14 +11,17 @@
 namespace ExyokiOffice
 {
 
-namespace
+/// The definitions every conversion below is derived from.
+namespace MeasuringUnitConstants
 {
 constexpr Real kEmuPerInch = 914400.0;
 constexpr Real kPointsPerInch = 72.0;
 constexpr Real kTwipsPerPoint = 20.0;
 constexpr Real kMillimetersPerInch = 25.4;
 constexpr Real kCentimetersPerInch = 2.54;
-} // namespace
+} // namespace MeasuringUnitConstants
+
+using namespace MeasuringUnitConstants;
 
 MeasuringUnits::MeasuringUnits(Real emuValue) noexcept
     : m_value(emuValue), m_unit(MeasurementUnit::Emu)

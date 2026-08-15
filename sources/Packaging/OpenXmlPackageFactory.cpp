@@ -15,30 +15,32 @@
 
 namespace ExyokiOffice::Generated
 {
-namespace
+/// File-local content-type probing behind the part factory.
+class PackageFactoryHelper
 {
-bool ContainsToken(std::string_view text, std::string_view token)
-{
-    return text.find(token) != std::string_view::npos;
-}
+public:
+    static bool ContainsToken(std::string_view text, std::string_view token)
+    {
+        return text.find(token) != std::string_view::npos;
+    }
 
-std::shared_ptr<OpenXmlPackagePart> CreateOfficeDocumentPart(std::string_view contentType)
-{
-    if (ContainsToken(contentType, "wordprocessingml") || ContainsToken(contentType, "ms-word"))
+    static std::shared_ptr<OpenXmlPackagePart> CreateOfficeDocumentPart(std::string_view contentType)
     {
-        return std::make_shared<ExyokiOffice::Packaging::MainDocumentPart>();
+        if (ContainsToken(contentType, "wordprocessingml") || ContainsToken(contentType, "ms-word"))
+        {
+            return std::make_shared<ExyokiOffice::Packaging::MainDocumentPart>();
+        }
+        if (ContainsToken(contentType, "spreadsheetml") || ContainsToken(contentType, "ms-excel"))
+        {
+            return std::make_shared<ExyokiOffice::Packaging::WorkbookPart>();
+        }
+        if (ContainsToken(contentType, "presentationml") || ContainsToken(contentType, "ms-powerpoint"))
+        {
+            return std::make_shared<ExyokiOffice::Packaging::PresentationPart>();
+        }
+        return nullptr;
     }
-    if (ContainsToken(contentType, "spreadsheetml") || ContainsToken(contentType, "ms-excel"))
-    {
-        return std::make_shared<ExyokiOffice::Packaging::WorkbookPart>();
-    }
-    if (ContainsToken(contentType, "presentationml") || ContainsToken(contentType, "ms-powerpoint"))
-    {
-        return std::make_shared<ExyokiOffice::Packaging::PresentationPart>();
-    }
-    return nullptr;
-}
-} // namespace
+};
 
 std::shared_ptr<OpenXmlPackagePart> CreatePackagePart(std::string_view relationshipType,
                                                       std::string_view contentType,
@@ -391,7 +393,7 @@ std::shared_ptr<OpenXmlPackagePart> CreatePackagePart(std::string_view relations
     }
     if (relationshipType == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument")
     {
-        if (auto part = CreateOfficeDocumentPart(contentType))
+        if (auto part = PackageFactoryHelper::CreateOfficeDocumentPart(contentType))
         {
             return part;
         }

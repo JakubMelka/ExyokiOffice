@@ -29,8 +29,6 @@
 namespace ExyokiOffice::Word
 {
 
-namespace
-{
 using OpenXMLElement = ExyokiOffice::OpenXMLElement;
 using ExyokiOffice::BooleanValue;
 using ExyokiOffice::DateTimeValue;
@@ -53,99 +51,124 @@ constexpr std::string_view kOfficeRelationshipsNamespace =
 constexpr std::string_view kHyperlinkRelationshipType =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 
-UInt32 NextDocPropertyId(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Document>& document)
+/// Document-wide identifier allocation: the next free id of each kind.
+class WordIdHelper
 {
-    UInt32 maxId = 0;
-    if (!document)
+public:
+    static UInt32 NextDocPropertyId(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Document>& document)
     {
-        return 1;
-    }
-
-    for (const auto& docProps : document->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
-    {
-        if (!docProps)
+        UInt32 maxId = 0;
+        if (!document)
         {
-            continue;
+            return 1;
         }
-        maxId = std::max(maxId, static_cast<UInt32>(docProps->GetId().Value()));
-    }
-    for (const auto& nvProps : document->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>())
-    {
-        if (!nvProps)
-        {
-            continue;
-        }
-        maxId = std::max(maxId, static_cast<UInt32>(nvProps->GetId().Value()));
-    }
 
-    return maxId + 1;
-}
-
-int NextBookmarkId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
-                   const std::shared_ptr<ExyokiOffice::OpenXMLElement>& fallbackScope)
-{
-    int maxId = -1;
-    auto scan = [&maxId](const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
-    {
-        if (!root)
+        for (const auto& docProps : document->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
         {
-            return;
-        }
-        for (const auto& start :
-             root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>())
-        {
-            if (!start)
+            if (!docProps)
             {
                 continue;
             }
-            const auto idText = start->GetId().ToString();
-            int id = 0;
-            const auto result = std::from_chars(idText.data(), idText.data() + idText.size(), id);
-            if (result.ec == std::errc())
-            {
-                maxId = std::max(maxId, id);
-            }
+            maxId = std::max(maxId, static_cast<UInt32>(docProps->GetId().Value()));
         }
-    };
+        for (const auto& nvProps : document->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>())
+        {
+            if (!nvProps)
+            {
+                continue;
+            }
+            maxId = std::max(maxId, static_cast<UInt32>(nvProps->GetId().Value()));
+        }
 
-    if (mainDocumentPart)
-    {
-        scan(mainDocumentPart->GetTypedRootElement());
+        return maxId + 1;
     }
-    else
-    {
-        scan(fallbackScope);
-    }
-    return maxId + 1;
-}
 
-// Rewrites a run's combined text content in place, preserving the run's own formatting
-// (`w:rPr`). Runs with more than one `<w:t>` child are normalized to a single text node.
-void SetRunPlainText(const std::shared_ptr<Run>& run, const std::string& newText)
+    static int NextBookmarkId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                              const std::shared_ptr<ExyokiOffice::OpenXMLElement>& fallbackScope)
+    {
+        int maxId = -1;
+        auto scan = [&maxId](const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
+        {
+            if (!root)
+            {
+                return;
+            }
+            for (const auto& start :
+                 root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>())
+            {
+                if (!start)
+                {
+                    continue;
+                }
+                const auto idText = start->GetId().ToString();
+                int id = 0;
+                const auto result = std::from_chars(idText.data(), idText.data() + idText.size(), id);
+                if (result.ec == std::errc())
+                {
+                    maxId = std::max(maxId, id);
+                }
+            }
+        };
+
+        if (mainDocumentPart)
+        {
+            scan(mainDocumentPart->GetTypedRootElement());
+        }
+        else
+        {
+            scan(fallbackScope);
+        }
+        return maxId + 1;
+    }
+
+    // Rewrites a run's combined text content in place, preserving the run's own formatting
+    // (`w:rPr`). Runs with more than one `<w:t>` child are normalized to a single text node.
+};
+
+/// Run text content and attribute reads shared by the editors below.
+class WordRunTextHelper
 {
-    if (!run)
+public:
+    static void SetRunPlainText(const std::shared_ptr<Run>& run, const std::string& newText)
     {
-        return;
-    }
-
-    auto texts = run->Texts();
-    if (texts.empty())
-    {
-        if (!newText.empty())
+        if (!run)
         {
-            if (auto text = run->AddText(newText))
-            {
-                text->SetPreserveSpaces(true);
-            }
+            return;
         }
-        return;
-    }
 
-    if (newText.empty())
-    {
-        for (const auto& text : texts)
+        auto texts = run->Texts();
+        if (texts.empty())
         {
-            if (auto lowLevel = text->GetLowLevelApi())
+            if (!newText.empty())
+            {
+                if (auto text = run->AddText(newText))
+                {
+                    text->SetPreserveSpaces(true);
+                }
+            }
+            return;
+        }
+
+        if (newText.empty())
+        {
+            for (const auto& text : texts)
+            {
+                if (auto lowLevel = text->GetLowLevelApi())
+                {
+                    if (auto parent = lowLevel->Parent())
+                    {
+                        parent->RemoveChild(lowLevel);
+                    }
+                }
+            }
+            return;
+        }
+
+        texts.front()->SetText(newText);
+        texts.front()->SetPreserveSpaces(true);
+        for (Size i = 1; i < texts.size(); ++i)
+        {
+            if (auto lowLevel = texts[i]->GetLowLevelApi())
             {
                 if (auto parent = lowLevel->Parent())
                 {
@@ -153,4804 +176,4866 @@ void SetRunPlainText(const std::shared_ptr<Run>& run, const std::string& newText
                 }
             }
         }
-        return;
     }
 
-    texts.front()->SetText(newText);
-    texts.front()->SetPreserveSpaces(true);
-    for (Size i = 1; i < texts.size(); ++i)
+    static std::string TrimAsciiWhitespace(std::string value)
     {
-        if (auto lowLevel = texts[i]->GetLowLevelApi())
+        return std::string(AsciiText::Trim(value));
+    }
+
+    static std::string WordAttributeOrEmpty(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
+                                            std::string_view localName)
+    {
+        if (!element)
         {
-            if (auto parent = lowLevel->Parent())
-            {
-                parent->RemoveChild(lowLevel);
-            }
+            return {};
         }
-    }
-}
 
-std::string TrimAsciiWhitespace(std::string value)
-{
-    return std::string(AsciiText::Trim(value));
-}
-
-std::string WordAttributeOrEmpty(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
-                                 std::string_view localName)
-{
-    if (!element)
-    {
+        std::string_view value;
+        if (element->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, localName), value))
+        {
+            return std::string(value);
+        }
+        if (element->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName({}, localName), value))
+        {
+            return std::string(value);
+        }
         return {};
     }
+};
 
-    std::string_view value;
-    if (element->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, localName), value))
-    {
-        return std::string(value);
-    }
-    if (element->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName({}, localName), value))
-    {
-        return std::string(value);
-    }
-    return {};
-}
-
-bool IsRevisionName(const ExyokiOffice::OpenXmlQualifiedName& name)
+/// Tracked-change markup: recognizing, unwrapping and stamping revisions.
+class WordRevisionHelper
 {
-    if (name.namespaceUri() != kWordNamespace)
+public:
+    static bool IsRevisionName(const ExyokiOffice::OpenXmlQualifiedName& name)
     {
-        return false;
+        if (name.namespaceUri() != kWordNamespace)
+        {
+            return false;
+        }
+        const auto local = name.localName();
+        return local == "ins" || local == "del" || local == "moveFrom" || local == "moveTo" ||
+               local == "pPrChange" || local == "rPrChange" || local == "tblPrChange" ||
+               local == "trPrChange" || local == "tcPrChange" || local == "sectPrChange";
     }
-    const auto local = name.localName();
-    return local == "ins" || local == "del" || local == "moveFrom" || local == "moveTo" ||
-           local == "pPrChange" || local == "rPrChange" || local == "tblPrChange" ||
-           local == "trPrChange" || local == "tcPrChange" || local == "sectPrChange";
-}
 
-RevisionType RevisionTypeFromName(const ExyokiOffice::OpenXmlQualifiedName& name)
-{
-    if (name.namespaceUri() != kWordNamespace)
+    static RevisionType RevisionTypeFromName(const ExyokiOffice::OpenXmlQualifiedName& name)
     {
+        if (name.namespaceUri() != kWordNamespace)
+        {
+            return RevisionType::Unknown;
+        }
+        const auto local = name.localName();
+        if (local == "ins")
+        {
+            return RevisionType::Insertion;
+        }
+        if (local == "del")
+        {
+            return RevisionType::Deletion;
+        }
+        if (local == "moveFrom")
+        {
+            return RevisionType::MoveFrom;
+        }
+        if (local == "moveTo")
+        {
+            return RevisionType::MoveTo;
+        }
         return RevisionType::Unknown;
     }
-    const auto local = name.localName();
-    if (local == "ins")
-    {
-        return RevisionType::Insertion;
-    }
-    if (local == "del")
-    {
-        return RevisionType::Deletion;
-    }
-    if (local == "moveFrom")
-    {
-        return RevisionType::MoveFrom;
-    }
-    if (local == "moveTo")
-    {
-        return RevisionType::MoveTo;
-    }
-    return RevisionType::Unknown;
-}
 
-void CollectRevisionElements(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root,
-                             std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>>& revisions)
-{
-    if (!root)
-    {
-        return;
-    }
-    for (const auto& child : root->Children())
-    {
-        if (!child)
-        {
-            continue;
-        }
-        if (IsRevisionName(child->QualifiedName()))
-        {
-            revisions.push_back(child);
-        }
-        CollectRevisionElements(child, revisions);
-    }
-}
-
-void ConvertDeletedTextToText(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
-{
-    if (!root)
-    {
-        return;
-    }
-    const ExyokiOffice::OpenXmlQualifiedName deletedTextName(kWordNamespace, "delText");
-    auto children = root->Children();
-    for (const auto& child : children)
-    {
-        if (!child)
-        {
-            continue;
-        }
-        ConvertDeletedTextToText(child);
-        if (child->QualifiedName() != deletedTextName)
-        {
-            continue;
-        }
-        auto parent = child->Parent();
-        if (!parent)
-        {
-            continue;
-        }
-        auto text = parent->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Text>(child);
-        if (text)
-        {
-            if (auto leaf = std::dynamic_pointer_cast<ExyokiOffice::OpenXmlLeafTextElement>(child))
-            {
-                text->SetText(leaf->GetText());
-            }
-        }
-        parent->RemoveChild(child);
-    }
-}
-
-bool UnwrapRevisionElement(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
-                           bool convertDeletedText)
-{
-    if (!element)
-    {
-        return false;
-    }
-    if (convertDeletedText)
-    {
-        ConvertDeletedTextToText(element);
-    }
-    if (!element->Parent())
-    {
-        return false;
-    }
-
-    element->ReplaceWithChildren();
-    return true;
-}
-
-bool RemoveRevisionElement(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
-                           bool removeEmptyParagraph = false)
-{
-    auto parent = element ? element->Parent() : nullptr;
-    if (!parent || !parent->RemoveChild(element))
-    {
-        return false;
-    }
-    if (removeEmptyParagraph &&
-        parent->QualifiedName() == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "p") &&
-        parent->Children().empty())
-    {
-        if (auto grandParent = parent->Parent())
-        {
-            grandParent->RemoveChild(parent);
-        }
-    }
-    return true;
-}
-
-std::string NextRevisionId(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
-{
-    int maxId = -1;
-    std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> revisions;
-    CollectRevisionElements(root, revisions);
-    for (const auto& revision : revisions)
-    {
-        const auto idText = WordAttributeOrEmpty(revision, "id");
-        int id = 0;
-        const auto parse = std::from_chars(idText.data(), idText.data() + idText.size(), id);
-        if (parse.ec == std::errc() && parse.ptr == idText.data() + idText.size())
-        {
-            maxId = std::max(maxId, id);
-        }
-    }
-    return std::to_string(maxId + 1);
-}
-
-void ApplyRevisionMetadata(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
-                           const RevisionAuthor& author,
-                           const std::string& fallbackId)
-{
-    if (!element)
-    {
-        return;
-    }
-    element->SetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "id"),
-                               StringValue(author.Id.empty() ? fallbackId : author.Id));
-    element->SetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "author"),
-                               StringValue(author.Name));
-    if (!author.Date.empty())
-    {
-        element->SetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "date"),
-                                   StringValue(author.Date));
-    }
-}
-
-std::string FieldInstructionName(std::string_view instruction)
-{
-    auto text = TrimAsciiWhitespace(std::string(instruction));
-    if (text.empty())
-    {
-        return {};
-    }
-    if (text.front() == '=')
-    {
-        return "=";
-    }
-
-    Size end = 0;
-    while (end < text.size())
-    {
-        const unsigned char ch = static_cast<unsigned char>(text[end]);
-        if (std::isspace(ch) || text[end] == '\\' || text[end] == '"' || text[end] == '\'')
-        {
-            break;
-        }
-        ++end;
-    }
-    return AsciiText::ToUpper(text.substr(0, end));
-}
-
-bool IsLayoutDependentFieldInstruction(std::string_view instruction)
-{
-    const auto name = FieldInstructionName(instruction);
-    return name == "PAGE" || name == "NUMPAGES" || name == "SECTIONPAGES";
-}
-
-ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldCharValues::Value ReadFieldCharType(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldChar>& fieldChar)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldCharValues;
-    if (!fieldChar)
-    {
-        return FieldCharValues::NotDefinedEnumValue;
-    }
-    auto value = fieldChar->GetFieldCharType();
-    if (value.IsDefined())
-    {
-        return value.Value().GetValue();
-    }
-
-    const auto raw = WordAttributeOrEmpty(fieldChar, "fldCharType");
-    if (raw == "begin")
-    {
-        return FieldCharValues::Begin;
-    }
-    if (raw == "separate")
-    {
-        return FieldCharValues::Separate;
-    }
-    if (raw == "end")
-    {
-        return FieldCharValues::End;
-    }
-    return FieldCharValues::NotDefinedEnumValue;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run> ParentRunOfFieldChar(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldChar>& fieldChar)
-{
-    return fieldChar ? std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>(
-                           fieldChar->Parent())
-                     : nullptr;
-}
-
-std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> ParagraphChildrenBetween(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& after,
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before)
-{
-    std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> result;
-    if (!paragraph || !after || !before)
-    {
-        return result;
-    }
-
-    for (auto child = after->NextSibling(); child; child = child->NextSibling())
-    {
-        if (child->IsSameNode(*before))
-        {
-            break;
-        }
-        result.push_back(child);
-    }
-    return result;
-}
-
-void RemoveParagraphChildrenBetween(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& after,
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before)
-{
-    for (const auto& child : ParagraphChildrenBetween(paragraph, after, before))
-    {
-        paragraph->RemoveChild(child);
-    }
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run> InsertRunWithTextBefore(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before,
-    std::string_view text,
-    bool preserveSpaces)
-{
-    if (!paragraph)
-    {
-        return nullptr;
-    }
-    auto run = paragraph->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>(before);
-    if (!run)
-    {
-        return nullptr;
-    }
-    std::make_shared<Run>(run)->AddText(text, preserveSpaces);
-    return run;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run> AppendRunWithText(
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent,
-    std::string_view text,
-    bool preserveSpaces)
-{
-    if (!parent)
-    {
-        return nullptr;
-    }
-    auto run = parent->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
-    if (!run)
-    {
-        return nullptr;
-    }
-    std::make_shared<Run>(run)->AddText(text, preserveSpaces);
-    return run;
-}
-
-void AppendFieldCodeRun(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
-    std::string_view instruction,
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before = nullptr)
-{
-    if (!paragraph)
-    {
-        return;
-    }
-    auto run = before ? paragraph->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>(before)
-                      : paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
-    if (!run)
-    {
-        return;
-    }
-    auto code = run->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldCode>();
-    if (code)
-    {
-        code->SetText(instruction);
-    }
-}
-
-std::string DirectLeafTextByWordName(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
-                                     std::string_view localName)
-{
-    std::string result;
-    if (!element)
-    {
-        return result;
-    }
-    const ExyokiOffice::OpenXmlQualifiedName name(kWordNamespace, localName);
-    for (const auto& child : element->Children())
-    {
-        if (!child || child->QualifiedName() != name)
-        {
-            continue;
-        }
-        if (auto textElement = std::dynamic_pointer_cast<ExyokiOffice::OpenXmlLeafTextElement>(child))
-        {
-            result += std::string(textElement->GetText());
-        }
-    }
-    return result;
-}
-
-std::string ContentTypeFromExtension(std::filesystem::path path)
-{
-    auto ext = AsciiText::ToLower(path.extension().string());
-    if (ext == ".png")
-    {
-        return "image/png";
-    }
-    if (ext == ".jpg" || ext == ".jpeg")
-    {
-        return "image/jpeg";
-    }
-    if (ext == ".gif")
-    {
-        return "image/gif";
-    }
-    if (ext == ".bmp")
-    {
-        return "image/bmp";
-    }
-    if (ext == ".tif" || ext == ".tiff")
-    {
-        return "image/tiff";
-    }
-    if (ext == ".emf")
-    {
-        return "image/x-emf";
-    }
-    if (ext == ".wmf")
-    {
-        return "image/x-wmf";
-    }
-    return {};
-}
-
-Int64 ToEmuInt64(const ExyokiOffice::MeasuringUnits& value)
-{
-    return static_cast<Int64>(std::llround(value.ToEmu().GetValue()));
-}
-
-UInt32 ToEmuUInt32(const ExyokiOffice::MeasuringUnits& value)
-{
-    const auto rounded = std::llround(value.ToEmu().GetValue());
-    if (rounded <= 0)
-    {
-        return 0;
-    }
-    if (rounded > static_cast<Int64>(std::numeric_limits<UInt32>::max()))
-    {
-        return std::numeric_limits<UInt32>::max();
-    }
-    return static_cast<UInt32>(rounded);
-}
-
-int ToTwipsInt(const ExyokiOffice::MeasuringUnits& value)
-{
-    return static_cast<int>(std::lround(value.ToTw().GetValue()));
-}
-
-UInt32 ToTwipsUInt32(const ExyokiOffice::MeasuringUnits& value)
-{
-    const auto rounded = std::llround(value.ToTw().GetValue());
-    if (rounded <= 0)
-    {
-        return 0;
-    }
-    if (rounded > static_cast<Int64>(std::numeric_limits<UInt32>::max()))
-    {
-        return std::numeric_limits<UInt32>::max();
-    }
-    return static_cast<UInt32>(rounded);
-}
-
-UInt32 ToBorderSizeUInt32(const ExyokiOffice::MeasuringUnits& value)
-{
-    const auto points = value.ToPt().GetValue();
-    if (points <= 0.0)
-    {
-        return 0;
-    }
-    const auto eighths = std::llround(points * 8.0);
-    if (eighths <= 0)
-    {
-        return 0;
-    }
-    if (eighths > static_cast<Int64>(std::numeric_limits<UInt32>::max()))
-    {
-        return std::numeric_limits<UInt32>::max();
-    }
-    return static_cast<UInt32>(eighths);
-}
-
-std::optional<int> TryParseInt(std::string_view text)
-{
-    if (text.empty())
-    {
-        return std::nullopt;
-    }
-
-    int value = 0;
-    const auto* begin = text.data();
-    const auto* end = text.data() + text.size();
-    auto result = std::from_chars(begin, end, value);
-    if (result.ec != std::errc() || result.ptr != end)
-    {
-        return std::nullopt;
-    }
-    return value;
-}
-
-std::optional<Int64> TryParseInt64(std::string_view text)
-{
-    if (text.empty())
-    {
-        return std::nullopt;
-    }
-
-    Int64 value = 0;
-    const auto* begin = text.data();
-    const auto* end = text.data() + text.size();
-    auto result = std::from_chars(begin, end, value);
-    if (result.ec != std::errc() || result.ptr != end)
-    {
-        return std::nullopt;
-    }
-    return value;
-}
-
-template <typename TEnum>
-std::optional<TEnum> TryParseEnumValue(std::string_view text)
-{
-    EnumValue<TEnum> parsed;
-    if (!parsed.AssignFromString(text))
-    {
-        return std::nullopt;
-    }
-    if (!parsed.IsDefined())
-    {
-        return std::nullopt;
-    }
-    return parsed.Value();
-}
-
-std::optional<int> GetDefinedInt32(const Int32Value& value)
-{
-    if (!value.IsDefined())
-    {
-        return std::nullopt;
-    }
-    return value.Value();
-}
-
-std::optional<ExyokiOffice::MeasuringUnits> GetDefinedTwips(const StringValue& value)
-{
-    if (!value.IsDefined())
-    {
-        return std::nullopt;
-    }
-    const auto parsed = TryParseInt(value.ToString());
-    if (!parsed)
-    {
-        return std::nullopt;
-    }
-    return ExyokiOffice::MeasuringUnits(static_cast<Real>(*parsed),
-                                        ExyokiOffice::MeasurementUnit::Twip);
-}
-
-std::optional<ExyokiOffice::MeasuringUnits> GetDefinedTwips(const Int32Value& value)
-{
-    if (!value.IsDefined())
-    {
-        return std::nullopt;
-    }
-    return ExyokiOffice::MeasuringUnits(static_cast<Real>(value.Value()),
-                                        ExyokiOffice::MeasurementUnit::Twip);
-}
-
-std::optional<ExyokiOffice::MeasuringUnits> GetDefinedTwips(const UInt32Value& value)
-{
-    if (!value.IsDefined())
-    {
-        return std::nullopt;
-    }
-    return ExyokiOffice::MeasuringUnits(static_cast<Real>(value.Value()),
-                                        ExyokiOffice::MeasurementUnit::Twip);
-}
-
-std::optional<ExyokiOffice::MeasuringUnits> GetDefinedHalfPoints(const StringValue& value)
-{
-    if (!value.IsDefined())
-    {
-        return std::nullopt;
-    }
-    const auto parsed = TryParseInt(value.ToString());
-    if (!parsed)
-    {
-        return std::nullopt;
-    }
-    return ExyokiOffice::MeasuringUnits(static_cast<Real>(*parsed) / 2.0,
-                                        ExyokiOffice::MeasurementUnit::Point);
-}
-
-std::optional<ExyokiOffice::MeasuringUnits> GetDefinedHalfPoints(const UInt32Value& value)
-{
-    if (!value.IsDefined())
-    {
-        return std::nullopt;
-    }
-    return ExyokiOffice::MeasuringUnits(static_cast<Real>(value.Value()) / 2.0,
-                                        ExyokiOffice::MeasurementUnit::Point);
-}
-
-ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionMarkValues ToDomSectionMark(
-    SectionStartType startType)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionMarkValues;
-    switch (startType)
-    {
-        case SectionStartType::NextColumn:
-            return SectionMarkValues::NextColumn;
-        case SectionStartType::Continuous:
-            return SectionMarkValues::Continuous;
-        case SectionStartType::EvenPage:
-            return SectionMarkValues::EvenPage;
-        case SectionStartType::OddPage:
-            return SectionMarkValues::OddPage;
-        case SectionStartType::NextPage:
-        default:
-            return SectionMarkValues::NextPage;
-    }
-}
-
-std::optional<SectionStartType> FromDomSectionMark(
-    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionMarkValues value)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionMarkValues;
-    switch (value.GetValue())
-    {
-        case SectionMarkValues::NextPage:
-            return SectionStartType::NextPage;
-        case SectionMarkValues::NextColumn:
-            return SectionStartType::NextColumn;
-        case SectionMarkValues::Continuous:
-            return SectionStartType::Continuous;
-        case SectionMarkValues::EvenPage:
-            return SectionStartType::EvenPage;
-        case SectionMarkValues::OddPage:
-            return SectionStartType::OddPage;
-        default:
-            return std::nullopt;
-    }
-}
-
-ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues ToDomPageOrientation(
-    PageOrientation orientation)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues;
-    return orientation == PageOrientation::Landscape ? PageOrientationValues::Landscape
-                                                     : PageOrientationValues::Portrait;
-}
-
-std::optional<PageOrientation> FromDomPageOrientation(
-    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues value)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues;
-    switch (value.GetValue())
-    {
-        case PageOrientationValues::Portrait:
-            return PageOrientation::Portrait;
-        case PageOrientationValues::Landscape:
-            return PageOrientation::Landscape;
-        default:
-            return std::nullopt;
-    }
-}
-
-template <typename TParent, typename TChild>
-std::shared_ptr<TChild> EnsureChildOfType(const std::shared_ptr<TParent>& parent)
-{
-    if (!parent)
-    {
-        return nullptr;
-    }
-    auto child = parent->template GetFirstChildOfType<TChild>();
-    if (!child)
-    {
-        child = parent->template AppendChild<TChild>();
-    }
-    return child;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body> EnsureBody(const std::shared_ptr<Packaging::MainDocumentPart>& mainPart)
-{
-    if (!mainPart)
-    {
-        return nullptr;
-    }
-    auto document = mainPart->GetTypedRootElement();
-    if (!document)
-    {
-        return nullptr;
-    }
-    return EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Document, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>(document);
-}
-
-std::shared_ptr<Packaging::MainDocumentPart> EnsureMainDocumentPart(const WordDocument::Ptr& document)
-{
-    if (!document)
-    {
-        return nullptr;
-    }
-
-    auto mainPart = document->GetMainDocumentPart();
-    if (!mainPart)
-    {
-        mainPart = document->AddMainDocumentPart();
-    }
-    return mainPart;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body> EnsureBody(const WordDocument::Ptr& document)
-{
-    return EnsureBody(EnsureMainDocumentPart(document));
-}
-
-std::shared_ptr<Packaging::MainDocumentPart> GetMainDocumentPart(const WordDocument::Ptr& document)
-{
-    return document ? document->GetMainDocumentPart() : nullptr;
-}
-
-// Removes a markup marker element. When the marker's direct parent is a run whose sole
-// purpose is to carry that marker (the shape produced by AddFootnote()/AddComment() for
-// reference markers), the whole run is removed; otherwise only the marker itself is
-// removed (the shape used by comment range markers, which are direct paragraph children).
-void RemoveMarkerAndOwningRun(const std::shared_ptr<OpenXMLElement>& marker)
-{
-    if (!marker)
-    {
-        return;
-    }
-    auto parent = marker->Parent();
-    if (!parent)
-    {
-        return;
-    }
-    if (parent->QualifiedName() == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "r"))
-    {
-        if (auto grandParent = parent->Parent())
-        {
-            grandParent->RemoveChild(parent);
-            return;
-        }
-    }
-    parent->RemoveChild(marker);
-}
-
-int NextSdtId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
-              const std::shared_ptr<OpenXMLElement>& fallbackScope)
-{
-    int maxId = 0;
-    auto scan = [&maxId](const std::shared_ptr<OpenXMLElement>& root)
+    static void CollectRevisionElements(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root,
+                                        std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>>& revisions)
     {
         if (!root)
         {
             return;
         }
-        for (const auto& id :
-             root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SdtId>())
+        for (const auto& child : root->Children())
         {
-            if (!id)
+            if (!child)
             {
                 continue;
             }
-            const auto value = id->GetVal();
-            if (value.IsDefined())
+            if (IsRevisionName(child->QualifiedName()))
             {
-                maxId = std::max(maxId, value.Value());
+                revisions.push_back(child);
             }
-        }
-    };
-
-    if (mainDocumentPart)
-    {
-        scan(mainDocumentPart->GetTypedRootElement());
-    }
-    else
-    {
-        scan(fallbackScope);
-    }
-    return maxId + 1;
-}
-
-// Footnote/endnote entries (`w:footnote`/`w:endnote`) share their element name with an
-// unrelated special-reference type (`FootnoteSpecialReference`/`EndnoteSpecialReference`,
-// used inside `w:footnotePr`/`w:endnotePr`). The generated element factory can only bind one
-// concrete C++ type per element name, so re-reading existing entries via `Elements<TEntry>()`
-// or `Descendants<TEntry>()` is unreliable: it silently returns nothing when the factory
-// picks the other type for that tag. All entry scanning below therefore matches children by
-// qualified name and reads/writes the `id`/`type` attributes generically instead of going
-// through Footnote/Endnote's typed accessors. Freshly creating an entry with
-// `AppendChild<TEntry>()` is unaffected by this and remains safe, since it constructs the
-// exact requested type directly rather than resolving it from a tag name.
-template <typename TEntry>
-std::vector<std::shared_ptr<OpenXMLElement>> FindNoteEntries(const std::shared_ptr<OpenXMLElement>& root)
-{
-    std::vector<std::shared_ptr<OpenXMLElement>> result;
-    if (!root)
-    {
-        return result;
-    }
-    const auto entryName = TEntry::StaticMetaClass()->QualifiedName();
-    for (const auto& child : root->Children())
-    {
-        if (child && child->QualifiedName() == entryName)
-        {
-            result.push_back(child);
-        }
-    }
-    return result;
-}
-
-// Ensures the standard Separator/ContinuationSeparator bookkeeping entries (IDs -1 and 0)
-// exist in a footnotes/endnotes part root, matching what Word itself generates.
-template <typename TEntry>
-void EnsureNoteSeparators(const std::shared_ptr<OpenXMLElement>& root)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteEndnoteValues;
-
-    if (!root)
-    {
-        return;
-    }
-
-    const ExyokiOffice::OpenXmlQualifiedName typeAttribute(kWordNamespace, "type");
-
-    bool hasSeparator = false;
-    bool hasContinuation = false;
-    for (const auto& entry : FindNoteEntries<TEntry>(root))
-    {
-        const auto type = entry->template GetAttributeValue<EnumValue<FootnoteEndnoteValues>>(typeAttribute);
-        if (!type.IsDefined())
-        {
-            continue;
-        }
-        if (type.Value() == FootnoteEndnoteValues::Separator)
-        {
-            hasSeparator = true;
-        }
-        else if (type.Value() == FootnoteEndnoteValues::ContinuationSeparator)
-        {
-            hasContinuation = true;
+            CollectRevisionElements(child, revisions);
         }
     }
 
-    if (!hasSeparator)
+    static void ConvertDeletedTextToText(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
     {
-        if (auto entry = root->AppendChild<TEntry>())
-        {
-            entry->SetId(IntegerValue(static_cast<Int64>(-1)));
-            entry->SetType(EnumValue<FootnoteEndnoteValues>(FootnoteEndnoteValues::Separator));
-            if (auto paragraph =
-                    entry->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>())
-            {
-                if (auto run =
-                        paragraph->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>())
-                {
-                    run->template AppendChild<
-                        ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SeparatorMark>();
-                }
-            }
-        }
-    }
-
-    if (!hasContinuation)
-    {
-        if (auto entry = root->AppendChild<TEntry>())
-        {
-            entry->SetId(IntegerValue(static_cast<Int64>(0)));
-            entry->SetType(EnumValue<FootnoteEndnoteValues>(FootnoteEndnoteValues::ContinuationSeparator));
-            if (auto paragraph =
-                    entry->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>())
-            {
-                if (auto run =
-                        paragraph->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>())
-                {
-                    run->template AppendChild<
-                        ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ContinuationSeparatorMark>();
-                }
-            }
-        }
-    }
-}
-
-template <typename TEntry>
-int NextNoteId(const std::shared_ptr<OpenXMLElement>& root)
-{
-    const ExyokiOffice::OpenXmlQualifiedName idAttribute(kWordNamespace, "id");
-    int maxId = -2;
-    for (const auto& entry : FindNoteEntries<TEntry>(root))
-    {
-        const auto value = entry->template GetAttributeValue<IntegerValue>(idAttribute);
-        if (value.IsDefined())
-        {
-            maxId = std::max(maxId, static_cast<int>(value.Value()));
-        }
-    }
-    return maxId + 1;
-}
-
-// Creates a new footnote/endnote entry (with the standard reference mark) and appends the
-// matching reference run at the end of `paragraph`. TEntry is Footnote or Endnote,
-// TReferenceMark is FootnoteReferenceMark or EndnoteReferenceMark, TReference is
-// FootnoteReference or EndnoteReference, and TPart is FootnotesPart or EndnotesPart.
-template <typename TEntry, typename TReferenceMark, typename TReference, typename TPart>
-std::shared_ptr<Note> AddNoteToDocument(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
-    const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
-    NoteKind kind,
-    const std::shared_ptr<TPart>& part,
-    std::string_view text,
-    bool preserveSpaces)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteEndnoteValues;
-
-    if (!paragraph || !part)
-    {
-        return nullptr;
-    }
-
-    std::shared_ptr<OpenXMLElement> root = part->GetTypedRootElement();
-    if (!root)
-    {
-        return nullptr;
-    }
-
-    EnsureNoteSeparators<TEntry>(root);
-    const int id = NextNoteId<TEntry>(root);
-
-    auto entry = root->AppendChild<TEntry>();
-    if (!entry)
-    {
-        return nullptr;
-    }
-    entry->SetId(IntegerValue(static_cast<Int64>(id)));
-    entry->SetType(EnumValue<FootnoteEndnoteValues>(FootnoteEndnoteValues::Normal));
-
-    auto contentParagraph =
-        entry->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
-    if (!contentParagraph)
-    {
-        root->RemoveChild(entry);
-        return nullptr;
-    }
-    if (auto markRun =
-            contentParagraph->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>())
-    {
-        markRun->template AppendChild<TReferenceMark>();
-    }
-    if (!text.empty())
-    {
-        AppendRunWithText(contentParagraph, text, preserveSpaces);
-    }
-
-    auto refRun = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
-    if (!refRun)
-    {
-        root->RemoveChild(entry);
-        return nullptr;
-    }
-    auto reference = refRun->AppendChild<TReference>();
-    if (!reference)
-    {
-        paragraph->RemoveChild(refRun);
-        root->RemoveChild(entry);
-        return nullptr;
-    }
-    reference->SetId(IntegerValue(static_cast<Int64>(id)));
-
-    return std::make_shared<Note>(kind, entry, mainDocumentPart);
-}
-
-int NextCommentId(const std::shared_ptr<Packaging::WordprocessingCommentsPart>& part)
-{
-    int maxId = -1;
-    if (part)
-    {
-        if (auto root = part->GetTypedRootElement())
-        {
-            for (const auto& entry :
-                 root->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment>())
-            {
-                if (!entry)
-                {
-                    continue;
-                }
-                if (auto parsed = TryParseInt(entry->GetId().ToString()))
-                {
-                    maxId = std::max(maxId, *parsed);
-                }
-            }
-        }
-    }
-    return maxId + 1;
-}
-
-std::shared_ptr<Packaging::StyleDefinitionsPart> EnsureStyleDefinitionsPart(const WordDocument::Ptr& document)
-{
-    auto mainPart = EnsureMainDocumentPart(document);
-    if (!mainPart)
-    {
-        return nullptr;
-    }
-
-    auto stylesPart = mainPart->GetStyleDefinitionsPart();
-    if (!stylesPart)
-    {
-        stylesPart = mainPart->AddStyleDefinitionsPart();
-    }
-    return stylesPart;
-}
-
-std::shared_ptr<Packaging::StyleDefinitionsPart> GetStyleDefinitionsPart(const WordDocument::Ptr& document)
-{
-    auto mainPart = GetMainDocumentPart(document);
-    return mainPart ? mainPart->GetStyleDefinitionsPart() : nullptr;
-}
-
-ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues ToDomStyleType(StyleType type)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues;
-    switch (type)
-    {
-        case StyleType::Character:
-            return StyleValues::Character;
-        case StyleType::Table:
-            return StyleValues::Table;
-        case StyleType::Numbering:
-            return StyleValues::Numbering;
-        case StyleType::Paragraph:
-        default:
-            return StyleValues::Paragraph;
-    }
-}
-
-std::optional<StyleType> FromDomStyleType(
-    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues value)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues;
-    switch (value.GetValue())
-    {
-        case StyleValues::Paragraph:
-            return StyleType::Paragraph;
-        case StyleValues::Character:
-            return StyleType::Character;
-        case StyleValues::Table:
-            return StyleType::Table;
-        case StyleValues::Numbering:
-            return StyleType::Numbering;
-        default:
-            return std::nullopt;
-    }
-}
-
-bool IsOn(const OnOffValue& value)
-{
-    return value.ValueOr(false);
-}
-
-std::optional<bool> OptionalOnOff(const OnOffValue& value)
-{
-    if (!value.IsDefined())
-    {
-        return std::nullopt;
-    }
-    return value.Value();
-}
-
-std::optional<int> OptionalInt32(const Int32Value& value)
-{
-    if (!value.IsDefined())
-    {
-        return std::nullopt;
-    }
-    return value.Value();
-}
-
-std::string StringValueOrEmpty(const StringValue& value)
-{
-    return value.IsDefined() ? value.ToString() : std::string{};
-}
-
-std::string RawValAttributeOrEmpty(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
-{
-    if (!element)
-    {
-        return {};
-    }
-
-    std::string_view value;
-    if (element->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "val"), value))
-    {
-        return std::string(value);
-    }
-    if (element->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName({}, "val"), value))
-    {
-        return std::string(value);
-    }
-    return {};
-}
-
-std::optional<bool> RawOnOffOrEmpty(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
-{
-    const auto value = AsciiText::ToLower(RawValAttributeOrEmpty(element));
-    if (value.empty())
-    {
-        return std::nullopt;
-    }
-    if (value == "1" || value == "true" || value == "on")
-    {
-        return true;
-    }
-    if (value == "0" || value == "false" || value == "off")
-    {
-        return false;
-    }
-    return std::nullopt;
-}
-
-template <typename TElement>
-std::optional<bool> ReadOnOffChild(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
-{
-    std::shared_ptr<ExyokiOffice::OpenXMLElement> child = parent ? parent->GetFirstChildOfType<TElement>() : nullptr;
-    if (!child && parent)
-    {
-        const auto target = TElement::StaticMetaClass()->QualifiedName();
-        for (const auto& candidate : parent->Children())
-        {
-            if (candidate && candidate->QualifiedName() == target)
-            {
-                child = candidate;
-                break;
-            }
-        }
-    }
-    if (!child)
-    {
-        return std::nullopt;
-    }
-    if (auto typed = std::dynamic_pointer_cast<TElement>(child); typed && typed->GetVal().IsDefined())
-    {
-        return typed->GetVal().Value();
-    }
-    if (auto raw = RawOnOffOrEmpty(child))
-    {
-        return raw;
-    }
-    return true;
-}
-
-template <typename TElement, typename TEnum>
-std::optional<TEnum> ReadEnumValChild(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
-{
-    std::shared_ptr<ExyokiOffice::OpenXMLElement> child = parent ? parent->GetFirstChildOfType<TElement>() : nullptr;
-    if (!child && parent)
-    {
-        const auto target = TElement::StaticMetaClass()->QualifiedName();
-        for (const auto& candidate : parent->Children())
-        {
-            if (candidate && candidate->QualifiedName() == target)
-            {
-                child = candidate;
-                break;
-            }
-        }
-    }
-    if (!child)
-    {
-        return std::nullopt;
-    }
-    if (auto typed = std::dynamic_pointer_cast<TElement>(child))
-    {
-        auto value = typed->GetVal();
-        if (value.IsDefined())
-        {
-            return value.Value();
-        }
-    }
-    return TryParseEnumValue<TEnum>(RawValAttributeOrEmpty(child));
-}
-
-std::shared_ptr<ExyokiOffice::OpenXMLElement> FindDirectWordChild(
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent,
-    std::string_view localName)
-{
-    if (!parent)
-    {
-        return nullptr;
-    }
-
-    const ExyokiOffice::OpenXmlQualifiedName target(kWordNamespace, localName);
-    for (const auto& child : parent->Children())
-    {
-        if (child && child->QualifiedName() == target)
-        {
-            return child;
-        }
-    }
-    return nullptr;
-}
-
-std::string GetStringChildValueByName(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent,
-                                      std::string_view localName)
-{
-    return RawValAttributeOrEmpty(FindDirectWordChild(parent, localName));
-}
-
-void RemoveDirectWordChildren(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent,
-                              std::string_view localName)
-{
-    if (!parent)
-    {
-        return;
-    }
-
-    const ExyokiOffice::OpenXmlQualifiedName target(kWordNamespace, localName);
-    for (const auto& child : parent->Children())
-    {
-        if (child && child->QualifiedName() == target)
-        {
-            parent->RemoveChild(child);
-        }
-    }
-}
-
-template <typename TParent, typename TChild>
-void RemoveChildOfType(const std::shared_ptr<TParent>& parent)
-{
-    if (!parent)
-    {
-        return;
-    }
-    if (auto child = parent->template GetFirstChildOfType<TChild>())
-    {
-        parent->RemoveChild(child);
-        return;
-    }
-    RemoveDirectWordChildren(parent, TChild::StaticMetaClass()->QualifiedName().localName());
-}
-
-template <typename TParent, typename TChild>
-void RemoveChildOfType(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
-{
-    (void)sizeof(TParent);
-    if (!parent)
-    {
-        return;
-    }
-    if (auto child = parent->GetFirstChildOfType<TChild>())
-    {
-        parent->RemoveChild(child);
-        return;
-    }
-    RemoveDirectWordChildren(parent, TChild::StaticMetaClass()->QualifiedName().localName());
-}
-
-template <typename TChild>
-std::shared_ptr<TChild> GetFirstTypedChildOrNull(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
-{
-    return parent ? parent->GetFirstChildOfType<TChild>() : nullptr;
-}
-
-template <typename TChild>
-std::shared_ptr<ExyokiOffice::OpenXMLElement> GetFirstChildElementByTypeOrName(
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
-{
-    if (!parent)
-    {
-        return nullptr;
-    }
-    auto typed = parent->GetFirstChildOfType<TChild>();
-    return typed ? std::static_pointer_cast<ExyokiOffice::OpenXMLElement>(typed)
-                 : FindDirectWordChild(parent, TChild::StaticMetaClass()->QualifiedName().localName());
-}
-
-template <typename TChild>
-std::string GetStringChildValue(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
-{
-    std::shared_ptr<ExyokiOffice::OpenXMLElement> child = parent ? parent->GetFirstChildOfType<TChild>() : nullptr;
-    if (!child && parent)
-    {
-        child = FindDirectWordChild(parent, TChild::StaticMetaClass()->QualifiedName().localName());
-    }
-    auto typed = std::dynamic_pointer_cast<TChild>(child);
-    auto value = typed ? StringValueOrEmpty(typed->GetVal()) : std::string{};
-    return value.empty() ? RawValAttributeOrEmpty(child) : value;
-}
-
-template <typename TParent, typename TChild>
-void SetOptionalStringChild(const std::shared_ptr<TParent>& parent, std::string_view value)
-{
-    if (!parent)
-    {
-        return;
-    }
-    const auto childName = TChild::StaticMetaClass()->QualifiedName();
-    RemoveDirectWordChildren(parent, childName.localName());
-    if (value.empty())
-    {
-        return;
-    }
-
-    // SetVal writes the namespace-qualified `w:val`; adding a raw prefixed
-    // attribute on top of it would emit a duplicate and break well-formedness.
-    auto child = parent->template AppendChild<TChild>();
-    if (child)
-    {
-        child->SetVal(StringValue(std::string(value)));
-    }
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style> FindStyleById(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Styles>& styles,
-    std::string_view styleId)
-{
-    if (!styles || styleId.empty())
-    {
-        return nullptr;
-    }
-
-    for (const auto& style : styles->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style>())
-    {
-        if (style && StringValueOrEmpty(style->GetStyleId()) == styleId)
-        {
-            return style;
-        }
-    }
-    return nullptr;
-}
-
-StyleDefinition ReadStyleDefinition(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style>& style)
-{
-    StyleDefinition definition{};
-    if (!style)
-    {
-        return definition;
-    }
-
-    definition.StyleId = StringValueOrEmpty(style->GetStyleId());
-    definition.Type = FromDomStyleType(style->GetType().ValueOr(
-                                           ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues::Paragraph))
-                          .value_or(StyleType::Paragraph);
-    definition.IsDefault = IsOn(style->GetDefault());
-    definition.IsCustom = IsOn(style->GetCustomStyle());
-
-    using namespace ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
-    definition.Name = GetStringChildValueByName(style, "name");
-    definition.BasedOnStyleId = GetStringChildValueByName(style, "basedOn");
-    definition.NextStyleId = GetStringChildValueByName(style, "next");
-    definition.LinkedStyleId = GetStringChildValueByName(style, "link");
-    definition.Aliases = GetStringChildValueByName(style, "aliases");
-    if (auto priority = style->GetFirstChildOfType<UIPriority>())
-    {
-        definition.UiPriority = OptionalInt32(priority->GetVal());
-    }
-    definition.IsPrimary = style->GetFirstChildOfType<PrimaryStyle>() != nullptr;
-    definition.IsSemiHidden = style->GetFirstChildOfType<SemiHidden>() != nullptr;
-    definition.IsUnhideWhenUsed = style->GetFirstChildOfType<UnhideWhenUsed>() != nullptr;
-    return definition;
-}
-
-void ApplyStyleDefinition(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style>& style,
-    const StyleDefinition& definition)
-{
-    if (!style || definition.StyleId.empty())
-    {
-        return;
-    }
-
-    using namespace ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
-    style->SetType(EnumValue<StyleValues>(ToDomStyleType(definition.Type)));
-    style->SetStyleId(StringValue(definition.StyleId));
-    style->SetDefault(definition.IsDefault ? OnOffValue(true) : OnOffValue{});
-    style->SetCustomStyle(definition.IsCustom ? OnOffValue(true) : OnOffValue{});
-
-    SetOptionalStringChild<Style, StyleName>(style, definition.Name);
-    SetOptionalStringChild<Style, BasedOn>(style, definition.BasedOnStyleId);
-    SetOptionalStringChild<Style, NextParagraphStyle>(style, definition.NextStyleId);
-    SetOptionalStringChild<Style, LinkedStyle>(style, definition.LinkedStyleId);
-    SetOptionalStringChild<Style, Aliases>(style, definition.Aliases);
-
-    if (definition.UiPriority)
-    {
-        if (auto priority = EnsureChildOfType<Style, UIPriority>(style))
-        {
-            priority->SetVal(Int32Value(*definition.UiPriority));
-        }
-    }
-    else
-    {
-        RemoveChildOfType<Style, UIPriority>(style);
-    }
-
-    if (definition.IsPrimary)
-    {
-        EnsureChildOfType<Style, PrimaryStyle>(style);
-    }
-    else
-    {
-        RemoveChildOfType<Style, PrimaryStyle>(style);
-    }
-    if (definition.IsSemiHidden)
-    {
-        EnsureChildOfType<Style, SemiHidden>(style);
-    }
-    else
-    {
-        RemoveChildOfType<Style, SemiHidden>(style);
-    }
-    if (definition.IsUnhideWhenUsed)
-    {
-        EnsureChildOfType<Style, UnhideWhenUsed>(style);
-    }
-    else
-    {
-        RemoveChildOfType<Style, UnhideWhenUsed>(style);
-    }
-}
-
-std::string MakeUniqueStyleId(const StyleManager& manager, std::string base)
-{
-    if (base.empty())
-    {
-        base = "ImportedStyle";
-    }
-    if (!manager.HasStyle(base))
-    {
-        return base;
-    }
-
-    for (int suffix = 2; suffix < 10000; ++suffix)
-    {
-        auto candidate = base + "_" + std::to_string(suffix);
-        if (!manager.HasStyle(candidate))
-        {
-            return candidate;
-        }
-    }
-    return {};
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Document> GetMainDocumentRoot(
-    const WordDocument::Ptr& document)
-{
-    auto mainPart = GetMainDocumentPart(document);
-    return mainPart ? mainPart->GetTypedRootElement() : nullptr;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body> GetBody(
-    const WordDocument::Ptr& document)
-{
-    auto root = GetMainDocumentRoot(document);
-    return root ? root->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>() : nullptr;
-}
-
-void CollectDescendantsByName(const std::shared_ptr<OpenXMLElement>& element,
-                              const ExyokiOffice::OpenXmlQualifiedName& name,
-                              std::vector<std::shared_ptr<OpenXMLElement>>& output)
-{
-    if (!element)
-    {
-        return;
-    }
-
-    for (const auto& child : element->Children())
-    {
-        if (!child)
-        {
-            continue;
-        }
-        if (child->QualifiedName() == name)
-        {
-            output.push_back(child);
-        }
-        CollectDescendantsByName(child, name, output);
-    }
-}
-
-std::shared_ptr<OpenXMLElement> FindTrailingSectionProperties(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>& body)
-{
-    if (!body)
-    {
-        return nullptr;
-    }
-
-    auto children = body->Children();
-    if (children.empty())
-    {
-        return nullptr;
-    }
-
-    auto last = children.back();
-    if (last && last->QualifiedName() == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "sectPr"))
-    {
-        return last;
-    }
-    return nullptr;
-}
-
-std::shared_ptr<OpenXMLElement> FindFirstBodyChild(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>& body)
-{
-    if (!body)
-    {
-        return nullptr;
-    }
-
-    auto children = body->Children();
-    if (children.empty())
-    {
-        return nullptr;
-    }
-    return children.front();
-}
-
-std::shared_ptr<OpenXMLElement> FindFirstChildByName(
-    const std::shared_ptr<OpenXMLElement>& element,
-    const ExyokiOffice::OpenXmlQualifiedName& name)
-{
-    if (!element)
-    {
-        return nullptr;
-    }
-
-    for (const auto& child : element->Children())
-    {
-        if (child && child->QualifiedName() == name)
-        {
-            return child;
-        }
-    }
-    return nullptr;
-}
-
-ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues ToDomHeaderFooterType(
-    HeaderFooterType type)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues;
-    switch (type)
-    {
-        case HeaderFooterType::Even:
-            return HeaderFooterValues::Even;
-        case HeaderFooterType::First:
-            return HeaderFooterValues::First;
-        case HeaderFooterType::Default:
-        default:
-            return HeaderFooterValues::Default;
-    }
-}
-
-std::optional<HeaderFooterType> FromDomHeaderFooterType(
-    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues value)
-{
-    using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues;
-    switch (value.GetValue())
-    {
-        case HeaderFooterValues::Default:
-            return HeaderFooterType::Default;
-        case HeaderFooterValues::Even:
-            return HeaderFooterType::Even;
-        case HeaderFooterValues::First:
-            return HeaderFooterType::First;
-        default:
-            return std::nullopt;
-    }
-}
-
-std::optional<HeaderFooterType> TryParseHeaderFooterTypeString(std::string value)
-{
-    value = AsciiText::ToLower(std::move(value));
-    if (value == "default")
-    {
-        return HeaderFooterType::Default;
-    }
-    if (value == "even")
-    {
-        return HeaderFooterType::Even;
-    }
-    if (value == "first")
-    {
-        return HeaderFooterType::First;
-    }
-    return std::nullopt;
-}
-
-std::optional<HeaderFooterType> GetHeaderFooterReferenceType(
-    const std::shared_ptr<OpenXMLElement>& reference)
-{
-    if (!reference)
-    {
-        return std::nullopt;
-    }
-
-    if (auto typed = std::dynamic_pointer_cast<
-            ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterReferenceType>(reference))
-    {
-        auto value = typed->GetType();
-        if (value.IsDefined())
-        {
-            if (auto parsed = FromDomHeaderFooterType(value.Value()))
-            {
-                return parsed;
-            }
-            if (auto parsed = TryParseHeaderFooterTypeString(value.ToString()))
-            {
-                return parsed;
-            }
-        }
-    }
-
-    EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues> rawValue;
-    if (reference->TryGetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "type"),
-                                        rawValue) &&
-        rawValue.IsDefined())
-    {
-        if (auto parsed = FromDomHeaderFooterType(rawValue.Value()))
-        {
-            return parsed;
-        }
-        if (auto parsed = TryParseHeaderFooterTypeString(rawValue.ToString()))
-        {
-            return parsed;
-        }
-    }
-
-    StringValue rawString;
-    if (reference->TryGetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "type"),
-                                        rawString) &&
-        rawString.IsDefined())
-    {
-        return TryParseHeaderFooterTypeString(rawString.ToString());
-    }
-
-    return std::nullopt;
-}
-
-std::string GetRelationshipId(const std::shared_ptr<OpenXMLElement>& reference)
-{
-    if (!reference)
-    {
-        return {};
-    }
-
-    std::string_view raw;
-    if (reference->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName(kOfficeRelationshipsNamespace, "id"),
-                                   raw))
-    {
-        return std::string(raw);
-    }
-
-    if (auto typed = std::dynamic_pointer_cast<
-            ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterReferenceType>(reference))
-    {
-        auto value = typed->GetId();
-        if (value.IsDefined())
-        {
-            return value.ToString();
-        }
-    }
-
-    StringValue value;
-    if (reference->TryGetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kOfficeRelationshipsNamespace, "id"),
-                                        value) &&
-        value.IsDefined())
-    {
-        return value.ToString();
-    }
-    return {};
-}
-
-bool IsHeaderReferenceName(const ExyokiOffice::OpenXmlQualifiedName& name)
-{
-    return name == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "headerReference");
-}
-
-bool IsFooterReferenceName(const ExyokiOffice::OpenXmlQualifiedName& name)
-{
-    return name == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "footerReference");
-}
-
-bool IsHeaderFooterReferenceName(const ExyokiOffice::OpenXmlQualifiedName& name)
-{
-    return IsHeaderReferenceName(name) || IsFooterReferenceName(name);
-}
-
-std::shared_ptr<OpenXMLElement> FindHeaderFooterReference(
-    const std::shared_ptr<OpenXMLElement>& sectionProperties,
-    bool header,
-    HeaderFooterType type)
-{
-    if (!sectionProperties)
-    {
-        return nullptr;
-    }
-
-    for (const auto& child : sectionProperties->Children())
-    {
-        if (!child)
-        {
-            continue;
-        }
-        const auto& name = child->QualifiedName();
-        if ((header && !IsHeaderReferenceName(name)) || (!header && !IsFooterReferenceName(name)))
-        {
-            continue;
-        }
-        if (GetHeaderFooterReferenceType(child).value_or(HeaderFooterType::Default) == type)
-        {
-            return child;
-        }
-    }
-    return nullptr;
-}
-
-std::shared_ptr<OpenXMLElement> FindHeaderFooterReferenceInsertBefore(
-    const std::shared_ptr<OpenXMLElement>& sectionProperties)
-{
-    if (!sectionProperties)
-    {
-        return nullptr;
-    }
-
-    for (const auto& child : sectionProperties->Children())
-    {
-        if (child && !IsHeaderFooterReferenceName(child->QualifiedName()))
-        {
-            return child;
-        }
-    }
-    return nullptr;
-}
-
-template <typename TReference>
-std::shared_ptr<TReference> AppendHeaderFooterReference(
-    const std::shared_ptr<OpenXMLElement>& sectionProperties,
-    HeaderFooterType type,
-    std::string_view relationshipId)
-{
-    if (!sectionProperties)
-    {
-        return nullptr;
-    }
-
-    auto reference = sectionProperties->InsertChild<TReference>(
-        FindHeaderFooterReferenceInsertBefore(sectionProperties));
-    if (!reference)
-    {
-        return nullptr;
-    }
-    // The typed setters already write `w:type` and a namespace-qualified `r:id`;
-    // writing them again as raw prefixed names would emit a second, literally
-    // named attribute and leave the part malformed.
-    reference->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues>(
-        ToDomHeaderFooterType(type)));
-    reference->SetId(StringValue(std::string(relationshipId)));
-    return reference;
-}
-
-std::shared_ptr<Packaging::HeaderPart> FindHeaderPartByRelationshipId(
-    const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
-    std::string_view relationshipId)
-{
-    if (!mainPart || relationshipId.empty())
-    {
-        return nullptr;
-    }
-
-    for (const auto& part : mainPart->GetHeaderParts())
-    {
-        if (!part)
-        {
-            continue;
-        }
-        if (part->RelationshipId() == relationshipId)
-        {
-            return part;
-        }
-        for (const auto& incoming : part->IncomingRelationships())
-        {
-            if (incoming.Id == relationshipId)
-            {
-                return part;
-            }
-        }
-    }
-    return nullptr;
-}
-
-std::shared_ptr<Packaging::FooterPart> FindFooterPartByRelationshipId(
-    const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
-    std::string_view relationshipId)
-{
-    if (!mainPart || relationshipId.empty())
-    {
-        return nullptr;
-    }
-
-    for (const auto& part : mainPart->GetFooterParts())
-    {
-        if (!part)
-        {
-            continue;
-        }
-        if (part->RelationshipId() == relationshipId)
-        {
-            return part;
-        }
-        for (const auto& incoming : part->IncomingRelationships())
-        {
-            if (incoming.Id == relationshipId)
-            {
-                return part;
-            }
-        }
-    }
-    return nullptr;
-}
-
-Size CountSectionReferencesToRelationship(
-    const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
-    const std::string& relationshipId)
-{
-    if (!mainPart || relationshipId.empty())
-    {
-        return 0;
-    }
-
-    auto root = mainPart->GetTypedRootElement();
-    if (!root)
-    {
-        return 0;
-    }
-
-    std::vector<std::shared_ptr<OpenXMLElement>> sections;
-    CollectDescendantsByName(root, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "sectPr"), sections);
-
-    Size count = 0;
-    for (const auto& section : sections)
-    {
-        if (!section)
-        {
-            continue;
-        }
-        for (const auto& child : section->Children())
-        {
-            if (!child || !IsHeaderFooterReferenceName(child->QualifiedName()))
-            {
-                continue;
-            }
-            if (GetRelationshipId(child) == relationshipId)
-            {
-                ++count;
-            }
-        }
-    }
-    return count;
-}
-
-bool RemoveHeaderFooterReference(
-    const std::shared_ptr<OpenXMLElement>& sectionProperties,
-    const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
-    bool header,
-    HeaderFooterType type)
-{
-    auto reference = FindHeaderFooterReference(sectionProperties, header, type);
-    if (!sectionProperties || !reference)
-    {
-        return false;
-    }
-
-    const auto relationshipId = GetRelationshipId(reference);
-    if (!sectionProperties->RemoveChild(reference))
-    {
-        return false;
-    }
-
-    if (!mainPart || relationshipId.empty() ||
-        CountSectionReferencesToRelationship(mainPart, relationshipId) != 0)
-    {
-        return true;
-    }
-
-    if (header)
-    {
-        return mainPart->RemoveHeaderPart(FindHeaderPartByRelationshipId(mainPart, relationshipId));
-    }
-    return mainPart->RemoveFooterPart(FindFooterPartByRelationshipId(mainPart, relationshipId));
-}
-
-std::shared_ptr<ExyokiOffice::OpenXMLElement> GetParagraphPropertiesElement(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph);
-
-std::shared_ptr<ExyokiOffice::OpenXMLElement> GetRunPropertiesElement(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>& run);
-
-std::shared_ptr<ExyokiOffice::OpenXMLElement> EnsureParagraphProperties(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph)
-{
-    if (!paragraph)
-    {
-        return nullptr;
-    }
-    auto properties = GetParagraphPropertiesElement(paragraph);
-    if (properties)
-    {
-        return properties;
-    }
-    auto children = paragraph->Children();
-    return paragraph->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties>(
-        children.empty() ? nullptr : children.front());
-}
-
-std::shared_ptr<ExyokiOffice::OpenXMLElement> EnsureRunProperties(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>& run)
-{
-    if (!run)
-    {
-        return nullptr;
-    }
-    auto properties = GetRunPropertiesElement(run);
-    if (properties)
-    {
-        return properties;
-    }
-    auto children = run->Children();
-    return run->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties>(
-        children.empty() ? nullptr : children.front());
-}
-
-std::shared_ptr<ExyokiOffice::OpenXMLElement> GetParagraphPropertiesElement(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph)
-{
-    if (!paragraph)
-    {
-        return nullptr;
-    }
-    auto properties = paragraph->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties>();
-    return properties ? std::static_pointer_cast<ExyokiOffice::OpenXMLElement>(properties)
-                      : FindDirectWordChild(paragraph, "pPr");
-}
-
-std::shared_ptr<ExyokiOffice::OpenXMLElement> GetRunPropertiesElement(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>& run)
-{
-    if (!run)
-    {
-        return nullptr;
-    }
-    auto properties = run->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties>();
-    return properties ? std::static_pointer_cast<ExyokiOffice::OpenXMLElement>(properties)
-                      : FindDirectWordChild(run, "rPr");
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties> EnsureTableProperties(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table)
-{
-    return EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties>(table);
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties> EnsureTableCellProperties(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
-{
-    return EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>(cell);
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow> EnsureTableRow(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table, Size rowIndex)
-{
-    if (!table)
-    {
-        return nullptr;
-    }
-
-    auto rows = table->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
-    if (rowIndex < rows.size())
-    {
-        return rows[rowIndex];
-    }
-
-    for (Size i = rows.size(); i <= rowIndex; ++i)
-    {
-        auto row = table->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
-        if (!row)
-        {
-            return nullptr;
-        }
-    }
-
-    rows = table->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
-    if (rowIndex < rows.size())
-    {
-        return rows[rowIndex];
-    }
-    return nullptr;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties> EnsureTableRowProperties(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>& row)
-{
-    return EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow,
-                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties>(row);
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableGrid> EnsureTableGrid(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table)
-{
-    return EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table,
-                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableGrid>(table);
-}
-
-std::shared_ptr<Packaging::NumberingDefinitionsPart> EnsureNumberingDefinitionsPart(
-    const WordDocument::Ptr& document)
-{
-    if (!document)
-    {
-        return nullptr;
-    }
-
-    auto mainPart = document->GetMainDocumentPart();
-    if (!mainPart)
-    {
-        mainPart = document->AddMainDocumentPart();
-    }
-    if (!mainPart)
-    {
-        return nullptr;
-    }
-
-    auto numberingPart = mainPart->GetNumberingDefinitionsPart();
-    if (!numberingPart)
-    {
-        numberingPart = mainPart->AddNumberingDefinitionsPart();
-    }
-    return numberingPart;
-}
-
-std::shared_ptr<Packaging::NumberingDefinitionsPart> GetNumberingDefinitionsPart(
-    const WordDocument::Ptr& document)
-{
-    auto mainPart = GetMainDocumentPart(document);
-    return mainPart ? mainPart->GetNumberingDefinitionsPart() : nullptr;
-}
-
-int NextAbstractNumberingId(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering)
-{
-    int maxId = 0;
-    if (!numbering)
-    {
-        return 1;
-    }
-
-    for (const auto& abstractNum : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::AbstractNum>())
-    {
-        if (!abstractNum)
-        {
-            continue;
-        }
-        const auto current = abstractNum->GetAbstractNumberId().Value();
-        maxId = std::max(maxId, current);
-    }
-
-    return maxId + 1;
-}
-
-int NextNumberingInstanceId(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering)
-{
-    int maxId = 0;
-    if (!numbering)
-    {
-        return 1;
-    }
-
-    for (const auto& instance : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>())
-    {
-        if (!instance)
-        {
-            continue;
-        }
-        const auto current = instance->GetNumberID().Value();
-        maxId = std::max(maxId, current);
-    }
-
-    return maxId + 1;
-}
-
-std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::AbstractNum> FindAbstractNumByName(
-    const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
-    std::string_view name)
-{
-    if (!numbering || name.empty())
-    {
-        return nullptr;
-    }
-
-    for (const auto& abstractNum : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::AbstractNum>())
-    {
-        if (!abstractNum)
-        {
-            continue;
-        }
-        auto defName = abstractNum->GetFirstChildOfType<
-            DocumentFormat::OpenXml::Wordprocessing::AbstractNumDefinitionName>();
-        if (!defName)
-        {
-            continue;
-        }
-        if (defName->GetVal().ToString() == name)
-        {
-            return abstractNum;
-        }
-    }
-    return nullptr;
-}
-
-std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::AbstractNum> FindAbstractNumById(
-    const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
-    int abstractId)
-{
-    if (!numbering)
-    {
-        return nullptr;
-    }
-
-    for (const auto& abstractNum : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::AbstractNum>())
-    {
-        if (abstractNum && abstractNum->GetAbstractNumberId().IsDefined() && abstractNum->GetAbstractNumberId().Value() == abstractId)
-        {
-            return abstractNum;
-        }
-    }
-    return nullptr;
-}
-
-std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance> FindNumberingInstanceForAbstract(
-    const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
-    int abstractId)
-{
-    if (!numbering)
-    {
-        return nullptr;
-    }
-
-    for (const auto& instance : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>())
-    {
-        if (!instance)
-        {
-            continue;
-        }
-        auto abstractNumId = instance->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::AbstractNumId>();
-        if (abstractNumId && abstractNumId->GetVal().Value() == abstractId)
-        {
-            return instance;
-        }
-    }
-    return nullptr;
-}
-
-std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance> FindNumberingInstanceById(
-    const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
-    int numberingId)
-{
-    if (!numbering)
-    {
-        return nullptr;
-    }
-
-    for (const auto& instance : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>())
-    {
-        if (instance && instance->GetNumberID().IsDefined() && instance->GetNumberID().Value() == numberingId)
-        {
-            return instance;
-        }
-    }
-    return nullptr;
-}
-
-std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::AbstractNum> GetAbstractNumForInstance(
-    const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
-    int numberingId)
-{
-    auto instance = FindNumberingInstanceById(numbering, numberingId);
-    auto abstractNumId = instance ? instance->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::AbstractNumId>()
-                                  : nullptr;
-    if (!abstractNumId || !abstractNumId->GetVal().IsDefined())
-    {
-        return nullptr;
-    }
-    return FindAbstractNumById(numbering, abstractNumId->GetVal().Value());
-}
-
-std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering> GetNumberingRoot(
-    const WordDocument::Ptr& document,
-    bool create)
-{
-    auto numberingPart = create ? EnsureNumberingDefinitionsPart(document) : GetNumberingDefinitionsPart(document);
-    return numberingPart ? numberingPart->GetTypedRootElement() : nullptr;
-}
-
-std::string DefaultLevelText(int level)
-{
-    if (level < 0)
-    {
-        level = 0;
-    }
-    if (level > 8)
-    {
-        level = 8;
-    }
-
-    std::string text;
-    for (int index = 0; index <= level; ++index)
-    {
-        if (!text.empty())
-        {
-            text += ".";
-        }
-        text += "%";
-        text += std::to_string(index + 1);
-    }
-    text += ".";
-    return text;
-}
-
-NumberingLevelDefinition NormalizeLevel(NumberingLevelDefinition level)
-{
-    level.Level = std::clamp(level.Level, 0, 8);
-    if (level.Start < 0)
-    {
-        level.Start = 0;
-    }
-    if (level.LevelText.empty())
-    {
-        level.LevelText = level.Format == DocumentFormat::OpenXml::Wordprocessing::NumberFormatValues::Bullet
-                              ? "*"
-                              : DefaultLevelText(level.Level);
-    }
-    return level;
-}
-
-void WriteLevelDefinition(
-    const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Level>& levelElement,
-    const NumberingLevelDefinition& input)
-{
-    if (!levelElement)
-    {
-        return;
-    }
-
-    const auto level = NormalizeLevel(input);
-    levelElement->SetLevelIndex(Int32Value(level.Level));
-
-    auto start = EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
-                                   DocumentFormat::OpenXml::Wordprocessing::StartNumberingValue>(levelElement);
-    if (start)
-    {
-        start->SetVal(Int32Value(level.Start));
-    }
-
-    auto format = EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
-                                    DocumentFormat::OpenXml::Wordprocessing::NumberingFormat>(levelElement);
-    if (format)
-    {
-        format->SetVal(EnumValue<DocumentFormat::OpenXml::Wordprocessing::NumberFormatValues>(level.Format));
-    }
-
-    if (!level.ParagraphStyleId.empty())
-    {
-        auto paragraphStyle = EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
-                                                DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>(levelElement);
-        if (paragraphStyle)
-        {
-            paragraphStyle->SetVal(StringValue(level.ParagraphStyleId));
-        }
-    }
-
-    auto text = EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
-                                  DocumentFormat::OpenXml::Wordprocessing::LevelText>(levelElement);
-    if (text)
-    {
-        text->SetVal(StringValue(level.LevelText));
-    }
-
-    auto suffix = EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
-                                    DocumentFormat::OpenXml::Wordprocessing::LevelSuffix>(levelElement);
-    if (suffix)
-    {
-        suffix->SetVal(EnumValue<DocumentFormat::OpenXml::Wordprocessing::LevelSuffixValues>(level.Suffix));
-    }
-
-    auto justification = EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
-                                           DocumentFormat::OpenXml::Wordprocessing::LevelJustification>(levelElement);
-    if (justification)
-    {
-        justification->SetVal(EnumValue<DocumentFormat::OpenXml::Wordprocessing::LevelJustificationValues>(
-            level.Justification));
-    }
-
-    if (level.LeftIndent || level.HangingIndent)
-    {
-        auto pProps = EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
-                                        DocumentFormat::OpenXml::Wordprocessing::PreviousParagraphProperties>(
-            levelElement);
-        auto indent =
-            EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::PreviousParagraphProperties,
-                              DocumentFormat::OpenXml::Wordprocessing::Indentation>(pProps);
-        if (indent)
-        {
-            if (level.LeftIndent)
-            {
-                indent->SetLeft(StringValue(std::to_string(ToTwipsUInt32(*level.LeftIndent))));
-            }
-            if (level.HangingIndent)
-            {
-                indent->SetHanging(StringValue(std::to_string(ToTwipsUInt32(*level.HangingIndent))));
-            }
-        }
-    }
-
-    if (level.RestartAfterLevel)
-    {
-        auto restart = EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
-                                         DocumentFormat::OpenXml::Wordprocessing::LevelRestart>(levelElement);
-        if (restart)
-        {
-            restart->SetVal(Int32Value(*level.RestartAfterLevel));
-        }
-    }
-
-    if (level.LegalNumbering)
-    {
-        auto legal = EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
-                                       DocumentFormat::OpenXml::Wordprocessing::IsLegalNumberingStyle>(levelElement);
-        if (legal)
-        {
-            legal->SetVal(OnOffValue(true));
-        }
-    }
-}
-
-std::optional<NumberingLevelDefinition> ReadLevelDefinition(
-    const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Level>& level)
-{
-    if (!level || !level->GetLevelIndex().IsDefined())
-    {
-        return std::nullopt;
-    }
-
-    NumberingLevelDefinition result;
-    result.Level = level->GetLevelIndex().Value();
-    if (auto start = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::StartNumberingValue>();
-        start && start->GetVal().IsDefined())
-    {
-        result.Start = start->GetVal().Value();
-    }
-    if (auto format = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::NumberingFormat>();
-        format && format->GetVal().IsDefined())
-    {
-        result.Format = format->GetVal().Value();
-    }
-    if (auto text = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::LevelText>();
-        text && text->GetVal().IsDefined())
-    {
-        result.LevelText = text->GetVal().ToString();
-    }
-    if (auto suffix = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::LevelSuffix>();
-        suffix && suffix->GetVal().IsDefined())
-    {
-        result.Suffix = suffix->GetVal().Value();
-    }
-    if (auto justification = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::LevelJustification>();
-        justification && justification->GetVal().IsDefined())
-    {
-        result.Justification = justification->GetVal().Value();
-    }
-    if (auto paragraphStyle = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>();
-        paragraphStyle && paragraphStyle->GetVal().IsDefined())
-    {
-        result.ParagraphStyleId = paragraphStyle->GetVal().ToString();
-    }
-    if (auto restart = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::LevelRestart>();
-        restart && restart->GetVal().IsDefined())
-    {
-        result.RestartAfterLevel = restart->GetVal().Value();
-    }
-    if (auto legal = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::IsLegalNumberingStyle>())
-    {
-        result.LegalNumbering = legal->GetVal().ValueOr(true);
-    }
-    return result;
-}
-
-std::vector<NumberingLevelOverride> ReadLevelOverrides(
-    const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>& instance)
-{
-    std::vector<NumberingLevelOverride> overrides;
-    if (!instance)
-    {
-        return overrides;
-    }
-
-    for (const auto& levelOverride : instance->Elements<DocumentFormat::OpenXml::Wordprocessing::LevelOverride>())
-    {
-        if (!levelOverride || !levelOverride->GetLevelIndex().IsDefined())
-        {
-            continue;
-        }
-
-        NumberingLevelOverride output;
-        output.Level = levelOverride->GetLevelIndex().Value();
-        if (auto start =
-                levelOverride->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::StartOverrideNumberingValue>();
-            start && start->GetVal().IsDefined())
-        {
-            output.Start = start->GetVal().Value();
-        }
-        overrides.push_back(output);
-    }
-    return overrides;
-}
-
-std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance> AppendNumberingInstance(
-    const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
-    int abstractId,
-    const std::vector<NumberingLevelOverride>& overrides)
-{
-    if (!numbering)
-    {
-        return nullptr;
-    }
-
-    auto instance = numbering->AppendChild<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>();
-    if (!instance)
-    {
-        return nullptr;
-    }
-
-    instance->SetNumberID(Int32Value(NextNumberingInstanceId(numbering)));
-    auto abstractNumId = instance->AppendChild<DocumentFormat::OpenXml::Wordprocessing::AbstractNumId>();
-    if (abstractNumId)
-    {
-        abstractNumId->SetVal(Int32Value(abstractId));
-    }
-
-    for (const auto& input : overrides)
-    {
-        if (input.Level < 0 || input.Level > 8)
-        {
-            continue;
-        }
-        auto levelOverride = instance->AppendChild<DocumentFormat::OpenXml::Wordprocessing::LevelOverride>();
-        if (!levelOverride)
-        {
-            continue;
-        }
-        levelOverride->SetLevelIndex(Int32Value(input.Level));
-        auto start = levelOverride->AppendChild<DocumentFormat::OpenXml::Wordprocessing::StartOverrideNumberingValue>();
-        if (start)
-        {
-            start->SetVal(Int32Value(std::max(0, input.Start)));
-        }
-    }
-    return instance;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> AppendEmptyTableCell(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>& row)
-{
-    if (!row)
-    {
-        return nullptr;
-    }
-
-    auto cell = row->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>();
-    if (cell)
-    {
-        cell->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
-    }
-    return cell;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> InsertEmptyTableCell(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>& row,
-    const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before = nullptr)
-{
-    if (!row)
-    {
-        return nullptr;
-    }
-
-    auto cell = row->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>(before);
-    if (cell)
-    {
-        cell->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
-    }
-    return cell;
-}
-
-int TableCellGridSpan(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
-{
-    auto props = cell ? cell->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>() : nullptr;
-    auto span = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridSpan>() : nullptr;
-    return std::max(1, span ? span->GetVal().ValueOr(1) : 1);
-}
-
-std::string TableCellVerticalMergeValue(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
-{
-    auto props = cell ? cell->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>() : nullptr;
-    auto merge = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::VerticalMerge>() : nullptr;
-    if (!merge)
-    {
-        return {};
-    }
-    auto value = RawValAttributeOrEmpty(merge);
-    return value.empty() ? std::string("continue") : value;
-}
-
-void RemoveTableCellMergeMarkup(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
-{
-    auto props = cell ? cell->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>() : nullptr;
-    if (!props)
-    {
-        return;
-    }
-
-    if (auto span = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridSpan>())
-    {
-        props->RemoveChild(span);
-    }
-    if (auto merge = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HorizontalMerge>())
-    {
-        props->RemoveChild(merge);
-    }
-    if (auto merge = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::VerticalMerge>())
-    {
-        props->RemoveChild(merge);
-    }
-}
-
-void RemoveTableCellBlockContent(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
-{
-    if (!cell)
-    {
-        return;
-    }
-
-    for (const auto& child : cell->Children())
-    {
-        if (!ExyokiOffice::openxmlelement_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>(child))
-        {
-            cell->RemoveChild(child);
-        }
-    }
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Text> AppendTextRunToTableCellParagraph(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
-    std::string_view text,
-    bool preserveSpaces)
-{
-    if (!paragraph)
-    {
-        return nullptr;
-    }
-
-    auto run = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
-    if (!run)
-    {
-        return nullptr;
-    }
-
-    auto textElement = run->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Text>();
-    if (!textElement)
-    {
-        return nullptr;
-    }
-
-    textElement->SetText(text);
-    if (preserveSpaces)
-    {
-        textElement->SetSpace(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues>(
-            ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues::Preserve));
-    }
-
-    return textElement;
-}
-
-struct PhysicalTableCell
-{
-    std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> Cell;
-    Size PhysicalIndex = 0;
-    Size StartColumn = 0;
-    Size ColumnSpan = 1;
-};
-
-std::vector<PhysicalTableCell> PhysicalCellsForRow(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>& row)
-{
-    std::vector<PhysicalTableCell> result;
-    if (!row)
-    {
-        return result;
-    }
-
-    Size logicalColumn = 0;
-    auto cells = row->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>();
-    for (Size i = 0; i < cells.size(); ++i)
-    {
-        const auto span = static_cast<Size>(TableCellGridSpan(cells[i]));
-        result.push_back({cells[i], i, logicalColumn, std::max<Size>(1, span)});
-        logicalColumn += std::max<Size>(1, span);
-    }
-    return result;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> FindLogicalTableCell(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table,
-    Size rowIndex,
-    Size columnIndex)
-{
-    if (!table)
-    {
-        return nullptr;
-    }
-
-    const auto rows = table->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
-    if (rowIndex >= rows.size())
-    {
-        return nullptr;
-    }
-
-    for (const auto& cell : PhysicalCellsForRow(rows[rowIndex]))
-    {
-        if (columnIndex >= cell.StartColumn && columnIndex < cell.StartColumn + cell.ColumnSpan)
-        {
-            return cell.Cell;
-        }
-    }
-    return nullptr;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> EnsureLogicalTableCell(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table,
-    Size rowIndex,
-    Size columnIndex)
-{
-    auto row = EnsureTableRow(table, rowIndex);
-    if (!row)
-    {
-        return nullptr;
-    }
-
-    if (auto existing = FindLogicalTableCell(table, rowIndex, columnIndex))
-    {
-        return existing;
-    }
-
-    Size logicalColumns = 0;
-    for (const auto& cell : PhysicalCellsForRow(row))
-    {
-        logicalColumns = std::max(logicalColumns, cell.StartColumn + cell.ColumnSpan);
-    }
-
-    while (logicalColumns <= columnIndex)
-    {
-        if (!AppendEmptyTableCell(row))
-        {
-            return nullptr;
-        }
-        ++logicalColumns;
-    }
-    return FindLogicalTableCell(table, rowIndex, columnIndex);
-}
-
-void EnsureTableGridColumnCount(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table,
-    Size columnCount)
-{
-    auto grid = EnsureTableGrid(table);
-    if (!grid)
-    {
-        return;
-    }
-
-    auto columns = grid->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridColumn>();
-    while (columns.size() > columnCount)
-    {
-        grid->RemoveChild(columns.back());
-        columns.pop_back();
-    }
-    while (columns.size() < columnCount)
-    {
-        if (!grid->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridColumn>())
+        if (!root)
         {
             return;
         }
-        columns = grid->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridColumn>();
-    }
-}
-
-void SetTableCellGridSpan(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell,
-    Size columnSpan)
-{
-    auto props = EnsureTableCellProperties(cell);
-    if (!props)
-    {
-        return;
-    }
-
-    if (auto hMerge = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HorizontalMerge>())
-    {
-        props->RemoveChild(hMerge);
-    }
-
-    auto existing = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridSpan>();
-    if (columnSpan <= 1)
-    {
-        if (existing)
+        const ExyokiOffice::OpenXmlQualifiedName deletedTextName(kWordNamespace, "delText");
+        auto children = root->Children();
+        for (const auto& child : children)
         {
-            props->RemoveChild(existing);
-        }
-        return;
-    }
-
-    auto span = existing ? existing
-                         : props->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridSpan>();
-    if (span)
-    {
-        span->SetVal(Int32Value(static_cast<int>(columnSpan)));
-    }
-}
-
-void SetTableCellVerticalMerge(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell,
-    std::optional<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MergedCellValues> value)
-{
-    auto props = EnsureTableCellProperties(cell);
-    if (!props)
-    {
-        return;
-    }
-
-    auto merge = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::VerticalMerge>();
-    if (!value)
-    {
-        if (merge)
-        {
-            props->RemoveChild(merge);
-        }
-        return;
-    }
-
-    merge = merge ? merge : props->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::VerticalMerge>();
-    if (merge)
-    {
-        merge->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MergedCellValues>(*value));
-    }
-}
-
-bool PopulateDrawingWithPicture(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing,
-                                const std::string& relationshipId,
-                                Int64 widthEmu,
-                                Int64 heightEmu,
-                                ImageLayout layout,
-                                ImageWrap wrap,
-                                UInt32 docId,
-                                std::string_view name)
-{
-    if (!drawing)
-    {
-        return false;
-    }
-
-    const auto pictureName = name.empty() ? "Picture " + std::to_string(docId) : std::string(name);
-
-    std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline> inlineDrawing;
-    std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor> anchorDrawing;
-
-    if (layout == ImageLayout::Inline)
-    {
-        inlineDrawing = drawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>();
-        inlineDrawing->SetDistanceFromTop(UInt32Value(0));
-        inlineDrawing->SetDistanceFromBottom(UInt32Value(0));
-        inlineDrawing->SetDistanceFromLeft(UInt32Value(0));
-        inlineDrawing->SetDistanceFromRight(UInt32Value(0));
-    }
-    else
-    {
-        anchorDrawing = drawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor>();
-        anchorDrawing->SetDistanceFromTop(UInt32Value(0));
-        anchorDrawing->SetDistanceFromBottom(UInt32Value(0));
-        anchorDrawing->SetDistanceFromLeft(UInt32Value(0));
-        anchorDrawing->SetDistanceFromRight(UInt32Value(0));
-        anchorDrawing->SetSimplePos(BooleanValue(false));
-        anchorDrawing->SetRelativeHeight(UInt32Value(0));
-        anchorDrawing->SetBehindDoc(BooleanValue(false));
-        anchorDrawing->SetLocked(BooleanValue(false));
-        anchorDrawing->SetLayoutInCell(BooleanValue(true));
-        anchorDrawing->SetAllowOverlap(BooleanValue(true));
-
-        auto simplePos = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::SimplePosition>();
-        simplePos->SetX(Int64Value(0));
-        simplePos->SetY(Int64Value(0));
-
-        auto positionH = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition>();
-        positionH->SetRelativeFrom(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues>(
-            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues::Page));
-        auto hOffset = positionH->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>();
-        hOffset->SetText("0");
-
-        auto positionV = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition>();
-        positionV->SetRelativeFrom(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues>(
-            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues::Page));
-        auto vOffset = positionV->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>();
-        vOffset->SetText("0");
-
-        auto effectExtent = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::EffectExtent>();
-        effectExtent->SetLeftEdge(Int64Value(0));
-        effectExtent->SetTopEdge(Int64Value(0));
-        effectExtent->SetRightEdge(Int64Value(0));
-        effectExtent->SetBottomEdge(Int64Value(0));
-    }
-
-    std::shared_ptr<OpenXMLElement> container = inlineDrawing ? std::dynamic_pointer_cast<OpenXMLElement>(inlineDrawing) : std::dynamic_pointer_cast<OpenXMLElement>(anchorDrawing);
-    if (!container)
-    {
-        return false;
-    }
-
-    auto extent = container->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Extent>();
-    extent->SetCx(Int64Value(widthEmu));
-    extent->SetCy(Int64Value(heightEmu));
-
-    auto docProps = container->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>();
-    docProps->SetId(UInt32Value(docId));
-    docProps->SetName(StringValue(pictureName));
-
-    auto graphicFrameProps = container->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::NonVisualGraphicFrameDrawingProperties>();
-    auto graphicFrameLocks = graphicFrameProps->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::GraphicFrameLocks>();
-    graphicFrameLocks->SetNoChangeAspect(BooleanValue(true));
-
-    auto graphic = container->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>();
-    auto graphicData = graphic->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::GraphicData>();
-    graphicData->SetUri(StringValue(std::string(kDrawingPictureNamespace)));
-
-    auto picture = graphicData->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture>();
-    auto nvPicPr = picture->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualPictureProperties>();
-    auto cNvPr = nvPicPr->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>();
-    cNvPr->SetId(UInt32Value(docId));
-    cNvPr->SetName(StringValue(pictureName));
-    auto cNvPicPr = nvPicPr->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualPictureDrawingProperties>();
-    cNvPicPr->SetPreferRelativeResize(BooleanValue(true));
-
-    auto blipFill = picture->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::BlipFill>();
-    auto blip = blipFill->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Blip>();
-    blip->SetEmbed(StringValue(relationshipId));
-    blip->SetCompressionState(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::BlipCompressionValues>(
-        ExyokiOffice::DocumentFormat::OpenXml::Drawing::BlipCompressionValues::Print));
-
-    auto stretch = blipFill->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Stretch>();
-    stretch->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::FillRectangle>();
-
-    auto shapeProps = picture->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties>();
-    auto transform = shapeProps->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>();
-    auto offset = transform->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Offset>();
-    offset->SetX(Int64Value(0));
-    offset->SetY(Int64Value(0));
-    auto extents = transform->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Extents>();
-    extents->SetCx(Int64Value(widthEmu));
-    extents->SetCy(Int64Value(heightEmu));
-    auto geometry = shapeProps->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::PresetGeometry>();
-    geometry->SetPreset(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::ShapeTypeValues>(ExyokiOffice::DocumentFormat::OpenXml::Drawing::ShapeTypeValues::Rectangle));
-    geometry->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::AdjustValueList>();
-
-    if (anchorDrawing)
-    {
-        switch (wrap)
-        {
-            case ImageWrap::None:
-                anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapNone>();
-                break;
-
-            case ImageWrap::Square:
-            {
-                auto wrapSquare = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapSquare>();
-                wrapSquare->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(
-                    ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides));
-                break;
-            }
-
-            case ImageWrap::Tight:
-            {
-                auto wrapTight = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTight>();
-                wrapTight->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(
-                    ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides));
-                break;
-            }
-
-            case ImageWrap::Through:
-            {
-                auto wrapThrough = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapThrough>();
-                wrapThrough->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(
-                    ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides));
-                break;
-            }
-
-            case ImageWrap::TopAndBottom:
-                anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTopBottom>();
-                break;
-        }
-    }
-
-    return true;
-}
-
-std::shared_ptr<Packaging::ImagePart> CreateImagePartFromData(const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
-                                                              std::vector<Byte> data,
-                                                              std::string_view contentType)
-{
-    if (!mainPart)
-    {
-        return nullptr;
-    }
-
-    // The content type is set before the part is attached so that the package
-    // can name the file after the image format instead of the `.bin` placeholder.
-    auto imagePart = std::make_shared<Packaging::ImagePart>();
-    if (!contentType.empty())
-    {
-        imagePart->SetContentType(std::string(contentType));
-    }
-    if (!mainPart->AddImagePart(imagePart))
-    {
-        return nullptr;
-    }
-    imagePart->SetBinaryData(std::move(data));
-    return imagePart;
-}
-
-struct DrawingInfo
-{
-    std::string relationshipId;
-    UInt32 docId = 1;
-    std::string name;
-    Int64 widthEmu = 0;
-    Int64 heightEmu = 0;
-};
-
-DrawingInfo ExtractDrawingInfo(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
-{
-    DrawingInfo info{};
-    if (!drawing)
-    {
-        return info;
-    }
-
-    std::shared_ptr<OpenXMLElement> container = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>();
-    if (!container)
-    {
-        container = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor>();
-    }
-
-    if (container)
-    {
-        if (auto extent = container->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Extent>())
-        {
-            info.widthEmu = extent->GetCx().Value();
-            info.heightEmu = extent->GetCy().Value();
-        }
-        if (auto docProps = container->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
-        {
-            info.docId = static_cast<UInt32>(docProps->GetId().Value());
-            info.name = docProps->GetName().ToString();
-        }
-    }
-
-    auto graphic = container ? container->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>() : drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>();
-    if (graphic)
-    {
-        auto graphicData = graphic->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::GraphicData>();
-        if (graphicData)
-        {
-            auto picture = graphicData->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture>();
-            if (picture)
-            {
-                auto blipFill = picture->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::BlipFill>();
-                if (blipFill)
-                {
-                    if (auto blip = blipFill->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Blip>())
-                    {
-                        info.relationshipId = blip->GetEmbed().ToString();
-                    }
-                }
-            }
-        }
-    }
-
-    if (info.name.empty())
-    {
-        info.name = "Picture " + std::to_string(info.docId);
-    }
-
-    return info;
-}
-
-struct ImageLayoutState
-{
-    bool hasDistances = false;
-    UInt32 distanceLeft = 0;
-    UInt32 distanceTop = 0;
-    UInt32 distanceRight = 0;
-    UInt32 distanceBottom = 0;
-
-    bool hasWrap = false;
-    ImageWrap wrap = ImageWrap::Square;
-    ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues wrapText =
-        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides;
-
-    bool hasHorizontalOffset = false;
-    bool hasVerticalOffset = false;
-    Int64 horizontalOffsetEmu = 0;
-    Int64 verticalOffsetEmu = 0;
-    bool hasHorizontalAlign = false;
-    bool hasVerticalAlign = false;
-    ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignmentValues horizontalAlign =
-        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignmentValues::Left;
-    ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignmentValues verticalAlign =
-        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignmentValues::Top;
-    ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues horizontalFrom =
-        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues::Page;
-    ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues verticalFrom =
-        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues::Page;
-
-    bool hasAnchor = false;
-    bool behindText = false;
-    bool allowOverlap = true;
-    bool locked = false;
-    bool layoutInCell = true;
-    bool simplePosEnabled = false;
-    UInt32 relativeHeight = 0;
-    bool hasSimplePosition = false;
-    Int64 simplePosX = 0;
-    Int64 simplePosY = 0;
-};
-
-ImageLayoutState ExtractImageLayoutState(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
-{
-    ImageLayoutState state{};
-    if (!drawing)
-    {
-        return state;
-    }
-
-    if (auto inlineDrawing = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>())
-    {
-        const auto left = inlineDrawing->GetDistanceFromLeft().ValueOr(0);
-        const auto top = inlineDrawing->GetDistanceFromTop().ValueOr(0);
-        const auto right = inlineDrawing->GetDistanceFromRight().ValueOr(0);
-        const auto bottom = inlineDrawing->GetDistanceFromBottom().ValueOr(0);
-
-        state.distanceLeft = left;
-        state.distanceTop = top;
-        state.distanceRight = right;
-        state.distanceBottom = bottom;
-        state.hasDistances = inlineDrawing->GetDistanceFromLeft().IsDefined() ||
-                             inlineDrawing->GetDistanceFromTop().IsDefined() ||
-                             inlineDrawing->GetDistanceFromRight().IsDefined() ||
-                             inlineDrawing->GetDistanceFromBottom().IsDefined() ||
-                             left != 0 || top != 0 || right != 0 || bottom != 0;
-    }
-
-    auto anchor = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor>();
-    if (!anchor)
-    {
-        return state;
-    }
-
-    state.hasAnchor = true;
-    state.behindText = anchor->GetBehindDoc().ValueOr(false);
-    state.allowOverlap = anchor->GetAllowOverlap().ValueOr(true);
-    state.locked = anchor->GetLocked().ValueOr(false);
-    state.layoutInCell = anchor->GetLayoutInCell().ValueOr(true);
-    state.simplePosEnabled = anchor->GetSimplePos().ValueOr(false);
-    state.relativeHeight = anchor->GetRelativeHeight().ValueOr(0);
-
-    if (!state.hasDistances)
-    {
-        const auto left = anchor->GetDistanceFromLeft().ValueOr(0);
-        const auto top = anchor->GetDistanceFromTop().ValueOr(0);
-        const auto right = anchor->GetDistanceFromRight().ValueOr(0);
-        const auto bottom = anchor->GetDistanceFromBottom().ValueOr(0);
-
-        state.distanceLeft = left;
-        state.distanceTop = top;
-        state.distanceRight = right;
-        state.distanceBottom = bottom;
-        state.hasDistances = anchor->GetDistanceFromLeft().IsDefined() ||
-                             anchor->GetDistanceFromTop().IsDefined() ||
-                             anchor->GetDistanceFromRight().IsDefined() ||
-                             anchor->GetDistanceFromBottom().IsDefined() ||
-                             left != 0 || top != 0 || right != 0 || bottom != 0;
-    }
-
-    if (auto simplePos = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::SimplePosition>())
-    {
-        state.simplePosX = simplePos->GetX().Value();
-        state.simplePosY = simplePos->GetY().Value();
-        state.hasSimplePosition = true;
-    }
-
-    if (auto positionH = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition>())
-    {
-        state.horizontalFrom = positionH->GetRelativeFrom().ValueOr(
-            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues::Page);
-        if (auto align = positionH->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignment>())
-        {
-            const auto parsed = TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignmentValues>(align->GetText());
-            if (parsed)
-            {
-                state.horizontalAlign = *parsed;
-                state.hasHorizontalAlign = true;
-            }
-        }
-        if (auto offset = positionH->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>())
-        {
-            const auto parsed = TryParseInt64(offset->GetText());
-            if (parsed)
-            {
-                state.horizontalOffsetEmu = *parsed;
-                state.hasHorizontalOffset = true;
-            }
-        }
-    }
-
-    if (auto positionV = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition>())
-    {
-        state.verticalFrom = positionV->GetRelativeFrom().ValueOr(
-            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues::Page);
-        if (auto align = positionV->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignment>())
-        {
-            const auto parsed = TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignmentValues>(align->GetText());
-            if (parsed)
-            {
-                state.verticalAlign = *parsed;
-                state.hasVerticalAlign = true;
-            }
-        }
-        if (auto offset = positionV->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>())
-        {
-            const auto parsed = TryParseInt64(offset->GetText());
-            if (parsed)
-            {
-                state.verticalOffsetEmu = *parsed;
-                state.hasVerticalOffset = true;
-            }
-        }
-    }
-
-    if (anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapNone>())
-    {
-        state.wrap = ImageWrap::None;
-        state.hasWrap = true;
-    }
-    else if (auto wrapSquare = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapSquare>())
-    {
-        state.wrap = ImageWrap::Square;
-        state.wrapText = wrapSquare->GetWrapText().ValueOr(
-            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides);
-        state.hasWrap = true;
-    }
-    else if (auto wrapTight = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTight>())
-    {
-        state.wrap = ImageWrap::Tight;
-        state.wrapText = wrapTight->GetWrapText().ValueOr(
-            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides);
-        state.hasWrap = true;
-    }
-    else if (auto wrapThrough = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapThrough>())
-    {
-        state.wrap = ImageWrap::Through;
-        state.wrapText = wrapThrough->GetWrapText().ValueOr(
-            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides);
-        state.hasWrap = true;
-    }
-    else if (anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTopBottom>())
-    {
-        state.wrap = ImageWrap::TopAndBottom;
-        state.hasWrap = true;
-    }
-
-    return state;
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture> FindPicture(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
-{
-    if (!drawing)
-    {
-        return nullptr;
-    }
-
-    std::shared_ptr<OpenXMLElement> container =
-        drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>();
-    if (!container)
-    {
-        container = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor>();
-    }
-
-    auto graphic = container ? container->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>()
-                             : drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>();
-    if (!graphic)
-    {
-        return nullptr;
-    }
-
-    auto graphicData = graphic->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::GraphicData>();
-    if (!graphicData)
-    {
-        return nullptr;
-    }
-
-    return graphicData->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture>();
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>
-FindPictureNonVisualProperties(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
-{
-    auto picture = FindPicture(drawing);
-    if (!picture)
-    {
-        return nullptr;
-    }
-
-    auto nvPicPr = picture->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualPictureProperties>();
-    if (!nvPicPr)
-    {
-        return nullptr;
-    }
-
-    return nvPicPr->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>();
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::BlipFill> FindPictureBlipFill(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
-{
-    auto picture = FindPicture(drawing);
-    if (!picture)
-    {
-        return nullptr;
-    }
-
-    return picture->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::BlipFill>();
-}
-
-std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties> FindPictureShapeProperties(
-    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
-{
-    auto picture = FindPicture(drawing);
-    if (!picture)
-    {
-        return nullptr;
-    }
-
-    return picture->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties>();
-}
-
-// --- Image format/size sniffing -------------------------------------------------
-//
-// These helpers inspect raw image bytes to recover the real format, pixel size, and
-// resolution instead of trusting a caller-supplied content type or file extension.
-
-UInt16 ReadBigEndian16(std::span<const Byte> data, Size offset)
-{
-    return static_cast<UInt16>((static_cast<UInt16>(data[offset]) << 8) |
-                               static_cast<UInt16>(data[offset + 1]));
-}
-
-UInt32 ReadBigEndian32(std::span<const Byte> data, Size offset)
-{
-    return (static_cast<UInt32>(data[offset]) << 24) |
-           (static_cast<UInt32>(data[offset + 1]) << 16) |
-           (static_cast<UInt32>(data[offset + 2]) << 8) |
-           static_cast<UInt32>(data[offset + 3]);
-}
-
-UInt16 ReadLittleEndian16(std::span<const Byte> data, Size offset)
-{
-    return static_cast<UInt16>(static_cast<UInt16>(data[offset]) |
-                               (static_cast<UInt16>(data[offset + 1]) << 8));
-}
-
-UInt32 ReadLittleEndian32(std::span<const Byte> data, Size offset)
-{
-    return static_cast<UInt32>(data[offset]) | (static_cast<UInt32>(data[offset + 1]) << 8) |
-           (static_cast<UInt32>(data[offset + 2]) << 16) |
-           (static_cast<UInt32>(data[offset + 3]) << 24);
-}
-
-std::optional<ImageFormatInfo> DetectPng(std::span<const Byte> data)
-{
-    static constexpr UInt8 kSignature[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
-    if (data.size() < 8 + 8 + 8 || !std::equal(std::begin(kSignature), std::end(kSignature), data.begin()))
-    {
-        return std::nullopt;
-    }
-    if (data[12] != 'I' || data[13] != 'H' || data[14] != 'D' || data[15] != 'R')
-    {
-        return std::nullopt;
-    }
-
-    ImageFormatInfo info;
-    info.ContentType = "image/png";
-    info.Extension = ".png";
-    info.PixelWidth = ReadBigEndian32(data, 16);
-    info.PixelHeight = ReadBigEndian32(data, 20);
-
-    // Optional pHYs chunk carries physical pixel density; fall back to 96 DPI otherwise.
-    Size offset = 8;
-    while (offset + 12 <= data.size())
-    {
-        const auto chunkLength = static_cast<Size>(ReadBigEndian32(data, offset));
-        if (offset + 8 + chunkLength + 4 > data.size())
-        {
-            break;
-        }
-        const std::string_view chunkType(reinterpret_cast<const char*>(data.data() + offset + 4), 4);
-        if (chunkType == "pHYs" && chunkLength >= 9)
-        {
-            const auto pixelsPerUnitX = ReadBigEndian32(data, offset + 8);
-            const auto pixelsPerUnitY = ReadBigEndian32(data, offset + 12);
-            const auto unit = data[offset + 16];
-            if (unit == 1 && pixelsPerUnitX > 0 && pixelsPerUnitY > 0)
-            {
-                info.HorizontalDpi = static_cast<Real>(pixelsPerUnitX) * 0.0254;
-                info.VerticalDpi = static_cast<Real>(pixelsPerUnitY) * 0.0254;
-            }
-            break;
-        }
-        if (chunkType == "IDAT" || chunkType == "IEND")
-        {
-            break;
-        }
-        offset += 8 + chunkLength + 4;
-    }
-
-    return info;
-}
-
-std::optional<ImageFormatInfo> DetectJpeg(std::span<const Byte> data)
-{
-    if (data.size() < 4 || data[0] != 0xFF || data[1] != 0xD8)
-    {
-        return std::nullopt;
-    }
-
-    ImageFormatInfo info;
-    info.ContentType = "image/jpeg";
-    info.Extension = ".jpg";
-
-    Size offset = 2;
-    while (offset + 4 <= data.size())
-    {
-        if (data[offset] != 0xFF)
-        {
-            ++offset;
-            continue;
-        }
-        const auto marker = data[offset + 1];
-        if (marker == 0xFF)
-        {
-            ++offset;
-            continue;
-        }
-        if (marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7))
-        {
-            offset += 2;
-            continue;
-        }
-        if (marker == 0xD9)
-        {
-            break;
-        }
-
-        const auto segmentLength = static_cast<Size>(ReadBigEndian16(data, offset + 2));
-        if (segmentLength < 2 || offset + 2 + segmentLength > data.size())
-        {
-            break;
-        }
-
-        if (marker == 0xE0 && segmentLength >= 14)
-        {
-            const Size base = offset + 4;
-            if (base + 9 <= data.size() && data[base] == 'J' && data[base + 1] == 'F' && data[base + 2] == 'I' &&
-                data[base + 3] == 'F')
-            {
-                const auto units = data[base + 7];
-                const auto xDensity = ReadBigEndian16(data, base + 8);
-                const auto yDensity = ReadBigEndian16(data, base + 10);
-                if (units == 1 && xDensity > 0 && yDensity > 0)
-                {
-                    info.HorizontalDpi = xDensity;
-                    info.VerticalDpi = yDensity;
-                }
-                else if (units == 2 && xDensity > 0 && yDensity > 0)
-                {
-                    info.HorizontalDpi = xDensity * 2.54;
-                    info.VerticalDpi = yDensity * 2.54;
-                }
-            }
-        }
-
-        const bool isStartOfFrame =
-            marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC;
-        if (isStartOfFrame)
-        {
-            if (offset + 9 <= data.size())
-            {
-                info.PixelHeight = ReadBigEndian16(data, offset + 5);
-                info.PixelWidth = ReadBigEndian16(data, offset + 7);
-            }
-            break;
-        }
-
-        offset += 2 + segmentLength;
-    }
-
-    if (info.PixelWidth == 0 || info.PixelHeight == 0)
-    {
-        return std::nullopt;
-    }
-    return info;
-}
-
-std::optional<ImageFormatInfo> DetectGif(std::span<const Byte> data)
-{
-    if (data.size() < 10 || data[0] != 'G' || data[1] != 'I' || data[2] != 'F' || data[3] != '8' ||
-        (data[4] != '7' && data[4] != '9') || data[5] != 'a')
-    {
-        return std::nullopt;
-    }
-
-    ImageFormatInfo info;
-    info.ContentType = "image/gif";
-    info.Extension = ".gif";
-    info.PixelWidth = ReadLittleEndian16(data, 6);
-    info.PixelHeight = ReadLittleEndian16(data, 8);
-    return info;
-}
-
-std::optional<ImageFormatInfo> DetectBmp(std::span<const Byte> data)
-{
-    if (data.size() < 54 || data[0] != 'B' || data[1] != 'M')
-    {
-        return std::nullopt;
-    }
-
-    ImageFormatInfo info;
-    info.ContentType = "image/bmp";
-    info.Extension = ".bmp";
-    info.PixelWidth = ReadLittleEndian32(data, 18);
-    const auto rawHeight = static_cast<Int32>(ReadLittleEndian32(data, 22));
-    info.PixelHeight = static_cast<UInt32>(rawHeight < 0 ? -rawHeight : rawHeight);
-
-    const auto pixelsPerMeterX = static_cast<Int32>(ReadLittleEndian32(data, 38));
-    const auto pixelsPerMeterY = static_cast<Int32>(ReadLittleEndian32(data, 42));
-    if (pixelsPerMeterX > 0 && pixelsPerMeterY > 0)
-    {
-        info.HorizontalDpi = static_cast<Real>(pixelsPerMeterX) * 0.0254;
-        info.VerticalDpi = static_cast<Real>(pixelsPerMeterY) * 0.0254;
-    }
-    return info;
-}
-
-// ---------------------------------------------------------------------------
-// WRD-015: cross-document body content merge (BodyCursor::InsertDocument).
-//
-// Deep-copying a subtree across documents (paragraphs/tables for body
-// content; footnote/endnote/comment entries for their parts) is done through
-// the generic OpenXMLElement::CopyInto (DOM-005), which also takes care of
-// namespace declarations that the copied content depends on. Everything
-// below this point is Word-specific: which qualified names carry IDs that
-// must stay unique (styles, numbering, bookmarks, notes, comments, content
-// controls) or point at a relationship (images, hyperlinks), and the policy
-// used to resolve a collision for each of those kinds.
-// ---------------------------------------------------------------------------
-
-// Threads the ID/relationship remapping tables built up over one
-// BodyCursor::InsertDocument call, so repeated references to the same source
-// style, list, bookmark, note, or comment resolve to the same target
-// identity instead of being imported once per occurrence.
-struct DocumentMergeState
-{
-    DocumentMergeState(WordDocumentEditor targetEditor,
-                       const WordDocumentEditor& sourceEditor,
-                       DocumentMergeOptions options)
-        : TargetEditor(std::move(targetEditor)), SourceEditor(sourceEditor), Options(std::move(options))
-    {
-    }
-
-    WordDocumentEditor TargetEditor;
-    const WordDocumentEditor& SourceEditor;
-    DocumentMergeOptions Options;
-
-    std::map<std::string, std::string> StyleIds;
-    std::map<int, int> NumberingIds;
-    std::map<int, int> BookmarkIds;
-    std::map<std::string, std::string> BookmarkNames;
-    std::set<std::string> UsedBookmarkNames;
-    std::map<int, int> FootnoteIds;
-    std::map<int, int> EndnoteIds;
-    std::map<int, int> CommentIds;
-};
-
-std::string MergeStyleId(DocumentMergeState& state, std::string_view sourceStyleId)
-{
-    if (sourceStyleId.empty())
-    {
-        return {};
-    }
-    const std::string key(sourceStyleId);
-    if (auto it = state.StyleIds.find(key); it != state.StyleIds.end())
-    {
-        return it->second;
-    }
-
-    auto targetId = state.TargetEditor.Styles().ImportStyle(state.SourceEditor.Styles(), key, state.Options.StyleConflictPolicy);
-    if (targetId.empty())
-    {
-        // Best effort: if the source style could not be imported (e.g. the
-        // source has no styles part), leave the reference as-is rather than
-        // silently dropping the paragraph/run/table's formatting intent.
-        targetId = key;
-    }
-    state.StyleIds.emplace(key, targetId);
-    return targetId;
-}
-
-int MergeNumberingId(DocumentMergeState& state, int sourceNumberingId)
-{
-    if (auto it = state.NumberingIds.find(sourceNumberingId); it != state.NumberingIds.end())
-    {
-        return it->second;
-    }
-    auto imported = state.TargetEditor.Numbering().ImportList(state.SourceEditor.Numbering(), sourceNumberingId);
-    state.NumberingIds.emplace(sourceNumberingId, imported.NumberingId);
-    return imported.NumberingId;
-}
-
-std::string MakeUniqueBookmarkName(std::set<std::string>& usedNames, std::string base)
-{
-    if (base.empty())
-    {
-        base = "ImportedBookmark";
-    }
-    if (usedNames.insert(base).second)
-    {
-        return base;
-    }
-    usedNames.erase(base);
-
-    for (int suffix = 2; suffix < 100000; ++suffix)
-    {
-        auto candidate = base + "_" + std::to_string(suffix);
-        if (usedNames.insert(candidate).second)
-        {
-            return candidate;
-        }
-    }
-    return base;
-}
-
-// Reassigns bookmark IDs to fresh, collision-free target values and keeps
-// bookmark names unique across the whole target document, remembering both
-// mappings on `state` so MergeHyperlinks can later rewrite internal anchors.
-void MergeBookmarks(DocumentMergeState& state,
-                    const std::shared_ptr<Packaging::MainDocumentPart>& targetMainPart,
-                    const std::shared_ptr<OpenXMLElement>& root)
-{
-    for (auto& start : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>())
-    {
-        if (!start)
-        {
-            continue;
-        }
-        const auto idText = start->GetId().ToString();
-        int oldId = 0;
-        if (std::from_chars(idText.data(), idText.data() + idText.size(), oldId).ec != std::errc())
-        {
-            continue;
-        }
-
-        int newId;
-        if (auto it = state.BookmarkIds.find(oldId); it != state.BookmarkIds.end())
-        {
-            newId = it->second;
-        }
-        else
-        {
-            newId = NextBookmarkId(targetMainPart, nullptr);
-            state.BookmarkIds.emplace(oldId, newId);
-        }
-        start->SetId(StringValue(std::to_string(newId)));
-
-        const auto oldName = start->GetName().ToString();
-        if (auto it = state.BookmarkNames.find(oldName); it != state.BookmarkNames.end())
-        {
-            start->SetName(StringValue(it->second));
-        }
-        else
-        {
-            auto newName = MakeUniqueBookmarkName(state.UsedBookmarkNames, oldName);
-            state.BookmarkNames.emplace(oldName, newName);
-            start->SetName(StringValue(newName));
-        }
-    }
-
-    for (auto& end : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkEnd>())
-    {
-        if (!end)
-        {
-            continue;
-        }
-        const auto idText = end->GetId().ToString();
-        int oldId = 0;
-        if (std::from_chars(idText.data(), idText.data() + idText.size(), oldId).ec != std::errc())
-        {
-            continue;
-        }
-        if (auto it = state.BookmarkIds.find(oldId); it != state.BookmarkIds.end())
-        {
-            end->SetId(StringValue(std::to_string(it->second)));
-        }
-    }
-}
-
-void MergeContentControlIds(const std::shared_ptr<Packaging::MainDocumentPart>& targetMainPart,
-                            const std::shared_ptr<OpenXMLElement>& root)
-{
-    auto ids = root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SdtId>();
-    if (ids.empty())
-    {
-        return;
-    }
-    int nextId = NextSdtId(targetMainPart, nullptr);
-    for (auto& id : ids)
-    {
-        if (!id)
-        {
-            continue;
-        }
-        id->SetVal(Int32Value(nextId++));
-    }
-}
-
-// Footnote/endnote ENTRY types (`w:footnote`/`w:endnote`) share their element
-// name with an unrelated type (see FindNoteEntries above), so entries are
-// located and re-tagged generically; the REFERENCE types (FootnoteReference/
-// EndnoteReference) are unambiguous and safe to use through the typed API.
-template <typename TEntry, typename TReference, typename TPart>
-void MergeNoteReferences(const std::shared_ptr<OpenXMLElement>& root,
-                         const std::shared_ptr<TPart>& sourcePart,
-                         const std::shared_ptr<TPart>& targetPart,
-                         std::map<int, int>& idMap)
-{
-    if (!root || !sourcePart || !targetPart)
-    {
-        return;
-    }
-
-    auto references = root->Descendants<TReference>();
-    if (references.empty())
-    {
-        return;
-    }
-
-    std::shared_ptr<OpenXMLElement> sourceRoot = sourcePart->GetTypedRootElement();
-    std::shared_ptr<OpenXMLElement> targetRoot = targetPart->GetTypedRootElement();
-    if (!sourceRoot || !targetRoot)
-    {
-        return;
-    }
-
-    EnsureNoteSeparators<TEntry>(targetRoot);
-    const ExyokiOffice::OpenXmlQualifiedName idAttribute(kWordNamespace, "id");
-
-    for (auto& reference : references)
-    {
-        if (!reference)
-        {
-            continue;
-        }
-        const int oldId = static_cast<int>(reference->GetId().Value());
-
-        int newId;
-        if (auto it = idMap.find(oldId); it != idMap.end())
-        {
-            newId = it->second;
-        }
-        else
-        {
-            std::shared_ptr<OpenXMLElement> sourceEntry;
-            for (auto& entry : FindNoteEntries<TEntry>(sourceRoot))
-            {
-                if (entry && entry->template GetAttributeValue<IntegerValue>(idAttribute).Value() == oldId)
-                {
-                    sourceEntry = entry;
-                    break;
-                }
-            }
-            if (!sourceEntry)
+            if (!child)
             {
                 continue;
             }
-
-            newId = NextNoteId<TEntry>(targetRoot);
-            if (auto wrapped = sourceEntry->CopyInto(targetRoot))
+            ConvertDeletedTextToText(child);
+            if (child->QualifiedName() != deletedTextName)
             {
-                wrapped->SetAttributeValue<IntegerValue>(idAttribute, IntegerValue(static_cast<Int64>(newId)));
+                continue;
             }
-            idMap.emplace(oldId, newId);
-        }
-        reference->SetId(IntegerValue(static_cast<Int64>(newId)));
-    }
-}
-
-void MergeComments(const std::shared_ptr<OpenXMLElement>& root,
-                   const std::shared_ptr<Packaging::WordprocessingCommentsPart>& sourcePart,
-                   const std::shared_ptr<Packaging::WordprocessingCommentsPart>& targetPart,
-                   std::map<int, int>& idMap)
-{
-    if (!root || !sourcePart || !targetPart)
-    {
-        return;
-    }
-
-    auto starts = root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentRangeStart>();
-    auto ends = root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentRangeEnd>();
-    auto references = root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentReference>();
-    if (starts.empty() && ends.empty() && references.empty())
-    {
-        return;
-    }
-
-    std::shared_ptr<OpenXMLElement> sourceRoot = sourcePart->GetTypedRootElement();
-    std::shared_ptr<OpenXMLElement> targetRoot = targetPart->GetTypedRootElement();
-    if (!sourceRoot || !targetRoot)
-    {
-        return;
-    }
-
-    const ExyokiOffice::OpenXmlQualifiedName idAttribute(kWordNamespace, "id");
-
-    auto remap = [&](int oldId)
-    {
-        if (auto it = idMap.find(oldId); it != idMap.end())
-        {
-            return it->second;
-        }
-
-        std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment> sourceEntry;
-        for (auto& entry : sourceRoot->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment>())
-        {
-            if (entry)
+            auto parent = child->Parent();
+            if (!parent)
             {
-                if (auto parsed = TryParseInt(entry->GetId().ToString()); parsed && *parsed == oldId)
+                continue;
+            }
+            auto text = parent->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Text>(child);
+            if (text)
+            {
+                if (auto leaf = std::dynamic_pointer_cast<ExyokiOffice::OpenXmlLeafTextElement>(child))
                 {
-                    sourceEntry = entry;
-                    break;
+                    text->SetText(leaf->GetText());
                 }
             }
-        }
-
-        const int newId = NextCommentId(targetPart);
-        if (sourceEntry)
-        {
-            if (auto wrapped = sourceEntry->CopyInto(targetRoot))
-            {
-                wrapped->SetAttributeValue<StringValue>(idAttribute, StringValue(std::to_string(newId)));
-            }
-        }
-        idMap.emplace(oldId, newId);
-        return newId;
-    };
-
-    for (auto& start : starts)
-    {
-        if (!start)
-        {
-            continue;
-        }
-        if (auto parsed = TryParseInt(start->GetId().ToString()))
-        {
-            start->SetId(StringValue(std::to_string(remap(*parsed))));
+            parent->RemoveChild(child);
         }
     }
-    for (auto& end : ends)
-    {
-        if (!end)
-        {
-            continue;
-        }
-        if (auto parsed = TryParseInt(end->GetId().ToString()))
-        {
-            end->SetId(StringValue(std::to_string(remap(*parsed))));
-        }
-    }
-    for (auto& reference : references)
-    {
-        if (!reference)
-        {
-            continue;
-        }
-        if (auto parsed = TryParseInt(reference->GetId().ToString()))
-        {
-            reference->SetId(StringValue(std::to_string(remap(*parsed))));
-        }
-    }
-}
 
-// Copies every image payload referenced by a `w:drawing` in `root` into a new
-// target image part (no content-based deduplication, matching
-// AddImageFromData's existing behavior), rewrites the drawing's relationship
-// to point at it, and reassigns the drawing's shape IDs.
-void MergeImages(const std::shared_ptr<Packaging::MainDocumentPart>& sourceMainPart,
-                 const std::shared_ptr<Packaging::MainDocumentPart>& targetMainPart,
-                 const std::shared_ptr<OpenXMLElement>& root)
-{
-    if (!sourceMainPart || !targetMainPart)
+    static bool UnwrapRevisionElement(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
+                                      bool convertDeletedText)
     {
-        return;
+        if (!element)
+        {
+            return false;
+        }
+        if (convertDeletedText)
+        {
+            ConvertDeletedTextToText(element);
+        }
+        if (!element->Parent())
+        {
+            return false;
+        }
+
+        element->ReplaceWithChildren();
+        return true;
     }
 
-    for (auto& drawing : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>())
+    static bool RemoveRevisionElement(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
+                                      bool removeEmptyParagraph = false)
     {
-        if (!drawing)
+        auto parent = element ? element->Parent() : nullptr;
+        if (!parent || !parent->RemoveChild(element))
         {
-            continue;
+            return false;
         }
-        auto info = ExtractDrawingInfo(drawing);
-        if (info.relationshipId.empty())
+        if (removeEmptyParagraph &&
+            parent->QualifiedName() == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "p") &&
+            parent->Children().empty())
         {
-            continue;
-        }
-
-        std::shared_ptr<Packaging::ImagePart> sourceImage;
-        for (auto& candidate : sourceMainPart->GetImageParts())
-        {
-            if (candidate && candidate->RelationshipId() == info.relationshipId)
+            if (auto grandParent = parent->Parent())
             {
-                sourceImage = candidate;
-                break;
+                grandParent->RemoveChild(parent);
             }
         }
-        if (!sourceImage)
-        {
-            continue;
-        }
-
-        auto targetImage = CreateImagePartFromData(targetMainPart, sourceImage->GetBinaryData(), sourceImage->ContentType());
-        if (!targetImage)
-        {
-            continue;
-        }
-
-        for (auto& blip : drawing->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Blip>())
-        {
-            if (blip)
-            {
-                blip->SetEmbed(StringValue(targetImage->RelationshipId()));
-            }
-        }
-
-        const auto newDocId = NextDocPropertyId(targetMainPart->GetTypedRootElement());
-        for (auto& docProps :
-             drawing->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
-        {
-            if (docProps)
-            {
-                docProps->SetId(UInt32Value(newDocId));
-            }
-        }
-        for (auto& nvProps : drawing->Descendants<
-                             ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>())
-        {
-            if (nvProps)
-            {
-                nvProps->SetId(UInt32Value(newDocId));
-            }
-        }
-    }
-}
-
-// `w:hyperlink` shares its element name with the unrelated CT_HyperlinkRuby
-// shape (see WRD-012), so hyperlinks are located generically by qualified
-// name (mirroring Paragraph::Hyperlinks()) instead of through Descendants<Hyperlink>().
-void MergeHyperlinks(DocumentMergeState& state,
-                     const std::shared_ptr<Packaging::MainDocumentPart>& sourceMainPart,
-                     const std::shared_ptr<Packaging::MainDocumentPart>& targetMainPart,
-                     const std::shared_ptr<OpenXMLElement>& root)
-{
-    if (!sourceMainPart || !targetMainPart)
-    {
-        return;
+        return true;
     }
 
-    std::vector<std::shared_ptr<OpenXMLElement>> hyperlinks;
-    CollectDescendantsByName(root, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "hyperlink"), hyperlinks);
-    if (hyperlinks.empty())
+    static std::string NextRevisionId(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
     {
-        return;
+        int maxId = -1;
+        std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> revisions;
+        CollectRevisionElements(root, revisions);
+        for (const auto& revision : revisions)
+        {
+            const auto idText = WordRunTextHelper::WordAttributeOrEmpty(revision, "id");
+            int id = 0;
+            const auto parse = std::from_chars(idText.data(), idText.data() + idText.size(), id);
+            if (parse.ec == std::errc() && parse.ptr == idText.data() + idText.size())
+            {
+                maxId = std::max(maxId, id);
+            }
+        }
+        return std::to_string(maxId + 1);
     }
 
-    const ExyokiOffice::OpenXmlQualifiedName relationshipIdAttribute(kOfficeRelationshipsNamespace, "id");
-    const ExyokiOffice::OpenXmlQualifiedName anchorAttribute(kWordNamespace, "anchor");
-
-    for (auto& hyperlink : hyperlinks)
+    static void ApplyRevisionMetadata(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
+                                      const RevisionAuthor& author,
+                                      const std::string& fallbackId)
     {
-        if (!hyperlink)
+        if (!element)
         {
-            continue;
+            return;
         }
-
-        std::string_view oldRelationshipId;
-        if (hyperlink->TryGetAttribute(relationshipIdAttribute, oldRelationshipId) && !oldRelationshipId.empty())
+        element->SetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "id"),
+                                   StringValue(author.Id.empty() ? fallbackId : author.Id));
+        element->SetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "author"),
+                                   StringValue(author.Name));
+        if (!author.Date.empty())
         {
-            std::string target;
-            for (const auto& relationship : sourceMainPart->Relationships())
-            {
-                if (relationship.IsExternal && relationship.Type == kHyperlinkRelationshipType &&
-                    relationship.Id == oldRelationshipId)
-                {
-                    target = relationship.Target;
-                    break;
-                }
-            }
-            if (!target.empty())
-            {
-                auto newRelationshipId = targetMainPart->AddExternalRelationship(kHyperlinkRelationshipType, target);
-                if (!newRelationshipId.empty())
-                {
-                    hyperlink->SetAttribute(relationshipIdAttribute, newRelationshipId);
-                }
-            }
-            continue;
-        }
-
-        std::string_view oldAnchor;
-        if (hyperlink->TryGetAttribute(anchorAttribute, oldAnchor) && !oldAnchor.empty())
-        {
-            if (auto it = state.BookmarkNames.find(std::string(oldAnchor)); it != state.BookmarkNames.end())
-            {
-                hyperlink->SetAttribute(anchorAttribute, it->second);
-            }
+            element->SetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "date"),
+                                       StringValue(author.Date));
         }
     }
-}
+};
 
-/**
- * @brief Bookkeeping for Word's threaded comment model.
- *
- * `/word/comments.xml` knows nothing about threads: a reply is an ordinary
- * `<w:comment>` entry with its own numeric ID and its own body range markers.
- * The thread shape lives in four satellite parts, and this helper owns every
- * rule that keeps them consistent with the comment entries:
- *
- * - `commentsExtended` (`w15:commentEx`): parent link and resolution flag,
- *   keyed by the `w14:paraId` of the comment's **last** paragraph.
- * - `commentsIds` (`w16cid:commentId`): that paraId mapped to a durable ID.
- * - `commentsExtensible` (`w16cex:commentExtensible`): the UTC timestamp, keyed
- *   by the durable ID rather than by the paraId.
- * - `people` (`w15:person`): one entry per author display name.
- *
- * Both ID kinds are 4-byte hex values that Word ignores when the high bit is
- * set, so allocation is restricted to [0x00000001, 0x7FFFFFFF].
- */
-class CommentThreading final
+/// Field instructions and the run structure that carries them.
+class WordFieldHelper
 {
 public:
-    using CommentEntry = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment;
-    using CommentEx = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::CommentEx;
-    using CommentsEx = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::CommentsEx;
-    using CommentId = ExyokiOffice::DocumentFormat::OpenXml::Office2019::Word::Cid::CommentId;
-    using CommentsIds = ExyokiOffice::DocumentFormat::OpenXml::Office2019::Word::Cid::CommentsIds;
-    using CommentExtensible = ExyokiOffice::DocumentFormat::OpenXml::Office2021::Word::CommentsExt::CommentExtensible;
-    using CommentsExtensible = ExyokiOffice::DocumentFormat::OpenXml::Office2021::Word::CommentsExt::CommentsExtensible;
-    using People = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::People;
-    using Person = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::Person;
-    using PresenceInfo = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::PresenceInfo;
-    using DomParagraph = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph;
-    using DomRun = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run;
-    using DomTableRow = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow;
-    using DomCommentRangeStart = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentRangeStart;
-    using DomCommentRangeEnd = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentRangeEnd;
-    using DomCommentReference = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentReference;
-    using MainPart = std::shared_ptr<Packaging::MainDocumentPart>;
-
-    /// Lowest ID Word still reads back.
-    static constexpr UInt32 kMinimumId = 0x00000001u;
-    /// Highest ID without the high bit set; above this Word ignores the row.
-    static constexpr UInt32 kMaximumId = 0x7FFFFFFFu;
-    /// Fixed starting point for allocation, so output stays reproducible.
-    static constexpr UInt32 kFirstAllocatedId = 0x10000000u;
-    /// Guards the thread walks against cycles in a hand-edited document.
-    static constexpr int kMaximumThreadDepth = 64;
-
-    /// Reads a 4-byte hex ID as a number; returns 0 when absent or malformed.
-    [[nodiscard]] static UInt32 ReadId(const HexBinaryValue& value)
+    static std::string FieldInstructionName(std::string_view instruction)
     {
-        if (!value.IsDefined())
+        auto text = WordRunTextHelper::TrimAsciiWhitespace(std::string(instruction));
+        if (text.empty())
         {
-            return 0;
+            return {};
         }
-        const auto& bytes = value.Value();
-        if (bytes.empty() || bytes.size() > sizeof(UInt32))
+        if (text.front() == '=')
         {
-            return 0;
+            return "=";
         }
-        UInt32 result = 0;
-        for (const auto byte : bytes)
+
+        Size end = 0;
+        while (end < text.size())
         {
-            result = (result << 8) | static_cast<UInt32>(byte);
+            const unsigned char ch = static_cast<unsigned char>(text[end]);
+            if (std::isspace(ch) || text[end] == '\\' || text[end] == '"' || text[end] == '\'')
+            {
+                break;
+            }
+            ++end;
+        }
+        return AsciiText::ToUpper(text.substr(0, end));
+    }
+
+    static bool IsLayoutDependentFieldInstruction(std::string_view instruction)
+    {
+        const auto name = FieldInstructionName(instruction);
+        return name == "PAGE" || name == "NUMPAGES" || name == "SECTIONPAGES";
+    }
+
+    static ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldCharValues::Value ReadFieldCharType(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldChar>& fieldChar)
+    {
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldCharValues;
+        if (!fieldChar)
+        {
+            return FieldCharValues::NotDefinedEnumValue;
+        }
+        auto value = fieldChar->GetFieldCharType();
+        if (value.IsDefined())
+        {
+            return value.Value().GetValue();
+        }
+
+        const auto raw = WordRunTextHelper::WordAttributeOrEmpty(fieldChar, "fldCharType");
+        if (raw == "begin")
+        {
+            return FieldCharValues::Begin;
+        }
+        if (raw == "separate")
+        {
+            return FieldCharValues::Separate;
+        }
+        if (raw == "end")
+        {
+            return FieldCharValues::End;
+        }
+        return FieldCharValues::NotDefinedEnumValue;
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run> ParentRunOfFieldChar(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldChar>& fieldChar)
+    {
+        return fieldChar ? std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>(
+                               fieldChar->Parent())
+                         : nullptr;
+    }
+
+    static std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> ParagraphChildrenBetween(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& after,
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before)
+    {
+        std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> result;
+        if (!paragraph || !after || !before)
+        {
+            return result;
+        }
+
+        for (auto child = after->NextSibling(); child; child = child->NextSibling())
+        {
+            if (child->IsSameNode(*before))
+            {
+                break;
+            }
+            result.push_back(child);
         }
         return result;
     }
 
-    /// Formats a number as the 4-byte, 8-digit uppercase hex ID Word expects.
-    [[nodiscard]] static HexBinaryValue MakeId(UInt32 value)
+    static void RemoveParagraphChildrenBetween(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& after,
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before)
     {
-        return HexBinaryValue(std::vector<Byte>{static_cast<Byte>((value >> 24) & 0xFFu),
-                                                static_cast<Byte>((value >> 16) & 0xFFu),
-                                                static_cast<Byte>((value >> 8) & 0xFFu),
-                                                static_cast<Byte>(value & 0xFFu)});
+        for (const auto& child : ParagraphChildrenBetween(paragraph, after, before))
+        {
+            paragraph->RemoveChild(child);
+        }
     }
 
-    [[nodiscard]] static std::shared_ptr<CommentsEx> GetCommentsExRoot(const MainPart& mainDocumentPart)
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run> InsertRunWithTextBefore(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before,
+        std::string_view text,
+        bool preserveSpaces)
     {
-        auto part = mainDocumentPart ? mainDocumentPart->GetWordprocessingCommentsExPart() : nullptr;
-        return part ? part->GetTypedRootElement() : nullptr;
-    }
-
-    static std::shared_ptr<CommentsEx> EnsureCommentsExRoot(const MainPart& mainDocumentPart)
-    {
-        if (!mainDocumentPart)
+        if (!paragraph)
         {
             return nullptr;
         }
-        auto part = mainDocumentPart->GetWordprocessingCommentsExPart();
-        if (!part)
-        {
-            part = mainDocumentPart->AddWordprocessingCommentsExPart();
-        }
-        return part ? part->GetTypedRootElement() : nullptr;
-    }
-
-    [[nodiscard]] static std::shared_ptr<CommentsIds> GetCommentsIdsRoot(const MainPart& mainDocumentPart)
-    {
-        auto part = mainDocumentPart ? mainDocumentPart->GetWordprocessingCommentsIdsPart() : nullptr;
-        return part ? part->GetTypedRootElement() : nullptr;
-    }
-
-    static std::shared_ptr<CommentsIds> EnsureCommentsIdsRoot(const MainPart& mainDocumentPart)
-    {
-        if (!mainDocumentPart)
+        auto run = paragraph->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>(before);
+        if (!run)
         {
             return nullptr;
         }
-        auto part = mainDocumentPart->GetWordprocessingCommentsIdsPart();
-        if (!part)
-        {
-            part = mainDocumentPart->AddWordprocessingCommentsIdsPart();
-        }
-        return part ? part->GetTypedRootElement() : nullptr;
+        std::make_shared<Run>(run)->AddText(text, preserveSpaces);
+        return run;
     }
 
-    [[nodiscard]] static std::shared_ptr<CommentsExtensible> GetCommentsExtensibleRoot(const MainPart& mainDocumentPart)
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run> AppendRunWithText(
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent,
+        std::string_view text,
+        bool preserveSpaces)
     {
-        auto part = mainDocumentPart ? mainDocumentPart->GetWordCommentsExtensiblePart() : nullptr;
-        return part ? part->GetTypedRootElement() : nullptr;
-    }
-
-    static std::shared_ptr<CommentsExtensible> EnsureCommentsExtensibleRoot(const MainPart& mainDocumentPart)
-    {
-        if (!mainDocumentPart)
+        if (!parent)
         {
             return nullptr;
         }
-        auto part = mainDocumentPart->GetWordCommentsExtensiblePart();
-        if (!part)
-        {
-            part = mainDocumentPart->AddWordCommentsExtensiblePart();
-        }
-        return part ? part->GetTypedRootElement() : nullptr;
-    }
-
-    static std::shared_ptr<People> EnsurePeopleRoot(const MainPart& mainDocumentPart)
-    {
-        if (!mainDocumentPart)
+        auto run = parent->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
+        if (!run)
         {
             return nullptr;
         }
-        auto part = mainDocumentPart->GetWordprocessingPeoplePart();
-        if (!part)
-        {
-            part = mainDocumentPart->AddWordprocessingPeoplePart();
-        }
-        return part ? part->GetTypedRootElement() : nullptr;
+        std::make_shared<Run>(run)->AddText(text, preserveSpaces);
+        return run;
     }
 
-    /// Every paragraph ID and durable ID the document already spends.
-    [[nodiscard]] static std::set<UInt32> CollectUsedIds(const MainPart& mainDocumentPart)
+    static void AppendFieldCodeRun(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
+        std::string_view instruction,
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before = nullptr)
     {
-        std::set<UInt32> used;
-        if (!mainDocumentPart)
+        if (!paragraph)
         {
-            return used;
+            return;
+        }
+        auto run = before ? paragraph->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>(before)
+                          : paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
+        if (!run)
+        {
+            return;
+        }
+        auto code = run->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldCode>();
+        if (code)
+        {
+            code->SetText(instruction);
+        }
+    }
+};
+
+/// Measurement conversion, parsing and the DOM enum mappings.
+class WordValueHelper
+{
+public:
+    static std::string DirectLeafTextByWordName(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
+                                                std::string_view localName)
+    {
+        std::string result;
+        if (!element)
+        {
+            return result;
+        }
+        const ExyokiOffice::OpenXmlQualifiedName name(kWordNamespace, localName);
+        for (const auto& child : element->Children())
+        {
+            if (!child || child->QualifiedName() != name)
+            {
+                continue;
+            }
+            if (auto textElement = std::dynamic_pointer_cast<ExyokiOffice::OpenXmlLeafTextElement>(child))
+            {
+                result += std::string(textElement->GetText());
+            }
+        }
+        return result;
+    }
+
+    static std::string ContentTypeFromExtension(std::filesystem::path path)
+    {
+        auto ext = AsciiText::ToLower(path.extension().string());
+        if (ext == ".png")
+        {
+            return "image/png";
+        }
+        if (ext == ".jpg" || ext == ".jpeg")
+        {
+            return "image/jpeg";
+        }
+        if (ext == ".gif")
+        {
+            return "image/gif";
+        }
+        if (ext == ".bmp")
+        {
+            return "image/bmp";
+        }
+        if (ext == ".tif" || ext == ".tiff")
+        {
+            return "image/tiff";
+        }
+        if (ext == ".emf")
+        {
+            return "image/x-emf";
+        }
+        if (ext == ".wmf")
+        {
+            return "image/x-wmf";
+        }
+        return {};
+    }
+
+    static Int64 ToEmuInt64(const ExyokiOffice::MeasuringUnits& value)
+    {
+        return static_cast<Int64>(std::llround(value.ToEmu().GetValue()));
+    }
+
+    static UInt32 ToEmuUInt32(const ExyokiOffice::MeasuringUnits& value)
+    {
+        const auto rounded = std::llround(value.ToEmu().GetValue());
+        if (rounded <= 0)
+        {
+            return 0;
+        }
+        if (rounded > static_cast<Int64>(std::numeric_limits<UInt32>::max()))
+        {
+            return std::numeric_limits<UInt32>::max();
+        }
+        return static_cast<UInt32>(rounded);
+    }
+
+    static int ToTwipsInt(const ExyokiOffice::MeasuringUnits& value)
+    {
+        return static_cast<int>(std::lround(value.ToTw().GetValue()));
+    }
+
+    static UInt32 ToTwipsUInt32(const ExyokiOffice::MeasuringUnits& value)
+    {
+        const auto rounded = std::llround(value.ToTw().GetValue());
+        if (rounded <= 0)
+        {
+            return 0;
+        }
+        if (rounded > static_cast<Int64>(std::numeric_limits<UInt32>::max()))
+        {
+            return std::numeric_limits<UInt32>::max();
+        }
+        return static_cast<UInt32>(rounded);
+    }
+
+    static UInt32 ToBorderSizeUInt32(const ExyokiOffice::MeasuringUnits& value)
+    {
+        const auto points = value.ToPt().GetValue();
+        if (points <= 0.0)
+        {
+            return 0;
+        }
+        const auto eighths = std::llround(points * 8.0);
+        if (eighths <= 0)
+        {
+            return 0;
+        }
+        if (eighths > static_cast<Int64>(std::numeric_limits<UInt32>::max()))
+        {
+            return std::numeric_limits<UInt32>::max();
+        }
+        return static_cast<UInt32>(eighths);
+    }
+
+    static std::optional<int> TryParseInt(std::string_view text)
+    {
+        if (text.empty())
+        {
+            return std::nullopt;
         }
 
-        const auto collectParagraphIds = [&used](const std::shared_ptr<OpenXMLElement>& root)
+        int value = 0;
+        const auto* begin = text.data();
+        const auto* end = text.data() + text.size();
+        auto result = std::from_chars(begin, end, value);
+        if (result.ec != std::errc() || result.ptr != end)
+        {
+            return std::nullopt;
+        }
+        return value;
+    }
+
+    static std::optional<Int64> TryParseInt64(std::string_view text)
+    {
+        if (text.empty())
+        {
+            return std::nullopt;
+        }
+
+        Int64 value = 0;
+        const auto* begin = text.data();
+        const auto* end = text.data() + text.size();
+        auto result = std::from_chars(begin, end, value);
+        if (result.ec != std::errc() || result.ptr != end)
+        {
+            return std::nullopt;
+        }
+        return value;
+    }
+
+    template <typename TEnum>
+    static std::optional<TEnum> TryParseEnumValue(std::string_view text)
+    {
+        EnumValue<TEnum> parsed;
+        if (!parsed.AssignFromString(text))
+        {
+            return std::nullopt;
+        }
+        if (!parsed.IsDefined())
+        {
+            return std::nullopt;
+        }
+        return parsed.Value();
+    }
+
+    static std::optional<int> GetDefinedInt32(const Int32Value& value)
+    {
+        if (!value.IsDefined())
+        {
+            return std::nullopt;
+        }
+        return value.Value();
+    }
+
+    static std::optional<ExyokiOffice::MeasuringUnits> GetDefinedTwips(const StringValue& value)
+    {
+        if (!value.IsDefined())
+        {
+            return std::nullopt;
+        }
+        const auto parsed = TryParseInt(value.ToString());
+        if (!parsed)
+        {
+            return std::nullopt;
+        }
+        return ExyokiOffice::MeasuringUnits(static_cast<Real>(*parsed),
+                                            ExyokiOffice::MeasurementUnit::Twip);
+    }
+
+    static std::optional<ExyokiOffice::MeasuringUnits> GetDefinedTwips(const Int32Value& value)
+    {
+        if (!value.IsDefined())
+        {
+            return std::nullopt;
+        }
+        return ExyokiOffice::MeasuringUnits(static_cast<Real>(value.Value()),
+                                            ExyokiOffice::MeasurementUnit::Twip);
+    }
+
+    static std::optional<ExyokiOffice::MeasuringUnits> GetDefinedTwips(const UInt32Value& value)
+    {
+        if (!value.IsDefined())
+        {
+            return std::nullopt;
+        }
+        return ExyokiOffice::MeasuringUnits(static_cast<Real>(value.Value()),
+                                            ExyokiOffice::MeasurementUnit::Twip);
+    }
+
+    static std::optional<ExyokiOffice::MeasuringUnits> GetDefinedHalfPoints(const StringValue& value)
+    {
+        if (!value.IsDefined())
+        {
+            return std::nullopt;
+        }
+        const auto parsed = TryParseInt(value.ToString());
+        if (!parsed)
+        {
+            return std::nullopt;
+        }
+        return ExyokiOffice::MeasuringUnits(static_cast<Real>(*parsed) / 2.0,
+                                            ExyokiOffice::MeasurementUnit::Point);
+    }
+
+    static std::optional<ExyokiOffice::MeasuringUnits> GetDefinedHalfPoints(const UInt32Value& value)
+    {
+        if (!value.IsDefined())
+        {
+            return std::nullopt;
+        }
+        return ExyokiOffice::MeasuringUnits(static_cast<Real>(value.Value()) / 2.0,
+                                            ExyokiOffice::MeasurementUnit::Point);
+    }
+
+    static ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionMarkValues ToDomSectionMark(
+        SectionStartType startType)
+    {
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionMarkValues;
+        switch (startType)
+        {
+            case SectionStartType::NextColumn:
+                return SectionMarkValues::NextColumn;
+            case SectionStartType::Continuous:
+                return SectionMarkValues::Continuous;
+            case SectionStartType::EvenPage:
+                return SectionMarkValues::EvenPage;
+            case SectionStartType::OddPage:
+                return SectionMarkValues::OddPage;
+            case SectionStartType::NextPage:
+            default:
+                return SectionMarkValues::NextPage;
+        }
+    }
+
+    static std::optional<SectionStartType> FromDomSectionMark(
+        ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionMarkValues value)
+    {
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionMarkValues;
+        switch (value.GetValue())
+        {
+            case SectionMarkValues::NextPage:
+                return SectionStartType::NextPage;
+            case SectionMarkValues::NextColumn:
+                return SectionStartType::NextColumn;
+            case SectionMarkValues::Continuous:
+                return SectionStartType::Continuous;
+            case SectionMarkValues::EvenPage:
+                return SectionStartType::EvenPage;
+            case SectionMarkValues::OddPage:
+                return SectionStartType::OddPage;
+            default:
+                return std::nullopt;
+        }
+    }
+
+    static ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues ToDomPageOrientation(
+        PageOrientation orientation)
+    {
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues;
+        return orientation == PageOrientation::Landscape ? PageOrientationValues::Landscape
+                                                         : PageOrientationValues::Portrait;
+    }
+
+    static std::optional<PageOrientation> FromDomPageOrientation(
+        ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues value)
+    {
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues;
+        switch (value.GetValue())
+        {
+            case PageOrientationValues::Portrait:
+                return PageOrientation::Portrait;
+            case PageOrientationValues::Landscape:
+                return PageOrientation::Landscape;
+            default:
+                return std::nullopt;
+        }
+    }
+};
+
+/// The main document part, its body, and the markers inside it.
+class WordStructureHelper
+{
+public:
+    template <typename TParent, typename TChild>
+    static std::shared_ptr<TChild> EnsureChildOfType(const std::shared_ptr<TParent>& parent)
+    {
+        if (!parent)
+        {
+            return nullptr;
+        }
+        auto child = parent->template GetFirstChildOfType<TChild>();
+        if (!child)
+        {
+            child = parent->template AppendChild<TChild>();
+        }
+        return child;
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body> EnsureBody(const std::shared_ptr<Packaging::MainDocumentPart>& mainPart)
+    {
+        if (!mainPart)
+        {
+            return nullptr;
+        }
+        auto document = mainPart->GetTypedRootElement();
+        if (!document)
+        {
+            return nullptr;
+        }
+        return EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Document, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>(document);
+    }
+
+    static std::shared_ptr<Packaging::MainDocumentPart> EnsureMainDocumentPart(const WordDocument::Ptr& document)
+    {
+        if (!document)
+        {
+            return nullptr;
+        }
+
+        auto mainPart = document->GetMainDocumentPart();
+        if (!mainPart)
+        {
+            mainPart = document->AddMainDocumentPart();
+        }
+        return mainPart;
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body> EnsureBody(const WordDocument::Ptr& document)
+    {
+        return EnsureBody(EnsureMainDocumentPart(document));
+    }
+
+    static std::shared_ptr<Packaging::MainDocumentPart> GetMainDocumentPart(const WordDocument::Ptr& document)
+    {
+        return document ? document->GetMainDocumentPart() : nullptr;
+    }
+
+    // Removes a markup marker element. When the marker's direct parent is a run whose sole
+    // purpose is to carry that marker (the shape produced by AddFootnote()/AddComment() for
+    // reference markers), the whole run is removed; otherwise only the marker itself is
+    // removed (the shape used by comment range markers, which are direct paragraph children).
+    static void RemoveMarkerAndOwningRun(const std::shared_ptr<OpenXMLElement>& marker)
+    {
+        if (!marker)
+        {
+            return;
+        }
+        auto parent = marker->Parent();
+        if (!parent)
+        {
+            return;
+        }
+        if (parent->QualifiedName() == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "r"))
+        {
+            if (auto grandParent = parent->Parent())
+            {
+                grandParent->RemoveChild(parent);
+                return;
+            }
+        }
+        parent->RemoveChild(marker);
+    }
+
+    static int NextSdtId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                         const std::shared_ptr<OpenXMLElement>& fallbackScope)
+    {
+        int maxId = 0;
+        auto scan = [&maxId](const std::shared_ptr<OpenXMLElement>& root)
         {
             if (!root)
             {
                 return;
             }
-            for (const auto& paragraph : root->Descendants<DomParagraph>())
+            for (const auto& id :
+                 root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SdtId>())
             {
-                if (paragraph)
+                if (!id)
                 {
-                    used.insert(ReadId(paragraph->GetParagraphId()));
+                    continue;
                 }
-            }
-            for (const auto& row : root->Descendants<DomTableRow>())
-            {
-                if (row)
+                const auto value = id->GetVal();
+                if (value.IsDefined())
                 {
-                    used.insert(ReadId(row->GetParagraphId()));
+                    maxId = std::max(maxId, value.Value());
                 }
             }
         };
 
-        collectParagraphIds(mainDocumentPart->GetTypedRootElement());
-        if (auto commentsPart = mainDocumentPart->GetWordprocessingCommentsPart())
+        if (mainDocumentPart)
         {
-            collectParagraphIds(commentsPart->GetTypedRootElement());
+            scan(mainDocumentPart->GetTypedRootElement());
         }
-        if (auto root = GetCommentsExRoot(mainDocumentPart))
+        else
         {
-            for (const auto& row : root->Elements<CommentEx>())
-            {
-                if (row)
-                {
-                    used.insert(ReadId(row->GetParaId()));
-                    used.insert(ReadId(row->GetParaIdParent()));
-                }
-            }
+            scan(fallbackScope);
         }
-        if (auto root = GetCommentsIdsRoot(mainDocumentPart))
-        {
-            for (const auto& row : root->Elements<CommentId>())
-            {
-                if (row)
-                {
-                    used.insert(ReadId(row->GetParaId()));
-                    used.insert(ReadId(row->GetDurableId()));
-                }
-            }
-        }
-        if (auto root = GetCommentsExtensibleRoot(mainDocumentPart))
-        {
-            for (const auto& row : root->Elements<CommentExtensible>())
-            {
-                if (row)
-                {
-                    used.insert(ReadId(row->GetDurableId()));
-                }
-            }
-        }
-        return used;
+        return maxId + 1;
     }
 
-    /**
-     * @brief Hands out an ID that is not taken yet and marks it as taken.
-     *
-     * The walk starts at a fixed seed and steps upwards, wrapping once through
-     * the low range: no randomness, so the same document always produces the
-     * same IDs.
-     *
-     * @return The allocated ID, or 0 when the whole positive range is spent.
-     */
-    static UInt32 AllocateId(std::set<UInt32>& used)
-    {
-        UInt32 candidate = kFirstAllocatedId;
-        for (UInt32 step = 0; step < kMaximumId; ++step)
-        {
-            if (used.insert(candidate).second)
-            {
-                return candidate;
-            }
-            candidate = (candidate == kMaximumId) ? kMinimumId : candidate + 1;
-        }
-        return 0;
-    }
+    // Footnote/endnote entries (`w:footnote`/`w:endnote`) share their element name with an
+    // unrelated special-reference type (`FootnoteSpecialReference`/`EndnoteSpecialReference`,
+    // used inside `w:footnotePr`/`w:endnotePr`). The generated element factory can only bind one
+    // concrete C++ type per element name, so re-reading existing entries via `Elements<TEntry>()`
+    // or `Descendants<TEntry>()` is unreliable: it silently returns nothing when the factory
+    // picks the other type for that tag. All entry scanning below therefore matches children by
+    // qualified name and reads/writes the `id`/`type` attributes generically instead of going
+    // through Footnote/Endnote's typed accessors. Freshly creating an entry with
+    // `AppendChild<TEntry>()` is unaffected by this and remains safe, since it constructs the
+    // exact requested type directly rather than resolving it from a tag name.
+};
 
-    [[nodiscard]] static std::shared_ptr<DomParagraph> LastParagraph(const std::shared_ptr<CommentEntry>& comment)
+/// Footnotes, endnotes and comments as parts and numbered entries.
+class WordNoteHelper
+{
+public:
+    template <typename TEntry>
+    static std::vector<std::shared_ptr<OpenXMLElement>> FindNoteEntries(const std::shared_ptr<OpenXMLElement>& root)
     {
-        if (!comment)
-        {
-            return nullptr;
-        }
-        auto paragraphs = comment->Elements<DomParagraph>();
-        return paragraphs.empty() ? nullptr : paragraphs.back();
-    }
-
-    /// The thread key of a comment: the paraId of its last paragraph, or 0.
-    [[nodiscard]] static UInt32 GetThreadParaId(const std::shared_ptr<CommentEntry>& comment)
-    {
-        auto paragraph = LastParagraph(comment);
-        return paragraph ? ReadId(paragraph->GetParagraphId()) : 0;
-    }
-
-    /// Same as GetThreadParaId(), but creates the anchor paragraph and/or its ID.
-    static UInt32 EnsureThreadParaId(const MainPart& mainDocumentPart, const std::shared_ptr<CommentEntry>& comment)
-    {
-        if (!comment)
-        {
-            return 0;
-        }
-        auto paragraph = LastParagraph(comment);
-        if (!paragraph)
-        {
-            paragraph = comment->AppendChild<DomParagraph>();
-            if (!paragraph)
-            {
-                return 0;
-            }
-        }
-        if (const auto existing = ReadId(paragraph->GetParagraphId()); existing != 0)
-        {
-            return existing;
-        }
-        auto used = CollectUsedIds(mainDocumentPart);
-        const auto allocated = AllocateId(used);
-        if (allocated != 0)
-        {
-            paragraph->SetParagraphId(MakeId(allocated));
-        }
-        return allocated;
-    }
-
-    [[nodiscard]] static std::shared_ptr<CommentEx> FindCommentEx(const MainPart& mainDocumentPart, UInt32 paraId)
-    {
-        if (paraId == 0)
-        {
-            return nullptr;
-        }
-        auto root = GetCommentsExRoot(mainDocumentPart);
+        std::vector<std::shared_ptr<OpenXMLElement>> result;
         if (!root)
         {
-            return nullptr;
+            return result;
         }
-        for (const auto& row : root->Elements<CommentEx>())
+        const auto entryName = TEntry::StaticMetaClass()->QualifiedName();
+        for (const auto& child : root->Children())
         {
-            if (row && ReadId(row->GetParaId()) == paraId)
+            if (child && child->QualifiedName() == entryName)
             {
-                return row;
+                result.push_back(child);
             }
         }
-        return nullptr;
+        return result;
     }
 
-    [[nodiscard]] static std::shared_ptr<CommentId> FindCommentId(const MainPart& mainDocumentPart, UInt32 paraId)
+    // Ensures the standard Separator/ContinuationSeparator bookkeeping entries (IDs -1 and 0)
+    // exist in a footnotes/endnotes part root, matching what Word itself generates.
+    template <typename TEntry>
+    static void EnsureNoteSeparators(const std::shared_ptr<OpenXMLElement>& root)
     {
-        if (paraId == 0)
-        {
-            return nullptr;
-        }
-        auto root = GetCommentsIdsRoot(mainDocumentPart);
-        if (!root)
-        {
-            return nullptr;
-        }
-        for (const auto& row : root->Elements<CommentId>())
-        {
-            if (row && ReadId(row->GetParaId()) == paraId)
-            {
-                return row;
-            }
-        }
-        return nullptr;
-    }
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteEndnoteValues;
 
-    [[nodiscard]] static std::shared_ptr<CommentExtensible> FindCommentExtensible(const MainPart& mainDocumentPart,
-                                                                                  UInt32 durableId)
-    {
-        if (durableId == 0)
-        {
-            return nullptr;
-        }
-        auto root = GetCommentsExtensibleRoot(mainDocumentPart);
-        if (!root)
-        {
-            return nullptr;
-        }
-        for (const auto& row : root->Elements<CommentExtensible>())
-        {
-            if (row && ReadId(row->GetDurableId()) == durableId)
-            {
-                return row;
-            }
-        }
-        return nullptr;
-    }
-
-    /**
-     * @brief Creates or refreshes every satellite row describing one comment.
-     *
-     * @param parentParaId Thread key of the comment being replied to, or 0 for a
-     * thread root. An existing parent link is never cleared by passing 0, so the
-     * call stays safe to repeat on a reply.
-     */
-    static void Register(const MainPart& mainDocumentPart,
-                         const std::shared_ptr<CommentEntry>& comment,
-                         UInt32 parentParaId)
-    {
-        if (!mainDocumentPart || !comment)
-        {
-            return;
-        }
-
-        const auto paraId = EnsureThreadParaId(mainDocumentPart, comment);
-        if (paraId == 0)
-        {
-            return;
-        }
-
-        auto commentsExRoot = EnsureCommentsExRoot(mainDocumentPart);
-        if (!commentsExRoot)
-        {
-            return;
-        }
-        auto commentEx = FindCommentEx(mainDocumentPart, paraId);
-        if (!commentEx)
-        {
-            commentEx = commentsExRoot->AppendChild<CommentEx>();
-        }
-        if (!commentEx)
-        {
-            return;
-        }
-        commentEx->SetParaId(MakeId(paraId));
-        if (parentParaId != 0)
-        {
-            commentEx->SetParaIdParent(MakeId(parentParaId));
-        }
-        if (!commentEx->GetDone().IsDefined())
-        {
-            commentEx->SetDone(OnOffValue(false));
-        }
-
-        const auto durableId = EnsureDurableId(mainDocumentPart, paraId);
-        if (durableId != 0)
-        {
-            if (auto root = EnsureCommentsExtensibleRoot(mainDocumentPart))
-            {
-                auto extensible = FindCommentExtensible(mainDocumentPart, durableId);
-                if (!extensible)
-                {
-                    extensible = root->AppendChild<CommentExtensible>();
-                }
-                if (extensible)
-                {
-                    extensible->SetDurableId(MakeId(durableId));
-                    const auto date = comment->GetDate();
-                    extensible->SetDateUtc(date.IsDefined() ? date
-                                                            : DateTimeValue(std::chrono::system_clock::now()));
-                }
-            }
-        }
-
-        RegisterPerson(mainDocumentPart, comment->GetAuthor().ToString());
-    }
-
-    /// Adds a `w15:person` row for an author name, unless one already exists.
-    static void RegisterPerson(const MainPart& mainDocumentPart, const std::string& author)
-    {
-        if (author.empty())
-        {
-            return;
-        }
-        auto root = EnsurePeopleRoot(mainDocumentPart);
         if (!root)
         {
             return;
         }
-        for (const auto& person : root->Elements<Person>())
-        {
-            if (person && person->GetAuthor().ToString() == author)
-            {
-                return;
-            }
-        }
-        auto person = root->AppendChild<Person>();
-        if (!person)
-        {
-            return;
-        }
-        person->SetAuthor(StringValue(author));
-        if (auto presence = person->AppendChild<PresenceInfo>())
-        {
-            // "None" is what Word writes for an author without a linked account.
-            presence->SetProviderId(StringValue(std::string("None")));
-            presence->SetUserId(StringValue(author));
-        }
-    }
 
-    /**
-     * @brief Deletes the satellite rows of one comment.
-     *
-     * The `people` part is deliberately left alone: an author outlives the
-     * comments they wrote, exactly as in Word.
-     */
-    static void Unregister(const MainPart& mainDocumentPart, UInt32 paraId)
-    {
-        if (!mainDocumentPart || paraId == 0)
+        const ExyokiOffice::OpenXmlQualifiedName typeAttribute(kWordNamespace, "type");
+
+        bool hasSeparator = false;
+        bool hasContinuation = false;
+        for (const auto& entry : FindNoteEntries<TEntry>(root))
         {
-            return;
+            const auto type = entry->template GetAttributeValue<EnumValue<FootnoteEndnoteValues>>(typeAttribute);
+            if (!type.IsDefined())
+            {
+                continue;
+            }
+            if (type.Value() == FootnoteEndnoteValues::Separator)
+            {
+                hasSeparator = true;
+            }
+            else if (type.Value() == FootnoteEndnoteValues::ContinuationSeparator)
+            {
+                hasContinuation = true;
+            }
         }
 
-        UInt32 durableId = 0;
-        if (auto root = GetCommentsIdsRoot(mainDocumentPart))
+        if (!hasSeparator)
         {
-            for (const auto& row : root->Elements<CommentId>())
+            if (auto entry = root->AppendChild<TEntry>())
             {
-                if (row && ReadId(row->GetParaId()) == paraId)
+                entry->SetId(IntegerValue(static_cast<Int64>(-1)));
+                entry->SetType(EnumValue<FootnoteEndnoteValues>(FootnoteEndnoteValues::Separator));
+                if (auto paragraph =
+                        entry->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>())
                 {
-                    durableId = ReadId(row->GetDurableId());
-                    root->RemoveChild(row);
-                }
-            }
-        }
-        if (auto root = GetCommentsExRoot(mainDocumentPart))
-        {
-            for (const auto& row : root->Elements<CommentEx>())
-            {
-                if (row && ReadId(row->GetParaId()) == paraId)
-                {
-                    root->RemoveChild(row);
-                }
-            }
-        }
-        if (durableId != 0)
-        {
-            if (auto root = GetCommentsExtensibleRoot(mainDocumentPart))
-            {
-                for (const auto& row : root->Elements<CommentExtensible>())
-                {
-                    if (row && ReadId(row->GetDurableId()) == durableId)
+                    if (auto run =
+                            paragraph->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>())
                     {
-                        root->RemoveChild(row);
+                        run->template AppendChild<
+                            ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SeparatorMark>();
+                    }
+                }
+            }
+        }
+
+        if (!hasContinuation)
+        {
+            if (auto entry = root->AppendChild<TEntry>())
+            {
+                entry->SetId(IntegerValue(static_cast<Int64>(0)));
+                entry->SetType(EnumValue<FootnoteEndnoteValues>(FootnoteEndnoteValues::ContinuationSeparator));
+                if (auto paragraph =
+                        entry->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>())
+                {
+                    if (auto run =
+                            paragraph->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>())
+                    {
+                        run->template AppendChild<
+                            ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ContinuationSeparatorMark>();
                     }
                 }
             }
         }
     }
 
-    /// Every `<w:comment>` entry of the document, in part order.
-    [[nodiscard]] static std::vector<std::shared_ptr<CommentEntry>> AllComments(const MainPart& mainDocumentPart)
+    template <typename TEntry>
+    static int NextNoteId(const std::shared_ptr<OpenXMLElement>& root)
     {
-        std::vector<std::shared_ptr<CommentEntry>> result;
-        auto part = mainDocumentPart ? mainDocumentPart->GetWordprocessingCommentsPart() : nullptr;
-        auto root = part ? part->GetTypedRootElement() : nullptr;
-        if (!root)
+        const ExyokiOffice::OpenXmlQualifiedName idAttribute(kWordNamespace, "id");
+        int maxId = -2;
+        for (const auto& entry : FindNoteEntries<TEntry>(root))
         {
-            return result;
-        }
-        for (const auto& entry : root->Elements<CommentEntry>())
-        {
-            if (entry)
+            const auto value = entry->template GetAttributeValue<IntegerValue>(idAttribute);
+            if (value.IsDefined())
             {
-                result.push_back(entry);
+                maxId = std::max(maxId, static_cast<int>(value.Value()));
             }
         }
-        return result;
+        return maxId + 1;
     }
 
-    [[nodiscard]] static std::shared_ptr<CommentEntry> FindByThreadParaId(const MainPart& mainDocumentPart,
-                                                                          UInt32 paraId)
+    // Creates a new footnote/endnote entry (with the standard reference mark) and appends the
+    // matching reference run at the end of `paragraph`. TEntry is Footnote or Endnote,
+    // TReferenceMark is FootnoteReferenceMark or EndnoteReferenceMark, TReference is
+    // FootnoteReference or EndnoteReference, and TPart is FootnotesPart or EndnotesPart.
+    template <typename TEntry, typename TReferenceMark, typename TReference, typename TPart>
+    static std::shared_ptr<Note> AddNoteToDocument(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
+        const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+        NoteKind kind,
+        const std::shared_ptr<TPart>& part,
+        std::string_view text,
+        bool preserveSpaces)
     {
-        if (paraId == 0)
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteEndnoteValues;
+
+        if (!paragraph || !part)
         {
             return nullptr;
         }
-        for (const auto& entry : AllComments(mainDocumentPart))
+
+        std::shared_ptr<OpenXMLElement> root = part->GetTypedRootElement();
+        if (!root)
         {
-            if (GetThreadParaId(entry) == paraId)
+            return nullptr;
+        }
+
+        EnsureNoteSeparators<TEntry>(root);
+        const int id = NextNoteId<TEntry>(root);
+
+        auto entry = root->AppendChild<TEntry>();
+        if (!entry)
+        {
+            return nullptr;
+        }
+        entry->SetId(IntegerValue(static_cast<Int64>(id)));
+        entry->SetType(EnumValue<FootnoteEndnoteValues>(FootnoteEndnoteValues::Normal));
+
+        auto contentParagraph =
+            entry->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
+        if (!contentParagraph)
+        {
+            root->RemoveChild(entry);
+            return nullptr;
+        }
+        if (auto markRun =
+                contentParagraph->template AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>())
+        {
+            markRun->template AppendChild<TReferenceMark>();
+        }
+        if (!text.empty())
+        {
+            WordFieldHelper::AppendRunWithText(contentParagraph, text, preserveSpaces);
+        }
+
+        auto refRun = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
+        if (!refRun)
+        {
+            root->RemoveChild(entry);
+            return nullptr;
+        }
+        auto reference = refRun->AppendChild<TReference>();
+        if (!reference)
+        {
+            paragraph->RemoveChild(refRun);
+            root->RemoveChild(entry);
+            return nullptr;
+        }
+        reference->SetId(IntegerValue(static_cast<Int64>(id)));
+
+        return std::make_shared<Note>(kind, entry, mainDocumentPart);
+    }
+
+    static int NextCommentId(const std::shared_ptr<Packaging::WordprocessingCommentsPart>& part)
+    {
+        int maxId = -1;
+        if (part)
+        {
+            if (auto root = part->GetTypedRootElement())
             {
-                return entry;
+                for (const auto& entry :
+                     root->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment>())
+                {
+                    if (!entry)
+                    {
+                        continue;
+                    }
+                    if (auto parsed = WordValueHelper::TryParseInt(entry->GetId().ToString()))
+                    {
+                        maxId = std::max(maxId, *parsed);
+                    }
+                }
+            }
+        }
+        return maxId + 1;
+    }
+};
+
+/// The style definitions part and the style-type mapping.
+class WordStylePartHelper
+{
+public:
+    static std::shared_ptr<Packaging::StyleDefinitionsPart> EnsureStyleDefinitionsPart(const WordDocument::Ptr& document)
+    {
+        auto mainPart = WordStructureHelper::EnsureMainDocumentPart(document);
+        if (!mainPart)
+        {
+            return nullptr;
+        }
+
+        auto stylesPart = mainPart->GetStyleDefinitionsPart();
+        if (!stylesPart)
+        {
+            stylesPart = mainPart->AddStyleDefinitionsPart();
+        }
+        return stylesPart;
+    }
+
+    static std::shared_ptr<Packaging::StyleDefinitionsPart> GetStyleDefinitionsPart(const WordDocument::Ptr& document)
+    {
+        auto mainPart = WordStructureHelper::GetMainDocumentPart(document);
+        return mainPart ? mainPart->GetStyleDefinitionsPart() : nullptr;
+    }
+
+    static ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues ToDomStyleType(StyleType type)
+    {
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues;
+        switch (type)
+        {
+            case StyleType::Character:
+                return StyleValues::Character;
+            case StyleType::Table:
+                return StyleValues::Table;
+            case StyleType::Numbering:
+                return StyleValues::Numbering;
+            case StyleType::Paragraph:
+            default:
+                return StyleValues::Paragraph;
+        }
+    }
+
+    static std::optional<StyleType> FromDomStyleType(
+        ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues value)
+    {
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues;
+        switch (value.GetValue())
+        {
+            case StyleValues::Paragraph:
+                return StyleType::Paragraph;
+            case StyleValues::Character:
+                return StyleType::Character;
+            case StyleValues::Table:
+                return StyleType::Table;
+            case StyleValues::Numbering:
+                return StyleType::Numbering;
+            default:
+                return std::nullopt;
+        }
+    }
+};
+
+/// Reading and writing typed property children of a Word element.
+class WordPropertyReadHelper
+{
+public:
+    static bool IsOn(const OnOffValue& value)
+    {
+        return value.ValueOr(false);
+    }
+
+    static std::optional<bool> OptionalOnOff(const OnOffValue& value)
+    {
+        if (!value.IsDefined())
+        {
+            return std::nullopt;
+        }
+        return value.Value();
+    }
+
+    static std::optional<int> OptionalInt32(const Int32Value& value)
+    {
+        if (!value.IsDefined())
+        {
+            return std::nullopt;
+        }
+        return value.Value();
+    }
+
+    static std::string StringValueOrEmpty(const StringValue& value)
+    {
+        return value.IsDefined() ? value.ToString() : std::string{};
+    }
+
+    static std::string RawValAttributeOrEmpty(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
+    {
+        if (!element)
+        {
+            return {};
+        }
+
+        std::string_view value;
+        if (element->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "val"), value))
+        {
+            return std::string(value);
+        }
+        if (element->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName({}, "val"), value))
+        {
+            return std::string(value);
+        }
+        return {};
+    }
+
+    static std::optional<bool> RawOnOffOrEmpty(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
+    {
+        const auto value = AsciiText::ToLower(RawValAttributeOrEmpty(element));
+        if (value.empty())
+        {
+            return std::nullopt;
+        }
+        if (value == "1" || value == "true" || value == "on")
+        {
+            return true;
+        }
+        if (value == "0" || value == "false" || value == "off")
+        {
+            return false;
+        }
+        return std::nullopt;
+    }
+
+    template <typename TElement>
+    static std::optional<bool> ReadOnOffChild(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
+    {
+        std::shared_ptr<ExyokiOffice::OpenXMLElement> child = parent ? parent->GetFirstChildOfType<TElement>() : nullptr;
+        if (!child && parent)
+        {
+            const auto target = TElement::StaticMetaClass()->QualifiedName();
+            for (const auto& candidate : parent->Children())
+            {
+                if (candidate && candidate->QualifiedName() == target)
+                {
+                    child = candidate;
+                    break;
+                }
+            }
+        }
+        if (!child)
+        {
+            return std::nullopt;
+        }
+        if (auto typed = std::dynamic_pointer_cast<TElement>(child); typed && typed->GetVal().IsDefined())
+        {
+            return typed->GetVal().Value();
+        }
+        if (auto raw = RawOnOffOrEmpty(child))
+        {
+            return raw;
+        }
+        return true;
+    }
+
+    template <typename TElement, typename TEnum>
+    static std::optional<TEnum> ReadEnumValChild(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
+    {
+        std::shared_ptr<ExyokiOffice::OpenXMLElement> child = parent ? parent->GetFirstChildOfType<TElement>() : nullptr;
+        if (!child && parent)
+        {
+            const auto target = TElement::StaticMetaClass()->QualifiedName();
+            for (const auto& candidate : parent->Children())
+            {
+                if (candidate && candidate->QualifiedName() == target)
+                {
+                    child = candidate;
+                    break;
+                }
+            }
+        }
+        if (!child)
+        {
+            return std::nullopt;
+        }
+        if (auto typed = std::dynamic_pointer_cast<TElement>(child))
+        {
+            auto value = typed->GetVal();
+            if (value.IsDefined())
+            {
+                return value.Value();
+            }
+        }
+        return WordValueHelper::TryParseEnumValue<TEnum>(RawValAttributeOrEmpty(child));
+    }
+
+    static std::shared_ptr<ExyokiOffice::OpenXMLElement> FindDirectWordChild(
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent,
+        std::string_view localName)
+    {
+        if (!parent)
+        {
+            return nullptr;
+        }
+
+        const ExyokiOffice::OpenXmlQualifiedName target(kWordNamespace, localName);
+        for (const auto& child : parent->Children())
+        {
+            if (child && child->QualifiedName() == target)
+            {
+                return child;
             }
         }
         return nullptr;
     }
 
-    /// The comments whose `w15:paraIdParent` points at this thread key.
-    [[nodiscard]] static std::vector<std::shared_ptr<CommentEntry>> DirectReplies(const MainPart& mainDocumentPart,
-                                                                                  UInt32 paraId)
+    static std::string GetStringChildValueByName(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent,
+                                                 std::string_view localName)
     {
-        std::vector<std::shared_ptr<CommentEntry>> result;
-        if (paraId == 0)
+        return RawValAttributeOrEmpty(FindDirectWordChild(parent, localName));
+    }
+
+    static void RemoveDirectWordChildren(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent,
+                                         std::string_view localName)
+    {
+        if (!parent)
         {
-            return result;
+            return;
         }
-        for (const auto& entry : AllComments(mainDocumentPart))
+
+        const ExyokiOffice::OpenXmlQualifiedName target(kWordNamespace, localName);
+        for (const auto& child : parent->Children())
         {
-            const auto replyParaId = GetThreadParaId(entry);
-            if (replyParaId == 0 || replyParaId == paraId)
+            if (child && child->QualifiedName() == target)
+            {
+                parent->RemoveChild(child);
+            }
+        }
+    }
+
+    template <typename TParent, typename TChild>
+    static void RemoveChildOfType(const std::shared_ptr<TParent>& parent)
+    {
+        if (!parent)
+        {
+            return;
+        }
+        if (auto child = parent->template GetFirstChildOfType<TChild>())
+        {
+            parent->RemoveChild(child);
+            return;
+        }
+        RemoveDirectWordChildren(parent, TChild::StaticMetaClass()->QualifiedName().localName());
+    }
+
+    template <typename TParent, typename TChild>
+    static void RemoveChildOfType(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
+    {
+        (void)sizeof(TParent);
+        if (!parent)
+        {
+            return;
+        }
+        if (auto child = parent->GetFirstChildOfType<TChild>())
+        {
+            parent->RemoveChild(child);
+            return;
+        }
+        RemoveDirectWordChildren(parent, TChild::StaticMetaClass()->QualifiedName().localName());
+    }
+
+    template <typename TChild>
+    static std::shared_ptr<TChild> GetFirstTypedChildOrNull(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
+    {
+        return parent ? parent->GetFirstChildOfType<TChild>() : nullptr;
+    }
+
+    template <typename TChild>
+    static std::shared_ptr<ExyokiOffice::OpenXMLElement> GetFirstChildElementByTypeOrName(
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
+    {
+        if (!parent)
+        {
+            return nullptr;
+        }
+        auto typed = parent->GetFirstChildOfType<TChild>();
+        return typed ? std::static_pointer_cast<ExyokiOffice::OpenXMLElement>(typed)
+                     : FindDirectWordChild(parent, TChild::StaticMetaClass()->QualifiedName().localName());
+    }
+
+    template <typename TChild>
+    static std::string GetStringChildValue(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& parent)
+    {
+        std::shared_ptr<ExyokiOffice::OpenXMLElement> child = parent ? parent->GetFirstChildOfType<TChild>() : nullptr;
+        if (!child && parent)
+        {
+            child = FindDirectWordChild(parent, TChild::StaticMetaClass()->QualifiedName().localName());
+        }
+        auto typed = std::dynamic_pointer_cast<TChild>(child);
+        auto value = typed ? StringValueOrEmpty(typed->GetVal()) : std::string{};
+        return value.empty() ? RawValAttributeOrEmpty(child) : value;
+    }
+
+    template <typename TParent, typename TChild>
+    static void SetOptionalStringChild(const std::shared_ptr<TParent>& parent, std::string_view value)
+    {
+        if (!parent)
+        {
+            return;
+        }
+        const auto childName = TChild::StaticMetaClass()->QualifiedName();
+        RemoveDirectWordChildren(parent, childName.localName());
+        if (value.empty())
+        {
+            return;
+        }
+
+        // SetVal writes the namespace-qualified `w:val`; adding a raw prefixed
+        // attribute on top of it would emit a duplicate and break well-formedness.
+        auto child = parent->template AppendChild<TChild>();
+        if (child)
+        {
+            child->SetVal(StringValue(std::string(value)));
+        }
+    }
+};
+
+/// Style definitions: lookup, read, apply, and unique identifiers.
+class WordStyleDefinitionHelper
+{
+public:
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style> FindStyleById(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Styles>& styles,
+        std::string_view styleId)
+    {
+        if (!styles || styleId.empty())
+        {
+            return nullptr;
+        }
+
+        for (const auto& style : styles->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style>())
+        {
+            if (style && WordPropertyReadHelper::StringValueOrEmpty(style->GetStyleId()) == styleId)
+            {
+                return style;
+            }
+        }
+        return nullptr;
+    }
+
+    static StyleDefinition ReadStyleDefinition(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style>& style)
+    {
+        StyleDefinition definition{};
+        if (!style)
+        {
+            return definition;
+        }
+
+        definition.StyleId = WordPropertyReadHelper::StringValueOrEmpty(style->GetStyleId());
+        definition.Type = WordStylePartHelper::FromDomStyleType(style->GetType().ValueOr(
+                                                                    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues::Paragraph))
+                              .value_or(StyleType::Paragraph);
+        definition.IsDefault = WordPropertyReadHelper::IsOn(style->GetDefault());
+        definition.IsCustom = WordPropertyReadHelper::IsOn(style->GetCustomStyle());
+
+        using namespace ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+        definition.Name = WordPropertyReadHelper::GetStringChildValueByName(style, "name");
+        definition.BasedOnStyleId = WordPropertyReadHelper::GetStringChildValueByName(style, "basedOn");
+        definition.NextStyleId = WordPropertyReadHelper::GetStringChildValueByName(style, "next");
+        definition.LinkedStyleId = WordPropertyReadHelper::GetStringChildValueByName(style, "link");
+        definition.Aliases = WordPropertyReadHelper::GetStringChildValueByName(style, "aliases");
+        if (auto priority = style->GetFirstChildOfType<UIPriority>())
+        {
+            definition.UiPriority = WordPropertyReadHelper::OptionalInt32(priority->GetVal());
+        }
+        definition.IsPrimary = style->GetFirstChildOfType<PrimaryStyle>() != nullptr;
+        definition.IsSemiHidden = style->GetFirstChildOfType<SemiHidden>() != nullptr;
+        definition.IsUnhideWhenUsed = style->GetFirstChildOfType<UnhideWhenUsed>() != nullptr;
+        return definition;
+    }
+
+    static void ApplyStyleDefinition(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style>& style,
+        const StyleDefinition& definition)
+    {
+        if (!style || definition.StyleId.empty())
+        {
+            return;
+        }
+
+        using namespace ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+        style->SetType(EnumValue<StyleValues>(WordStylePartHelper::ToDomStyleType(definition.Type)));
+        style->SetStyleId(StringValue(definition.StyleId));
+        style->SetDefault(definition.IsDefault ? OnOffValue(true) : OnOffValue{});
+        style->SetCustomStyle(definition.IsCustom ? OnOffValue(true) : OnOffValue{});
+
+        WordPropertyReadHelper::SetOptionalStringChild<Style, StyleName>(style, definition.Name);
+        WordPropertyReadHelper::SetOptionalStringChild<Style, BasedOn>(style, definition.BasedOnStyleId);
+        WordPropertyReadHelper::SetOptionalStringChild<Style, NextParagraphStyle>(style, definition.NextStyleId);
+        WordPropertyReadHelper::SetOptionalStringChild<Style, LinkedStyle>(style, definition.LinkedStyleId);
+        WordPropertyReadHelper::SetOptionalStringChild<Style, Aliases>(style, definition.Aliases);
+
+        if (definition.UiPriority)
+        {
+            if (auto priority = WordStructureHelper::EnsureChildOfType<Style, UIPriority>(style))
+            {
+                priority->SetVal(Int32Value(*definition.UiPriority));
+            }
+        }
+        else
+        {
+            WordPropertyReadHelper::RemoveChildOfType<Style, UIPriority>(style);
+        }
+
+        if (definition.IsPrimary)
+        {
+            WordStructureHelper::EnsureChildOfType<Style, PrimaryStyle>(style);
+        }
+        else
+        {
+            WordPropertyReadHelper::RemoveChildOfType<Style, PrimaryStyle>(style);
+        }
+        if (definition.IsSemiHidden)
+        {
+            WordStructureHelper::EnsureChildOfType<Style, SemiHidden>(style);
+        }
+        else
+        {
+            WordPropertyReadHelper::RemoveChildOfType<Style, SemiHidden>(style);
+        }
+        if (definition.IsUnhideWhenUsed)
+        {
+            WordStructureHelper::EnsureChildOfType<Style, UnhideWhenUsed>(style);
+        }
+        else
+        {
+            WordPropertyReadHelper::RemoveChildOfType<Style, UnhideWhenUsed>(style);
+        }
+    }
+
+    static std::string MakeUniqueStyleId(const StyleManager& manager, std::string base)
+    {
+        if (base.empty())
+        {
+            base = "ImportedStyle";
+        }
+        if (!manager.HasStyle(base))
+        {
+            return base;
+        }
+
+        for (int suffix = 2; suffix < 10000; ++suffix)
+        {
+            auto candidate = base + "_" + std::to_string(suffix);
+            if (!manager.HasStyle(candidate))
+            {
+                return candidate;
+            }
+        }
+        return {};
+    }
+};
+
+/// Body traversal and section-properties lookup.
+class WordBodyHelper
+{
+public:
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Document> GetMainDocumentRoot(
+        const WordDocument::Ptr& document)
+    {
+        auto mainPart = WordStructureHelper::GetMainDocumentPart(document);
+        return mainPart ? mainPart->GetTypedRootElement() : nullptr;
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body> GetBody(
+        const WordDocument::Ptr& document)
+    {
+        auto root = GetMainDocumentRoot(document);
+        return root ? root->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>() : nullptr;
+    }
+
+    static void CollectDescendantsByName(const std::shared_ptr<OpenXMLElement>& element,
+                                         const ExyokiOffice::OpenXmlQualifiedName& name,
+                                         std::vector<std::shared_ptr<OpenXMLElement>>& output)
+    {
+        if (!element)
+        {
+            return;
+        }
+
+        for (const auto& child : element->Children())
+        {
+            if (!child)
             {
                 continue;
             }
-            auto row = FindCommentEx(mainDocumentPart, replyParaId);
-            if (row && ReadId(row->GetParaIdParent()) == paraId)
+            if (child->QualifiedName() == name)
             {
-                result.push_back(entry);
+                output.push_back(child);
             }
+            CollectDescendantsByName(child, name, output);
+        }
+    }
+
+    static std::shared_ptr<OpenXMLElement> FindTrailingSectionProperties(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>& body)
+    {
+        if (!body)
+        {
+            return nullptr;
+        }
+
+        auto children = body->Children();
+        if (children.empty())
+        {
+            return nullptr;
+        }
+
+        auto last = children.back();
+        if (last && last->QualifiedName() == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "sectPr"))
+        {
+            return last;
+        }
+        return nullptr;
+    }
+
+    static std::shared_ptr<OpenXMLElement> FindFirstBodyChild(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>& body)
+    {
+        if (!body)
+        {
+            return nullptr;
+        }
+
+        auto children = body->Children();
+        if (children.empty())
+        {
+            return nullptr;
+        }
+        return children.front();
+    }
+
+    static std::shared_ptr<OpenXMLElement> FindFirstChildByName(
+        const std::shared_ptr<OpenXMLElement>& element,
+        const ExyokiOffice::OpenXmlQualifiedName& name)
+    {
+        if (!element)
+        {
+            return nullptr;
+        }
+
+        for (const auto& child : element->Children())
+        {
+            if (child && child->QualifiedName() == name)
+            {
+                return child;
+            }
+        }
+        return nullptr;
+    }
+};
+
+/// Header and footer references, their parts and relationships.
+class WordHeaderFooterHelper
+{
+public:
+    static ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues ToDomHeaderFooterType(
+        HeaderFooterType type)
+    {
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues;
+        switch (type)
+        {
+            case HeaderFooterType::Even:
+                return HeaderFooterValues::Even;
+            case HeaderFooterType::First:
+                return HeaderFooterValues::First;
+            case HeaderFooterType::Default:
+            default:
+                return HeaderFooterValues::Default;
+        }
+    }
+
+    static std::optional<HeaderFooterType> FromDomHeaderFooterType(
+        ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues value)
+    {
+        using ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues;
+        switch (value.GetValue())
+        {
+            case HeaderFooterValues::Default:
+                return HeaderFooterType::Default;
+            case HeaderFooterValues::Even:
+                return HeaderFooterType::Even;
+            case HeaderFooterValues::First:
+                return HeaderFooterType::First;
+            default:
+                return std::nullopt;
+        }
+    }
+
+    static std::optional<HeaderFooterType> TryParseHeaderFooterTypeString(std::string value)
+    {
+        value = AsciiText::ToLower(std::move(value));
+        if (value == "default")
+        {
+            return HeaderFooterType::Default;
+        }
+        if (value == "even")
+        {
+            return HeaderFooterType::Even;
+        }
+        if (value == "first")
+        {
+            return HeaderFooterType::First;
+        }
+        return std::nullopt;
+    }
+
+    static std::optional<HeaderFooterType> GetHeaderFooterReferenceType(
+        const std::shared_ptr<OpenXMLElement>& reference)
+    {
+        if (!reference)
+        {
+            return std::nullopt;
+        }
+
+        if (auto typed = std::dynamic_pointer_cast<
+                ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterReferenceType>(reference))
+        {
+            auto value = typed->GetType();
+            if (value.IsDefined())
+            {
+                if (auto parsed = FromDomHeaderFooterType(value.Value()))
+                {
+                    return parsed;
+                }
+                if (auto parsed = TryParseHeaderFooterTypeString(value.ToString()))
+                {
+                    return parsed;
+                }
+            }
+        }
+
+        EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues> rawValue;
+        if (reference->TryGetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "type"),
+                                            rawValue) &&
+            rawValue.IsDefined())
+        {
+            if (auto parsed = FromDomHeaderFooterType(rawValue.Value()))
+            {
+                return parsed;
+            }
+            if (auto parsed = TryParseHeaderFooterTypeString(rawValue.ToString()))
+            {
+                return parsed;
+            }
+        }
+
+        StringValue rawString;
+        if (reference->TryGetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "type"),
+                                            rawString) &&
+            rawString.IsDefined())
+        {
+            return TryParseHeaderFooterTypeString(rawString.ToString());
+        }
+
+        return std::nullopt;
+    }
+
+    static std::string GetRelationshipId(const std::shared_ptr<OpenXMLElement>& reference)
+    {
+        if (!reference)
+        {
+            return {};
+        }
+
+        std::string_view raw;
+        if (reference->TryGetAttribute(ExyokiOffice::OpenXmlQualifiedName(kOfficeRelationshipsNamespace, "id"),
+                                       raw))
+        {
+            return std::string(raw);
+        }
+
+        if (auto typed = std::dynamic_pointer_cast<
+                ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterReferenceType>(reference))
+        {
+            auto value = typed->GetId();
+            if (value.IsDefined())
+            {
+                return value.ToString();
+            }
+        }
+
+        StringValue value;
+        if (reference->TryGetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kOfficeRelationshipsNamespace, "id"),
+                                            value) &&
+            value.IsDefined())
+        {
+            return value.ToString();
+        }
+        return {};
+    }
+
+    static bool IsHeaderReferenceName(const ExyokiOffice::OpenXmlQualifiedName& name)
+    {
+        return name == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "headerReference");
+    }
+
+    static bool IsFooterReferenceName(const ExyokiOffice::OpenXmlQualifiedName& name)
+    {
+        return name == ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "footerReference");
+    }
+
+    static bool IsHeaderFooterReferenceName(const ExyokiOffice::OpenXmlQualifiedName& name)
+    {
+        return IsHeaderReferenceName(name) || IsFooterReferenceName(name);
+    }
+
+    static std::shared_ptr<OpenXMLElement> FindHeaderFooterReference(
+        const std::shared_ptr<OpenXMLElement>& sectionProperties,
+        bool header,
+        HeaderFooterType type)
+    {
+        if (!sectionProperties)
+        {
+            return nullptr;
+        }
+
+        for (const auto& child : sectionProperties->Children())
+        {
+            if (!child)
+            {
+                continue;
+            }
+            const auto& name = child->QualifiedName();
+            if ((header && !IsHeaderReferenceName(name)) || (!header && !IsFooterReferenceName(name)))
+            {
+                continue;
+            }
+            if (GetHeaderFooterReferenceType(child).value_or(HeaderFooterType::Default) == type)
+            {
+                return child;
+            }
+        }
+        return nullptr;
+    }
+
+    static std::shared_ptr<OpenXMLElement> FindHeaderFooterReferenceInsertBefore(
+        const std::shared_ptr<OpenXMLElement>& sectionProperties)
+    {
+        if (!sectionProperties)
+        {
+            return nullptr;
+        }
+
+        for (const auto& child : sectionProperties->Children())
+        {
+            if (child && !IsHeaderFooterReferenceName(child->QualifiedName()))
+            {
+                return child;
+            }
+        }
+        return nullptr;
+    }
+
+    template <typename TReference>
+    static std::shared_ptr<TReference> AppendHeaderFooterReference(
+        const std::shared_ptr<OpenXMLElement>& sectionProperties,
+        HeaderFooterType type,
+        std::string_view relationshipId)
+    {
+        if (!sectionProperties)
+        {
+            return nullptr;
+        }
+
+        auto reference = sectionProperties->InsertChild<TReference>(
+            FindHeaderFooterReferenceInsertBefore(sectionProperties));
+        if (!reference)
+        {
+            return nullptr;
+        }
+        // The typed setters already write `w:type` and a namespace-qualified `r:id`;
+        // writing them again as raw prefixed names would emit a second, literally
+        // named attribute and leave the part malformed.
+        reference->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderFooterValues>(
+            ToDomHeaderFooterType(type)));
+        reference->SetId(StringValue(std::string(relationshipId)));
+        return reference;
+    }
+
+    static std::shared_ptr<Packaging::HeaderPart> FindHeaderPartByRelationshipId(
+        const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
+        std::string_view relationshipId)
+    {
+        if (!mainPart || relationshipId.empty())
+        {
+            return nullptr;
+        }
+
+        for (const auto& part : mainPart->GetHeaderParts())
+        {
+            if (!part)
+            {
+                continue;
+            }
+            if (part->RelationshipId() == relationshipId)
+            {
+                return part;
+            }
+            for (const auto& incoming : part->IncomingRelationships())
+            {
+                if (incoming.Id == relationshipId)
+                {
+                    return part;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    static std::shared_ptr<Packaging::FooterPart> FindFooterPartByRelationshipId(
+        const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
+        std::string_view relationshipId)
+    {
+        if (!mainPart || relationshipId.empty())
+        {
+            return nullptr;
+        }
+
+        for (const auto& part : mainPart->GetFooterParts())
+        {
+            if (!part)
+            {
+                continue;
+            }
+            if (part->RelationshipId() == relationshipId)
+            {
+                return part;
+            }
+            for (const auto& incoming : part->IncomingRelationships())
+            {
+                if (incoming.Id == relationshipId)
+                {
+                    return part;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    static Size CountSectionReferencesToRelationship(
+        const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
+        const std::string& relationshipId)
+    {
+        if (!mainPart || relationshipId.empty())
+        {
+            return 0;
+        }
+
+        auto root = mainPart->GetTypedRootElement();
+        if (!root)
+        {
+            return 0;
+        }
+
+        std::vector<std::shared_ptr<OpenXMLElement>> sections;
+        WordBodyHelper::CollectDescendantsByName(root, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "sectPr"), sections);
+
+        Size count = 0;
+        for (const auto& section : sections)
+        {
+            if (!section)
+            {
+                continue;
+            }
+            for (const auto& child : section->Children())
+            {
+                if (!child || !IsHeaderFooterReferenceName(child->QualifiedName()))
+                {
+                    continue;
+                }
+                if (GetRelationshipId(child) == relationshipId)
+                {
+                    ++count;
+                }
+            }
+        }
+        return count;
+    }
+
+    static bool RemoveHeaderFooterReference(
+        const std::shared_ptr<OpenXMLElement>& sectionProperties,
+        const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
+        bool header,
+        HeaderFooterType type)
+    {
+        auto reference = FindHeaderFooterReference(sectionProperties, header, type);
+        if (!sectionProperties || !reference)
+        {
+            return false;
+        }
+
+        const auto relationshipId = GetRelationshipId(reference);
+        if (!sectionProperties->RemoveChild(reference))
+        {
+            return false;
+        }
+
+        if (!mainPart || relationshipId.empty() ||
+            CountSectionReferencesToRelationship(mainPart, relationshipId) != 0)
+        {
+            return true;
+        }
+
+        if (header)
+        {
+            return mainPart->RemoveHeaderPart(FindHeaderPartByRelationshipId(mainPart, relationshipId));
+        }
+        return mainPart->RemoveFooterPart(FindFooterPartByRelationshipId(mainPart, relationshipId));
+    }
+};
+
+/// The pPr/rPr/tblPr property elements, created on demand.
+class WordPropertiesElementHelper
+{
+public:
+    // The two accessors below are defined further down; at namespace scope they
+    // needed declaring first, inside a class they do not.
+    static std::shared_ptr<ExyokiOffice::OpenXMLElement> EnsureParagraphProperties(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph)
+    {
+        if (!paragraph)
+        {
+            return nullptr;
+        }
+        auto properties = GetParagraphPropertiesElement(paragraph);
+        if (properties)
+        {
+            return properties;
+        }
+        auto children = paragraph->Children();
+        return paragraph->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties>(
+            children.empty() ? nullptr : children.front());
+    }
+
+    static std::shared_ptr<ExyokiOffice::OpenXMLElement> EnsureRunProperties(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>& run)
+    {
+        if (!run)
+        {
+            return nullptr;
+        }
+        auto properties = GetRunPropertiesElement(run);
+        if (properties)
+        {
+            return properties;
+        }
+        auto children = run->Children();
+        return run->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties>(
+            children.empty() ? nullptr : children.front());
+    }
+
+    static std::shared_ptr<ExyokiOffice::OpenXMLElement> GetParagraphPropertiesElement(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph)
+    {
+        if (!paragraph)
+        {
+            return nullptr;
+        }
+        auto properties = paragraph->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties>();
+        return properties ? std::static_pointer_cast<ExyokiOffice::OpenXMLElement>(properties)
+                          : WordPropertyReadHelper::FindDirectWordChild(paragraph, "pPr");
+    }
+
+    static std::shared_ptr<ExyokiOffice::OpenXMLElement> GetRunPropertiesElement(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>& run)
+    {
+        if (!run)
+        {
+            return nullptr;
+        }
+        auto properties = run->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties>();
+        return properties ? std::static_pointer_cast<ExyokiOffice::OpenXMLElement>(properties)
+                          : WordPropertyReadHelper::FindDirectWordChild(run, "rPr");
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties> EnsureTableProperties(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table)
+    {
+        return WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties>(table);
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties> EnsureTableCellProperties(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
+    {
+        return WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>(cell);
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow> EnsureTableRow(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table, Size rowIndex)
+    {
+        if (!table)
+        {
+            return nullptr;
+        }
+
+        auto rows = table->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
+        if (rowIndex < rows.size())
+        {
+            return rows[rowIndex];
+        }
+
+        for (Size i = rows.size(); i <= rowIndex; ++i)
+        {
+            auto row = table->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
+            if (!row)
+            {
+                return nullptr;
+            }
+        }
+
+        rows = table->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
+        if (rowIndex < rows.size())
+        {
+            return rows[rowIndex];
+        }
+        return nullptr;
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties> EnsureTableRowProperties(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>& row)
+    {
+        return WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow,
+                                                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties>(row);
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableGrid> EnsureTableGrid(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table)
+    {
+        return WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table,
+                                                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableGrid>(table);
+    }
+};
+
+/// The numbering part: abstract definitions, instances and levels.
+class WordNumberingHelper
+{
+public:
+    static std::shared_ptr<Packaging::NumberingDefinitionsPart> EnsureNumberingDefinitionsPart(
+        const WordDocument::Ptr& document)
+    {
+        if (!document)
+        {
+            return nullptr;
+        }
+
+        auto mainPart = document->GetMainDocumentPart();
+        if (!mainPart)
+        {
+            mainPart = document->AddMainDocumentPart();
+        }
+        if (!mainPart)
+        {
+            return nullptr;
+        }
+
+        auto numberingPart = mainPart->GetNumberingDefinitionsPart();
+        if (!numberingPart)
+        {
+            numberingPart = mainPart->AddNumberingDefinitionsPart();
+        }
+        return numberingPart;
+    }
+
+    static std::shared_ptr<Packaging::NumberingDefinitionsPart> GetNumberingDefinitionsPart(
+        const WordDocument::Ptr& document)
+    {
+        auto mainPart = WordStructureHelper::GetMainDocumentPart(document);
+        return mainPart ? mainPart->GetNumberingDefinitionsPart() : nullptr;
+    }
+
+    static int NextAbstractNumberingId(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering)
+    {
+        int maxId = 0;
+        if (!numbering)
+        {
+            return 1;
+        }
+
+        for (const auto& abstractNum : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::AbstractNum>())
+        {
+            if (!abstractNum)
+            {
+                continue;
+            }
+            const auto current = abstractNum->GetAbstractNumberId().Value();
+            maxId = std::max(maxId, current);
+        }
+
+        return maxId + 1;
+    }
+
+    static int NextNumberingInstanceId(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering)
+    {
+        int maxId = 0;
+        if (!numbering)
+        {
+            return 1;
+        }
+
+        for (const auto& instance : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>())
+        {
+            if (!instance)
+            {
+                continue;
+            }
+            const auto current = instance->GetNumberID().Value();
+            maxId = std::max(maxId, current);
+        }
+
+        return maxId + 1;
+    }
+
+    static std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::AbstractNum> FindAbstractNumByName(
+        const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
+        std::string_view name)
+    {
+        if (!numbering || name.empty())
+        {
+            return nullptr;
+        }
+
+        for (const auto& abstractNum : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::AbstractNum>())
+        {
+            if (!abstractNum)
+            {
+                continue;
+            }
+            auto defName = abstractNum->GetFirstChildOfType<
+                DocumentFormat::OpenXml::Wordprocessing::AbstractNumDefinitionName>();
+            if (!defName)
+            {
+                continue;
+            }
+            if (defName->GetVal().ToString() == name)
+            {
+                return abstractNum;
+            }
+        }
+        return nullptr;
+    }
+
+    static std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::AbstractNum> FindAbstractNumById(
+        const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
+        int abstractId)
+    {
+        if (!numbering)
+        {
+            return nullptr;
+        }
+
+        for (const auto& abstractNum : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::AbstractNum>())
+        {
+            if (abstractNum && abstractNum->GetAbstractNumberId().IsDefined() && abstractNum->GetAbstractNumberId().Value() == abstractId)
+            {
+                return abstractNum;
+            }
+        }
+        return nullptr;
+    }
+
+    static std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance> FindNumberingInstanceForAbstract(
+        const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
+        int abstractId)
+    {
+        if (!numbering)
+        {
+            return nullptr;
+        }
+
+        for (const auto& instance : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>())
+        {
+            if (!instance)
+            {
+                continue;
+            }
+            auto abstractNumId = instance->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::AbstractNumId>();
+            if (abstractNumId && abstractNumId->GetVal().Value() == abstractId)
+            {
+                return instance;
+            }
+        }
+        return nullptr;
+    }
+
+    static std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance> FindNumberingInstanceById(
+        const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
+        int numberingId)
+    {
+        if (!numbering)
+        {
+            return nullptr;
+        }
+
+        for (const auto& instance : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>())
+        {
+            if (instance && instance->GetNumberID().IsDefined() && instance->GetNumberID().Value() == numberingId)
+            {
+                return instance;
+            }
+        }
+        return nullptr;
+    }
+
+    static std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::AbstractNum> GetAbstractNumForInstance(
+        const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
+        int numberingId)
+    {
+        auto instance = FindNumberingInstanceById(numbering, numberingId);
+        auto abstractNumId = instance ? instance->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::AbstractNumId>()
+                                      : nullptr;
+        if (!abstractNumId || !abstractNumId->GetVal().IsDefined())
+        {
+            return nullptr;
+        }
+        return FindAbstractNumById(numbering, abstractNumId->GetVal().Value());
+    }
+
+    static std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering> GetNumberingRoot(
+        const WordDocument::Ptr& document,
+        bool create)
+    {
+        auto numberingPart = create ? EnsureNumberingDefinitionsPart(document) : GetNumberingDefinitionsPart(document);
+        return numberingPart ? numberingPart->GetTypedRootElement() : nullptr;
+    }
+
+    static std::string DefaultLevelText(int level)
+    {
+        if (level < 0)
+        {
+            level = 0;
+        }
+        if (level > 8)
+        {
+            level = 8;
+        }
+
+        std::string text;
+        for (int index = 0; index <= level; ++index)
+        {
+            if (!text.empty())
+            {
+                text += ".";
+            }
+            text += "%";
+            text += std::to_string(index + 1);
+        }
+        text += ".";
+        return text;
+    }
+
+    static NumberingLevelDefinition NormalizeLevel(NumberingLevelDefinition level)
+    {
+        level.Level = std::clamp(level.Level, 0, 8);
+        if (level.Start < 0)
+        {
+            level.Start = 0;
+        }
+        if (level.LevelText.empty())
+        {
+            level.LevelText = level.Format == DocumentFormat::OpenXml::Wordprocessing::NumberFormatValues::Bullet
+                                  ? "*"
+                                  : DefaultLevelText(level.Level);
+        }
+        return level;
+    }
+
+    static void WriteLevelDefinition(
+        const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Level>& levelElement,
+        const NumberingLevelDefinition& input)
+    {
+        if (!levelElement)
+        {
+            return;
+        }
+
+        const auto level = NormalizeLevel(input);
+        levelElement->SetLevelIndex(Int32Value(level.Level));
+
+        auto start = WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
+                                                            DocumentFormat::OpenXml::Wordprocessing::StartNumberingValue>(levelElement);
+        if (start)
+        {
+            start->SetVal(Int32Value(level.Start));
+        }
+
+        auto format = WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
+                                                             DocumentFormat::OpenXml::Wordprocessing::NumberingFormat>(levelElement);
+        if (format)
+        {
+            format->SetVal(EnumValue<DocumentFormat::OpenXml::Wordprocessing::NumberFormatValues>(level.Format));
+        }
+
+        if (!level.ParagraphStyleId.empty())
+        {
+            auto paragraphStyle = WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
+                                                                         DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>(levelElement);
+            if (paragraphStyle)
+            {
+                paragraphStyle->SetVal(StringValue(level.ParagraphStyleId));
+            }
+        }
+
+        auto text = WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
+                                                           DocumentFormat::OpenXml::Wordprocessing::LevelText>(levelElement);
+        if (text)
+        {
+            text->SetVal(StringValue(level.LevelText));
+        }
+
+        auto suffix = WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
+                                                             DocumentFormat::OpenXml::Wordprocessing::LevelSuffix>(levelElement);
+        if (suffix)
+        {
+            suffix->SetVal(EnumValue<DocumentFormat::OpenXml::Wordprocessing::LevelSuffixValues>(level.Suffix));
+        }
+
+        auto justification = WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
+                                                                    DocumentFormat::OpenXml::Wordprocessing::LevelJustification>(levelElement);
+        if (justification)
+        {
+            justification->SetVal(EnumValue<DocumentFormat::OpenXml::Wordprocessing::LevelJustificationValues>(
+                level.Justification));
+        }
+
+        if (level.LeftIndent || level.HangingIndent)
+        {
+            auto pProps = WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
+                                                                 DocumentFormat::OpenXml::Wordprocessing::PreviousParagraphProperties>(
+                levelElement);
+            auto indent =
+                WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::PreviousParagraphProperties,
+                                                       DocumentFormat::OpenXml::Wordprocessing::Indentation>(pProps);
+            if (indent)
+            {
+                if (level.LeftIndent)
+                {
+                    indent->SetLeft(StringValue(std::to_string(WordValueHelper::ToTwipsUInt32(*level.LeftIndent))));
+                }
+                if (level.HangingIndent)
+                {
+                    indent->SetHanging(StringValue(std::to_string(WordValueHelper::ToTwipsUInt32(*level.HangingIndent))));
+                }
+            }
+        }
+
+        if (level.RestartAfterLevel)
+        {
+            auto restart = WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
+                                                                  DocumentFormat::OpenXml::Wordprocessing::LevelRestart>(levelElement);
+            if (restart)
+            {
+                restart->SetVal(Int32Value(*level.RestartAfterLevel));
+            }
+        }
+
+        if (level.LegalNumbering)
+        {
+            auto legal = WordStructureHelper::EnsureChildOfType<DocumentFormat::OpenXml::Wordprocessing::Level,
+                                                                DocumentFormat::OpenXml::Wordprocessing::IsLegalNumberingStyle>(levelElement);
+            if (legal)
+            {
+                legal->SetVal(OnOffValue(true));
+            }
+        }
+    }
+
+    static std::optional<NumberingLevelDefinition> ReadLevelDefinition(
+        const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Level>& level)
+    {
+        if (!level || !level->GetLevelIndex().IsDefined())
+        {
+            return std::nullopt;
+        }
+
+        NumberingLevelDefinition result;
+        result.Level = level->GetLevelIndex().Value();
+        if (auto start = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::StartNumberingValue>();
+            start && start->GetVal().IsDefined())
+        {
+            result.Start = start->GetVal().Value();
+        }
+        if (auto format = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::NumberingFormat>();
+            format && format->GetVal().IsDefined())
+        {
+            result.Format = format->GetVal().Value();
+        }
+        if (auto text = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::LevelText>();
+            text && text->GetVal().IsDefined())
+        {
+            result.LevelText = text->GetVal().ToString();
+        }
+        if (auto suffix = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::LevelSuffix>();
+            suffix && suffix->GetVal().IsDefined())
+        {
+            result.Suffix = suffix->GetVal().Value();
+        }
+        if (auto justification = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::LevelJustification>();
+            justification && justification->GetVal().IsDefined())
+        {
+            result.Justification = justification->GetVal().Value();
+        }
+        if (auto paragraphStyle = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>();
+            paragraphStyle && paragraphStyle->GetVal().IsDefined())
+        {
+            result.ParagraphStyleId = paragraphStyle->GetVal().ToString();
+        }
+        if (auto restart = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::LevelRestart>();
+            restart && restart->GetVal().IsDefined())
+        {
+            result.RestartAfterLevel = restart->GetVal().Value();
+        }
+        if (auto legal = level->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::IsLegalNumberingStyle>())
+        {
+            result.LegalNumbering = legal->GetVal().ValueOr(true);
         }
         return result;
     }
 
-    /// Climbs `w15:paraIdParent` links to the thread root's key.
-    [[nodiscard]] static UInt32 ThreadRootParaId(const MainPart& mainDocumentPart, UInt32 paraId)
+    static std::vector<NumberingLevelOverride> ReadLevelOverrides(
+        const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>& instance)
     {
-        UInt32 current = paraId;
-        for (int depth = 0; depth < kMaximumThreadDepth && current != 0; ++depth)
+        std::vector<NumberingLevelOverride> overrides;
+        if (!instance)
         {
-            auto row = FindCommentEx(mainDocumentPart, current);
-            if (!row)
-            {
-                break;
-            }
-            const auto parent = ReadId(row->GetParaIdParent());
-            if (parent == 0 || parent == current || !FindCommentEx(mainDocumentPart, parent))
-            {
-                break;
-            }
-            current = parent;
+            return overrides;
         }
-        return current;
+
+        for (const auto& levelOverride : instance->Elements<DocumentFormat::OpenXml::Wordprocessing::LevelOverride>())
+        {
+            if (!levelOverride || !levelOverride->GetLevelIndex().IsDefined())
+            {
+                continue;
+            }
+
+            NumberingLevelOverride output;
+            output.Level = levelOverride->GetLevelIndex().Value();
+            if (auto start =
+                    levelOverride->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::StartOverrideNumberingValue>();
+                start && start->GetVal().IsDefined())
+            {
+                output.Start = start->GetVal().Value();
+            }
+            overrides.push_back(output);
+        }
+        return overrides;
     }
 
-    /// Writes `w15:done` on one thread key and on everything below it.
-    static void SetDoneRecursive(const MainPart& mainDocumentPart, UInt32 paraId, bool resolved, int depth)
+    static std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance> AppendNumberingInstance(
+        const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering,
+        int abstractId,
+        const std::vector<NumberingLevelOverride>& overrides)
     {
-        if (paraId == 0 || depth >= kMaximumThreadDepth)
+        if (!numbering)
         {
-            return;
-        }
-        if (auto row = FindCommentEx(mainDocumentPart, paraId))
-        {
-            row->SetDone(OnOffValue(resolved));
-        }
-        for (const auto& reply : DirectReplies(mainDocumentPart, paraId))
-        {
-            SetDoneRecursive(mainDocumentPart, GetThreadParaId(reply), resolved, depth + 1);
-        }
-    }
-
-    /**
-     * @brief Inserts range markers and a reference for a reply.
-     *
-     * The reply must cover exactly the same span as the comment it answers, so
-     * the markers are threaded through the parent's, producing the shape Word
-     * itself writes: all range starts first, then the content, then one
-     * `<w:commentRangeEnd/>` plus reference run per comment on the span.
-     *
-     * @return Whether the whole marker triple could be placed.
-     */
-    static bool AddReplyBodyMarkers(const MainPart& mainDocumentPart,
-                                    const std::string& parentIdText,
-                                    const std::string& replyIdText)
-    {
-        auto root = mainDocumentPart ? mainDocumentPart->GetTypedRootElement() : nullptr;
-        if (!root)
-        {
-            return false;
+            return nullptr;
         }
 
-        std::shared_ptr<OpenXMLElement> parentStart;
-        for (const auto& start : root->Descendants<DomCommentRangeStart>())
+        auto instance = numbering->AppendChild<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>();
+        if (!instance)
         {
-            if (start && start->GetId().ToString() == parentIdText)
+            return nullptr;
+        }
+
+        instance->SetNumberID(Int32Value(NextNumberingInstanceId(numbering)));
+        auto abstractNumId = instance->AppendChild<DocumentFormat::OpenXml::Wordprocessing::AbstractNumId>();
+        if (abstractNumId)
+        {
+            abstractNumId->SetVal(Int32Value(abstractId));
+        }
+
+        for (const auto& input : overrides)
+        {
+            if (input.Level < 0 || input.Level > 8)
             {
-                parentStart = start;
-                break;
+                continue;
+            }
+            auto levelOverride = instance->AppendChild<DocumentFormat::OpenXml::Wordprocessing::LevelOverride>();
+            if (!levelOverride)
+            {
+                continue;
+            }
+            levelOverride->SetLevelIndex(Int32Value(input.Level));
+            auto start = levelOverride->AppendChild<DocumentFormat::OpenXml::Wordprocessing::StartOverrideNumberingValue>();
+            if (start)
+            {
+                start->SetVal(Int32Value(std::max(0, input.Start)));
             }
         }
-        std::shared_ptr<OpenXMLElement> parentEnd;
-        for (const auto& end : root->Descendants<DomCommentRangeEnd>())
-        {
-            if (end && end->GetId().ToString() == parentIdText)
-            {
-                parentEnd = end;
-                break;
-            }
-        }
-        if (!parentStart || !parentEnd)
-        {
-            return false;
-        }
-
-        auto startOwner = parentStart->Parent();
-        auto endOwner = parentEnd->Parent();
-        if (!startOwner || !endOwner)
-        {
-            return false;
-        }
-
-        const ExyokiOffice::OpenXmlQualifiedName rangeStartName(kWordNamespace, "commentRangeStart");
-        const ExyokiOffice::OpenXmlQualifiedName rangeEndName(kWordNamespace, "commentRangeEnd");
-
-        auto startAnchor = parentStart;
-        while (auto next = startAnchor->NextSibling())
-        {
-            if (next->QualifiedName() != rangeStartName)
-            {
-                break;
-            }
-            startAnchor = next;
-        }
-
-        auto endAnchor = parentEnd;
-        while (auto next = endAnchor->NextSibling())
-        {
-            if (next->QualifiedName() != rangeEndName && !IsCommentReferenceRun(next))
-            {
-                break;
-            }
-            endAnchor = next;
-        }
-
-        auto rangeStart = startOwner->InsertChildAfter<DomCommentRangeStart>(startAnchor);
-        if (!rangeStart)
-        {
-            return false;
-        }
-        rangeStart->SetId(StringValue(replyIdText));
-
-        auto rangeEnd = endOwner->InsertChildAfter<DomCommentRangeEnd>(endAnchor);
-        if (!rangeEnd)
-        {
-            startOwner->RemoveChild(rangeStart);
-            return false;
-        }
-        rangeEnd->SetId(StringValue(replyIdText));
-
-        auto referenceRun = endOwner->InsertChildAfter<DomRun>(rangeEnd);
-        auto reference = referenceRun ? referenceRun->AppendChild<DomCommentReference>() : nullptr;
-        if (!reference)
-        {
-            if (referenceRun)
-            {
-                endOwner->RemoveChild(referenceRun);
-            }
-            endOwner->RemoveChild(rangeEnd);
-            startOwner->RemoveChild(rangeStart);
-            return false;
-        }
-        reference->SetId(StringValue(replyIdText));
-        return true;
-    }
-
-    /**
-     * @brief Restores the "one thread key per comment" invariant after a merge.
-     *
-     * Merging copies `<w:comment>` entries verbatim, paragraph IDs included,
-     * while the satellite parts stay behind in the source. Since IDs are handed
-     * out deterministically, two documents written by this library allocate from
-     * the same sequence and the copies land on paragraph IDs the target already
-     * spends. The first entry holding an ID keeps it (that is the target's own
-     * comment, whose commentsExtended row has to stay valid) and every later
-     * collision is re-keyed. Paragraphs without an ID are left as they are.
-     */
-    static void EnsureUniqueThreadParaIds(const MainPart& mainDocumentPart)
-    {
-        if (!mainDocumentPart)
-        {
-            return;
-        }
-
-        auto used = CollectUsedIds(mainDocumentPart);
-        std::set<UInt32> seen;
-        for (const auto& entry : AllComments(mainDocumentPart))
-        {
-            for (const auto& paragraph : entry->Elements<DomParagraph>())
-            {
-                if (!paragraph)
-                {
-                    continue;
-                }
-                const auto paraId = ReadId(paragraph->GetParagraphId());
-                if (paraId == 0 || seen.insert(paraId).second)
-                {
-                    continue;
-                }
-                if (const auto replacement = AllocateId(used); replacement != 0)
-                {
-                    paragraph->SetParagraphId(MakeId(replacement));
-                    seen.insert(replacement);
-                }
-            }
-        }
-    }
-
-    /// Deletes every range marker and reference in the body for one comment ID.
-    static void RemoveBodyMarkers(const MainPart& mainDocumentPart, const std::string& idText)
-    {
-        auto root = mainDocumentPart ? mainDocumentPart->GetTypedRootElement() : nullptr;
-        if (!root)
-        {
-            return;
-        }
-        for (const auto& reference : root->Descendants<DomCommentReference>())
-        {
-            if (reference && reference->GetId().ToString() == idText)
-            {
-                RemoveMarkerAndOwningRun(reference);
-            }
-        }
-        for (const auto& start : root->Descendants<DomCommentRangeStart>())
-        {
-            if (start && start->GetId().ToString() == idText)
-            {
-                RemoveMarkerAndOwningRun(start);
-            }
-        }
-        for (const auto& end : root->Descendants<DomCommentRangeEnd>())
-        {
-            if (end && end->GetId().ToString() == idText)
-            {
-                RemoveMarkerAndOwningRun(end);
-            }
-        }
-    }
-
-private:
-    /// Maps a thread key to its durable ID, allocating and storing one if needed.
-    static UInt32 EnsureDurableId(const MainPart& mainDocumentPart, UInt32 paraId)
-    {
-        auto root = EnsureCommentsIdsRoot(mainDocumentPart);
-        if (!root)
-        {
-            return 0;
-        }
-
-        auto commentId = FindCommentId(mainDocumentPart, paraId);
-        UInt32 durableId = commentId ? ReadId(commentId->GetDurableId()) : 0;
-        if (durableId == 0)
-        {
-            auto used = CollectUsedIds(mainDocumentPart);
-            durableId = AllocateId(used);
-        }
-        if (durableId == 0)
-        {
-            return 0;
-        }
-
-        if (!commentId)
-        {
-            commentId = root->AppendChild<CommentId>();
-        }
-        if (!commentId)
-        {
-            return 0;
-        }
-        commentId->SetParaId(MakeId(paraId));
-        commentId->SetDurableId(MakeId(durableId));
-        return durableId;
-    }
-
-    [[nodiscard]] static bool IsCommentReferenceRun(const std::shared_ptr<OpenXMLElement>& element)
-    {
-        if (!element || element->QualifiedName() != ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "r"))
-        {
-            return false;
-        }
-        return element->GetChild(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "commentReference")) != nullptr;
+        return instance;
     }
 };
 
-} // namespace
+/// Table cells, grid spans and the vertical merge model.
+class WordTableHelper
+{
+public:
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> AppendEmptyTableCell(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>& row)
+    {
+        if (!row)
+        {
+            return nullptr;
+        }
+
+        auto cell = row->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>();
+        if (cell)
+        {
+            cell->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
+        }
+        return cell;
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> InsertEmptyTableCell(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>& row,
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& before = nullptr)
+    {
+        if (!row)
+        {
+            return nullptr;
+        }
+
+        auto cell = row->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>(before);
+        if (cell)
+        {
+            cell->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
+        }
+        return cell;
+    }
+
+    static int TableCellGridSpan(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
+    {
+        auto props = cell ? cell->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>() : nullptr;
+        auto span = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridSpan>() : nullptr;
+        return std::max(1, span ? span->GetVal().ValueOr(1) : 1);
+    }
+
+    static std::string TableCellVerticalMergeValue(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
+    {
+        auto props = cell ? cell->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>() : nullptr;
+        auto merge = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::VerticalMerge>() : nullptr;
+        if (!merge)
+        {
+            return {};
+        }
+        auto value = WordPropertyReadHelper::RawValAttributeOrEmpty(merge);
+        return value.empty() ? std::string("continue") : value;
+    }
+
+    static void RemoveTableCellMergeMarkup(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
+    {
+        auto props = cell ? cell->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>() : nullptr;
+        if (!props)
+        {
+            return;
+        }
+
+        if (auto span = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridSpan>())
+        {
+            props->RemoveChild(span);
+        }
+        if (auto merge = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HorizontalMerge>())
+        {
+            props->RemoveChild(merge);
+        }
+        if (auto merge = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::VerticalMerge>())
+        {
+            props->RemoveChild(merge);
+        }
+    }
+
+    static void RemoveTableCellBlockContent(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
+    {
+        if (!cell)
+        {
+            return;
+        }
+
+        for (const auto& child : cell->Children())
+        {
+            if (!ExyokiOffice::openxmlelement_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>(child))
+            {
+                cell->RemoveChild(child);
+            }
+        }
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Text> AppendTextRunToTableCellParagraph(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
+        std::string_view text,
+        bool preserveSpaces)
+    {
+        if (!paragraph)
+        {
+            return nullptr;
+        }
+
+        auto run = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
+        if (!run)
+        {
+            return nullptr;
+        }
+
+        auto textElement = run->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Text>();
+        if (!textElement)
+        {
+            return nullptr;
+        }
+
+        textElement->SetText(text);
+        if (preserveSpaces)
+        {
+            textElement->SetSpace(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues>(
+                ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues::Preserve));
+        }
+
+        return textElement;
+    }
+
+    struct PhysicalTableCell
+    {
+        std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> Cell;
+        Size PhysicalIndex = 0;
+        Size StartColumn = 0;
+        Size ColumnSpan = 1;
+    };
+
+    static std::vector<PhysicalTableCell> PhysicalCellsForRow(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>& row)
+    {
+        std::vector<PhysicalTableCell> result;
+        if (!row)
+        {
+            return result;
+        }
+
+        Size logicalColumn = 0;
+        auto cells = row->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>();
+        for (Size i = 0; i < cells.size(); ++i)
+        {
+            const auto span = static_cast<Size>(TableCellGridSpan(cells[i]));
+            result.push_back({cells[i], i, logicalColumn, std::max<Size>(1, span)});
+            logicalColumn += std::max<Size>(1, span);
+        }
+        return result;
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> FindLogicalTableCell(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table,
+        Size rowIndex,
+        Size columnIndex)
+    {
+        if (!table)
+        {
+            return nullptr;
+        }
+
+        const auto rows = table->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
+        if (rowIndex >= rows.size())
+        {
+            return nullptr;
+        }
+
+        for (const auto& cell : PhysicalCellsForRow(rows[rowIndex]))
+        {
+            if (columnIndex >= cell.StartColumn && columnIndex < cell.StartColumn + cell.ColumnSpan)
+            {
+                return cell.Cell;
+            }
+        }
+        return nullptr;
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> EnsureLogicalTableCell(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table,
+        Size rowIndex,
+        Size columnIndex)
+    {
+        auto row = WordPropertiesElementHelper::EnsureTableRow(table, rowIndex);
+        if (!row)
+        {
+            return nullptr;
+        }
+
+        if (auto existing = FindLogicalTableCell(table, rowIndex, columnIndex))
+        {
+            return existing;
+        }
+
+        Size logicalColumns = 0;
+        for (const auto& cell : PhysicalCellsForRow(row))
+        {
+            logicalColumns = std::max(logicalColumns, cell.StartColumn + cell.ColumnSpan);
+        }
+
+        while (logicalColumns <= columnIndex)
+        {
+            if (!AppendEmptyTableCell(row))
+            {
+                return nullptr;
+            }
+            ++logicalColumns;
+        }
+        return FindLogicalTableCell(table, rowIndex, columnIndex);
+    }
+
+    static void EnsureTableGridColumnCount(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table,
+        Size columnCount)
+    {
+        auto grid = WordPropertiesElementHelper::EnsureTableGrid(table);
+        if (!grid)
+        {
+            return;
+        }
+
+        auto columns = grid->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridColumn>();
+        while (columns.size() > columnCount)
+        {
+            grid->RemoveChild(columns.back());
+            columns.pop_back();
+        }
+        while (columns.size() < columnCount)
+        {
+            if (!grid->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridColumn>())
+            {
+                return;
+            }
+            columns = grid->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridColumn>();
+        }
+    }
+
+    static void SetTableCellGridSpan(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell,
+        Size columnSpan)
+    {
+        auto props = WordPropertiesElementHelper::EnsureTableCellProperties(cell);
+        if (!props)
+        {
+            return;
+        }
+
+        if (auto hMerge = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HorizontalMerge>())
+        {
+            props->RemoveChild(hMerge);
+        }
+
+        auto existing = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridSpan>();
+        if (columnSpan <= 1)
+        {
+            if (existing)
+            {
+                props->RemoveChild(existing);
+            }
+            return;
+        }
+
+        auto span = existing ? existing
+                             : props->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridSpan>();
+        if (span)
+        {
+            span->SetVal(Int32Value(static_cast<int>(columnSpan)));
+        }
+    }
+
+    static void SetTableCellVerticalMerge(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell,
+        std::optional<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MergedCellValues> value)
+    {
+        auto props = WordPropertiesElementHelper::EnsureTableCellProperties(cell);
+        if (!props)
+        {
+            return;
+        }
+
+        auto merge = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::VerticalMerge>();
+        if (!value)
+        {
+            if (merge)
+            {
+                props->RemoveChild(merge);
+            }
+            return;
+        }
+
+        merge = merge ? merge : props->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::VerticalMerge>();
+        if (merge)
+        {
+            merge->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MergedCellValues>(*value));
+        }
+    }
+};
+
+/// Inline drawings: pictures, their parts and layout state.
+class WordDrawingHelper
+{
+public:
+    static bool PopulateDrawingWithPicture(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing,
+                                           const std::string& relationshipId,
+                                           Int64 widthEmu,
+                                           Int64 heightEmu,
+                                           ImageLayout layout,
+                                           ImageWrap wrap,
+                                           UInt32 docId,
+                                           std::string_view name)
+    {
+        if (!drawing)
+        {
+            return false;
+        }
+
+        const auto pictureName = name.empty() ? "Picture " + std::to_string(docId) : std::string(name);
+
+        std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline> inlineDrawing;
+        std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor> anchorDrawing;
+
+        if (layout == ImageLayout::Inline)
+        {
+            inlineDrawing = drawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>();
+            inlineDrawing->SetDistanceFromTop(UInt32Value(0));
+            inlineDrawing->SetDistanceFromBottom(UInt32Value(0));
+            inlineDrawing->SetDistanceFromLeft(UInt32Value(0));
+            inlineDrawing->SetDistanceFromRight(UInt32Value(0));
+        }
+        else
+        {
+            anchorDrawing = drawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor>();
+            anchorDrawing->SetDistanceFromTop(UInt32Value(0));
+            anchorDrawing->SetDistanceFromBottom(UInt32Value(0));
+            anchorDrawing->SetDistanceFromLeft(UInt32Value(0));
+            anchorDrawing->SetDistanceFromRight(UInt32Value(0));
+            anchorDrawing->SetSimplePos(BooleanValue(false));
+            anchorDrawing->SetRelativeHeight(UInt32Value(0));
+            anchorDrawing->SetBehindDoc(BooleanValue(false));
+            anchorDrawing->SetLocked(BooleanValue(false));
+            anchorDrawing->SetLayoutInCell(BooleanValue(true));
+            anchorDrawing->SetAllowOverlap(BooleanValue(true));
+
+            auto simplePos = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::SimplePosition>();
+            simplePos->SetX(Int64Value(0));
+            simplePos->SetY(Int64Value(0));
+
+            auto positionH = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition>();
+            positionH->SetRelativeFrom(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues>(
+                ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues::Page));
+            auto hOffset = positionH->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>();
+            hOffset->SetText("0");
+
+            auto positionV = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition>();
+            positionV->SetRelativeFrom(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues>(
+                ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues::Page));
+            auto vOffset = positionV->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>();
+            vOffset->SetText("0");
+
+            auto effectExtent = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::EffectExtent>();
+            effectExtent->SetLeftEdge(Int64Value(0));
+            effectExtent->SetTopEdge(Int64Value(0));
+            effectExtent->SetRightEdge(Int64Value(0));
+            effectExtent->SetBottomEdge(Int64Value(0));
+        }
+
+        std::shared_ptr<OpenXMLElement> container = inlineDrawing ? std::dynamic_pointer_cast<OpenXMLElement>(inlineDrawing) : std::dynamic_pointer_cast<OpenXMLElement>(anchorDrawing);
+        if (!container)
+        {
+            return false;
+        }
+
+        auto extent = container->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Extent>();
+        extent->SetCx(Int64Value(widthEmu));
+        extent->SetCy(Int64Value(heightEmu));
+
+        auto docProps = container->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>();
+        docProps->SetId(UInt32Value(docId));
+        docProps->SetName(StringValue(pictureName));
+
+        auto graphicFrameProps = container->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::NonVisualGraphicFrameDrawingProperties>();
+        auto graphicFrameLocks = graphicFrameProps->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::GraphicFrameLocks>();
+        graphicFrameLocks->SetNoChangeAspect(BooleanValue(true));
+
+        auto graphic = container->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>();
+        auto graphicData = graphic->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::GraphicData>();
+        graphicData->SetUri(StringValue(std::string(kDrawingPictureNamespace)));
+
+        auto picture = graphicData->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture>();
+        auto nvPicPr = picture->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualPictureProperties>();
+        auto cNvPr = nvPicPr->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>();
+        cNvPr->SetId(UInt32Value(docId));
+        cNvPr->SetName(StringValue(pictureName));
+        auto cNvPicPr = nvPicPr->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualPictureDrawingProperties>();
+        cNvPicPr->SetPreferRelativeResize(BooleanValue(true));
+
+        auto blipFill = picture->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::BlipFill>();
+        auto blip = blipFill->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Blip>();
+        blip->SetEmbed(StringValue(relationshipId));
+        blip->SetCompressionState(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::BlipCompressionValues>(
+            ExyokiOffice::DocumentFormat::OpenXml::Drawing::BlipCompressionValues::Print));
+
+        auto stretch = blipFill->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Stretch>();
+        stretch->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::FillRectangle>();
+
+        auto shapeProps = picture->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties>();
+        auto transform = shapeProps->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>();
+        auto offset = transform->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Offset>();
+        offset->SetX(Int64Value(0));
+        offset->SetY(Int64Value(0));
+        auto extents = transform->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Extents>();
+        extents->SetCx(Int64Value(widthEmu));
+        extents->SetCy(Int64Value(heightEmu));
+        auto geometry = shapeProps->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::PresetGeometry>();
+        geometry->SetPreset(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::ShapeTypeValues>(ExyokiOffice::DocumentFormat::OpenXml::Drawing::ShapeTypeValues::Rectangle));
+        geometry->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::AdjustValueList>();
+
+        if (anchorDrawing)
+        {
+            switch (wrap)
+            {
+                case ImageWrap::None:
+                    anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapNone>();
+                    break;
+
+                case ImageWrap::Square:
+                {
+                    auto wrapSquare = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapSquare>();
+                    wrapSquare->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(
+                        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides));
+                    break;
+                }
+
+                case ImageWrap::Tight:
+                {
+                    auto wrapTight = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTight>();
+                    wrapTight->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(
+                        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides));
+                    break;
+                }
+
+                case ImageWrap::Through:
+                {
+                    auto wrapThrough = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapThrough>();
+                    wrapThrough->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(
+                        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides));
+                    break;
+                }
+
+                case ImageWrap::TopAndBottom:
+                    anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTopBottom>();
+                    break;
+            }
+        }
+
+        return true;
+    }
+
+    static std::shared_ptr<Packaging::ImagePart> CreateImagePartFromData(const std::shared_ptr<Packaging::MainDocumentPart>& mainPart,
+                                                                         std::vector<Byte> data,
+                                                                         std::string_view contentType)
+    {
+        if (!mainPart)
+        {
+            return nullptr;
+        }
+
+        // The content type is set before the part is attached so that the package
+        // can name the file after the image format instead of the `.bin` placeholder.
+        auto imagePart = std::make_shared<Packaging::ImagePart>();
+        if (!contentType.empty())
+        {
+            imagePart->SetContentType(std::string(contentType));
+        }
+        if (!mainPart->AddImagePart(imagePart))
+        {
+            return nullptr;
+        }
+        imagePart->SetBinaryData(std::move(data));
+        return imagePart;
+    }
+
+    struct DrawingInfo
+    {
+        std::string relationshipId;
+        UInt32 docId = 1;
+        std::string name;
+        Int64 widthEmu = 0;
+        Int64 heightEmu = 0;
+    };
+
+    static DrawingInfo ExtractDrawingInfo(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
+    {
+        DrawingInfo info{};
+        if (!drawing)
+        {
+            return info;
+        }
+
+        std::shared_ptr<OpenXMLElement> container = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>();
+        if (!container)
+        {
+            container = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor>();
+        }
+
+        if (container)
+        {
+            if (auto extent = container->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Extent>())
+            {
+                info.widthEmu = extent->GetCx().Value();
+                info.heightEmu = extent->GetCy().Value();
+            }
+            if (auto docProps = container->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
+            {
+                info.docId = static_cast<UInt32>(docProps->GetId().Value());
+                info.name = docProps->GetName().ToString();
+            }
+        }
+
+        auto graphic = container ? container->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>() : drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>();
+        if (graphic)
+        {
+            auto graphicData = graphic->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::GraphicData>();
+            if (graphicData)
+            {
+                auto picture = graphicData->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture>();
+                if (picture)
+                {
+                    auto blipFill = picture->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::BlipFill>();
+                    if (blipFill)
+                    {
+                        if (auto blip = blipFill->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Blip>())
+                        {
+                            info.relationshipId = blip->GetEmbed().ToString();
+                        }
+                    }
+                }
+            }
+        }
+
+        if (info.name.empty())
+        {
+            info.name = "Picture " + std::to_string(info.docId);
+        }
+
+        return info;
+    }
+
+    struct ImageLayoutState
+    {
+        bool hasDistances = false;
+        UInt32 distanceLeft = 0;
+        UInt32 distanceTop = 0;
+        UInt32 distanceRight = 0;
+        UInt32 distanceBottom = 0;
+
+        bool hasWrap = false;
+        ImageWrap wrap = ImageWrap::Square;
+        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues wrapText =
+            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides;
+
+        bool hasHorizontalOffset = false;
+        bool hasVerticalOffset = false;
+        Int64 horizontalOffsetEmu = 0;
+        Int64 verticalOffsetEmu = 0;
+        bool hasHorizontalAlign = false;
+        bool hasVerticalAlign = false;
+        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignmentValues horizontalAlign =
+            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignmentValues::Left;
+        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignmentValues verticalAlign =
+            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignmentValues::Top;
+        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues horizontalFrom =
+            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues::Page;
+        ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues verticalFrom =
+            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues::Page;
+
+        bool hasAnchor = false;
+        bool behindText = false;
+        bool allowOverlap = true;
+        bool locked = false;
+        bool layoutInCell = true;
+        bool simplePosEnabled = false;
+        UInt32 relativeHeight = 0;
+        bool hasSimplePosition = false;
+        Int64 simplePosX = 0;
+        Int64 simplePosY = 0;
+    };
+
+    static ImageLayoutState ExtractImageLayoutState(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
+    {
+        ImageLayoutState state{};
+        if (!drawing)
+        {
+            return state;
+        }
+
+        if (auto inlineDrawing = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>())
+        {
+            const auto left = inlineDrawing->GetDistanceFromLeft().ValueOr(0);
+            const auto top = inlineDrawing->GetDistanceFromTop().ValueOr(0);
+            const auto right = inlineDrawing->GetDistanceFromRight().ValueOr(0);
+            const auto bottom = inlineDrawing->GetDistanceFromBottom().ValueOr(0);
+
+            state.distanceLeft = left;
+            state.distanceTop = top;
+            state.distanceRight = right;
+            state.distanceBottom = bottom;
+            state.hasDistances = inlineDrawing->GetDistanceFromLeft().IsDefined() ||
+                                 inlineDrawing->GetDistanceFromTop().IsDefined() ||
+                                 inlineDrawing->GetDistanceFromRight().IsDefined() ||
+                                 inlineDrawing->GetDistanceFromBottom().IsDefined() ||
+                                 left != 0 || top != 0 || right != 0 || bottom != 0;
+        }
+
+        auto anchor = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor>();
+        if (!anchor)
+        {
+            return state;
+        }
+
+        state.hasAnchor = true;
+        state.behindText = anchor->GetBehindDoc().ValueOr(false);
+        state.allowOverlap = anchor->GetAllowOverlap().ValueOr(true);
+        state.locked = anchor->GetLocked().ValueOr(false);
+        state.layoutInCell = anchor->GetLayoutInCell().ValueOr(true);
+        state.simplePosEnabled = anchor->GetSimplePos().ValueOr(false);
+        state.relativeHeight = anchor->GetRelativeHeight().ValueOr(0);
+
+        if (!state.hasDistances)
+        {
+            const auto left = anchor->GetDistanceFromLeft().ValueOr(0);
+            const auto top = anchor->GetDistanceFromTop().ValueOr(0);
+            const auto right = anchor->GetDistanceFromRight().ValueOr(0);
+            const auto bottom = anchor->GetDistanceFromBottom().ValueOr(0);
+
+            state.distanceLeft = left;
+            state.distanceTop = top;
+            state.distanceRight = right;
+            state.distanceBottom = bottom;
+            state.hasDistances = anchor->GetDistanceFromLeft().IsDefined() ||
+                                 anchor->GetDistanceFromTop().IsDefined() ||
+                                 anchor->GetDistanceFromRight().IsDefined() ||
+                                 anchor->GetDistanceFromBottom().IsDefined() ||
+                                 left != 0 || top != 0 || right != 0 || bottom != 0;
+        }
+
+        if (auto simplePos = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::SimplePosition>())
+        {
+            state.simplePosX = simplePos->GetX().Value();
+            state.simplePosY = simplePos->GetY().Value();
+            state.hasSimplePosition = true;
+        }
+
+        if (auto positionH = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition>())
+        {
+            state.horizontalFrom = positionH->GetRelativeFrom().ValueOr(
+                ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues::Page);
+            if (auto align = positionH->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignment>())
+            {
+                const auto parsed = WordValueHelper::TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignmentValues>(align->GetText());
+                if (parsed)
+                {
+                    state.horizontalAlign = *parsed;
+                    state.hasHorizontalAlign = true;
+                }
+            }
+            if (auto offset = positionH->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>())
+            {
+                const auto parsed = WordValueHelper::TryParseInt64(offset->GetText());
+                if (parsed)
+                {
+                    state.horizontalOffsetEmu = *parsed;
+                    state.hasHorizontalOffset = true;
+                }
+            }
+        }
+
+        if (auto positionV = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition>())
+        {
+            state.verticalFrom = positionV->GetRelativeFrom().ValueOr(
+                ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues::Page);
+            if (auto align = positionV->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignment>())
+            {
+                const auto parsed = WordValueHelper::TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignmentValues>(align->GetText());
+                if (parsed)
+                {
+                    state.verticalAlign = *parsed;
+                    state.hasVerticalAlign = true;
+                }
+            }
+            if (auto offset = positionV->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>())
+            {
+                const auto parsed = WordValueHelper::TryParseInt64(offset->GetText());
+                if (parsed)
+                {
+                    state.verticalOffsetEmu = *parsed;
+                    state.hasVerticalOffset = true;
+                }
+            }
+        }
+
+        if (anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapNone>())
+        {
+            state.wrap = ImageWrap::None;
+            state.hasWrap = true;
+        }
+        else if (auto wrapSquare = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapSquare>())
+        {
+            state.wrap = ImageWrap::Square;
+            state.wrapText = wrapSquare->GetWrapText().ValueOr(
+                ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides);
+            state.hasWrap = true;
+        }
+        else if (auto wrapTight = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTight>())
+        {
+            state.wrap = ImageWrap::Tight;
+            state.wrapText = wrapTight->GetWrapText().ValueOr(
+                ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides);
+            state.hasWrap = true;
+        }
+        else if (auto wrapThrough = anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapThrough>())
+        {
+            state.wrap = ImageWrap::Through;
+            state.wrapText = wrapThrough->GetWrapText().ValueOr(
+                ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides);
+            state.hasWrap = true;
+        }
+        else if (anchor->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTopBottom>())
+        {
+            state.wrap = ImageWrap::TopAndBottom;
+            state.hasWrap = true;
+        }
+
+        return state;
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture> FindPicture(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
+    {
+        if (!drawing)
+        {
+            return nullptr;
+        }
+
+        std::shared_ptr<OpenXMLElement> container =
+            drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>();
+        if (!container)
+        {
+            container = drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor>();
+        }
+
+        auto graphic = container ? container->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>()
+                                 : drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Graphic>();
+        if (!graphic)
+        {
+            return nullptr;
+        }
+
+        auto graphicData = graphic->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::GraphicData>();
+        if (!graphicData)
+        {
+            return nullptr;
+        }
+
+        return graphicData->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture>();
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>
+    FindPictureNonVisualProperties(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
+    {
+        auto picture = FindPicture(drawing);
+        if (!picture)
+        {
+            return nullptr;
+        }
+
+        auto nvPicPr = picture->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualPictureProperties>();
+        if (!nvPicPr)
+        {
+            return nullptr;
+        }
+
+        return nvPicPr->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>();
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::BlipFill> FindPictureBlipFill(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
+    {
+        auto picture = FindPicture(drawing);
+        if (!picture)
+        {
+            return nullptr;
+        }
+
+        return picture->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::BlipFill>();
+    }
+
+    static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties> FindPictureShapeProperties(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing)
+    {
+        auto picture = FindPicture(drawing);
+        if (!picture)
+        {
+            return nullptr;
+        }
+
+        return picture->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties>();
+    }
+
+    // --- Image format/size sniffing -------------------------------------------------
+    //
+    // These helpers inspect raw image bytes to recover the real format, pixel size, and
+    // resolution instead of trusting a caller-supplied content type or file extension.
+};
+
+/// Image format probing over raw bytes.
+class WordImageFormatHelper
+{
+public:
+    static UInt16 ReadBigEndian16(std::span<const Byte> data, Size offset)
+    {
+        return static_cast<UInt16>((static_cast<UInt16>(data[offset]) << 8) |
+                                   static_cast<UInt16>(data[offset + 1]));
+    }
+
+    static UInt32 ReadBigEndian32(std::span<const Byte> data, Size offset)
+    {
+        return (static_cast<UInt32>(data[offset]) << 24) |
+               (static_cast<UInt32>(data[offset + 1]) << 16) |
+               (static_cast<UInt32>(data[offset + 2]) << 8) |
+               static_cast<UInt32>(data[offset + 3]);
+    }
+
+    static UInt16 ReadLittleEndian16(std::span<const Byte> data, Size offset)
+    {
+        return static_cast<UInt16>(static_cast<UInt16>(data[offset]) |
+                                   (static_cast<UInt16>(data[offset + 1]) << 8));
+    }
+
+    static UInt32 ReadLittleEndian32(std::span<const Byte> data, Size offset)
+    {
+        return static_cast<UInt32>(data[offset]) | (static_cast<UInt32>(data[offset + 1]) << 8) |
+               (static_cast<UInt32>(data[offset + 2]) << 16) |
+               (static_cast<UInt32>(data[offset + 3]) << 24);
+    }
+
+    static std::optional<ImageFormatInfo> DetectPng(std::span<const Byte> data)
+    {
+        static constexpr UInt8 kSignature[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
+        if (data.size() < 8 + 8 + 8 || !std::equal(std::begin(kSignature), std::end(kSignature), data.begin()))
+        {
+            return std::nullopt;
+        }
+        if (data[12] != 'I' || data[13] != 'H' || data[14] != 'D' || data[15] != 'R')
+        {
+            return std::nullopt;
+        }
+
+        ImageFormatInfo info;
+        info.ContentType = "image/png";
+        info.Extension = ".png";
+        info.PixelWidth = ReadBigEndian32(data, 16);
+        info.PixelHeight = ReadBigEndian32(data, 20);
+
+        // Optional pHYs chunk carries physical pixel density; fall back to 96 DPI otherwise.
+        Size offset = 8;
+        while (offset + 12 <= data.size())
+        {
+            const auto chunkLength = static_cast<Size>(ReadBigEndian32(data, offset));
+            if (offset + 8 + chunkLength + 4 > data.size())
+            {
+                break;
+            }
+            const std::string_view chunkType(reinterpret_cast<const char*>(data.data() + offset + 4), 4);
+            if (chunkType == "pHYs" && chunkLength >= 9)
+            {
+                const auto pixelsPerUnitX = ReadBigEndian32(data, offset + 8);
+                const auto pixelsPerUnitY = ReadBigEndian32(data, offset + 12);
+                const auto unit = data[offset + 16];
+                if (unit == 1 && pixelsPerUnitX > 0 && pixelsPerUnitY > 0)
+                {
+                    info.HorizontalDpi = static_cast<Real>(pixelsPerUnitX) * 0.0254;
+                    info.VerticalDpi = static_cast<Real>(pixelsPerUnitY) * 0.0254;
+                }
+                break;
+            }
+            if (chunkType == "IDAT" || chunkType == "IEND")
+            {
+                break;
+            }
+            offset += 8 + chunkLength + 4;
+        }
+
+        return info;
+    }
+
+    static std::optional<ImageFormatInfo> DetectJpeg(std::span<const Byte> data)
+    {
+        if (data.size() < 4 || data[0] != 0xFF || data[1] != 0xD8)
+        {
+            return std::nullopt;
+        }
+
+        ImageFormatInfo info;
+        info.ContentType = "image/jpeg";
+        info.Extension = ".jpg";
+
+        Size offset = 2;
+        while (offset + 4 <= data.size())
+        {
+            if (data[offset] != 0xFF)
+            {
+                ++offset;
+                continue;
+            }
+            const auto marker = data[offset + 1];
+            if (marker == 0xFF)
+            {
+                ++offset;
+                continue;
+            }
+            if (marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7))
+            {
+                offset += 2;
+                continue;
+            }
+            if (marker == 0xD9)
+            {
+                break;
+            }
+
+            const auto segmentLength = static_cast<Size>(ReadBigEndian16(data, offset + 2));
+            if (segmentLength < 2 || offset + 2 + segmentLength > data.size())
+            {
+                break;
+            }
+
+            if (marker == 0xE0 && segmentLength >= 14)
+            {
+                const Size base = offset + 4;
+                if (base + 9 <= data.size() && data[base] == 'J' && data[base + 1] == 'F' && data[base + 2] == 'I' &&
+                    data[base + 3] == 'F')
+                {
+                    const auto units = data[base + 7];
+                    const auto xDensity = ReadBigEndian16(data, base + 8);
+                    const auto yDensity = ReadBigEndian16(data, base + 10);
+                    if (units == 1 && xDensity > 0 && yDensity > 0)
+                    {
+                        info.HorizontalDpi = xDensity;
+                        info.VerticalDpi = yDensity;
+                    }
+                    else if (units == 2 && xDensity > 0 && yDensity > 0)
+                    {
+                        info.HorizontalDpi = xDensity * 2.54;
+                        info.VerticalDpi = yDensity * 2.54;
+                    }
+                }
+            }
+
+            const bool isStartOfFrame =
+                marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC;
+            if (isStartOfFrame)
+            {
+                if (offset + 9 <= data.size())
+                {
+                    info.PixelHeight = ReadBigEndian16(data, offset + 5);
+                    info.PixelWidth = ReadBigEndian16(data, offset + 7);
+                }
+                break;
+            }
+
+            offset += 2 + segmentLength;
+        }
+
+        if (info.PixelWidth == 0 || info.PixelHeight == 0)
+        {
+            return std::nullopt;
+        }
+        return info;
+    }
+
+    static std::optional<ImageFormatInfo> DetectGif(std::span<const Byte> data)
+    {
+        if (data.size() < 10 || data[0] != 'G' || data[1] != 'I' || data[2] != 'F' || data[3] != '8' ||
+            (data[4] != '7' && data[4] != '9') || data[5] != 'a')
+        {
+            return std::nullopt;
+        }
+
+        ImageFormatInfo info;
+        info.ContentType = "image/gif";
+        info.Extension = ".gif";
+        info.PixelWidth = ReadLittleEndian16(data, 6);
+        info.PixelHeight = ReadLittleEndian16(data, 8);
+        return info;
+    }
+
+    static std::optional<ImageFormatInfo> DetectBmp(std::span<const Byte> data)
+    {
+        if (data.size() < 54 || data[0] != 'B' || data[1] != 'M')
+        {
+            return std::nullopt;
+        }
+
+        ImageFormatInfo info;
+        info.ContentType = "image/bmp";
+        info.Extension = ".bmp";
+        info.PixelWidth = ReadLittleEndian32(data, 18);
+        const auto rawHeight = static_cast<Int32>(ReadLittleEndian32(data, 22));
+        info.PixelHeight = static_cast<UInt32>(rawHeight < 0 ? -rawHeight : rawHeight);
+
+        const auto pixelsPerMeterX = static_cast<Int32>(ReadLittleEndian32(data, 38));
+        const auto pixelsPerMeterY = static_cast<Int32>(ReadLittleEndian32(data, 42));
+        if (pixelsPerMeterX > 0 && pixelsPerMeterY > 0)
+        {
+            info.HorizontalDpi = static_cast<Real>(pixelsPerMeterX) * 0.0254;
+            info.VerticalDpi = static_cast<Real>(pixelsPerMeterY) * 0.0254;
+        }
+        return info;
+    }
+
+    // ---------------------------------------------------------------------------
+    // WRD-015: cross-document body content merge (BodyCursor::InsertDocument).
+    //
+    // Deep-copying a subtree across documents (paragraphs/tables for body
+    // content; footnote/endnote/comment entries for their parts) is done through
+    // the generic OpenXMLElement::CopyInto (DOM-005), which also takes care of
+    // namespace declarations that the copied content depends on. Everything
+    // below this point is Word-specific: which qualified names carry IDs that
+    // must stay unique (styles, numbering, bookmarks, notes, comments, content
+    // controls) or point at a relationship (images, hyperlinks), and the policy
+    // used to resolve a collision for each of those kinds.
+    // ---------------------------------------------------------------------------
+
+    // Threads the ID/relationship remapping tables built up over one
+    // BodyCursor::InsertDocument call, so repeated references to the same source
+    // style, list, bookmark, note, or comment resolve to the same target
+    // identity instead of being imported once per occurrence.
+};
+
+/// Merging one document into another without colliding identifiers.
+class WordMergeHelper
+{
+public:
+    struct DocumentMergeState
+    {
+        DocumentMergeState(WordDocumentEditor targetEditor,
+                           const WordDocumentEditor& sourceEditor,
+                           DocumentMergeOptions options)
+            : TargetEditor(std::move(targetEditor)), SourceEditor(sourceEditor), Options(std::move(options))
+        {
+        }
+
+        WordDocumentEditor TargetEditor;
+        const WordDocumentEditor& SourceEditor;
+        DocumentMergeOptions Options;
+
+        std::map<std::string, std::string> StyleIds;
+        std::map<int, int> NumberingIds;
+        std::map<int, int> BookmarkIds;
+        std::map<std::string, std::string> BookmarkNames;
+        std::set<std::string> UsedBookmarkNames;
+        std::map<int, int> FootnoteIds;
+        std::map<int, int> EndnoteIds;
+        std::map<int, int> CommentIds;
+    };
+
+    static std::string MergeStyleId(DocumentMergeState& state, std::string_view sourceStyleId)
+    {
+        if (sourceStyleId.empty())
+        {
+            return {};
+        }
+        const std::string key(sourceStyleId);
+        if (auto it = state.StyleIds.find(key); it != state.StyleIds.end())
+        {
+            return it->second;
+        }
+
+        auto targetId = state.TargetEditor.Styles().ImportStyle(state.SourceEditor.Styles(), key, state.Options.StyleConflictPolicy);
+        if (targetId.empty())
+        {
+            // Best effort: if the source style could not be imported (e.g. the
+            // source has no styles part), leave the reference as-is rather than
+            // silently dropping the paragraph/run/table's formatting intent.
+            targetId = key;
+        }
+        state.StyleIds.emplace(key, targetId);
+        return targetId;
+    }
+
+    static int MergeNumberingId(DocumentMergeState& state, int sourceNumberingId)
+    {
+        if (auto it = state.NumberingIds.find(sourceNumberingId); it != state.NumberingIds.end())
+        {
+            return it->second;
+        }
+        auto imported = state.TargetEditor.Numbering().ImportList(state.SourceEditor.Numbering(), sourceNumberingId);
+        state.NumberingIds.emplace(sourceNumberingId, imported.NumberingId);
+        return imported.NumberingId;
+    }
+
+    static std::string MakeUniqueBookmarkName(std::set<std::string>& usedNames, std::string base)
+    {
+        if (base.empty())
+        {
+            base = "ImportedBookmark";
+        }
+        if (usedNames.insert(base).second)
+        {
+            return base;
+        }
+        usedNames.erase(base);
+
+        for (int suffix = 2; suffix < 100000; ++suffix)
+        {
+            auto candidate = base + "_" + std::to_string(suffix);
+            if (usedNames.insert(candidate).second)
+            {
+                return candidate;
+            }
+        }
+        return base;
+    }
+
+    // Reassigns bookmark IDs to fresh, collision-free target values and keeps
+    // bookmark names unique across the whole target document, remembering both
+    // mappings on `state` so MergeHyperlinks can later rewrite internal anchors.
+    static void MergeBookmarks(DocumentMergeState& state,
+                               const std::shared_ptr<Packaging::MainDocumentPart>& targetMainPart,
+                               const std::shared_ptr<OpenXMLElement>& root)
+    {
+        for (auto& start : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>())
+        {
+            if (!start)
+            {
+                continue;
+            }
+            const auto idText = start->GetId().ToString();
+            int oldId = 0;
+            if (std::from_chars(idText.data(), idText.data() + idText.size(), oldId).ec != std::errc())
+            {
+                continue;
+            }
+
+            int newId;
+            if (auto it = state.BookmarkIds.find(oldId); it != state.BookmarkIds.end())
+            {
+                newId = it->second;
+            }
+            else
+            {
+                newId = WordIdHelper::NextBookmarkId(targetMainPart, nullptr);
+                state.BookmarkIds.emplace(oldId, newId);
+            }
+            start->SetId(StringValue(std::to_string(newId)));
+
+            const auto oldName = start->GetName().ToString();
+            if (auto it = state.BookmarkNames.find(oldName); it != state.BookmarkNames.end())
+            {
+                start->SetName(StringValue(it->second));
+            }
+            else
+            {
+                auto newName = MakeUniqueBookmarkName(state.UsedBookmarkNames, oldName);
+                state.BookmarkNames.emplace(oldName, newName);
+                start->SetName(StringValue(newName));
+            }
+        }
+
+        for (auto& end : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkEnd>())
+        {
+            if (!end)
+            {
+                continue;
+            }
+            const auto idText = end->GetId().ToString();
+            int oldId = 0;
+            if (std::from_chars(idText.data(), idText.data() + idText.size(), oldId).ec != std::errc())
+            {
+                continue;
+            }
+            if (auto it = state.BookmarkIds.find(oldId); it != state.BookmarkIds.end())
+            {
+                end->SetId(StringValue(std::to_string(it->second)));
+            }
+        }
+    }
+
+    static void MergeContentControlIds(const std::shared_ptr<Packaging::MainDocumentPart>& targetMainPart,
+                                       const std::shared_ptr<OpenXMLElement>& root)
+    {
+        auto ids = root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SdtId>();
+        if (ids.empty())
+        {
+            return;
+        }
+        int nextId = WordStructureHelper::NextSdtId(targetMainPart, nullptr);
+        for (auto& id : ids)
+        {
+            if (!id)
+            {
+                continue;
+            }
+            id->SetVal(Int32Value(nextId++));
+        }
+    }
+
+    // Footnote/endnote ENTRY types (`w:footnote`/`w:endnote`) share their element
+    // name with an unrelated type (see WordNoteHelper::FindNoteEntries above), so entries are
+    // located and re-tagged generically; the REFERENCE types (FootnoteReference/
+    // EndnoteReference) are unambiguous and safe to use through the typed API.
+    template <typename TEntry, typename TReference, typename TPart>
+    static void MergeNoteReferences(const std::shared_ptr<OpenXMLElement>& root,
+                                    const std::shared_ptr<TPart>& sourcePart,
+                                    const std::shared_ptr<TPart>& targetPart,
+                                    std::map<int, int>& idMap)
+    {
+        if (!root || !sourcePart || !targetPart)
+        {
+            return;
+        }
+
+        auto references = root->Descendants<TReference>();
+        if (references.empty())
+        {
+            return;
+        }
+
+        std::shared_ptr<OpenXMLElement> sourceRoot = sourcePart->GetTypedRootElement();
+        std::shared_ptr<OpenXMLElement> targetRoot = targetPart->GetTypedRootElement();
+        if (!sourceRoot || !targetRoot)
+        {
+            return;
+        }
+
+        WordNoteHelper::EnsureNoteSeparators<TEntry>(targetRoot);
+        const ExyokiOffice::OpenXmlQualifiedName idAttribute(kWordNamespace, "id");
+
+        for (auto& reference : references)
+        {
+            if (!reference)
+            {
+                continue;
+            }
+            const int oldId = static_cast<int>(reference->GetId().Value());
+
+            int newId;
+            if (auto it = idMap.find(oldId); it != idMap.end())
+            {
+                newId = it->second;
+            }
+            else
+            {
+                std::shared_ptr<OpenXMLElement> sourceEntry;
+                for (auto& entry : WordNoteHelper::FindNoteEntries<TEntry>(sourceRoot))
+                {
+                    if (entry && entry->template GetAttributeValue<IntegerValue>(idAttribute).Value() == oldId)
+                    {
+                        sourceEntry = entry;
+                        break;
+                    }
+                }
+                if (!sourceEntry)
+                {
+                    continue;
+                }
+
+                newId = WordNoteHelper::NextNoteId<TEntry>(targetRoot);
+                if (auto wrapped = sourceEntry->CopyInto(targetRoot))
+                {
+                    wrapped->SetAttributeValue<IntegerValue>(idAttribute, IntegerValue(static_cast<Int64>(newId)));
+                }
+                idMap.emplace(oldId, newId);
+            }
+            reference->SetId(IntegerValue(static_cast<Int64>(newId)));
+        }
+    }
+
+    static void MergeComments(const std::shared_ptr<OpenXMLElement>& root,
+                              const std::shared_ptr<Packaging::WordprocessingCommentsPart>& sourcePart,
+                              const std::shared_ptr<Packaging::WordprocessingCommentsPart>& targetPart,
+                              std::map<int, int>& idMap)
+    {
+        if (!root || !sourcePart || !targetPart)
+        {
+            return;
+        }
+
+        auto starts = root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentRangeStart>();
+        auto ends = root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentRangeEnd>();
+        auto references = root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentReference>();
+        if (starts.empty() && ends.empty() && references.empty())
+        {
+            return;
+        }
+
+        std::shared_ptr<OpenXMLElement> sourceRoot = sourcePart->GetTypedRootElement();
+        std::shared_ptr<OpenXMLElement> targetRoot = targetPart->GetTypedRootElement();
+        if (!sourceRoot || !targetRoot)
+        {
+            return;
+        }
+
+        const ExyokiOffice::OpenXmlQualifiedName idAttribute(kWordNamespace, "id");
+
+        auto remap = [&](int oldId)
+        {
+            if (auto it = idMap.find(oldId); it != idMap.end())
+            {
+                return it->second;
+            }
+
+            std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment> sourceEntry;
+            for (auto& entry : sourceRoot->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment>())
+            {
+                if (entry)
+                {
+                    if (auto parsed = WordValueHelper::TryParseInt(entry->GetId().ToString()); parsed && *parsed == oldId)
+                    {
+                        sourceEntry = entry;
+                        break;
+                    }
+                }
+            }
+
+            const int newId = WordNoteHelper::NextCommentId(targetPart);
+            if (sourceEntry)
+            {
+                if (auto wrapped = sourceEntry->CopyInto(targetRoot))
+                {
+                    wrapped->SetAttributeValue<StringValue>(idAttribute, StringValue(std::to_string(newId)));
+                }
+            }
+            idMap.emplace(oldId, newId);
+            return newId;
+        };
+
+        for (auto& start : starts)
+        {
+            if (!start)
+            {
+                continue;
+            }
+            if (auto parsed = WordValueHelper::TryParseInt(start->GetId().ToString()))
+            {
+                start->SetId(StringValue(std::to_string(remap(*parsed))));
+            }
+        }
+        for (auto& end : ends)
+        {
+            if (!end)
+            {
+                continue;
+            }
+            if (auto parsed = WordValueHelper::TryParseInt(end->GetId().ToString()))
+            {
+                end->SetId(StringValue(std::to_string(remap(*parsed))));
+            }
+        }
+        for (auto& reference : references)
+        {
+            if (!reference)
+            {
+                continue;
+            }
+            if (auto parsed = WordValueHelper::TryParseInt(reference->GetId().ToString()))
+            {
+                reference->SetId(StringValue(std::to_string(remap(*parsed))));
+            }
+        }
+    }
+
+    // Copies every image payload referenced by a `w:drawing` in `root` into a new
+    // target image part (no content-based deduplication, matching
+    // AddImageFromData's existing behavior), rewrites the drawing's relationship
+    // to point at it, and reassigns the drawing's shape IDs.
+    static void MergeImages(const std::shared_ptr<Packaging::MainDocumentPart>& sourceMainPart,
+                            const std::shared_ptr<Packaging::MainDocumentPart>& targetMainPart,
+                            const std::shared_ptr<OpenXMLElement>& root)
+    {
+        if (!sourceMainPart || !targetMainPart)
+        {
+            return;
+        }
+
+        for (auto& drawing : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>())
+        {
+            if (!drawing)
+            {
+                continue;
+            }
+            auto info = WordDrawingHelper::ExtractDrawingInfo(drawing);
+            if (info.relationshipId.empty())
+            {
+                continue;
+            }
+
+            std::shared_ptr<Packaging::ImagePart> sourceImage;
+            for (auto& candidate : sourceMainPart->GetImageParts())
+            {
+                if (candidate && candidate->RelationshipId() == info.relationshipId)
+                {
+                    sourceImage = candidate;
+                    break;
+                }
+            }
+            if (!sourceImage)
+            {
+                continue;
+            }
+
+            auto targetImage = WordDrawingHelper::CreateImagePartFromData(targetMainPart, sourceImage->GetBinaryData(), sourceImage->ContentType());
+            if (!targetImage)
+            {
+                continue;
+            }
+
+            for (auto& blip : drawing->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Blip>())
+            {
+                if (blip)
+                {
+                    blip->SetEmbed(StringValue(targetImage->RelationshipId()));
+                }
+            }
+
+            const auto newDocId = WordIdHelper::NextDocPropertyId(targetMainPart->GetTypedRootElement());
+            for (auto& docProps :
+                 drawing->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
+            {
+                if (docProps)
+                {
+                    docProps->SetId(UInt32Value(newDocId));
+                }
+            }
+            for (auto& nvProps : drawing->Descendants<
+                                 ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>())
+            {
+                if (nvProps)
+                {
+                    nvProps->SetId(UInt32Value(newDocId));
+                }
+            }
+        }
+    }
+
+    // `w:hyperlink` shares its element name with the unrelated CT_HyperlinkRuby
+    // shape (see WRD-012), so hyperlinks are located generically by qualified
+    // name (mirroring Paragraph::Hyperlinks()) instead of through Descendants<Hyperlink>().
+    static void MergeHyperlinks(DocumentMergeState& state,
+                                const std::shared_ptr<Packaging::MainDocumentPart>& sourceMainPart,
+                                const std::shared_ptr<Packaging::MainDocumentPart>& targetMainPart,
+                                const std::shared_ptr<OpenXMLElement>& root)
+    {
+        if (!sourceMainPart || !targetMainPart)
+        {
+            return;
+        }
+
+        std::vector<std::shared_ptr<OpenXMLElement>> hyperlinks;
+        WordBodyHelper::CollectDescendantsByName(root, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "hyperlink"), hyperlinks);
+        if (hyperlinks.empty())
+        {
+            return;
+        }
+
+        const ExyokiOffice::OpenXmlQualifiedName relationshipIdAttribute(kOfficeRelationshipsNamespace, "id");
+        const ExyokiOffice::OpenXmlQualifiedName anchorAttribute(kWordNamespace, "anchor");
+
+        for (auto& hyperlink : hyperlinks)
+        {
+            if (!hyperlink)
+            {
+                continue;
+            }
+
+            std::string_view oldRelationshipId;
+            if (hyperlink->TryGetAttribute(relationshipIdAttribute, oldRelationshipId) && !oldRelationshipId.empty())
+            {
+                std::string target;
+                for (const auto& relationship : sourceMainPart->Relationships())
+                {
+                    if (relationship.IsExternal && relationship.Type == kHyperlinkRelationshipType &&
+                        relationship.Id == oldRelationshipId)
+                    {
+                        target = relationship.Target;
+                        break;
+                    }
+                }
+                if (!target.empty())
+                {
+                    auto newRelationshipId = targetMainPart->AddExternalRelationship(kHyperlinkRelationshipType, target);
+                    if (!newRelationshipId.empty())
+                    {
+                        hyperlink->SetAttribute(relationshipIdAttribute, newRelationshipId);
+                    }
+                }
+                continue;
+            }
+
+            std::string_view oldAnchor;
+            if (hyperlink->TryGetAttribute(anchorAttribute, oldAnchor) && !oldAnchor.empty())
+            {
+                if (auto it = state.BookmarkNames.find(std::string(oldAnchor)); it != state.BookmarkNames.end())
+                {
+                    hyperlink->SetAttribute(anchorAttribute, it->second);
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Bookkeeping for Word's threaded comment model.
+     *
+     * `/word/comments.xml` knows nothing about threads: a reply is an ordinary
+     * `<w:comment>` entry with its own numeric ID and its own body range markers.
+     * The thread shape lives in four satellite parts, and this helper owns every
+     * rule that keeps them consistent with the comment entries:
+     *
+     * - `commentsExtended` (`w15:commentEx`): parent link and resolution flag,
+     *   keyed by the `w14:paraId` of the comment's **last** paragraph.
+     * - `commentsIds` (`w16cid:commentId`): that paraId mapped to a durable ID.
+     * - `commentsExtensible` (`w16cex:commentExtensible`): the UTC timestamp, keyed
+     *   by the durable ID rather than by the paraId.
+     * - `people` (`w15:person`): one entry per author display name.
+     *
+     * Both ID kinds are 4-byte hex values that Word ignores when the high bit is
+     * set, so allocation is restricted to [0x00000001, 0x7FFFFFFF].
+     */
+    class CommentThreading final
+    {
+    public:
+        using CommentEntry = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment;
+        using CommentEx = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::CommentEx;
+        using CommentsEx = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::CommentsEx;
+        using CommentId = ExyokiOffice::DocumentFormat::OpenXml::Office2019::Word::Cid::CommentId;
+        using CommentsIds = ExyokiOffice::DocumentFormat::OpenXml::Office2019::Word::Cid::CommentsIds;
+        using CommentExtensible = ExyokiOffice::DocumentFormat::OpenXml::Office2021::Word::CommentsExt::CommentExtensible;
+        using CommentsExtensible = ExyokiOffice::DocumentFormat::OpenXml::Office2021::Word::CommentsExt::CommentsExtensible;
+        using People = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::People;
+        using Person = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::Person;
+        using PresenceInfo = ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::PresenceInfo;
+        using DomParagraph = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph;
+        using DomRun = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run;
+        using DomTableRow = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow;
+        using DomCommentRangeStart = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentRangeStart;
+        using DomCommentRangeEnd = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentRangeEnd;
+        using DomCommentReference = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CommentReference;
+        using MainPart = std::shared_ptr<Packaging::MainDocumentPart>;
+
+        /// Lowest ID Word still reads back.
+        static constexpr UInt32 kMinimumId = 0x00000001u;
+        /// Highest ID without the high bit set; above this Word ignores the row.
+        static constexpr UInt32 kMaximumId = 0x7FFFFFFFu;
+        /// Fixed starting point for allocation, so output stays reproducible.
+        static constexpr UInt32 kFirstAllocatedId = 0x10000000u;
+        /// Guards the thread walks against cycles in a hand-edited document.
+        static constexpr int kMaximumThreadDepth = 64;
+
+        /// Reads a 4-byte hex ID as a number; returns 0 when absent or malformed.
+        [[nodiscard]] static UInt32 ReadId(const HexBinaryValue& value)
+        {
+            if (!value.IsDefined())
+            {
+                return 0;
+            }
+            const auto& bytes = value.Value();
+            if (bytes.empty() || bytes.size() > sizeof(UInt32))
+            {
+                return 0;
+            }
+            UInt32 result = 0;
+            for (const auto byte : bytes)
+            {
+                result = (result << 8) | static_cast<UInt32>(byte);
+            }
+            return result;
+        }
+
+        /// Formats a number as the 4-byte, 8-digit uppercase hex ID Word expects.
+        [[nodiscard]] static HexBinaryValue MakeId(UInt32 value)
+        {
+            return HexBinaryValue(std::vector<Byte>{static_cast<Byte>((value >> 24) & 0xFFu),
+                                                    static_cast<Byte>((value >> 16) & 0xFFu),
+                                                    static_cast<Byte>((value >> 8) & 0xFFu),
+                                                    static_cast<Byte>(value & 0xFFu)});
+        }
+
+        [[nodiscard]] static std::shared_ptr<CommentsEx> GetCommentsExRoot(const MainPart& mainDocumentPart)
+        {
+            auto part = mainDocumentPart ? mainDocumentPart->GetWordprocessingCommentsExPart() : nullptr;
+            return part ? part->GetTypedRootElement() : nullptr;
+        }
+
+        static std::shared_ptr<CommentsEx> EnsureCommentsExRoot(const MainPart& mainDocumentPart)
+        {
+            if (!mainDocumentPart)
+            {
+                return nullptr;
+            }
+            auto part = mainDocumentPart->GetWordprocessingCommentsExPart();
+            if (!part)
+            {
+                part = mainDocumentPart->AddWordprocessingCommentsExPart();
+            }
+            return part ? part->GetTypedRootElement() : nullptr;
+        }
+
+        [[nodiscard]] static std::shared_ptr<CommentsIds> GetCommentsIdsRoot(const MainPart& mainDocumentPart)
+        {
+            auto part = mainDocumentPart ? mainDocumentPart->GetWordprocessingCommentsIdsPart() : nullptr;
+            return part ? part->GetTypedRootElement() : nullptr;
+        }
+
+        static std::shared_ptr<CommentsIds> EnsureCommentsIdsRoot(const MainPart& mainDocumentPart)
+        {
+            if (!mainDocumentPart)
+            {
+                return nullptr;
+            }
+            auto part = mainDocumentPart->GetWordprocessingCommentsIdsPart();
+            if (!part)
+            {
+                part = mainDocumentPart->AddWordprocessingCommentsIdsPart();
+            }
+            return part ? part->GetTypedRootElement() : nullptr;
+        }
+
+        [[nodiscard]] static std::shared_ptr<CommentsExtensible> GetCommentsExtensibleRoot(const MainPart& mainDocumentPart)
+        {
+            auto part = mainDocumentPart ? mainDocumentPart->GetWordCommentsExtensiblePart() : nullptr;
+            return part ? part->GetTypedRootElement() : nullptr;
+        }
+
+        static std::shared_ptr<CommentsExtensible> EnsureCommentsExtensibleRoot(const MainPart& mainDocumentPart)
+        {
+            if (!mainDocumentPart)
+            {
+                return nullptr;
+            }
+            auto part = mainDocumentPart->GetWordCommentsExtensiblePart();
+            if (!part)
+            {
+                part = mainDocumentPart->AddWordCommentsExtensiblePart();
+            }
+            return part ? part->GetTypedRootElement() : nullptr;
+        }
+
+        static std::shared_ptr<People> EnsurePeopleRoot(const MainPart& mainDocumentPart)
+        {
+            if (!mainDocumentPart)
+            {
+                return nullptr;
+            }
+            auto part = mainDocumentPart->GetWordprocessingPeoplePart();
+            if (!part)
+            {
+                part = mainDocumentPart->AddWordprocessingPeoplePart();
+            }
+            return part ? part->GetTypedRootElement() : nullptr;
+        }
+
+        /// Every paragraph ID and durable ID the document already spends.
+        [[nodiscard]] static std::set<UInt32> CollectUsedIds(const MainPart& mainDocumentPart)
+        {
+            std::set<UInt32> used;
+            if (!mainDocumentPart)
+            {
+                return used;
+            }
+
+            const auto collectParagraphIds = [&used](const std::shared_ptr<OpenXMLElement>& root)
+            {
+                if (!root)
+                {
+                    return;
+                }
+                for (const auto& paragraph : root->Descendants<DomParagraph>())
+                {
+                    if (paragraph)
+                    {
+                        used.insert(ReadId(paragraph->GetParagraphId()));
+                    }
+                }
+                for (const auto& row : root->Descendants<DomTableRow>())
+                {
+                    if (row)
+                    {
+                        used.insert(ReadId(row->GetParagraphId()));
+                    }
+                }
+            };
+
+            collectParagraphIds(mainDocumentPart->GetTypedRootElement());
+            if (auto commentsPart = mainDocumentPart->GetWordprocessingCommentsPart())
+            {
+                collectParagraphIds(commentsPart->GetTypedRootElement());
+            }
+            if (auto root = GetCommentsExRoot(mainDocumentPart))
+            {
+                for (const auto& row : root->Elements<CommentEx>())
+                {
+                    if (row)
+                    {
+                        used.insert(ReadId(row->GetParaId()));
+                        used.insert(ReadId(row->GetParaIdParent()));
+                    }
+                }
+            }
+            if (auto root = GetCommentsIdsRoot(mainDocumentPart))
+            {
+                for (const auto& row : root->Elements<CommentId>())
+                {
+                    if (row)
+                    {
+                        used.insert(ReadId(row->GetParaId()));
+                        used.insert(ReadId(row->GetDurableId()));
+                    }
+                }
+            }
+            if (auto root = GetCommentsExtensibleRoot(mainDocumentPart))
+            {
+                for (const auto& row : root->Elements<CommentExtensible>())
+                {
+                    if (row)
+                    {
+                        used.insert(ReadId(row->GetDurableId()));
+                    }
+                }
+            }
+            return used;
+        }
+
+        /**
+         * @brief Hands out an ID that is not taken yet and marks it as taken.
+         *
+         * The walk starts at a fixed seed and steps upwards, wrapping once through
+         * the low range: no randomness, so the same document always produces the
+         * same IDs.
+         *
+         * @return The allocated ID, or 0 when the whole positive range is spent.
+         */
+        static UInt32 AllocateId(std::set<UInt32>& used)
+        {
+            UInt32 candidate = kFirstAllocatedId;
+            for (UInt32 step = 0; step < kMaximumId; ++step)
+            {
+                if (used.insert(candidate).second)
+                {
+                    return candidate;
+                }
+                candidate = (candidate == kMaximumId) ? kMinimumId : candidate + 1;
+            }
+            return 0;
+        }
+
+        [[nodiscard]] static std::shared_ptr<DomParagraph> LastParagraph(const std::shared_ptr<CommentEntry>& comment)
+        {
+            if (!comment)
+            {
+                return nullptr;
+            }
+            auto paragraphs = comment->Elements<DomParagraph>();
+            return paragraphs.empty() ? nullptr : paragraphs.back();
+        }
+
+        /// The thread key of a comment: the paraId of its last paragraph, or 0.
+        [[nodiscard]] static UInt32 GetThreadParaId(const std::shared_ptr<CommentEntry>& comment)
+        {
+            auto paragraph = LastParagraph(comment);
+            return paragraph ? ReadId(paragraph->GetParagraphId()) : 0;
+        }
+
+        /// Same as GetThreadParaId(), but creates the anchor paragraph and/or its ID.
+        static UInt32 EnsureThreadParaId(const MainPart& mainDocumentPart, const std::shared_ptr<CommentEntry>& comment)
+        {
+            if (!comment)
+            {
+                return 0;
+            }
+            auto paragraph = LastParagraph(comment);
+            if (!paragraph)
+            {
+                paragraph = comment->AppendChild<DomParagraph>();
+                if (!paragraph)
+                {
+                    return 0;
+                }
+            }
+            if (const auto existing = ReadId(paragraph->GetParagraphId()); existing != 0)
+            {
+                return existing;
+            }
+            auto used = CollectUsedIds(mainDocumentPart);
+            const auto allocated = AllocateId(used);
+            if (allocated != 0)
+            {
+                paragraph->SetParagraphId(MakeId(allocated));
+            }
+            return allocated;
+        }
+
+        [[nodiscard]] static std::shared_ptr<CommentEx> FindCommentEx(const MainPart& mainDocumentPart, UInt32 paraId)
+        {
+            if (paraId == 0)
+            {
+                return nullptr;
+            }
+            auto root = GetCommentsExRoot(mainDocumentPart);
+            if (!root)
+            {
+                return nullptr;
+            }
+            for (const auto& row : root->Elements<CommentEx>())
+            {
+                if (row && ReadId(row->GetParaId()) == paraId)
+                {
+                    return row;
+                }
+            }
+            return nullptr;
+        }
+
+        [[nodiscard]] static std::shared_ptr<CommentId> FindCommentId(const MainPart& mainDocumentPart, UInt32 paraId)
+        {
+            if (paraId == 0)
+            {
+                return nullptr;
+            }
+            auto root = GetCommentsIdsRoot(mainDocumentPart);
+            if (!root)
+            {
+                return nullptr;
+            }
+            for (const auto& row : root->Elements<CommentId>())
+            {
+                if (row && ReadId(row->GetParaId()) == paraId)
+                {
+                    return row;
+                }
+            }
+            return nullptr;
+        }
+
+        [[nodiscard]] static std::shared_ptr<CommentExtensible> FindCommentExtensible(const MainPart& mainDocumentPart,
+                                                                                      UInt32 durableId)
+        {
+            if (durableId == 0)
+            {
+                return nullptr;
+            }
+            auto root = GetCommentsExtensibleRoot(mainDocumentPart);
+            if (!root)
+            {
+                return nullptr;
+            }
+            for (const auto& row : root->Elements<CommentExtensible>())
+            {
+                if (row && ReadId(row->GetDurableId()) == durableId)
+                {
+                    return row;
+                }
+            }
+            return nullptr;
+        }
+
+        /**
+         * @brief Creates or refreshes every satellite row describing one comment.
+         *
+         * @param parentParaId Thread key of the comment being replied to, or 0 for a
+         * thread root. An existing parent link is never cleared by passing 0, so the
+         * call stays safe to repeat on a reply.
+         */
+        static void Register(const MainPart& mainDocumentPart,
+                             const std::shared_ptr<CommentEntry>& comment,
+                             UInt32 parentParaId)
+        {
+            if (!mainDocumentPart || !comment)
+            {
+                return;
+            }
+
+            const auto paraId = EnsureThreadParaId(mainDocumentPart, comment);
+            if (paraId == 0)
+            {
+                return;
+            }
+
+            auto commentsExRoot = EnsureCommentsExRoot(mainDocumentPart);
+            if (!commentsExRoot)
+            {
+                return;
+            }
+            auto commentEx = FindCommentEx(mainDocumentPart, paraId);
+            if (!commentEx)
+            {
+                commentEx = commentsExRoot->AppendChild<CommentEx>();
+            }
+            if (!commentEx)
+            {
+                return;
+            }
+            commentEx->SetParaId(MakeId(paraId));
+            if (parentParaId != 0)
+            {
+                commentEx->SetParaIdParent(MakeId(parentParaId));
+            }
+            if (!commentEx->GetDone().IsDefined())
+            {
+                commentEx->SetDone(OnOffValue(false));
+            }
+
+            const auto durableId = EnsureDurableId(mainDocumentPart, paraId);
+            if (durableId != 0)
+            {
+                if (auto root = EnsureCommentsExtensibleRoot(mainDocumentPart))
+                {
+                    auto extensible = FindCommentExtensible(mainDocumentPart, durableId);
+                    if (!extensible)
+                    {
+                        extensible = root->AppendChild<CommentExtensible>();
+                    }
+                    if (extensible)
+                    {
+                        extensible->SetDurableId(MakeId(durableId));
+                        const auto date = comment->GetDate();
+                        extensible->SetDateUtc(date.IsDefined() ? date
+                                                                : DateTimeValue(std::chrono::system_clock::now()));
+                    }
+                }
+            }
+
+            RegisterPerson(mainDocumentPart, comment->GetAuthor().ToString());
+        }
+
+        /// Adds a `w15:person` row for an author name, unless one already exists.
+        static void RegisterPerson(const MainPart& mainDocumentPart, const std::string& author)
+        {
+            if (author.empty())
+            {
+                return;
+            }
+            auto root = EnsurePeopleRoot(mainDocumentPart);
+            if (!root)
+            {
+                return;
+            }
+            for (const auto& person : root->Elements<Person>())
+            {
+                if (person && person->GetAuthor().ToString() == author)
+                {
+                    return;
+                }
+            }
+            auto person = root->AppendChild<Person>();
+            if (!person)
+            {
+                return;
+            }
+            person->SetAuthor(StringValue(author));
+            if (auto presence = person->AppendChild<PresenceInfo>())
+            {
+                // "None" is what Word writes for an author without a linked account.
+                presence->SetProviderId(StringValue(std::string("None")));
+                presence->SetUserId(StringValue(author));
+            }
+        }
+
+        /**
+         * @brief Deletes the satellite rows of one comment.
+         *
+         * The `people` part is deliberately left alone: an author outlives the
+         * comments they wrote, exactly as in Word.
+         */
+        static void Unregister(const MainPart& mainDocumentPart, UInt32 paraId)
+        {
+            if (!mainDocumentPart || paraId == 0)
+            {
+                return;
+            }
+
+            UInt32 durableId = 0;
+            if (auto root = GetCommentsIdsRoot(mainDocumentPart))
+            {
+                for (const auto& row : root->Elements<CommentId>())
+                {
+                    if (row && ReadId(row->GetParaId()) == paraId)
+                    {
+                        durableId = ReadId(row->GetDurableId());
+                        root->RemoveChild(row);
+                    }
+                }
+            }
+            if (auto root = GetCommentsExRoot(mainDocumentPart))
+            {
+                for (const auto& row : root->Elements<CommentEx>())
+                {
+                    if (row && ReadId(row->GetParaId()) == paraId)
+                    {
+                        root->RemoveChild(row);
+                    }
+                }
+            }
+            if (durableId != 0)
+            {
+                if (auto root = GetCommentsExtensibleRoot(mainDocumentPart))
+                {
+                    for (const auto& row : root->Elements<CommentExtensible>())
+                    {
+                        if (row && ReadId(row->GetDurableId()) == durableId)
+                        {
+                            root->RemoveChild(row);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// Every `<w:comment>` entry of the document, in part order.
+        [[nodiscard]] static std::vector<std::shared_ptr<CommentEntry>> AllComments(const MainPart& mainDocumentPart)
+        {
+            std::vector<std::shared_ptr<CommentEntry>> result;
+            auto part = mainDocumentPart ? mainDocumentPart->GetWordprocessingCommentsPart() : nullptr;
+            auto root = part ? part->GetTypedRootElement() : nullptr;
+            if (!root)
+            {
+                return result;
+            }
+            for (const auto& entry : root->Elements<CommentEntry>())
+            {
+                if (entry)
+                {
+                    result.push_back(entry);
+                }
+            }
+            return result;
+        }
+
+        [[nodiscard]] static std::shared_ptr<CommentEntry> FindByThreadParaId(const MainPart& mainDocumentPart,
+                                                                              UInt32 paraId)
+        {
+            if (paraId == 0)
+            {
+                return nullptr;
+            }
+            for (const auto& entry : AllComments(mainDocumentPart))
+            {
+                if (GetThreadParaId(entry) == paraId)
+                {
+                    return entry;
+                }
+            }
+            return nullptr;
+        }
+
+        /// The comments whose `w15:paraIdParent` points at this thread key.
+        [[nodiscard]] static std::vector<std::shared_ptr<CommentEntry>> DirectReplies(const MainPart& mainDocumentPart,
+                                                                                      UInt32 paraId)
+        {
+            std::vector<std::shared_ptr<CommentEntry>> result;
+            if (paraId == 0)
+            {
+                return result;
+            }
+            for (const auto& entry : AllComments(mainDocumentPart))
+            {
+                const auto replyParaId = GetThreadParaId(entry);
+                if (replyParaId == 0 || replyParaId == paraId)
+                {
+                    continue;
+                }
+                auto row = FindCommentEx(mainDocumentPart, replyParaId);
+                if (row && ReadId(row->GetParaIdParent()) == paraId)
+                {
+                    result.push_back(entry);
+                }
+            }
+            return result;
+        }
+
+        /// Climbs `w15:paraIdParent` links to the thread root's key.
+        [[nodiscard]] static UInt32 ThreadRootParaId(const MainPart& mainDocumentPart, UInt32 paraId)
+        {
+            UInt32 current = paraId;
+            for (int depth = 0; depth < kMaximumThreadDepth && current != 0; ++depth)
+            {
+                auto row = FindCommentEx(mainDocumentPart, current);
+                if (!row)
+                {
+                    break;
+                }
+                const auto parent = ReadId(row->GetParaIdParent());
+                if (parent == 0 || parent == current || !FindCommentEx(mainDocumentPart, parent))
+                {
+                    break;
+                }
+                current = parent;
+            }
+            return current;
+        }
+
+        /// Writes `w15:done` on one thread key and on everything below it.
+        static void SetDoneRecursive(const MainPart& mainDocumentPart, UInt32 paraId, bool resolved, int depth)
+        {
+            if (paraId == 0 || depth >= kMaximumThreadDepth)
+            {
+                return;
+            }
+            if (auto row = FindCommentEx(mainDocumentPart, paraId))
+            {
+                row->SetDone(OnOffValue(resolved));
+            }
+            for (const auto& reply : DirectReplies(mainDocumentPart, paraId))
+            {
+                SetDoneRecursive(mainDocumentPart, GetThreadParaId(reply), resolved, depth + 1);
+            }
+        }
+
+        /**
+         * @brief Inserts range markers and a reference for a reply.
+         *
+         * The reply must cover exactly the same span as the comment it answers, so
+         * the markers are threaded through the parent's, producing the shape Word
+         * itself writes: all range starts first, then the content, then one
+         * `<w:commentRangeEnd/>` plus reference run per comment on the span.
+         *
+         * @return Whether the whole marker triple could be placed.
+         */
+        static bool AddReplyBodyMarkers(const MainPart& mainDocumentPart,
+                                        const std::string& parentIdText,
+                                        const std::string& replyIdText)
+        {
+            auto root = mainDocumentPart ? mainDocumentPart->GetTypedRootElement() : nullptr;
+            if (!root)
+            {
+                return false;
+            }
+
+            std::shared_ptr<OpenXMLElement> parentStart;
+            for (const auto& start : root->Descendants<DomCommentRangeStart>())
+            {
+                if (start && start->GetId().ToString() == parentIdText)
+                {
+                    parentStart = start;
+                    break;
+                }
+            }
+            std::shared_ptr<OpenXMLElement> parentEnd;
+            for (const auto& end : root->Descendants<DomCommentRangeEnd>())
+            {
+                if (end && end->GetId().ToString() == parentIdText)
+                {
+                    parentEnd = end;
+                    break;
+                }
+            }
+            if (!parentStart || !parentEnd)
+            {
+                return false;
+            }
+
+            auto startOwner = parentStart->Parent();
+            auto endOwner = parentEnd->Parent();
+            if (!startOwner || !endOwner)
+            {
+                return false;
+            }
+
+            const ExyokiOffice::OpenXmlQualifiedName rangeStartName(kWordNamespace, "commentRangeStart");
+            const ExyokiOffice::OpenXmlQualifiedName rangeEndName(kWordNamespace, "commentRangeEnd");
+
+            auto startAnchor = parentStart;
+            while (auto next = startAnchor->NextSibling())
+            {
+                if (next->QualifiedName() != rangeStartName)
+                {
+                    break;
+                }
+                startAnchor = next;
+            }
+
+            auto endAnchor = parentEnd;
+            while (auto next = endAnchor->NextSibling())
+            {
+                if (next->QualifiedName() != rangeEndName && !IsCommentReferenceRun(next))
+                {
+                    break;
+                }
+                endAnchor = next;
+            }
+
+            auto rangeStart = startOwner->InsertChildAfter<DomCommentRangeStart>(startAnchor);
+            if (!rangeStart)
+            {
+                return false;
+            }
+            rangeStart->SetId(StringValue(replyIdText));
+
+            auto rangeEnd = endOwner->InsertChildAfter<DomCommentRangeEnd>(endAnchor);
+            if (!rangeEnd)
+            {
+                startOwner->RemoveChild(rangeStart);
+                return false;
+            }
+            rangeEnd->SetId(StringValue(replyIdText));
+
+            auto referenceRun = endOwner->InsertChildAfter<DomRun>(rangeEnd);
+            auto reference = referenceRun ? referenceRun->AppendChild<DomCommentReference>() : nullptr;
+            if (!reference)
+            {
+                if (referenceRun)
+                {
+                    endOwner->RemoveChild(referenceRun);
+                }
+                endOwner->RemoveChild(rangeEnd);
+                startOwner->RemoveChild(rangeStart);
+                return false;
+            }
+            reference->SetId(StringValue(replyIdText));
+            return true;
+        }
+
+        /**
+         * @brief Restores the "one thread key per comment" invariant after a merge.
+         *
+         * Merging copies `<w:comment>` entries verbatim, paragraph IDs included,
+         * while the satellite parts stay behind in the source. Since IDs are handed
+         * out deterministically, two documents written by this library allocate from
+         * the same sequence and the copies land on paragraph IDs the target already
+         * spends. The first entry holding an ID keeps it (that is the target's own
+         * comment, whose commentsExtended row has to stay valid) and every later
+         * collision is re-keyed. Paragraphs without an ID are left as they are.
+         */
+        static void EnsureUniqueThreadParaIds(const MainPart& mainDocumentPart)
+        {
+            if (!mainDocumentPart)
+            {
+                return;
+            }
+
+            auto used = CollectUsedIds(mainDocumentPart);
+            std::set<UInt32> seen;
+            for (const auto& entry : AllComments(mainDocumentPart))
+            {
+                for (const auto& paragraph : entry->Elements<DomParagraph>())
+                {
+                    if (!paragraph)
+                    {
+                        continue;
+                    }
+                    const auto paraId = ReadId(paragraph->GetParagraphId());
+                    if (paraId == 0 || seen.insert(paraId).second)
+                    {
+                        continue;
+                    }
+                    if (const auto replacement = AllocateId(used); replacement != 0)
+                    {
+                        paragraph->SetParagraphId(MakeId(replacement));
+                        seen.insert(replacement);
+                    }
+                }
+            }
+        }
+
+        /// Deletes every range marker and reference in the body for one comment ID.
+        static void RemoveBodyMarkers(const MainPart& mainDocumentPart, const std::string& idText)
+        {
+            auto root = mainDocumentPart ? mainDocumentPart->GetTypedRootElement() : nullptr;
+            if (!root)
+            {
+                return;
+            }
+            for (const auto& reference : root->Descendants<DomCommentReference>())
+            {
+                if (reference && reference->GetId().ToString() == idText)
+                {
+                    WordStructureHelper::RemoveMarkerAndOwningRun(reference);
+                }
+            }
+            for (const auto& start : root->Descendants<DomCommentRangeStart>())
+            {
+                if (start && start->GetId().ToString() == idText)
+                {
+                    WordStructureHelper::RemoveMarkerAndOwningRun(start);
+                }
+            }
+            for (const auto& end : root->Descendants<DomCommentRangeEnd>())
+            {
+                if (end && end->GetId().ToString() == idText)
+                {
+                    WordStructureHelper::RemoveMarkerAndOwningRun(end);
+                }
+            }
+        }
+
+    private:
+        /// Maps a thread key to its durable ID, allocating and storing one if needed.
+        static UInt32 EnsureDurableId(const MainPart& mainDocumentPart, UInt32 paraId)
+        {
+            auto root = EnsureCommentsIdsRoot(mainDocumentPart);
+            if (!root)
+            {
+                return 0;
+            }
+
+            auto commentId = FindCommentId(mainDocumentPart, paraId);
+            UInt32 durableId = commentId ? ReadId(commentId->GetDurableId()) : 0;
+            if (durableId == 0)
+            {
+                auto used = CollectUsedIds(mainDocumentPart);
+                durableId = AllocateId(used);
+            }
+            if (durableId == 0)
+            {
+                return 0;
+            }
+
+            if (!commentId)
+            {
+                commentId = root->AppendChild<CommentId>();
+            }
+            if (!commentId)
+            {
+                return 0;
+            }
+            commentId->SetParaId(MakeId(paraId));
+            commentId->SetDurableId(MakeId(durableId));
+            return durableId;
+        }
+
+        [[nodiscard]] static bool IsCommentReferenceRun(const std::shared_ptr<OpenXMLElement>& element)
+        {
+            if (!element || element->QualifiedName() != ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "r"))
+            {
+                return false;
+            }
+            return element->GetChild(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "commentReference")) != nullptr;
+        }
+    };
+};
 
 WordDocumentEditor::WordDocumentEditor(const WordDocument::Ptr& document)
     : m_document(document)
@@ -4990,7 +5075,7 @@ bool WordDocumentEditor::BodyCursor::IsValid() const
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>
 WordDocumentEditor::BodyCursor::GetBody() const
 {
-    return EnsureBody(m_document);
+    return WordStructureHelper::EnsureBody(m_document);
 }
 
 std::shared_ptr<ExyokiOffice::OpenXMLElement> WordDocumentEditor::BodyCursor::ResolveInsertionReference(
@@ -5004,9 +5089,9 @@ std::shared_ptr<ExyokiOffice::OpenXMLElement> WordDocumentEditor::BodyCursor::Re
     switch (m_placement)
     {
         case Placement::Start:
-            return FindFirstBodyChild(body);
+            return WordBodyHelper::FindFirstBodyChild(body);
         case Placement::End:
-            return FindTrailingSectionProperties(body);
+            return WordBodyHelper::FindTrailingSectionProperties(body);
         case Placement::Before:
             return m_anchor;
         case Placement::After:
@@ -5029,7 +5114,7 @@ std::shared_ptr<Paragraph> WordDocumentEditor::BodyCursor::InsertParagraph() con
     {
         return nullptr;
     }
-    return std::make_shared<Paragraph>(paragraph, GetMainDocumentPart(m_document));
+    return std::make_shared<Paragraph>(paragraph, WordStructureHelper::GetMainDocumentPart(m_document));
 }
 
 std::shared_ptr<Paragraph> WordDocumentEditor::BodyCursor::InsertParagraph(std::string_view text) const
@@ -5085,22 +5170,22 @@ std::shared_ptr<Section> WordDocumentEditor::BodyCursor::InsertSectionBreak(Sect
         return nullptr;
     }
 
-    auto properties = EnsureParagraphProperties(lowLevelParagraph);
+    auto properties = WordPropertiesElementHelper::EnsureParagraphProperties(lowLevelParagraph);
     if (!properties)
     {
         return nullptr;
     }
 
     auto sectionProperties =
-        EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionProperties>(
+        WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                               ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionProperties>(
             properties);
     if (!sectionProperties)
     {
         return nullptr;
     }
 
-    auto section = std::make_shared<Section>(sectionProperties, GetMainDocumentPart(m_document));
+    auto section = std::make_shared<Section>(sectionProperties, WordStructureHelper::GetMainDocumentPart(m_document));
     section->SetStartType(startType);
     return section;
 }
@@ -5121,7 +5206,7 @@ std::shared_ptr<ContentControl> WordDocumentEditor::BodyCursor::InsertContentCon
         return nullptr;
     }
 
-    auto control = std::make_shared<ContentControl>(sdt, ContentControlLevel::Block, GetMainDocumentPart(m_document));
+    auto control = std::make_shared<ContentControl>(sdt, ContentControlLevel::Block, WordStructureHelper::GetMainDocumentPart(m_document));
     control->EnsureId();
     if (!tag.empty())
     {
@@ -5142,8 +5227,8 @@ bool WordDocumentEditor::BodyCursor::InsertDocument(const WordDocumentEditor& so
         return false;
     }
 
-    auto sourceMainPart = GetMainDocumentPart(source.GetLowLevelApi());
-    auto sourceBody = ExyokiOffice::Word::GetBody(source.GetLowLevelApi());
+    auto sourceMainPart = WordStructureHelper::GetMainDocumentPart(source.GetLowLevelApi());
+    auto sourceBody = WordBodyHelper::GetBody(source.GetLowLevelApi());
     if (!sourceMainPart || !sourceBody)
     {
         // Nothing to copy is not a failure of this cursor or the target document.
@@ -5151,17 +5236,17 @@ bool WordDocumentEditor::BodyCursor::InsertDocument(const WordDocumentEditor& so
     }
 
     auto targetBody = GetBody();
-    auto targetMainPart = EnsureMainDocumentPart(m_document);
+    auto targetMainPart = WordStructureHelper::EnsureMainDocumentPart(m_document);
     if (!targetBody || !targetMainPart)
     {
         return false;
     }
 
     auto insertBeforeRef = ResolveInsertionReference(targetBody);
-    auto trailingSectPr = FindTrailingSectionProperties(sourceBody);
+    auto trailingSectPr = WordBodyHelper::FindTrailingSectionProperties(sourceBody);
 
     WordDocumentEditor targetEditor(m_document);
-    DocumentMergeState state(targetEditor, source, options);
+    WordMergeHelper::DocumentMergeState state(targetEditor, source, options);
 
     // Every bookmark name already used in the target document must be known
     // before any copied bookmark is (possibly) renamed for uniqueness.
@@ -5213,7 +5298,7 @@ bool WordDocumentEditor::BodyCursor::InsertDocument(const WordDocumentEditor& so
             auto val = pStyle->GetVal().ToString();
             if (!val.empty())
             {
-                pStyle->SetVal(StringValue(MergeStyleId(state, val)));
+                pStyle->SetVal(StringValue(WordMergeHelper::MergeStyleId(state, val)));
             }
         }
         for (auto& rStyle : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunStyle>())
@@ -5225,7 +5310,7 @@ bool WordDocumentEditor::BodyCursor::InsertDocument(const WordDocumentEditor& so
             auto val = rStyle->GetVal().ToString();
             if (!val.empty())
             {
-                rStyle->SetVal(StringValue(MergeStyleId(state, val)));
+                rStyle->SetVal(StringValue(WordMergeHelper::MergeStyleId(state, val)));
             }
         }
         for (auto& tStyle : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableStyle>())
@@ -5237,7 +5322,7 @@ bool WordDocumentEditor::BodyCursor::InsertDocument(const WordDocumentEditor& so
             auto val = tStyle->GetVal().ToString();
             if (!val.empty())
             {
-                tStyle->SetVal(StringValue(MergeStyleId(state, val)));
+                tStyle->SetVal(StringValue(WordMergeHelper::MergeStyleId(state, val)));
             }
         }
 
@@ -5250,13 +5335,13 @@ bool WordDocumentEditor::BodyCursor::InsertDocument(const WordDocumentEditor& so
             auto val = numId->GetVal();
             if (val.IsDefined())
             {
-                numId->SetVal(Int32Value(MergeNumberingId(state, val.Value())));
+                numId->SetVal(Int32Value(WordMergeHelper::MergeNumberingId(state, val.Value())));
             }
         }
 
-        MergeBookmarks(state, targetMainPart, root);
-        MergeContentControlIds(targetMainPart, root);
-        MergeImages(sourceMainPart, targetMainPart, root);
+        WordMergeHelper::MergeBookmarks(state, targetMainPart, root);
+        WordMergeHelper::MergeContentControlIds(targetMainPart, root);
+        WordMergeHelper::MergeImages(sourceMainPart, targetMainPart, root);
 
         if (sourceFootnotesPart)
         {
@@ -5265,8 +5350,8 @@ bool WordDocumentEditor::BodyCursor::InsertDocument(const WordDocumentEditor& so
             {
                 targetFootnotesPart = targetMainPart->AddFootnotesPart();
             }
-            MergeNoteReferences<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Footnote,
-                                ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteReference>(
+            WordMergeHelper::MergeNoteReferences<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Footnote,
+                                                 ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteReference>(
                 root, sourceFootnotesPart, targetFootnotesPart, state.FootnoteIds);
         }
         if (sourceEndnotesPart)
@@ -5276,8 +5361,8 @@ bool WordDocumentEditor::BodyCursor::InsertDocument(const WordDocumentEditor& so
             {
                 targetEndnotesPart = targetMainPart->AddEndnotesPart();
             }
-            MergeNoteReferences<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Endnote,
-                                ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndnoteReference>(
+            WordMergeHelper::MergeNoteReferences<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Endnote,
+                                                 ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndnoteReference>(
                 root, sourceEndnotesPart, targetEndnotesPart, state.EndnoteIds);
         }
         if (sourceCommentsPart)
@@ -5287,18 +5372,18 @@ bool WordDocumentEditor::BodyCursor::InsertDocument(const WordDocumentEditor& so
             {
                 targetCommentsPart = targetMainPart->AddWordprocessingCommentsPart();
             }
-            MergeComments(root, sourceCommentsPart, targetCommentsPart, state.CommentIds);
+            WordMergeHelper::MergeComments(root, sourceCommentsPart, targetCommentsPart, state.CommentIds);
 
             // The copied entries bring the source's paragraph IDs along, which
             // are the keys the target's own comment threads hang from.
-            CommentThreading::EnsureUniqueThreadParaIds(targetMainPart);
+            WordMergeHelper::CommentThreading::EnsureUniqueThreadParaIds(targetMainPart);
         }
     }
 
     // Phase 3: rewrite hyperlinks now that all bookmark renames are known.
     for (const auto& root : insertedRoots)
     {
-        MergeHyperlinks(state, sourceMainPart, targetMainPart, root);
+        WordMergeHelper::MergeHyperlinks(state, sourceMainPart, targetMainPart, root);
     }
 
     return true;
@@ -5379,7 +5464,7 @@ bool WordDocumentEditor::CreateDefaultDocument(WordprocessingDocumentType type)
     }
 
     auto mainPart = document->GetMainDocumentPart();
-    if (!EnsureBody(mainPart))
+    if (!WordStructureHelper::EnsureBody(mainPart))
     {
         return false;
     }
@@ -5443,40 +5528,15 @@ bool WordDocumentEditor::RestoreMemento(const DocumentEditMemento& memento,
     return true;
 }
 
-DocumentEditTransaction WordDocumentEditor::BeginTransaction(
-    const ICancellationToken* cancellationToken)
+DocumentEditTransaction WordDocumentEditor::BeginTransaction(const ICancellationToken* cancellationToken)
 {
-    if (!m_transactionOwner || !m_transactionOwner->IsAlive(this))
-    {
-        m_transactionOwner = std::make_shared<detail::DocumentEditTransactionOwner>(this);
-    }
-
-    if (!m_transactionOwner->TryBeginTransaction(this))
-    {
-        return {};
-    }
-
-    try
-    {
-        auto memento = CreateMemento(cancellationToken);
-        if (!memento)
-        {
-            m_transactionOwner->EndTransaction(this);
-            return {};
-        }
-
-        return DocumentEditTransaction(
-            std::move(*memento),
-            [this](const DocumentEditMemento& value)
-            { return RestoreMemento(value); },
-            m_transactionOwner,
-            this);
-    }
-    catch (...)
-    {
-        m_transactionOwner->EndTransaction(this);
-        throw;
-    }
+    return detail::DocumentEditTransactionStarter::Begin(
+        m_transactionOwner,
+        this,
+        [this, cancellationToken]
+        { return CreateMemento(cancellationToken); },
+        [this](const DocumentEditMemento& value)
+        { return RestoreMemento(value); });
 }
 
 void WordDocumentEditor::SetDocument(const WordDocument::Ptr& document)
@@ -5613,13 +5673,13 @@ WordDocumentEditor::BodyCursor WordDocumentEditor::After(const std::shared_ptr<T
 std::vector<BodyBlock> WordDocumentEditor::BodyBlocks() const
 {
     std::vector<BodyBlock> blocks;
-    auto body = GetBody(m_document);
+    auto body = WordBodyHelper::GetBody(m_document);
     if (!body)
     {
         return blocks;
     }
 
-    auto mainPart = GetMainDocumentPart(m_document);
+    auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
     for (const auto& child : body->Children())
     {
         blocks.emplace_back(child, mainPart);
@@ -5630,13 +5690,13 @@ std::vector<BodyBlock> WordDocumentEditor::BodyBlocks() const
 std::vector<std::shared_ptr<Paragraph>> WordDocumentEditor::Paragraphs() const
 {
     std::vector<std::shared_ptr<Paragraph>> paragraphs;
-    auto body = GetBody(m_document);
+    auto body = WordBodyHelper::GetBody(m_document);
     if (!body)
     {
         return paragraphs;
     }
 
-    auto mainPart = GetMainDocumentPart(m_document);
+    auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
     for (const auto& paragraph : body->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>())
     {
         if (paragraph)
@@ -5650,7 +5710,7 @@ std::vector<std::shared_ptr<Paragraph>> WordDocumentEditor::Paragraphs() const
 std::vector<std::shared_ptr<Table>> WordDocumentEditor::Tables() const
 {
     std::vector<std::shared_ptr<Table>> tables;
-    auto body = GetBody(m_document);
+    auto body = WordBodyHelper::GetBody(m_document);
     if (!body)
     {
         return tables;
@@ -5669,22 +5729,22 @@ std::vector<std::shared_ptr<Table>> WordDocumentEditor::Tables() const
 std::vector<std::shared_ptr<Section>> WordDocumentEditor::Sections() const
 {
     std::vector<std::shared_ptr<Section>> sections;
-    auto root = GetMainDocumentRoot(m_document);
+    auto root = WordBodyHelper::GetMainDocumentRoot(m_document);
     if (!root)
     {
         return sections;
     }
 
     std::vector<std::shared_ptr<OpenXMLElement>> sectionElements;
-    CollectDescendantsByName(root,
-                             ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "sectPr"),
-                             sectionElements);
+    WordBodyHelper::CollectDescendantsByName(root,
+                                             ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "sectPr"),
+                                             sectionElements);
 
     for (const auto& section : sectionElements)
     {
         if (section)
         {
-            sections.push_back(std::make_shared<Section>(section, GetMainDocumentPart(m_document)));
+            sections.push_back(std::make_shared<Section>(section, WordStructureHelper::GetMainDocumentPart(m_document)));
         }
     }
     return sections;
@@ -5693,7 +5753,7 @@ std::vector<std::shared_ptr<Section>> WordDocumentEditor::Sections() const
 std::vector<std::shared_ptr<Bookmark>> WordDocumentEditor::Bookmarks() const
 {
     std::vector<std::shared_ptr<Bookmark>> bookmarks;
-    auto root = GetMainDocumentRoot(m_document);
+    auto root = WordBodyHelper::GetMainDocumentRoot(m_document);
     if (!root)
     {
         return bookmarks;
@@ -5948,10 +6008,10 @@ public:
                 continue;
             }
 
-            RemoveParagraphChildrenBetween(parent, start, end);
+            WordFieldHelper::RemoveParagraphChildrenBetween(parent, start, end);
             if (!value->second.empty())
             {
-                InsertRunWithTextBefore(parent, end, value->second, preserveSpaces);
+                WordFieldHelper::InsertRunWithTextBefore(parent, end, value->second, preserveSpaces);
             }
             ++merged;
         }
@@ -5962,8 +6022,8 @@ public:
 TemplateMergeResult WordDocumentEditor::MergeTemplate(const TemplateMergeData& data, bool preserveSpaces)
 {
     TemplateMergeResult result;
-    auto body = GetBody(m_document);
-    auto mainPart = GetMainDocumentPart(m_document);
+    auto body = WordBodyHelper::GetBody(m_document);
+    auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
     if (!body)
     {
         return result;
@@ -6043,14 +6103,14 @@ TemplateMergeResult WordDocumentEditor::MergeTemplate(const TemplateMergeData& d
 std::vector<std::shared_ptr<Revision>> WordDocumentEditor::Revisions() const
 {
     std::vector<std::shared_ptr<Revision>> result;
-    auto root = GetMainDocumentRoot(m_document);
+    auto root = WordBodyHelper::GetMainDocumentRoot(m_document);
     if (!root)
     {
         return result;
     }
 
     std::vector<std::shared_ptr<OpenXMLElement>> elements;
-    CollectRevisionElements(root, elements);
+    WordRevisionHelper::CollectRevisionElements(root, elements);
     for (const auto& element : elements)
     {
         if (element)
@@ -6092,7 +6152,7 @@ Size WordDocumentEditor::RejectAllRevisions()
 Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
                                      const RevisionAuthor& author)
 {
-    auto body = GetBody(m_document);
+    auto body = WordBodyHelper::GetBody(m_document);
     if (!body)
     {
         return 0;
@@ -6102,7 +6162,7 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
     auto revisedParagraphs = revised.Paragraphs();
     const Size common = std::min(originalParagraphs.size(), revisedParagraphs.size());
     Size created = 0;
-    auto nextId = NextRevisionId(GetMainDocumentRoot(m_document));
+    auto nextId = WordRevisionHelper::NextRevisionId(WordBodyHelper::GetMainDocumentRoot(m_document));
 
     for (Size i = 0; i < common; ++i)
     {
@@ -6129,7 +6189,7 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         auto deletion = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DeletedRun>();
         if (deletion)
         {
-            ApplyRevisionMetadata(deletion, author, nextId);
+            WordRevisionHelper::ApplyRevisionMetadata(deletion, author, nextId);
             auto run = deletion->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
             if (run)
             {
@@ -6145,8 +6205,8 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         auto insertion = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsertedRun>();
         if (insertion)
         {
-            ApplyRevisionMetadata(insertion, author, std::to_string(std::stoi(nextId) + 1));
-            AppendRunWithText(insertion, revisedText, true);
+            WordRevisionHelper::ApplyRevisionMetadata(insertion, author, std::to_string(std::stoi(nextId) + 1));
+            WordFieldHelper::AppendRunWithText(insertion, revisedText, true);
             ++created;
         }
         nextId = std::to_string(std::stoi(nextId) + 2);
@@ -6172,7 +6232,7 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         {
             continue;
         }
-        ApplyRevisionMetadata(deletion, author, nextId);
+        WordRevisionHelper::ApplyRevisionMetadata(deletion, author, nextId);
         auto run = deletion->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
         if (run)
         {
@@ -6199,8 +6259,8 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         {
             continue;
         }
-        ApplyRevisionMetadata(insertion, author, nextId);
-        AppendRunWithText(insertion, revisedParagraphs[i]->PlainText(), true);
+        WordRevisionHelper::ApplyRevisionMetadata(insertion, author, nextId);
+        WordFieldHelper::AppendRunWithText(insertion, revisedParagraphs[i]->PlainText(), true);
         nextId = std::to_string(std::stoi(nextId) + 1);
         ++created;
     }
@@ -6222,7 +6282,7 @@ std::shared_ptr<Bookmark> WordDocumentEditor::FindBookmark(std::string_view name
 std::vector<std::shared_ptr<Note>> WordDocumentEditor::Footnotes() const
 {
     std::vector<std::shared_ptr<Note>> notes;
-    auto mainPart = GetMainDocumentPart(m_document);
+    auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
     if (!mainPart)
     {
         return notes;
@@ -6238,7 +6298,7 @@ std::vector<std::shared_ptr<Note>> WordDocumentEditor::Footnotes() const
         return notes;
     }
     for (const auto& entry :
-         FindNoteEntries<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Footnote>(root))
+         WordNoteHelper::FindNoteEntries<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Footnote>(root))
     {
         notes.push_back(std::make_shared<Note>(NoteKind::Footnote, entry, mainPart));
     }
@@ -6248,7 +6308,7 @@ std::vector<std::shared_ptr<Note>> WordDocumentEditor::Footnotes() const
 std::vector<std::shared_ptr<Note>> WordDocumentEditor::Endnotes() const
 {
     std::vector<std::shared_ptr<Note>> notes;
-    auto mainPart = GetMainDocumentPart(m_document);
+    auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
     if (!mainPart)
     {
         return notes;
@@ -6264,7 +6324,7 @@ std::vector<std::shared_ptr<Note>> WordDocumentEditor::Endnotes() const
         return notes;
     }
     for (const auto& entry :
-         FindNoteEntries<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Endnote>(root))
+         WordNoteHelper::FindNoteEntries<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Endnote>(root))
     {
         notes.push_back(std::make_shared<Note>(NoteKind::Endnote, entry, mainPart));
     }
@@ -6298,7 +6358,7 @@ std::shared_ptr<Note> WordDocumentEditor::FindEndnote(int id) const
 std::vector<std::shared_ptr<Comment>> WordDocumentEditor::Comments() const
 {
     std::vector<std::shared_ptr<Comment>> comments;
-    auto mainPart = GetMainDocumentPart(m_document);
+    auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
     if (!mainPart)
     {
         return comments;
@@ -6338,15 +6398,15 @@ std::shared_ptr<Comment> WordDocumentEditor::FindComment(int id) const
 std::vector<std::shared_ptr<ContentControl>> WordDocumentEditor::ContentControls() const
 {
     std::vector<std::shared_ptr<ContentControl>> result;
-    auto root = GetMainDocumentRoot(m_document);
+    auto root = WordBodyHelper::GetMainDocumentRoot(m_document);
     if (!root)
     {
         return result;
     }
-    auto mainPart = GetMainDocumentPart(m_document);
+    auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
 
     std::vector<std::shared_ptr<OpenXMLElement>> sdtElements;
-    CollectDescendantsByName(root, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "sdt"), sdtElements);
+    WordBodyHelper::CollectDescendantsByName(root, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "sdt"), sdtElements);
 
     for (const auto& sdt : sdtElements)
     {
@@ -6377,19 +6437,19 @@ std::shared_ptr<ContentControl> WordDocumentEditor::FindContentControl(int id) c
 
 std::shared_ptr<Section> WordDocumentEditor::EnsureFinalSection()
 {
-    auto body = EnsureBody(m_document);
+    auto body = WordStructureHelper::EnsureBody(m_document);
     if (!body)
     {
         return nullptr;
     }
 
-    auto sectionProperties = FindTrailingSectionProperties(body);
+    auto sectionProperties = WordBodyHelper::FindTrailingSectionProperties(body);
     if (!sectionProperties)
     {
         sectionProperties =
             body->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionProperties>();
     }
-    return sectionProperties ? std::make_shared<Section>(sectionProperties, GetMainDocumentPart(m_document)) : nullptr;
+    return sectionProperties ? std::make_shared<Section>(sectionProperties, WordStructureHelper::GetMainDocumentPart(m_document)) : nullptr;
 }
 
 std::shared_ptr<Paragraph> WordDocumentEditor::AddParagraph()
@@ -6437,36 +6497,36 @@ public:
 
         using namespace ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
 
-        auto paragraphProperties = EnsureChildOfType<Style, StyleParagraphProperties>(style);
+        auto paragraphProperties = WordStructureHelper::EnsureChildOfType<Style, StyleParagraphProperties>(style);
         if (paragraphProperties)
         {
-            if (auto keepNext = EnsureChildOfType<StyleParagraphProperties, KeepNext>(paragraphProperties))
+            if (auto keepNext = WordStructureHelper::EnsureChildOfType<StyleParagraphProperties, KeepNext>(paragraphProperties))
             {
                 keepNext->SetVal(OnOffValue(true));
             }
-            if (auto keepLines = EnsureChildOfType<StyleParagraphProperties, KeepLines>(paragraphProperties))
+            if (auto keepLines = WordStructureHelper::EnsureChildOfType<StyleParagraphProperties, KeepLines>(paragraphProperties))
             {
                 keepLines->SetVal(OnOffValue(true));
             }
-            if (auto spacing = EnsureChildOfType<StyleParagraphProperties, SpacingBetweenLines>(paragraphProperties))
+            if (auto spacing = WordStructureHelper::EnsureChildOfType<StyleParagraphProperties, SpacingBetweenLines>(paragraphProperties))
             {
                 spacing->SetBefore(StringValue(level == 1 ? "240" : "120"));
             }
-            if (auto outline = EnsureChildOfType<StyleParagraphProperties, OutlineLevel>(paragraphProperties))
+            if (auto outline = WordStructureHelper::EnsureChildOfType<StyleParagraphProperties, OutlineLevel>(paragraphProperties))
             {
                 outline->SetVal(Int32Value(level - 1));
             }
         }
 
-        auto runProperties = EnsureChildOfType<Style, StyleRunProperties>(style);
+        auto runProperties = WordStructureHelper::EnsureChildOfType<Style, StyleRunProperties>(style);
         if (runProperties)
         {
-            if (auto bold = EnsureChildOfType<StyleRunProperties, Bold>(runProperties))
+            if (auto bold = WordStructureHelper::EnsureChildOfType<StyleRunProperties, Bold>(runProperties))
             {
                 bold->SetVal(OnOffValue(true));
             }
-            if (auto color = EnsureChildOfType<StyleRunProperties,
-                                               ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Color>(runProperties))
+            if (auto color = WordStructureHelper::EnsureChildOfType<StyleRunProperties,
+                                                                    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Color>(runProperties))
             {
                 color->SetVal(StringValue("2F5496"));
             }
@@ -6475,7 +6535,7 @@ public:
             const int halfPoints = level == 1 ? 32 : level == 2 ? 26
                                                  : level == 3   ? 24
                                                                 : 22;
-            if (auto fontSize = EnsureChildOfType<StyleRunProperties, FontSize>(runProperties))
+            if (auto fontSize = WordStructureHelper::EnsureChildOfType<StyleRunProperties, FontSize>(runProperties))
             {
                 fontSize->SetVal(StringValue(std::to_string(halfPoints)));
             }
@@ -6561,19 +6621,19 @@ std::shared_ptr<Table> WordDocumentEditor::AddTable(Size rows, Size columns)
 
 std::optional<ImageFormatInfo> DetectImageFormat(std::span<const Byte> data)
 {
-    if (auto png = DetectPng(data))
+    if (auto png = WordImageFormatHelper::DetectPng(data))
     {
         return png;
     }
-    if (auto jpeg = DetectJpeg(data))
+    if (auto jpeg = WordImageFormatHelper::DetectJpeg(data))
     {
         return jpeg;
     }
-    if (auto gif = DetectGif(data))
+    if (auto gif = WordImageFormatHelper::DetectGif(data))
     {
         return gif;
     }
-    if (auto bmp = DetectBmp(data))
+    if (auto bmp = WordImageFormatHelper::DetectBmp(data))
     {
         return bmp;
     }
@@ -6597,7 +6657,7 @@ std::shared_ptr<Image> WordDocumentEditor::AddImageFromFile(const std::filesyste
         return nullptr;
     }
 
-    const auto contentType = ContentTypeFromExtension(filePath);
+    const auto contentType = WordValueHelper::ContentTypeFromExtension(filePath);
     return AddImageFromData(std::move(data), contentType, width, height, layout, wrap);
 }
 
@@ -6623,20 +6683,20 @@ std::shared_ptr<Image> WordDocumentEditor::AddImageFromData(std::vector<Byte> da
         return nullptr;
     }
 
-    auto imagePart = CreateImagePartFromData(mainPart, std::move(data), contentType);
+    auto imagePart = WordDrawingHelper::CreateImagePartFromData(mainPart, std::move(data), contentType);
     if (!imagePart)
     {
         return nullptr;
     }
 
-    auto body = EnsureBody(mainPart);
+    auto body = WordStructureHelper::EnsureBody(mainPart);
     if (!body)
     {
         return nullptr;
     }
 
     auto paragraph = body->InsertChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>(
-        FindTrailingSectionProperties(body));
+        WordBodyHelper::FindTrailingSectionProperties(body));
     if (!paragraph)
     {
         return nullptr;
@@ -6649,16 +6709,16 @@ std::shared_ptr<Image> WordDocumentEditor::AddImageFromData(std::vector<Byte> da
 
     const auto relId = imagePart->RelationshipId();
     auto drawing = run->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>();
-    const auto docId = NextDocPropertyId(mainPart->GetTypedRootElement());
+    const auto docId = WordIdHelper::NextDocPropertyId(mainPart->GetTypedRootElement());
     const auto pictureName = "Picture " + std::to_string(docId);
-    if (!PopulateDrawingWithPicture(drawing,
-                                    relId,
-                                    ToEmuInt64(width),
-                                    ToEmuInt64(height),
-                                    layout,
-                                    wrap,
-                                    docId,
-                                    pictureName))
+    if (!WordDrawingHelper::PopulateDrawingWithPicture(drawing,
+                                                       relId,
+                                                       WordValueHelper::ToEmuInt64(width),
+                                                       WordValueHelper::ToEmuInt64(height),
+                                                       layout,
+                                                       wrap,
+                                                       docId,
+                                                       pictureName))
     {
         return nullptr;
     }
@@ -6746,7 +6806,7 @@ bool NumberingManager::IsValid() const
 
 bool NumberingManager::HasNumberingPart() const
 {
-    return GetNumberingDefinitionsPart(m_document) != nullptr;
+    return WordNumberingHelper::GetNumberingDefinitionsPart(m_document) != nullptr;
 }
 
 ListStyle NumberingManager::EnsureMultilevelList(const NumberingDefinition& definition)
@@ -6757,13 +6817,13 @@ ListStyle NumberingManager::EnsureMultilevelList(const NumberingDefinition& defi
         return style;
     }
 
-    auto numbering = GetNumberingRoot(m_document, true);
+    auto numbering = WordNumberingHelper::GetNumberingRoot(m_document, true);
     if (!numbering)
     {
         return style;
     }
 
-    auto abstractNum = FindAbstractNumByName(numbering, definition.Name);
+    auto abstractNum = WordNumberingHelper::FindAbstractNumByName(numbering, definition.Name);
     if (!abstractNum)
     {
         abstractNum = numbering->AppendChild<DocumentFormat::OpenXml::Wordprocessing::AbstractNum>();
@@ -6772,7 +6832,7 @@ ListStyle NumberingManager::EnsureMultilevelList(const NumberingDefinition& defi
             return style;
         }
 
-        const int abstractId = NextAbstractNumberingId(numbering);
+        const int abstractId = WordNumberingHelper::NextAbstractNumberingId(numbering);
         abstractNum->SetAbstractNumberId(Int32Value(abstractId));
 
         auto defName = abstractNum->AppendChild<DocumentFormat::OpenXml::Wordprocessing::AbstractNumDefinitionName>();
@@ -6804,22 +6864,22 @@ ListStyle NumberingManager::EnsureMultilevelList(const NumberingDefinition& defi
         bool written[9] = {};
         for (const auto& inputLevel : levels)
         {
-            auto level = NormalizeLevel(inputLevel);
+            auto level = WordNumberingHelper::NormalizeLevel(inputLevel);
             if (written[level.Level])
             {
                 continue;
             }
             written[level.Level] = true;
             auto levelElement = abstractNum->AppendChild<DocumentFormat::OpenXml::Wordprocessing::Level>();
-            WriteLevelDefinition(levelElement, level);
+            WordNumberingHelper::WriteLevelDefinition(levelElement, level);
         }
     }
 
     const int abstractId = abstractNum->GetAbstractNumberId().Value();
-    auto instance = FindNumberingInstanceForAbstract(numbering, abstractId);
+    auto instance = WordNumberingHelper::FindNumberingInstanceForAbstract(numbering, abstractId);
     if (!instance)
     {
-        instance = AppendNumberingInstance(numbering, abstractId, {});
+        instance = WordNumberingHelper::AppendNumberingInstance(numbering, abstractId, {});
     }
     if (!instance || !instance->GetNumberID().IsDefined())
     {
@@ -6834,8 +6894,8 @@ ListStyle NumberingManager::EnsureMultilevelList(const NumberingDefinition& defi
 ListStyle NumberingManager::ContinueList(int numberingId)
 {
     ListStyle style{};
-    auto numbering = GetNumberingRoot(m_document, false);
-    auto instance = FindNumberingInstanceById(numbering, numberingId);
+    auto numbering = WordNumberingHelper::GetNumberingRoot(m_document, false);
+    auto instance = WordNumberingHelper::FindNumberingInstanceById(numbering, numberingId);
     if (!instance || !instance->GetNumberID().IsDefined())
     {
         return style;
@@ -6849,8 +6909,8 @@ ListStyle NumberingManager::ContinueList(int numberingId)
 ListStyle NumberingManager::RestartList(int numberingId, const std::vector<NumberingLevelOverride>& overrides)
 {
     ListStyle style{};
-    auto numbering = GetNumberingRoot(m_document, false);
-    auto instance = FindNumberingInstanceById(numbering, numberingId);
+    auto numbering = WordNumberingHelper::GetNumberingRoot(m_document, false);
+    auto instance = WordNumberingHelper::FindNumberingInstanceById(numbering, numberingId);
     auto abstractNumId = instance ? instance->GetFirstChildOfType<DocumentFormat::OpenXml::Wordprocessing::AbstractNumId>()
                                   : nullptr;
     if (!abstractNumId || !abstractNumId->GetVal().IsDefined())
@@ -6858,7 +6918,7 @@ ListStyle NumberingManager::RestartList(int numberingId, const std::vector<Numbe
         return style;
     }
 
-    auto restarted = AppendNumberingInstance(numbering, abstractNumId->GetVal().Value(), overrides);
+    auto restarted = WordNumberingHelper::AppendNumberingInstance(numbering, abstractNumId->GetVal().Value(), overrides);
     if (!restarted || !restarted->GetNumberID().IsDefined())
     {
         return style;
@@ -6872,7 +6932,7 @@ ListStyle NumberingManager::RestartList(int numberingId, const std::vector<Numbe
 std::vector<NumberingInstanceInfo> NumberingManager::Instances() const
 {
     std::vector<NumberingInstanceInfo> result;
-    auto numbering = GetNumberingRoot(m_document, false);
+    auto numbering = WordNumberingHelper::GetNumberingRoot(m_document, false);
     if (!numbering)
     {
         return result;
@@ -6893,7 +6953,7 @@ std::vector<NumberingInstanceInfo> NumberingManager::Instances() const
         {
             info.AbstractNumberingId = abstractNumId->GetVal().Value();
         }
-        info.Overrides = ReadLevelOverrides(instance);
+        info.Overrides = WordNumberingHelper::ReadLevelOverrides(instance);
         result.push_back(info);
     }
     return result;
@@ -6913,8 +6973,8 @@ std::optional<NumberingInstanceInfo> NumberingManager::GetInstance(int numbering
 
 std::optional<NumberingDefinition> NumberingManager::GetDefinition(int abstractNumberingId) const
 {
-    auto numbering = GetNumberingRoot(m_document, false);
-    auto abstractNum = FindAbstractNumById(numbering, abstractNumberingId);
+    auto numbering = WordNumberingHelper::GetNumberingRoot(m_document, false);
+    auto abstractNum = WordNumberingHelper::FindAbstractNumById(numbering, abstractNumberingId);
     if (!abstractNum)
     {
         return std::nullopt;
@@ -6974,15 +7034,15 @@ std::optional<NumberingDefinition> NumberingManager::GetDefinition(int abstractN
 ListStyle NumberingManager::ImportList(const NumberingManager& source, int sourceNumberingId)
 {
     ListStyle style{};
-    auto sourceNumbering = GetNumberingRoot(source.m_document, false);
-    auto targetNumbering = GetNumberingRoot(m_document, true);
+    auto sourceNumbering = WordNumberingHelper::GetNumberingRoot(source.m_document, false);
+    auto targetNumbering = WordNumberingHelper::GetNumberingRoot(m_document, true);
     if (!sourceNumbering || !targetNumbering)
     {
         return style;
     }
 
-    auto sourceInstance = FindNumberingInstanceById(sourceNumbering, sourceNumberingId);
-    auto sourceAbstract = GetAbstractNumForInstance(sourceNumbering, sourceNumberingId);
+    auto sourceInstance = WordNumberingHelper::FindNumberingInstanceById(sourceNumbering, sourceNumberingId);
+    auto sourceAbstract = WordNumberingHelper::GetAbstractNumForInstance(sourceNumbering, sourceNumberingId);
     if (!sourceInstance || !sourceAbstract || !sourceAbstract->GetAbstractNumberId().IsDefined())
     {
         return style;
@@ -6994,13 +7054,13 @@ ListStyle NumberingManager::ImportList(const NumberingManager& source, int sourc
         return style;
     }
 
-    const int targetAbstractId = NextAbstractNumberingId(targetNumbering);
+    const int targetAbstractId = WordNumberingHelper::NextAbstractNumberingId(targetNumbering);
     targetAbstract->SetAbstractNumberId(Int32Value(targetAbstractId));
 
     const std::string sourceName =
-        GetStringChildValueByName(sourceAbstract, "name").empty()
+        WordPropertyReadHelper::GetStringChildValueByName(sourceAbstract, "name").empty()
             ? std::string("ImportedList")
-            : GetStringChildValueByName(sourceAbstract, "name");
+            : WordPropertyReadHelper::GetStringChildValueByName(sourceAbstract, "name");
     auto defName = targetAbstract->AppendChild<DocumentFormat::OpenXml::Wordprocessing::AbstractNumDefinitionName>();
     if (defName)
     {
@@ -7018,14 +7078,14 @@ ListStyle NumberingManager::ImportList(const NumberingManager& source, int sourc
 
     for (const auto& sourceLevel : sourceAbstract->Elements<DocumentFormat::OpenXml::Wordprocessing::Level>())
     {
-        if (auto definition = ReadLevelDefinition(sourceLevel))
+        if (auto definition = WordNumberingHelper::ReadLevelDefinition(sourceLevel))
         {
             auto targetLevel = targetAbstract->AppendChild<DocumentFormat::OpenXml::Wordprocessing::Level>();
-            WriteLevelDefinition(targetLevel, *definition);
+            WordNumberingHelper::WriteLevelDefinition(targetLevel, *definition);
         }
     }
 
-    auto targetInstance = AppendNumberingInstance(targetNumbering, targetAbstractId, ReadLevelOverrides(sourceInstance));
+    auto targetInstance = WordNumberingHelper::AppendNumberingInstance(targetNumbering, targetAbstractId, WordNumberingHelper::ReadLevelOverrides(sourceInstance));
     if (!targetInstance || !targetInstance->GetNumberID().IsDefined())
     {
         return style;
@@ -7045,7 +7105,7 @@ bool StyleManager::IsValid() const
 
 std::shared_ptr<Packaging::StyleDefinitionsPart> StyleManager::GetStylesPart() const
 {
-    return GetStyleDefinitionsPart(m_document);
+    return WordStylePartHelper::GetStyleDefinitionsPart(m_document);
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Styles> StyleManager::GetRoot() const
@@ -7072,7 +7132,7 @@ std::vector<StyleDefinition> StyleManager::Styles() const
     {
         if (style)
         {
-            result.push_back(ReadStyleDefinition(style));
+            result.push_back(WordStyleDefinitionHelper::ReadStyleDefinition(style));
         }
     }
     return result;
@@ -7098,7 +7158,7 @@ std::optional<StyleDefinition> StyleManager::GetStyle(std::string_view styleId) 
     {
         return std::nullopt;
     }
-    return ReadStyleDefinition(style);
+    return WordStyleDefinitionHelper::ReadStyleDefinition(style);
 }
 
 std::optional<StyleDefinition> StyleManager::GetDefaultStyle(StyleType type) const
@@ -7116,7 +7176,7 @@ std::optional<StyleDefinition> StyleManager::GetDefaultStyle(StyleType type) con
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Style> StyleManager::GetLowLevelStyle(
     std::string_view styleId) const
 {
-    return FindStyleById(GetRoot(), styleId);
+    return WordStyleDefinitionHelper::FindStyleById(GetRoot(), styleId);
 }
 
 bool StyleManager::CreateStyle(const StyleDefinition& definition, bool replaceExisting)
@@ -7126,20 +7186,20 @@ bool StyleManager::CreateStyle(const StyleDefinition& definition, bool replaceEx
         return false;
     }
 
-    auto part = EnsureStyleDefinitionsPart(m_document);
+    auto part = WordStylePartHelper::EnsureStyleDefinitionsPart(m_document);
     auto root = part ? part->GetTypedRootElement() : nullptr;
     if (!root)
     {
         return false;
     }
 
-    if (auto existing = FindStyleById(root, definition.StyleId))
+    if (auto existing = WordStyleDefinitionHelper::FindStyleById(root, definition.StyleId))
     {
         if (!replaceExisting)
         {
             return false;
         }
-        ApplyStyleDefinition(existing, definition);
+        WordStyleDefinitionHelper::ApplyStyleDefinition(existing, definition);
         if (definition.IsDefault)
         {
             SetDefaultStyle(definition.Type, definition.StyleId);
@@ -7152,7 +7212,7 @@ bool StyleManager::CreateStyle(const StyleDefinition& definition, bool replaceEx
     {
         return false;
     }
-    ApplyStyleDefinition(style, definition);
+    WordStyleDefinitionHelper::ApplyStyleDefinition(style, definition);
     if (definition.IsDefault)
     {
         SetDefaultStyle(definition.Type, definition.StyleId);
@@ -7171,7 +7231,7 @@ bool StyleManager::UpdateStyle(const StyleDefinition& definition)
     {
         return false;
     }
-    ApplyStyleDefinition(style, definition);
+    WordStyleDefinitionHelper::ApplyStyleDefinition(style, definition);
     if (definition.IsDefault)
     {
         SetDefaultStyle(definition.Type, definition.StyleId);
@@ -7187,7 +7247,7 @@ bool StyleManager::UpsertStyle(const StyleDefinition& definition)
 bool StyleManager::RemoveStyle(std::string_view styleId)
 {
     auto root = GetRoot();
-    auto style = FindStyleById(root, styleId);
+    auto style = WordStyleDefinitionHelper::FindStyleById(root, styleId);
     if (!root || !style)
     {
         return false;
@@ -7198,14 +7258,14 @@ bool StyleManager::RemoveStyle(std::string_view styleId)
 bool StyleManager::SetDefaultStyle(StyleType type, std::string_view styleId)
 {
     auto root = GetRoot();
-    auto target = FindStyleById(root, styleId);
+    auto target = WordStyleDefinitionHelper::FindStyleById(root, styleId);
     if (!root || !target)
     {
         return false;
     }
 
-    const auto targetType = FromDomStyleType(target->GetType().ValueOr(
-                                                 ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues::Paragraph))
+    const auto targetType = WordStylePartHelper::FromDomStyleType(target->GetType().ValueOr(
+                                                                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues::Paragraph))
                                 .value_or(StyleType::Paragraph);
     if (targetType != type)
     {
@@ -7218,8 +7278,8 @@ bool StyleManager::SetDefaultStyle(StyleType type, std::string_view styleId)
         {
             continue;
         }
-        const auto currentType = FromDomStyleType(style->GetType().ValueOr(
-                                                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues::Paragraph))
+        const auto currentType = WordStylePartHelper::FromDomStyleType(style->GetType().ValueOr(
+                                                                           ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues::Paragraph))
                                      .value_or(StyleType::Paragraph);
         if (currentType == type)
         {
@@ -7245,8 +7305,8 @@ bool StyleManager::ClearDefaultStyle(StyleType type)
         {
             continue;
         }
-        const auto currentType = FromDomStyleType(style->GetType().ValueOr(
-                                                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues::Paragraph))
+        const auto currentType = WordStylePartHelper::FromDomStyleType(style->GetType().ValueOr(
+                                                                           ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::StyleValues::Paragraph))
                                      .value_or(StyleType::Paragraph);
         if (currentType == type && style->GetDefault().IsDefined())
         {
@@ -7268,26 +7328,26 @@ LatentStyleSettings StyleManager::GetLatentStyleSettings() const
         return result;
     }
 
-    result.DefaultLocked = OptionalOnOff(latent->GetDefaultLockedState());
-    result.DefaultUiPriority = OptionalInt32(latent->GetDefaultUiPriority());
-    result.DefaultSemiHidden = OptionalOnOff(latent->GetDefaultSemiHidden());
-    result.DefaultUnhideWhenUsed = OptionalOnOff(latent->GetDefaultUnhideWhenUsed());
-    result.DefaultPrimaryStyle = OptionalOnOff(latent->GetDefaultPrimaryStyle());
-    result.Count = OptionalInt32(latent->GetCount());
+    result.DefaultLocked = WordPropertyReadHelper::OptionalOnOff(latent->GetDefaultLockedState());
+    result.DefaultUiPriority = WordPropertyReadHelper::OptionalInt32(latent->GetDefaultUiPriority());
+    result.DefaultSemiHidden = WordPropertyReadHelper::OptionalOnOff(latent->GetDefaultSemiHidden());
+    result.DefaultUnhideWhenUsed = WordPropertyReadHelper::OptionalOnOff(latent->GetDefaultUnhideWhenUsed());
+    result.DefaultPrimaryStyle = WordPropertyReadHelper::OptionalOnOff(latent->GetDefaultPrimaryStyle());
+    result.Count = WordPropertyReadHelper::OptionalInt32(latent->GetCount());
     return result;
 }
 
 bool StyleManager::SetLatentStyleSettings(const LatentStyleSettings& settings)
 {
-    auto part = EnsureStyleDefinitionsPart(m_document);
+    auto part = WordStylePartHelper::EnsureStyleDefinitionsPart(m_document);
     auto root = part ? part->GetTypedRootElement() : nullptr;
     if (!root)
     {
         return false;
     }
 
-    auto latent = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Styles,
-                                    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LatentStyles>(root);
+    auto latent = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Styles,
+                                                         ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LatentStyles>(root);
     if (!latent)
     {
         return false;
@@ -7323,12 +7383,12 @@ std::vector<LatentStyleException> StyleManager::LatentStyleExceptions() const
             continue;
         }
         LatentStyleException exception;
-        exception.Name = StringValueOrEmpty(item->GetName());
-        exception.Locked = OptionalOnOff(item->GetLocked());
-        exception.UiPriority = OptionalInt32(item->GetUiPriority());
-        exception.SemiHidden = OptionalOnOff(item->GetSemiHidden());
-        exception.UnhideWhenUsed = OptionalOnOff(item->GetUnhideWhenUsed());
-        exception.PrimaryStyle = OptionalOnOff(item->GetPrimaryStyle());
+        exception.Name = WordPropertyReadHelper::StringValueOrEmpty(item->GetName());
+        exception.Locked = WordPropertyReadHelper::OptionalOnOff(item->GetLocked());
+        exception.UiPriority = WordPropertyReadHelper::OptionalInt32(item->GetUiPriority());
+        exception.SemiHidden = WordPropertyReadHelper::OptionalOnOff(item->GetSemiHidden());
+        exception.UnhideWhenUsed = WordPropertyReadHelper::OptionalOnOff(item->GetUnhideWhenUsed());
+        exception.PrimaryStyle = WordPropertyReadHelper::OptionalOnOff(item->GetPrimaryStyle());
         result.push_back(std::move(exception));
     }
     return result;
@@ -7353,14 +7413,14 @@ bool StyleManager::SetLatentStyleException(const LatentStyleException& exception
         return false;
     }
 
-    auto part = EnsureStyleDefinitionsPart(m_document);
+    auto part = WordStylePartHelper::EnsureStyleDefinitionsPart(m_document);
     auto root = part ? part->GetTypedRootElement() : nullptr;
     if (!root)
     {
         return false;
     }
-    auto latent = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Styles,
-                                    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LatentStyles>(root);
+    auto latent = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Styles,
+                                                         ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LatentStyles>(root);
     if (!latent)
     {
         return false;
@@ -7370,7 +7430,7 @@ bool StyleManager::SetLatentStyleException(const LatentStyleException& exception
     for (const auto& current :
          latent->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LatentStyleExceptionInfo>())
     {
-        if (current && StringValueOrEmpty(current->GetName()) == exception.Name)
+        if (current && WordPropertyReadHelper::StringValueOrEmpty(current->GetName()) == exception.Name)
         {
             item = current;
             break;
@@ -7407,7 +7467,7 @@ bool StyleManager::RemoveLatentStyleException(std::string_view name)
     for (const auto& item :
          latent->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LatentStyleExceptionInfo>())
     {
-        if (item && StringValueOrEmpty(item->GetName()) == name)
+        if (item && WordPropertyReadHelper::StringValueOrEmpty(item->GetName()) == name)
         {
             return latent->RemoveChild(item);
         }
@@ -7426,7 +7486,7 @@ std::string StyleManager::ImportStyle(const StyleManager& source,
     }
 
     auto sourcePart = source.GetStylesPart();
-    auto targetPart = EnsureStyleDefinitionsPart(m_document);
+    auto targetPart = WordStylePartHelper::EnsureStyleDefinitionsPart(m_document);
     if (!sourcePart || !targetPart)
     {
         return {};
@@ -7443,7 +7503,7 @@ std::string StyleManager::ImportStyle(const StyleManager& source,
     std::string targetId = requestedId;
     if (existing && policy == StyleCopyConflictPolicy::Rename)
     {
-        targetId = MakeUniqueStyleId(*this, requestedId);
+        targetId = WordStyleDefinitionHelper::MakeUniqueStyleId(*this, requestedId);
         if (targetId.empty())
         {
             return {};
@@ -7459,7 +7519,7 @@ std::string StyleManager::ImportStyle(const StyleManager& source,
 
     // Only Replace can still meet an existing style here: KeepExisting returned
     // above and Rename has already picked an unused id.
-    auto replaced = policy == StyleCopyConflictPolicy::Replace ? FindStyleById(targetRoot, targetId) : nullptr;
+    auto replaced = policy == StyleCopyConflictPolicy::Replace ? WordStyleDefinitionHelper::FindStyleById(targetRoot, targetId) : nullptr;
 
     // CopyInto carries the source subtree's namespace declarations across, so no
     // manual xmlns bookkeeping is needed and the target part's live tree - along
@@ -7674,8 +7734,8 @@ std::string Paragraph::PlainText() const
 
 Paragraph& Paragraph::SetStyleId(std::string_view styleId)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto style = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto style = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>(props);
     if (style)
     {
         style->SetVal(StringValue(std::string(styleId)));
@@ -7685,22 +7745,22 @@ Paragraph& Paragraph::SetStyleId(std::string_view styleId)
 
 std::string Paragraph::GetStyleId() const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    return GetStringChildValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    return WordPropertyReadHelper::GetStringChildValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>(props);
 }
 
 Paragraph& Paragraph::ClearStyleId()
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphStyleId>(props);
     return *this;
 }
 
 Paragraph& Paragraph::SetAlignment(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::JustificationValues alignment)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto justification = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Justification>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto justification = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Justification>(props);
     if (justification)
     {
         justification->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::JustificationValues>(alignment));
@@ -7710,16 +7770,16 @@ Paragraph& Paragraph::SetAlignment(ExyokiOffice::DocumentFormat::OpenXml::Wordpr
 
 std::optional<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::JustificationValues> Paragraph::GetAlignment() const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    return ReadEnumValChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Justification,
-                            ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::JustificationValues>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    return WordPropertyReadHelper::ReadEnumValChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Justification,
+                                                    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::JustificationValues>(props);
 }
 
 Paragraph& Paragraph::ClearAlignment()
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Justification>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Justification>(props);
     return *this;
 }
 
@@ -7728,8 +7788,8 @@ Paragraph& Paragraph::SetSpacing(std::optional<ExyokiOffice::MeasuringUnits> bef
                                  std::optional<ExyokiOffice::MeasuringUnits> line,
                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LineSpacingRuleValues lineRule)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto spacing = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SpacingBetweenLines>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto spacing = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SpacingBetweenLines>(props);
     if (!spacing)
     {
         return *this;
@@ -7737,15 +7797,15 @@ Paragraph& Paragraph::SetSpacing(std::optional<ExyokiOffice::MeasuringUnits> bef
 
     if (before)
     {
-        spacing->SetBefore(StringValue(std::to_string(ToTwipsInt(*before))));
+        spacing->SetBefore(StringValue(std::to_string(WordValueHelper::ToTwipsInt(*before))));
     }
     if (after)
     {
-        spacing->SetAfter(StringValue(std::to_string(ToTwipsInt(*after))));
+        spacing->SetAfter(StringValue(std::to_string(WordValueHelper::ToTwipsInt(*after))));
     }
     if (line)
     {
-        spacing->SetLine(StringValue(std::to_string(ToTwipsInt(*line))));
+        spacing->SetLine(StringValue(std::to_string(WordValueHelper::ToTwipsInt(*line))));
         spacing->SetLineRule(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LineSpacingRuleValues>(lineRule));
     }
     return *this;
@@ -7756,8 +7816,8 @@ Paragraph& Paragraph::SetSpacingLines(std::optional<int> beforeLines,
                                       std::optional<int> lineLines,
                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LineSpacingRuleValues lineRule)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto spacing = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SpacingBetweenLines>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto spacing = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SpacingBetweenLines>(props);
     if (!spacing)
     {
         return *this;
@@ -7784,8 +7844,8 @@ Paragraph& Paragraph::SetIndentation(std::optional<ExyokiOffice::MeasuringUnits>
                                      std::optional<ExyokiOffice::MeasuringUnits> firstLine,
                                      std::optional<ExyokiOffice::MeasuringUnits> hanging)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto indentation = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Indentation>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto indentation = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Indentation>(props);
     if (!indentation)
     {
         return *this;
@@ -7793,26 +7853,26 @@ Paragraph& Paragraph::SetIndentation(std::optional<ExyokiOffice::MeasuringUnits>
 
     if (left)
     {
-        indentation->SetLeft(StringValue(std::to_string(ToTwipsInt(*left))));
+        indentation->SetLeft(StringValue(std::to_string(WordValueHelper::ToTwipsInt(*left))));
     }
     if (right)
     {
-        indentation->SetRight(StringValue(std::to_string(ToTwipsInt(*right))));
+        indentation->SetRight(StringValue(std::to_string(WordValueHelper::ToTwipsInt(*right))));
     }
     if (firstLine)
     {
-        indentation->SetFirstLine(StringValue(std::to_string(ToTwipsInt(*firstLine))));
+        indentation->SetFirstLine(StringValue(std::to_string(WordValueHelper::ToTwipsInt(*firstLine))));
     }
     if (hanging)
     {
-        indentation->SetHanging(StringValue(std::to_string(ToTwipsInt(*hanging))));
+        indentation->SetHanging(StringValue(std::to_string(WordValueHelper::ToTwipsInt(*hanging))));
     }
     return *this;
 }
 
 bool Paragraph::TryGetSpacing(ParagraphSpacing& output) const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
     auto spacing = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SpacingBetweenLines>() : nullptr;
     if (!spacing)
     {
@@ -7820,16 +7880,16 @@ bool Paragraph::TryGetSpacing(ParagraphSpacing& output) const
     }
 
     output = ParagraphSpacing{};
-    output.Before = GetDefinedTwips(spacing->GetBefore());
-    output.After = GetDefinedTwips(spacing->GetAfter());
-    output.Line = GetDefinedTwips(spacing->GetLine());
+    output.Before = WordValueHelper::GetDefinedTwips(spacing->GetBefore());
+    output.After = WordValueHelper::GetDefinedTwips(spacing->GetAfter());
+    output.Line = WordValueHelper::GetDefinedTwips(spacing->GetLine());
     output.LineRule = spacing->GetLineRule().Value();
     return true;
 }
 
 bool Paragraph::TryGetSpacingLines(ParagraphSpacingLines& output) const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
     auto spacing = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SpacingBetweenLines>() : nullptr;
     if (!spacing)
     {
@@ -7837,16 +7897,16 @@ bool Paragraph::TryGetSpacingLines(ParagraphSpacingLines& output) const
     }
 
     output = ParagraphSpacingLines{};
-    output.BeforeLines = GetDefinedInt32(spacing->GetBeforeLines());
-    output.AfterLines = GetDefinedInt32(spacing->GetAfterLines());
-    output.LineLines = TryParseInt(spacing->GetLine().ToString());
+    output.BeforeLines = WordValueHelper::GetDefinedInt32(spacing->GetBeforeLines());
+    output.AfterLines = WordValueHelper::GetDefinedInt32(spacing->GetAfterLines());
+    output.LineLines = WordValueHelper::TryParseInt(spacing->GetLine().ToString());
     output.LineRule = spacing->GetLineRule().Value();
     return true;
 }
 
 bool Paragraph::TryGetIndentation(ParagraphIndentation& output) const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
     auto indentation = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Indentation>() : nullptr;
     if (!indentation)
     {
@@ -7854,39 +7914,39 @@ bool Paragraph::TryGetIndentation(ParagraphIndentation& output) const
     }
 
     output = ParagraphIndentation{};
-    output.Left = GetDefinedTwips(indentation->GetLeft());
-    output.Right = GetDefinedTwips(indentation->GetRight());
-    output.FirstLine = GetDefinedTwips(indentation->GetFirstLine());
-    output.Hanging = GetDefinedTwips(indentation->GetHanging());
+    output.Left = WordValueHelper::GetDefinedTwips(indentation->GetLeft());
+    output.Right = WordValueHelper::GetDefinedTwips(indentation->GetRight());
+    output.FirstLine = WordValueHelper::GetDefinedTwips(indentation->GetFirstLine());
+    output.Hanging = WordValueHelper::GetDefinedTwips(indentation->GetHanging());
     return true;
 }
 
 Paragraph& Paragraph::ClearSpacing()
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SpacingBetweenLines>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SpacingBetweenLines>(props);
     return *this;
 }
 
 Paragraph& Paragraph::ClearIndentation()
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Indentation>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Indentation>(props);
     return *this;
 }
 
 Paragraph& Paragraph::SetNumbering(int numberingId, int level)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto numbering = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingProperties>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto numbering = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingProperties>(props);
     if (!numbering)
     {
         return *this;
     }
-    auto numId = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingId>(numbering);
-    auto lvl = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingLevelReference>(numbering);
+    auto numId = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingId>(numbering);
+    auto lvl = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingLevelReference>(numbering);
     if (numId)
     {
         numId->SetVal(Int32Value(numberingId));
@@ -7905,7 +7965,7 @@ Paragraph& Paragraph::SetListStyle(const ListStyle& style)
 
 bool Paragraph::TryGetNumbering(ParagraphNumbering& output) const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
     auto numbering = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NumberingProperties>() : nullptr;
     if (!numbering)
     {
@@ -7946,9 +8006,9 @@ Paragraph& Paragraph::AddTabStop(const ExyokiOffice::MeasuringUnits& position,
                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TabStopValues alignment,
                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TabStopLeaderCharValues leader)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto tabs = EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Tabs>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto tabs = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Tabs>(props);
     if (!tabs)
     {
         return *this;
@@ -7959,7 +8019,7 @@ Paragraph& Paragraph::AddTabStop(const ExyokiOffice::MeasuringUnits& position,
     {
         tab->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TabStopValues>(alignment));
         tab->SetLeader(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TabStopLeaderCharValues>(leader));
-        tab->SetPosition(Int32Value(ToTwipsInt(position)));
+        tab->SetPosition(Int32Value(WordValueHelper::ToTwipsInt(position)));
     }
     return *this;
 }
@@ -7987,15 +8047,15 @@ Paragraph& Paragraph::SetBorders(ExyokiOffice::DocumentFormat::OpenXml::Wordproc
                                  const ExyokiOffice::Color& color,
                                  std::optional<ExyokiOffice::MeasuringUnits> spacing)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto borders = EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                                     ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto borders = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders>(props);
     if (!borders)
     {
         return *this;
     }
 
-    const auto spaceValue = spacing ? static_cast<UInt32>(std::max(0, ToTwipsInt(*spacing))) : 0u;
+    const auto spaceValue = spacing ? static_cast<UInt32>(std::max(0, WordValueHelper::ToTwipsInt(*spacing))) : 0u;
     const auto colorValue = color.ToHexString();
 
     auto applyBorder = [&](auto border)
@@ -8010,16 +8070,16 @@ Paragraph& Paragraph::SetBorders(ExyokiOffice::DocumentFormat::OpenXml::Wordproc
         border->SetSpace(UInt32Value(spaceValue));
     };
 
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BetweenBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BetweenBorder>(borders));
 
     return *this;
 }
@@ -8029,7 +8089,7 @@ Paragraph& Paragraph::SetBorders(ExyokiOffice::DocumentFormat::OpenXml::Wordproc
                                  const ExyokiOffice::Color& color,
                                  std::optional<ExyokiOffice::MeasuringUnits> spacing)
 {
-    return SetBorders(style, ToBorderSizeUInt32(size), color, spacing);
+    return SetBorders(style, WordValueHelper::ToBorderSizeUInt32(size), color, spacing);
 }
 
 Paragraph& Paragraph::ClearBorders()
@@ -8054,9 +8114,9 @@ Paragraph& Paragraph::SetShading(const ExyokiOffice::Color& fill,
                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ShadingPatternValues pattern,
                                  const ExyokiOffice::Color& patternColor)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto shading = EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                                     ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Shading>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto shading = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Shading>(props);
     if (!shading)
     {
         return *this;
@@ -8088,7 +8148,7 @@ Paragraph& Paragraph::ClearShading()
 
 std::optional<ParagraphShading> Paragraph::GetShading() const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
     auto shading = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Shading>() : nullptr;
     if (!shading)
     {
@@ -8097,14 +8157,14 @@ std::optional<ParagraphShading> Paragraph::GetShading() const
 
     ParagraphShading output;
     output = ParagraphShading{};
-    output.FillColor = StringValueOrEmpty(shading->GetFill());
-    output.PatternColor = StringValueOrEmpty(shading->GetColor());
+    output.FillColor = WordPropertyReadHelper::StringValueOrEmpty(shading->GetFill());
+    output.PatternColor = WordPropertyReadHelper::StringValueOrEmpty(shading->GetColor());
     if (shading->GetVal().IsDefined())
     {
         output.Pattern = shading->GetVal().Value();
     }
-    else if (auto parsed = TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ShadingPatternValues>(
-                 RawValAttributeOrEmpty(shading)))
+    else if (auto parsed = WordValueHelper::TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ShadingPatternValues>(
+                 WordPropertyReadHelper::RawValAttributeOrEmpty(shading)))
     {
         output.Pattern = *parsed;
     }
@@ -8113,8 +8173,8 @@ std::optional<ParagraphShading> Paragraph::GetShading() const
 
 Paragraph& Paragraph::SetKeepWithNext(bool enabled)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto keep = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepNext>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto keep = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepNext>(props);
     if (keep)
     {
         keep->SetVal(OnOffValue(enabled));
@@ -8124,8 +8184,8 @@ Paragraph& Paragraph::SetKeepWithNext(bool enabled)
 
 Paragraph& Paragraph::SetKeepLines(bool enabled)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto keep = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepLines>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto keep = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepLines>(props);
     if (keep)
     {
         keep->SetVal(OnOffValue(enabled));
@@ -8135,8 +8195,8 @@ Paragraph& Paragraph::SetKeepLines(bool enabled)
 
 Paragraph& Paragraph::SetPageBreakBefore(bool enabled)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto pageBreak = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageBreakBefore>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto pageBreak = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageBreakBefore>(props);
     if (pageBreak)
     {
         pageBreak->SetVal(OnOffValue(enabled));
@@ -8146,8 +8206,8 @@ Paragraph& Paragraph::SetPageBreakBefore(bool enabled)
 
 Paragraph& Paragraph::SetWidowControl(bool enabled)
 {
-    auto props = EnsureParagraphProperties(m_paragraph);
-    auto widow = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::WidowControl>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(m_paragraph);
+    auto widow = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::WidowControl>(props);
     if (widow)
     {
         widow->SetVal(OnOffValue(enabled));
@@ -8157,39 +8217,39 @@ Paragraph& Paragraph::SetWidowControl(bool enabled)
 
 std::optional<bool> Paragraph::GetKeepWithNext() const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepNext>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepNext>(props);
 }
 
 std::optional<bool> Paragraph::GetKeepLines() const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepLines>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepLines>(props);
 }
 
 std::optional<bool> Paragraph::GetPageBreakBefore() const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageBreakBefore>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageBreakBefore>(props);
 }
 
 std::optional<bool> Paragraph::GetWidowControl() const
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::WidowControl>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::WidowControl>(props);
 }
 
 Paragraph& Paragraph::ClearPagination()
 {
-    auto props = GetParagraphPropertiesElement(m_paragraph);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepNext>(props);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepLines>(props);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageBreakBefore>(props);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::WidowControl>(props);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepNext>(props);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::KeepLines>(props);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageBreakBefore>(props);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::WidowControl>(props);
     return *this;
 }
 
@@ -8237,9 +8297,9 @@ std::optional<ParagraphFormatting> Paragraph::GetFormatting() const
         output.Shading = *shading;
     }
 
-    auto props = GetParagraphPropertiesElement(m_paragraph);
+    auto props = WordPropertiesElementHelper::GetParagraphPropertiesElement(m_paragraph);
     output.HasBorders =
-        GetFirstChildElementByTypeOrName<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders>(props) != nullptr;
+        WordPropertyReadHelper::GetFirstChildElementByTypeOrName<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ParagraphBorders>(props) != nullptr;
 
     if (auto flag = GetKeepWithNext())
     {
@@ -8383,7 +8443,7 @@ std::shared_ptr<Bookmark> Paragraph::AddBookmark(std::string_view name)
         return nullptr;
     }
 
-    const auto id = NextBookmarkId(m_mainDocumentPart, m_paragraph);
+    const auto id = WordIdHelper::NextBookmarkId(m_mainDocumentPart, m_paragraph);
     const auto idText = std::to_string(id);
     start->SetName(StringValue(std::string(name)));
     start->SetId(StringValue(idText));
@@ -8476,7 +8536,7 @@ std::shared_ptr<Field> Paragraph::AddField(std::string_view instruction,
 
     if (!cachedResult.empty())
     {
-        InsertRunWithTextBefore(m_paragraph, nullptr, cachedResult, preserveResultSpaces);
+        WordFieldHelper::InsertRunWithTextBefore(m_paragraph, nullptr, cachedResult, preserveResultSpaces);
     }
 
     auto endRun = m_paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
@@ -8518,7 +8578,7 @@ std::shared_ptr<Field> Paragraph::AddSimpleField(std::string_view instruction,
     simple->SetInstruction(StringValue(std::string(instruction)));
     if (!cachedResult.empty())
     {
-        AppendRunWithText(simple, cachedResult, preserveResultSpaces);
+        WordFieldHelper::AppendRunWithText(simple, cachedResult, preserveResultSpaces);
     }
 
     auto field = std::make_shared<Field>(simple);
@@ -8576,17 +8636,17 @@ std::vector<std::shared_ptr<Field>> Paragraph::Fields() const
         {
             if (stack.back().Separator)
             {
-                stack.back().Result += DirectLeafTextByWordName(run, "t");
+                stack.back().Result += WordValueHelper::DirectLeafTextByWordName(run, "t");
             }
             else
             {
-                stack.back().Instruction += DirectLeafTextByWordName(run, "instrText");
+                stack.back().Instruction += WordValueHelper::DirectLeafTextByWordName(run, "instrText");
             }
         }
 
         for (const auto& fieldChar : fieldChars)
         {
-            switch (ReadFieldCharType(fieldChar))
+            switch (WordFieldHelper::ReadFieldCharType(fieldChar))
             {
                 case ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldCharValues::Begin:
                     stack.push_back(PendingField{fieldChar, nullptr, run, nullptr, {}, {}});
@@ -8634,9 +8694,9 @@ std::shared_ptr<Note> Paragraph::AddFootnote(std::string_view text, bool preserv
     {
         part = m_mainDocumentPart->AddFootnotesPart();
     }
-    return AddNoteToDocument<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Footnote,
-                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteReferenceMark,
-                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteReference>(
+    return WordNoteHelper::AddNoteToDocument<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Footnote,
+                                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteReferenceMark,
+                                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FootnoteReference>(
         m_paragraph, m_mainDocumentPart, NoteKind::Footnote, part, text, preserveSpaces);
 }
 
@@ -8651,9 +8711,9 @@ std::shared_ptr<Note> Paragraph::AddEndnote(std::string_view text, bool preserve
     {
         part = m_mainDocumentPart->AddEndnotesPart();
     }
-    return AddNoteToDocument<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Endnote,
-                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndnoteReferenceMark,
-                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndnoteReference>(
+    return WordNoteHelper::AddNoteToDocument<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Endnote,
+                                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndnoteReferenceMark,
+                                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EndnoteReference>(
         m_paragraph, m_mainDocumentPart, NoteKind::Endnote, part, text, preserveSpaces);
 }
 
@@ -8688,7 +8748,7 @@ std::shared_ptr<Comment> Paragraph::AddComment(const std::vector<std::shared_ptr
         return nullptr;
     }
 
-    const int id = NextCommentId(commentsPart);
+    const int id = WordNoteHelper::NextCommentId(commentsPart);
     const std::string idText = std::to_string(id);
 
     auto rangeStart =
@@ -8755,7 +8815,7 @@ std::shared_ptr<Comment> Paragraph::AddComment(const std::vector<std::shared_ptr
     // commentsExtended/commentsIds/commentsExtensible rows and its author entry
     // in the people part. Registering here is what lets Comment::AddReply() and
     // Comment::SetResolved() work on comments this library created.
-    CommentThreading::Register(m_mainDocumentPart, commentEntry, 0);
+    WordMergeHelper::CommentThreading::Register(m_mainDocumentPart, commentEntry, 0);
     return commentWrapper;
 }
 
@@ -9005,12 +9065,12 @@ bool Paragraph::ReplaceText(const ContentRange& range, std::string_view replacem
 
     if (firstIndex == lastIndex)
     {
-        SetRunPlainText(runs[firstIndex], prefix + std::string(replacement) + suffix);
+        WordRunTextHelper::SetRunPlainText(runs[firstIndex], prefix + std::string(replacement) + suffix);
     }
     else
     {
-        SetRunPlainText(runs[firstIndex], prefix + std::string(replacement));
-        SetRunPlainText(runs[lastIndex], suffix);
+        WordRunTextHelper::SetRunPlainText(runs[firstIndex], prefix + std::string(replacement));
+        WordRunTextHelper::SetRunPlainText(runs[lastIndex], suffix);
     }
 
     return true;
@@ -9210,8 +9270,8 @@ std::string Run::PlainText() const
 
 Run& Run::SetBold(bool enabled)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto bold = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Bold>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto bold = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Bold>(props);
     if (bold)
     {
         bold->SetVal(OnOffValue(enabled));
@@ -9221,8 +9281,8 @@ Run& Run::SetBold(bool enabled)
 
 Run& Run::SetItalic(bool enabled)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto italic = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Italic>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto italic = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Italic>(props);
     if (italic)
     {
         italic->SetVal(OnOffValue(enabled));
@@ -9232,8 +9292,8 @@ Run& Run::SetItalic(bool enabled)
 
 Run& Run::SetUnderline(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::UnderlineValues style)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto underline = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Underline>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto underline = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Underline>(props);
     if (underline)
     {
         underline->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::UnderlineValues>(style));
@@ -9249,8 +9309,8 @@ Run& Run::SetUnderline(bool enabled)
 
 Run& Run::SetStrike(bool enabled)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto strike = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Strike>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto strike = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Strike>(props);
     if (strike)
     {
         strike->SetVal(OnOffValue(enabled));
@@ -9260,8 +9320,8 @@ Run& Run::SetStrike(bool enabled)
 
 Run& Run::SetDoubleStrike(bool enabled)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto strike = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DoubleStrike>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto strike = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DoubleStrike>(props);
     if (strike)
     {
         strike->SetVal(OnOffValue(enabled));
@@ -9271,8 +9331,8 @@ Run& Run::SetDoubleStrike(bool enabled)
 
 Run& Run::SetCaps(bool enabled)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto caps = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Caps>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto caps = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Caps>(props);
     if (caps)
     {
         caps->SetVal(OnOffValue(enabled));
@@ -9282,8 +9342,8 @@ Run& Run::SetCaps(bool enabled)
 
 Run& Run::SetSmallCaps(bool enabled)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto caps = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SmallCaps>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto caps = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SmallCaps>(props);
     if (caps)
     {
         caps->SetVal(OnOffValue(enabled));
@@ -9293,8 +9353,8 @@ Run& Run::SetSmallCaps(bool enabled)
 
 Run& Run::SetNoProof(bool enabled)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto noProof = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NoProof>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto noProof = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NoProof>(props);
     if (noProof)
     {
         noProof->SetVal(OnOffValue(enabled));
@@ -9304,9 +9364,9 @@ Run& Run::SetNoProof(bool enabled)
 
 Run& Run::SetColor(const ExyokiOffice::Color& color)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto colorElement = EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Color>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto colorElement = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                                               ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Color>(props);
     if (colorElement)
     {
         colorElement->SetVal(StringValue(color.ToHexString()));
@@ -9316,8 +9376,8 @@ Run& Run::SetColor(const ExyokiOffice::Color& color)
 
 Run& Run::SetHighlight(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HighlightColorValues color)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto highlight = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Highlight>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto highlight = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Highlight>(props);
     if (highlight)
     {
         highlight->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HighlightColorValues>(color));
@@ -9327,8 +9387,8 @@ Run& Run::SetHighlight(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Hi
 
 Run& Run::SetFont(std::string_view asciiFont, std::string_view highAnsiFont)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto fonts = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunFonts>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto fonts = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunFonts>(props);
     if (fonts)
     {
         fonts->SetAscii(StringValue(std::string(asciiFont)));
@@ -9342,8 +9402,8 @@ Run& Run::SetFont(std::string_view asciiFont, std::string_view highAnsiFont)
 
 Run& Run::SetLanguage(std::string_view latin, std::string_view eastAsia, std::string_view bidi)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto languages = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Languages>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto languages = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Languages>(props);
     if (languages)
     {
         if (!latin.empty())
@@ -9364,8 +9424,8 @@ Run& Run::SetLanguage(std::string_view latin, std::string_view eastAsia, std::st
 
 Run& Run::SetKerning(const ExyokiOffice::MeasuringUnits& minimumSize)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto kern = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Kern>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto kern = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Kern>(props);
     if (kern)
     {
         auto halfPoints = std::llround(minimumSize.ToPt().GetValue() * 2.0);
@@ -9384,8 +9444,8 @@ Run& Run::SetKerning(const ExyokiOffice::MeasuringUnits& minimumSize)
 
 Run& Run::SetPosition(const ExyokiOffice::MeasuringUnits& offset)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto position = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Position>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto position = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Position>(props);
     if (position)
     {
         const auto halfPoints = static_cast<int>(std::lround(offset.ToPt().GetValue() * 2.0));
@@ -9396,11 +9456,11 @@ Run& Run::SetPosition(const ExyokiOffice::MeasuringUnits& offset)
 
 Run& Run::SetSpacing(const ExyokiOffice::MeasuringUnits& spacing)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto spacingElement = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Spacing>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto spacingElement = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Spacing>(props);
     if (spacingElement)
     {
-        spacingElement->SetVal(Int32Value(ToTwipsInt(spacing)));
+        spacingElement->SetVal(Int32Value(WordValueHelper::ToTwipsInt(spacing)));
     }
     return *this;
 }
@@ -9408,8 +9468,8 @@ Run& Run::SetSpacing(const ExyokiOffice::MeasuringUnits& spacing)
 Run& Run::SetFontSize(const ExyokiOffice::MeasuringUnits& size)
 {
     const auto halfPoints = static_cast<int>(std::round(size.ToPt().GetValue() * 2.0));
-    auto props = EnsureRunProperties(m_run);
-    auto fontSize = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FontSize>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto fontSize = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FontSize>(props);
     if (fontSize)
     {
         fontSize->SetVal(StringValue(std::to_string(halfPoints)));
@@ -9419,8 +9479,8 @@ Run& Run::SetFontSize(const ExyokiOffice::MeasuringUnits& size)
 
 Run& Run::SetTextEffect(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffectValues effect)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto textEffect = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffect>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto textEffect = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffect>(props);
     if (textEffect)
     {
         textEffect->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffectValues>(effect));
@@ -9430,8 +9490,8 @@ Run& Run::SetTextEffect(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::T
 
 Run& Run::SetStyleId(std::string_view styleId)
 {
-    auto props = EnsureRunProperties(m_run);
-    auto style = EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunStyle>(props);
+    auto props = WordPropertiesElementHelper::EnsureRunProperties(m_run);
+    auto style = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunStyle>(props);
     if (style)
     {
         style->SetVal(StringValue(std::string(styleId)));
@@ -9441,151 +9501,151 @@ Run& Run::SetStyleId(std::string_view styleId)
 
 std::optional<bool> Run::GetBold() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Bold>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Bold>(props);
 }
 
 Run& Run::ClearBold()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Bold>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Bold>(props);
     return *this;
 }
 
 std::optional<bool> Run::GetItalic() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Italic>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Italic>(props);
 }
 
 Run& Run::ClearItalic()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Italic>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Italic>(props);
     return *this;
 }
 
 std::optional<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::UnderlineValues> Run::GetUnderline() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadEnumValChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Underline,
-                            ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::UnderlineValues>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadEnumValChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Underline,
+                                                    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::UnderlineValues>(props);
 }
 
 Run& Run::ClearUnderline()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Underline>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Underline>(props);
     return *this;
 }
 
 std::optional<bool> Run::GetStrike() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Strike>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Strike>(props);
 }
 
 Run& Run::ClearStrike()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Strike>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Strike>(props);
     return *this;
 }
 
 std::optional<bool> Run::GetDoubleStrike() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DoubleStrike>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DoubleStrike>(props);
 }
 
 Run& Run::ClearDoubleStrike()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DoubleStrike>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DoubleStrike>(props);
     return *this;
 }
 
 std::optional<bool> Run::GetCaps() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Caps>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Caps>(props);
 }
 
 Run& Run::ClearCaps()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Caps>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Caps>(props);
     return *this;
 }
 
 std::optional<bool> Run::GetSmallCaps() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SmallCaps>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SmallCaps>(props);
 }
 
 Run& Run::ClearSmallCaps()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SmallCaps>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SmallCaps>(props);
     return *this;
 }
 
 std::optional<bool> Run::GetNoProof() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NoProof>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadOnOffChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NoProof>(props);
 }
 
 Run& Run::ClearNoProof()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NoProof>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::NoProof>(props);
     return *this;
 }
 
 std::string Run::GetColor() const
 {
-    auto props = GetRunPropertiesElement(m_run);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
     auto color = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Color>() : nullptr;
-    auto value = color ? StringValueOrEmpty(color->GetVal()) : std::string{};
-    return value.empty() ? RawValAttributeOrEmpty(color) : value;
+    auto value = color ? WordPropertyReadHelper::StringValueOrEmpty(color->GetVal()) : std::string{};
+    return value.empty() ? WordPropertyReadHelper::RawValAttributeOrEmpty(color) : value;
 }
 
 Run& Run::ClearColor()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Color>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Color>(props);
     return *this;
 }
 
 std::optional<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HighlightColorValues> Run::GetHighlight() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadEnumValChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Highlight,
-                            ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HighlightColorValues>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadEnumValChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Highlight,
+                                                    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HighlightColorValues>(props);
 }
 
 Run& Run::ClearHighlight()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Highlight>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Highlight>(props);
     return *this;
 }
 
 std::optional<RunFonts> Run::GetFont() const
 {
-    auto props = GetRunPropertiesElement(m_run);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
     auto fonts = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunFonts>() : nullptr;
     if (!fonts)
     {
@@ -9594,24 +9654,24 @@ std::optional<RunFonts> Run::GetFont() const
 
     RunFonts output;
     output = RunFonts{};
-    output.Ascii = StringValueOrEmpty(fonts->GetAscii());
-    output.HighAnsi = StringValueOrEmpty(fonts->GetHighAnsi());
-    output.EastAsia = StringValueOrEmpty(fonts->GetEastAsia());
-    output.ComplexScript = StringValueOrEmpty(fonts->GetComplexScript());
+    output.Ascii = WordPropertyReadHelper::StringValueOrEmpty(fonts->GetAscii());
+    output.HighAnsi = WordPropertyReadHelper::StringValueOrEmpty(fonts->GetHighAnsi());
+    output.EastAsia = WordPropertyReadHelper::StringValueOrEmpty(fonts->GetEastAsia());
+    output.ComplexScript = WordPropertyReadHelper::StringValueOrEmpty(fonts->GetComplexScript());
     return output;
 }
 
 Run& Run::ClearFont()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunFonts>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunFonts>(props);
     return *this;
 }
 
 std::optional<RunLanguage> Run::GetLanguage() const
 {
-    auto props = GetRunPropertiesElement(m_run);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
     auto languages = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Languages>() : nullptr;
     if (!languages)
     {
@@ -9620,59 +9680,59 @@ std::optional<RunLanguage> Run::GetLanguage() const
 
     RunLanguage output;
     output = RunLanguage{};
-    output.Latin = StringValueOrEmpty(languages->GetVal());
-    output.EastAsia = StringValueOrEmpty(languages->GetEastAsia());
-    output.Bidi = StringValueOrEmpty(languages->GetBidi());
+    output.Latin = WordPropertyReadHelper::StringValueOrEmpty(languages->GetVal());
+    output.EastAsia = WordPropertyReadHelper::StringValueOrEmpty(languages->GetEastAsia());
+    output.Bidi = WordPropertyReadHelper::StringValueOrEmpty(languages->GetBidi());
     return output;
 }
 
 Run& Run::ClearLanguage()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Languages>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Languages>(props);
     return *this;
 }
 
 std::optional<ExyokiOffice::MeasuringUnits> Run::GetKerning() const
 {
-    auto props = GetRunPropertiesElement(m_run);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
     auto kern = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Kern>() : nullptr;
-    return kern ? GetDefinedHalfPoints(kern->GetVal()) : std::nullopt;
+    return kern ? WordValueHelper::GetDefinedHalfPoints(kern->GetVal()) : std::nullopt;
 }
 
 Run& Run::ClearKerning()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Kern>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Kern>(props);
     return *this;
 }
 
 std::optional<ExyokiOffice::MeasuringUnits> Run::GetPosition() const
 {
-    auto props = GetRunPropertiesElement(m_run);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
     auto position = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Position>() : nullptr;
-    return position ? GetDefinedHalfPoints(position->GetVal()) : std::nullopt;
+    return position ? WordValueHelper::GetDefinedHalfPoints(position->GetVal()) : std::nullopt;
 }
 
 Run& Run::ClearPosition()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Position>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Position>(props);
     return *this;
 }
 
 std::optional<ExyokiOffice::MeasuringUnits> Run::GetSpacing() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    auto spacing = GetFirstChildElementByTypeOrName<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Spacing>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    auto spacing = WordPropertyReadHelper::GetFirstChildElementByTypeOrName<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Spacing>(props);
     if (auto typed = std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Spacing>(spacing))
     {
-        return GetDefinedTwips(typed->GetVal());
+        return WordValueHelper::GetDefinedTwips(typed->GetVal());
     }
-    if (auto raw = TryParseInt(RawValAttributeOrEmpty(spacing)))
+    if (auto raw = WordValueHelper::TryParseInt(WordPropertyReadHelper::RawValAttributeOrEmpty(spacing)))
     {
         return ExyokiOffice::MeasuringUnits(static_cast<Real>(*raw),
                                             ExyokiOffice::MeasurementUnit::Twip);
@@ -9682,53 +9742,53 @@ std::optional<ExyokiOffice::MeasuringUnits> Run::GetSpacing() const
 
 Run& Run::ClearSpacing()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Spacing>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Spacing>(props);
     return *this;
 }
 
 std::optional<ExyokiOffice::MeasuringUnits> Run::GetFontSize() const
 {
-    auto props = GetRunPropertiesElement(m_run);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
     auto fontSize = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FontSize>() : nullptr;
-    return fontSize ? GetDefinedHalfPoints(fontSize->GetVal()) : std::nullopt;
+    return fontSize ? WordValueHelper::GetDefinedHalfPoints(fontSize->GetVal()) : std::nullopt;
 }
 
 Run& Run::ClearFontSize()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FontSize>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FontSize>(props);
     return *this;
 }
 
 std::optional<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffectValues> Run::GetTextEffect() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return ReadEnumValChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffect,
-                            ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffectValues>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::ReadEnumValChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffect,
+                                                    ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffectValues>(props);
 }
 
 Run& Run::ClearTextEffect()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffect>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextEffect>(props);
     return *this;
 }
 
 std::string Run::GetStyleId() const
 {
-    auto props = GetRunPropertiesElement(m_run);
-    return GetStringChildValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunStyle>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    return WordPropertyReadHelper::GetStringChildValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunStyle>(props);
 }
 
 Run& Run::ClearStyleId()
 {
-    auto props = GetRunPropertiesElement(m_run);
-    RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
-                      ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunStyle>(props);
+    auto props = WordPropertiesElementHelper::GetRunPropertiesElement(m_run);
+    WordPropertyReadHelper::RemoveChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunProperties,
+                                              ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RunStyle>(props);
     return *this;
 }
 
@@ -10189,18 +10249,18 @@ std::string Field::GetInstruction() const
     }
     if (m_simpleField)
     {
-        auto value = StringValueOrEmpty(m_simpleField->GetInstruction());
-        return value.empty() ? WordAttributeOrEmpty(m_simpleField, "instr") : value;
+        auto value = WordPropertyReadHelper::StringValueOrEmpty(m_simpleField->GetInstruction());
+        return value.empty() ? WordRunTextHelper::WordAttributeOrEmpty(m_simpleField, "instr") : value;
     }
 
-    auto beginRun = m_beginRun ? m_beginRun : ParentRunOfFieldChar(m_begin);
-    auto beforeRun = m_separator ? (m_separatorRun ? m_separatorRun : ParentRunOfFieldChar(m_separator))
-                                 : (m_endRun ? m_endRun : ParentRunOfFieldChar(m_end));
+    auto beginRun = m_beginRun ? m_beginRun : WordFieldHelper::ParentRunOfFieldChar(m_begin);
+    auto beforeRun = m_separator ? (m_separatorRun ? m_separatorRun : WordFieldHelper::ParentRunOfFieldChar(m_separator))
+                                 : (m_endRun ? m_endRun : WordFieldHelper::ParentRunOfFieldChar(m_end));
     std::string instruction;
-    for (const auto& child : ParagraphChildrenBetween(m_paragraph, beginRun, beforeRun))
+    for (const auto& child : WordFieldHelper::ParagraphChildrenBetween(m_paragraph, beginRun, beforeRun))
     {
         std::vector<std::shared_ptr<OpenXMLElement>> codes;
-        CollectDescendantsByName(child, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "instrText"), codes);
+        WordBodyHelper::CollectDescendantsByName(child, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "instrText"), codes);
         for (const auto& code : codes)
         {
             if (auto textElement = std::dynamic_pointer_cast<ExyokiOffice::OpenXmlLeafTextElement>(code))
@@ -10221,16 +10281,16 @@ Field& Field::SetInstruction(std::string_view instruction)
         return InvalidateResult();
     }
 
-    auto beginRun = m_beginRun ? m_beginRun : ParentRunOfFieldChar(m_begin);
-    auto beforeRun = m_separator ? (m_separatorRun ? m_separatorRun : ParentRunOfFieldChar(m_separator))
-                                 : (m_endRun ? m_endRun : ParentRunOfFieldChar(m_end));
+    auto beginRun = m_beginRun ? m_beginRun : WordFieldHelper::ParentRunOfFieldChar(m_begin);
+    auto beforeRun = m_separator ? (m_separatorRun ? m_separatorRun : WordFieldHelper::ParentRunOfFieldChar(m_separator))
+                                 : (m_endRun ? m_endRun : WordFieldHelper::ParentRunOfFieldChar(m_end));
     if (!m_paragraph || !beginRun || !beforeRun)
     {
         return *this;
     }
 
-    RemoveParagraphChildrenBetween(m_paragraph, beginRun, beforeRun);
-    AppendFieldCodeRun(m_paragraph, instruction, beforeRun);
+    WordFieldHelper::RemoveParagraphChildrenBetween(m_paragraph, beginRun, beforeRun);
+    WordFieldHelper::AppendFieldCodeRun(m_paragraph, instruction, beforeRun);
     m_instructionSnapshot = std::string(instruction);
     return InvalidateResult();
 }
@@ -10245,7 +10305,7 @@ std::string Field::GetResult() const
     if (m_simpleField)
     {
         std::vector<std::shared_ptr<OpenXMLElement>> texts;
-        CollectDescendantsByName(m_simpleField, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "t"), texts);
+        WordBodyHelper::CollectDescendantsByName(m_simpleField, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "t"), texts);
         for (const auto& text : texts)
         {
             if (auto textElement = std::dynamic_pointer_cast<ExyokiOffice::OpenXmlLeafTextElement>(text))
@@ -10256,12 +10316,12 @@ std::string Field::GetResult() const
         return result;
     }
 
-    auto separatorRun = m_separatorRun ? m_separatorRun : ParentRunOfFieldChar(m_separator);
-    auto endRun = m_endRun ? m_endRun : ParentRunOfFieldChar(m_end);
-    for (const auto& child : ParagraphChildrenBetween(m_paragraph, separatorRun, endRun))
+    auto separatorRun = m_separatorRun ? m_separatorRun : WordFieldHelper::ParentRunOfFieldChar(m_separator);
+    auto endRun = m_endRun ? m_endRun : WordFieldHelper::ParentRunOfFieldChar(m_end);
+    for (const auto& child : WordFieldHelper::ParagraphChildrenBetween(m_paragraph, separatorRun, endRun))
     {
         std::vector<std::shared_ptr<OpenXMLElement>> texts;
-        CollectDescendantsByName(child, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "t"), texts);
+        WordBodyHelper::CollectDescendantsByName(child, ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "t"), texts);
         for (const auto& text : texts)
         {
             if (auto textElement = std::dynamic_pointer_cast<ExyokiOffice::OpenXmlLeafTextElement>(text))
@@ -10289,14 +10349,14 @@ bool Field::SetResult(std::string_view result, bool preserveSpaces)
         }
         if (!result.empty())
         {
-            AppendRunWithText(m_simpleField, result, preserveSpaces);
+            WordFieldHelper::AppendRunWithText(m_simpleField, result, preserveSpaces);
         }
         m_resultSnapshot = std::string(result);
         return true;
     }
 
-    auto separatorRun = m_separatorRun ? m_separatorRun : ParentRunOfFieldChar(m_separator);
-    auto endRun = m_endRun ? m_endRun : ParentRunOfFieldChar(m_end);
+    auto separatorRun = m_separatorRun ? m_separatorRun : WordFieldHelper::ParentRunOfFieldChar(m_separator);
+    auto endRun = m_endRun ? m_endRun : WordFieldHelper::ParentRunOfFieldChar(m_end);
     if (!m_paragraph || !endRun)
     {
         return false;
@@ -10318,10 +10378,10 @@ bool Field::SetResult(std::string_view result, bool preserveSpaces)
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FieldCharValues::Separate));
     }
 
-    RemoveParagraphChildrenBetween(m_paragraph, separatorRun, endRun);
+    WordFieldHelper::RemoveParagraphChildrenBetween(m_paragraph, separatorRun, endRun);
     if (!result.empty())
     {
-        InsertRunWithTextBefore(m_paragraph, endRun, result, preserveSpaces);
+        WordFieldHelper::InsertRunWithTextBefore(m_paragraph, endRun, result, preserveSpaces);
     }
     m_resultSnapshot = std::string(result);
     return true;
@@ -10348,7 +10408,7 @@ bool Field::IsDirty() const
         {
             return m_simpleField->GetDirty().Value();
         }
-        return RawOnOffOrEmpty(m_simpleField).value_or(false);
+        return WordPropertyReadHelper::RawOnOffOrEmpty(m_simpleField).value_or(false);
     }
     if (m_begin)
     {
@@ -10356,14 +10416,14 @@ bool Field::IsDirty() const
         {
             return m_begin->GetDirty().Value();
         }
-        return RawOnOffOrEmpty(m_begin).value_or(false);
+        return WordPropertyReadHelper::RawOnOffOrEmpty(m_begin).value_or(false);
     }
     return false;
 }
 
 bool Field::IsLayoutDependent() const
 {
-    return IsLayoutDependentFieldInstruction(GetInstruction());
+    return WordFieldHelper::IsLayoutDependentFieldInstruction(GetInstruction());
 }
 
 Revision::Revision(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
@@ -10378,22 +10438,22 @@ std::shared_ptr<ExyokiOffice::OpenXMLElement> Revision::GetLowLevelApi() const
 
 RevisionType Revision::Type() const
 {
-    return m_element ? RevisionTypeFromName(m_element->QualifiedName()) : RevisionType::Unknown;
+    return m_element ? WordRevisionHelper::RevisionTypeFromName(m_element->QualifiedName()) : RevisionType::Unknown;
 }
 
 std::string Revision::GetId() const
 {
-    return WordAttributeOrEmpty(m_element, "id");
+    return WordRunTextHelper::WordAttributeOrEmpty(m_element, "id");
 }
 
 std::string Revision::GetAuthor() const
 {
-    return WordAttributeOrEmpty(m_element, "author");
+    return WordRunTextHelper::WordAttributeOrEmpty(m_element, "author");
 }
 
 std::string Revision::GetDate() const
 {
-    return WordAttributeOrEmpty(m_element, "date");
+    return WordRunTextHelper::WordAttributeOrEmpty(m_element, "date");
 }
 
 std::string Revision::Text() const
@@ -10432,13 +10492,13 @@ bool Revision::Accept()
     {
         case RevisionType::Insertion:
         case RevisionType::MoveTo:
-            return UnwrapRevisionElement(m_element, false);
+            return WordRevisionHelper::UnwrapRevisionElement(m_element, false);
         case RevisionType::Deletion:
         case RevisionType::MoveFrom:
-            return RemoveRevisionElement(m_element, true);
+            return WordRevisionHelper::RemoveRevisionElement(m_element, true);
         case RevisionType::Unknown:
         default:
-            return RemoveRevisionElement(m_element);
+            return WordRevisionHelper::RemoveRevisionElement(m_element);
     }
 }
 
@@ -10448,13 +10508,13 @@ bool Revision::Reject()
     {
         case RevisionType::Insertion:
         case RevisionType::MoveTo:
-            return RemoveRevisionElement(m_element, true);
+            return WordRevisionHelper::RemoveRevisionElement(m_element, true);
         case RevisionType::Deletion:
         case RevisionType::MoveFrom:
-            return UnwrapRevisionElement(m_element, true);
+            return WordRevisionHelper::UnwrapRevisionElement(m_element, true);
         case RevisionType::Unknown:
         default:
-            return RemoveRevisionElement(m_element);
+            return WordRevisionHelper::RemoveRevisionElement(m_element);
     }
 }
 
@@ -10605,7 +10665,7 @@ Note& Note::SetText(std::string_view text, bool preserveSpaces)
     }
     if (!text.empty())
     {
-        AppendRunWithText(paragraph, text, preserveSpaces);
+        WordFieldHelper::AppendRunWithText(paragraph, text, preserveSpaces);
     }
     return *this;
 }
@@ -10632,7 +10692,7 @@ void Note::Remove()
                 {
                     if (reference && reference->GetId().ToString() == idText)
                     {
-                        RemoveMarkerAndOwningRun(reference);
+                        WordStructureHelper::RemoveMarkerAndOwningRun(reference);
                     }
                 }
             }
@@ -10643,7 +10703,7 @@ void Note::Remove()
                 {
                     if (reference && reference->GetId().ToString() == idText)
                     {
-                        RemoveMarkerAndOwningRun(reference);
+                        WordStructureHelper::RemoveMarkerAndOwningRun(reference);
                     }
                 }
             }
@@ -10674,7 +10734,7 @@ int Comment::GetId() const
     {
         return -1;
     }
-    auto parsed = TryParseInt(m_comment->GetId().ToString());
+    auto parsed = WordValueHelper::TryParseInt(m_comment->GetId().ToString());
     return parsed ? *parsed : -1;
 }
 
@@ -10758,10 +10818,10 @@ std::shared_ptr<Paragraph> Comment::AddParagraph(std::string_view text, bool pre
     // key travels to the paragraph appended here and the former last paragraph
     // gets a fresh one. That keeps the commentsExtended and commentsIds rows and
     // every reply's w15:paraIdParent valid without rewriting any of them.
-    auto previousLast = CommentThreading::LastParagraph(m_comment);
+    auto previousLast = WordMergeHelper::CommentThreading::LastParagraph(m_comment);
     const auto threadParaId =
-        previousLast ? CommentThreading::ReadId(previousLast->GetParagraphId()) : UInt32{0};
-    const bool threaded = CommentThreading::FindCommentEx(m_mainDocumentPart, threadParaId) != nullptr;
+        previousLast ? WordMergeHelper::CommentThreading::ReadId(previousLast->GetParagraphId()) : UInt32{0};
+    const bool threaded = WordMergeHelper::CommentThreading::FindCommentEx(m_mainDocumentPart, threadParaId) != nullptr;
 
     auto paragraph = m_comment->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
     if (!paragraph)
@@ -10771,11 +10831,11 @@ std::shared_ptr<Paragraph> Comment::AddParagraph(std::string_view text, bool pre
 
     if (threaded)
     {
-        auto used = CommentThreading::CollectUsedIds(m_mainDocumentPart);
-        if (const auto replacement = CommentThreading::AllocateId(used); replacement != 0)
+        auto used = WordMergeHelper::CommentThreading::CollectUsedIds(m_mainDocumentPart);
+        if (const auto replacement = WordMergeHelper::CommentThreading::AllocateId(used); replacement != 0)
         {
-            paragraph->SetParagraphId(CommentThreading::MakeId(threadParaId));
-            previousLast->SetParagraphId(CommentThreading::MakeId(replacement));
+            paragraph->SetParagraphId(WordMergeHelper::CommentThreading::MakeId(threadParaId));
+            previousLast->SetParagraphId(WordMergeHelper::CommentThreading::MakeId(replacement));
         }
     }
 
@@ -10811,8 +10871,8 @@ Comment& Comment::Clear()
     // key its commentsExtended row, its replies and its resolution state hang
     // from. One empty paragraph is kept behind to carry that key. A comment that
     // takes no part in threading is emptied outright, as before.
-    const auto threadParaId = CommentThreading::GetThreadParaId(m_comment);
-    const bool threaded = CommentThreading::FindCommentEx(m_mainDocumentPart, threadParaId) != nullptr;
+    const auto threadParaId = WordMergeHelper::CommentThreading::GetThreadParaId(m_comment);
+    const bool threaded = WordMergeHelper::CommentThreading::FindCommentEx(m_mainDocumentPart, threadParaId) != nullptr;
 
     for (const auto& child : m_comment->Children())
     {
@@ -10827,7 +10887,7 @@ Comment& Comment::Clear()
         if (auto anchor =
                 m_comment->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>())
         {
-            anchor->SetParagraphId(CommentThreading::MakeId(threadParaId));
+            anchor->SetParagraphId(WordMergeHelper::CommentThreading::MakeId(threadParaId));
         }
     }
     return *this;
@@ -10868,19 +10928,19 @@ std::shared_ptr<Comment> Comment::AddReply(std::string_view text, const CommentA
 
     // Threading is expressed only in commentsExtended, so this comment must own
     // its rows before anything can point at it.
-    CommentThreading::Register(m_mainDocumentPart, m_comment, 0);
-    const auto parentParaId = CommentThreading::GetThreadParaId(m_comment);
+    WordMergeHelper::CommentThreading::Register(m_mainDocumentPart, m_comment, 0);
+    const auto parentParaId = WordMergeHelper::CommentThreading::GetThreadParaId(m_comment);
     if (parentParaId == 0)
     {
         return nullptr;
     }
 
     const std::string parentIdText = m_comment->GetId().ToString();
-    const std::string idText = std::to_string(NextCommentId(commentsPart));
+    const std::string idText = std::to_string(WordNoteHelper::NextCommentId(commentsPart));
 
     // The reply is a comment in its own right and needs its own markers around
     // the very same body span as the comment it answers.
-    if (!CommentThreading::AddReplyBodyMarkers(m_mainDocumentPart, parentIdText, idText))
+    if (!WordMergeHelper::CommentThreading::AddReplyBodyMarkers(m_mainDocumentPart, parentIdText, idText))
     {
         return nullptr;
     }
@@ -10888,7 +10948,7 @@ std::shared_ptr<Comment> Comment::AddReply(std::string_view text, const CommentA
     auto replyEntry = commentsRoot->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment>();
     if (!replyEntry)
     {
-        CommentThreading::RemoveBodyMarkers(m_mainDocumentPart, idText);
+        WordMergeHelper::CommentThreading::RemoveBodyMarkers(m_mainDocumentPart, idText);
         return nullptr;
     }
     replyEntry->SetId(StringValue(idText));
@@ -10905,7 +10965,7 @@ std::shared_ptr<Comment> Comment::AddReply(std::string_view text, const CommentA
     {
         replyWrapper->AddParagraph(text);
     }
-    CommentThreading::Register(m_mainDocumentPart, replyEntry, parentParaId);
+    WordMergeHelper::CommentThreading::Register(m_mainDocumentPart, replyEntry, parentParaId);
     return replyWrapper;
 }
 
@@ -10916,8 +10976,8 @@ std::vector<std::shared_ptr<Comment>> Comment::Replies() const
     {
         return result;
     }
-    const auto paraId = CommentThreading::GetThreadParaId(m_comment);
-    for (const auto& entry : CommentThreading::DirectReplies(m_mainDocumentPart, paraId))
+    const auto paraId = WordMergeHelper::CommentThreading::GetThreadParaId(m_comment);
+    for (const auto& entry : WordMergeHelper::CommentThreading::DirectReplies(m_mainDocumentPart, paraId))
     {
         result.push_back(std::make_shared<Comment>(entry, m_mainDocumentPart));
     }
@@ -10930,13 +10990,13 @@ std::shared_ptr<Comment> Comment::GetParent() const
     {
         return nullptr;
     }
-    auto row = CommentThreading::FindCommentEx(m_mainDocumentPart, CommentThreading::GetThreadParaId(m_comment));
+    auto row = WordMergeHelper::CommentThreading::FindCommentEx(m_mainDocumentPart, WordMergeHelper::CommentThreading::GetThreadParaId(m_comment));
     if (!row)
     {
         return nullptr;
     }
     auto parentEntry =
-        CommentThreading::FindByThreadParaId(m_mainDocumentPart, CommentThreading::ReadId(row->GetParaIdParent()));
+        WordMergeHelper::CommentThreading::FindByThreadParaId(m_mainDocumentPart, WordMergeHelper::CommentThreading::ReadId(row->GetParaIdParent()));
     return parentEntry ? std::make_shared<Comment>(parentEntry, m_mainDocumentPart) : nullptr;
 }
 
@@ -10946,7 +11006,7 @@ bool Comment::IsResolved() const
     {
         return false;
     }
-    auto row = CommentThreading::FindCommentEx(m_mainDocumentPart, CommentThreading::GetThreadParaId(m_comment));
+    auto row = WordMergeHelper::CommentThreading::FindCommentEx(m_mainDocumentPart, WordMergeHelper::CommentThreading::GetThreadParaId(m_comment));
     return row && row->GetDone().ValueOr(false);
 }
 
@@ -10959,10 +11019,10 @@ Comment& Comment::SetResolved(bool resolved)
 
     // Word resolves whole threads, so the flag goes on the root and on every
     // reply below it no matter which member of the thread this wrapper points at.
-    CommentThreading::Register(m_mainDocumentPart, m_comment, 0);
-    const auto paraId = CommentThreading::GetThreadParaId(m_comment);
-    const auto rootParaId = CommentThreading::ThreadRootParaId(m_mainDocumentPart, paraId);
-    CommentThreading::SetDoneRecursive(m_mainDocumentPart, rootParaId, resolved, 0);
+    WordMergeHelper::CommentThreading::Register(m_mainDocumentPart, m_comment, 0);
+    const auto paraId = WordMergeHelper::CommentThreading::GetThreadParaId(m_comment);
+    const auto rootParaId = WordMergeHelper::CommentThreading::ThreadRootParaId(m_mainDocumentPart, paraId);
+    WordMergeHelper::CommentThreading::SetDoneRecursive(m_mainDocumentPart, rootParaId, resolved, 0);
     return *this;
 }
 
@@ -10974,20 +11034,20 @@ void Comment::Remove()
     }
 
     const auto idText = m_comment->GetId().ToString();
-    const auto paraId = CommentThreading::GetThreadParaId(m_comment);
+    const auto paraId = WordMergeHelper::CommentThreading::GetThreadParaId(m_comment);
 
     // Dropping this comment's own rows first makes the recursion below immune to
     // a parent cycle in a hand-edited commentsExtended part.
-    CommentThreading::Unregister(m_mainDocumentPart, paraId);
+    WordMergeHelper::CommentThreading::Unregister(m_mainDocumentPart, paraId);
 
     // A reply answers a comment that is about to disappear, so it goes with it,
     // together with its own markers, entry and rows.
-    for (const auto& replyEntry : CommentThreading::DirectReplies(m_mainDocumentPart, paraId))
+    for (const auto& replyEntry : WordMergeHelper::CommentThreading::DirectReplies(m_mainDocumentPart, paraId))
     {
         Comment(replyEntry, m_mainDocumentPart).Remove();
     }
 
-    CommentThreading::RemoveBodyMarkers(m_mainDocumentPart, idText);
+    WordMergeHelper::CommentThreading::RemoveBodyMarkers(m_mainDocumentPart, idText);
 
     if (auto parent = m_comment->Parent())
     {
@@ -11122,7 +11182,7 @@ int ContentControl::EnsureId()
         }
     }
 
-    const int id = NextSdtId(m_mainDocumentPart, m_sdt);
+    const int id = WordStructureHelper::NextSdtId(m_mainDocumentPart, m_sdt);
     idElement->SetVal(Int32Value(id));
     return id;
 }
@@ -11132,7 +11192,7 @@ ContentControl& ContentControl::SetTag(std::string_view tag)
     if (auto props = EnsureProperties())
     {
         if (auto element =
-                EnsureChildOfType<OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Tag>(props))
+                WordStructureHelper::EnsureChildOfType<OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Tag>(props))
         {
             element->SetVal(StringValue(std::string(tag)));
         }
@@ -11156,7 +11216,7 @@ ContentControl& ContentControl::SetAlias(std::string_view alias)
     if (auto props = EnsureProperties())
     {
         if (auto element =
-                EnsureChildOfType<OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SdtAlias>(
+                WordStructureHelper::EnsureChildOfType<OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SdtAlias>(
                     props))
         {
             element->SetVal(StringValue(std::string(alias)));
@@ -11181,7 +11241,7 @@ ContentControl& ContentControl::SetLock(ExyokiOffice::DocumentFormat::OpenXml::W
     if (auto props = EnsureProperties())
     {
         if (auto element =
-                EnsureChildOfType<OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Lock>(
+                WordStructureHelper::EnsureChildOfType<OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Lock>(
                     props))
         {
             element->SetVal(
@@ -11227,8 +11287,8 @@ ContentControl& ContentControl::SetShowingPlaceholder(bool enabled)
 {
     if (auto props = EnsureProperties())
     {
-        if (auto element = EnsureChildOfType<OpenXMLElement,
-                                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ShowingPlaceholder>(
+        if (auto element = WordStructureHelper::EnsureChildOfType<OpenXMLElement,
+                                                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::ShowingPlaceholder>(
                 props))
         {
             element->SetVal(OnOffValue(enabled));
@@ -11444,8 +11504,8 @@ Image& Image::SetLayout(ImageLayout layout)
         return *this;
     }
 
-    auto info = ExtractDrawingInfo(m_drawing);
-    auto layoutState = ExtractImageLayoutState(m_drawing);
+    auto info = WordDrawingHelper::ExtractDrawingInfo(m_drawing);
+    auto layoutState = WordDrawingHelper::ExtractImageLayoutState(m_drawing);
     if (info.relationshipId.empty())
     {
         return *this;
@@ -11460,14 +11520,14 @@ Image& Image::SetLayout(ImageLayout layout)
         m_drawing->RemoveChild(anchorDrawing);
     }
 
-    if (!PopulateDrawingWithPicture(m_drawing,
-                                    info.relationshipId,
-                                    info.widthEmu,
-                                    info.heightEmu,
-                                    layout,
-                                    ImageWrap::Square,
-                                    info.docId,
-                                    info.name))
+    if (!WordDrawingHelper::PopulateDrawingWithPicture(m_drawing,
+                                                       info.relationshipId,
+                                                       info.widthEmu,
+                                                       info.heightEmu,
+                                                       layout,
+                                                       ImageWrap::Square,
+                                                       info.docId,
+                                                       info.name))
     {
         return *this;
     }
@@ -11534,8 +11594,8 @@ Image& Image::SetSize(const ExyokiOffice::MeasuringUnits& width, const ExyokiOff
         return *this;
     }
 
-    const auto widthEmu = ToEmuInt64(width);
-    const auto heightEmu = ToEmuInt64(height);
+    const auto widthEmu = WordValueHelper::ToEmuInt64(width);
+    const auto heightEmu = WordValueHelper::ToEmuInt64(height);
 
     std::shared_ptr<OpenXMLElement> container = m_drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>();
     if (!container)
@@ -11544,7 +11604,7 @@ Image& Image::SetSize(const ExyokiOffice::MeasuringUnits& width, const ExyokiOff
     }
     if (container)
     {
-        auto extent = EnsureChildOfType<OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Extent>(container);
+        auto extent = WordStructureHelper::EnsureChildOfType<OpenXMLElement, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Extent>(container);
         if (extent)
         {
             extent->SetCx(Int64Value(widthEmu));
@@ -11561,9 +11621,9 @@ Image& Image::SetSize(const ExyokiOffice::MeasuringUnits& width, const ExyokiOff
             auto picture = graphicData->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture>();
             if (picture)
             {
-                auto shapeProps = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties>(picture);
-                auto transform = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>(shapeProps);
-                auto extents = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Extents>(transform);
+                auto shapeProps = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::Picture, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties>(picture);
+                auto transform = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>(shapeProps);
+                auto extents = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Extents>(transform);
                 if (extents)
                 {
                     extents->SetCx(Int64Value(widthEmu));
@@ -11747,10 +11807,10 @@ Image& Image::SetPosition(ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordpr
         return *this;
     }
 
-    const auto horizontalOffsetEmu = ToEmuInt64(horizontalOffset);
-    const auto verticalOffsetEmu = ToEmuInt64(verticalOffset);
+    const auto horizontalOffsetEmu = WordValueHelper::ToEmuInt64(horizontalOffset);
+    const auto verticalOffsetEmu = WordValueHelper::ToEmuInt64(verticalOffset);
 
-    auto positionH = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition>(anchor);
+    auto positionH = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition>(anchor);
     if (positionH)
     {
         positionH->SetRelativeFrom(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues>(horizontalFrom));
@@ -11758,14 +11818,14 @@ Image& Image::SetPosition(ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordpr
         {
             positionH->RemoveChild(align);
         }
-        auto offset = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>(positionH);
+        auto offset = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>(positionH);
         if (offset)
         {
             offset->SetText(std::to_string(horizontalOffsetEmu));
         }
     }
 
-    auto positionV = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition>(anchor);
+    auto positionV = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition>(anchor);
     if (positionV)
     {
         positionV->SetRelativeFrom(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues>(verticalFrom));
@@ -11773,7 +11833,7 @@ Image& Image::SetPosition(ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordpr
         {
             positionV->RemoveChild(align);
         }
-        auto offset = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>(positionV);
+        auto offset = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition, ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>(positionV);
         if (offset)
         {
             offset->SetText(std::to_string(verticalOffsetEmu));
@@ -11805,8 +11865,8 @@ Image& Image::SetPositionAligned(
         return *this;
     }
 
-    auto positionH = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor,
-                                       ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition>(anchor);
+    auto positionH = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor,
+                                                            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition>(anchor);
     if (positionH)
     {
         positionH->SetRelativeFrom(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues>(horizontalFrom));
@@ -11814,8 +11874,8 @@ Image& Image::SetPositionAligned(
         {
             positionH->RemoveChild(offset);
         }
-        auto align = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition,
-                                       ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignment>(positionH);
+        auto align = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalPosition,
+                                                            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignment>(positionH);
         if (align)
         {
             const auto text = EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignmentValues>(horizontalAlign).ToString();
@@ -11826,8 +11886,8 @@ Image& Image::SetPositionAligned(
         }
     }
 
-    auto positionV = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor,
-                                       ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition>(anchor);
+    auto positionV = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor,
+                                                            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition>(anchor);
     if (positionV)
     {
         positionV->SetRelativeFrom(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues>(verticalFrom));
@@ -11835,8 +11895,8 @@ Image& Image::SetPositionAligned(
         {
             positionV->RemoveChild(offset);
         }
-        auto align = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition,
-                                       ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignment>(positionV);
+        auto align = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalPosition,
+                                                            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignment>(positionV);
         if (align)
         {
             const auto text = EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignmentValues>(verticalAlign).ToString();
@@ -11870,14 +11930,14 @@ bool Image::TryGetPosition(ImagePosition& output) const
             ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalRelativePositionValues::NotDefinedEnumValue);
         if (auto align = positionH->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignment>())
         {
-            if (const auto parsed = TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignmentValues>(align->GetText()))
+            if (const auto parsed = WordValueHelper::TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::HorizontalAlignmentValues>(align->GetText()))
             {
                 output.HorizontalAlignment = *parsed;
             }
         }
         if (auto offset = positionH->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>())
         {
-            const auto parsed = TryParseInt64(offset->GetText());
+            const auto parsed = WordValueHelper::TryParseInt64(offset->GetText());
             if (parsed)
             {
                 output.HorizontalOffset = ExyokiOffice::MeasuringUnits(static_cast<Real>(*parsed),
@@ -11893,14 +11953,14 @@ bool Image::TryGetPosition(ImagePosition& output) const
             ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalRelativePositionValues::NotDefinedEnumValue);
         if (auto align = positionV->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignment>())
         {
-            if (const auto parsed = TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignmentValues>(align->GetText()))
+            if (const auto parsed = WordValueHelper::TryParseEnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::VerticalAlignmentValues>(align->GetText()))
             {
                 output.VerticalAlignment = *parsed;
             }
         }
         if (auto offset = positionV->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::PositionOffset>())
         {
-            const auto parsed = TryParseInt64(offset->GetText());
+            const auto parsed = WordValueHelper::TryParseInt64(offset->GetText());
             if (parsed)
             {
                 output.VerticalOffset = ExyokiOffice::MeasuringUnits(static_cast<Real>(*parsed),
@@ -11923,10 +11983,10 @@ Image& Image::SetDistanceFromText(const ExyokiOffice::MeasuringUnits& left,
         return *this;
     }
 
-    const auto leftEmu = ToEmuUInt32(left);
-    const auto topEmu = ToEmuUInt32(top);
-    const auto rightEmu = ToEmuUInt32(right);
-    const auto bottomEmu = ToEmuUInt32(bottom);
+    const auto leftEmu = WordValueHelper::ToEmuUInt32(left);
+    const auto topEmu = WordValueHelper::ToEmuUInt32(top);
+    const auto rightEmu = WordValueHelper::ToEmuUInt32(right);
+    const auto bottomEmu = WordValueHelper::ToEmuUInt32(bottom);
 
     if (auto inlineDrawing = m_drawing->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Inline>())
     {
@@ -12120,12 +12180,12 @@ Image& Image::SetSimplePosition(const ExyokiOffice::MeasuringUnits& x, const Exy
         return *this;
     }
 
-    auto simplePos = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor,
-                                       ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::SimplePosition>(anchor);
+    auto simplePos = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::Anchor,
+                                                            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::SimplePosition>(anchor);
     if (simplePos)
     {
-        simplePos->SetX(Int64Value(ToEmuInt64(x)));
-        simplePos->SetY(Int64Value(ToEmuInt64(y)));
+        simplePos->SetX(Int64Value(WordValueHelper::ToEmuInt64(x)));
+        simplePos->SetY(Int64Value(WordValueHelper::ToEmuInt64(y)));
         anchor->SetSimplePos(BooleanValue(true));
     }
 
@@ -12174,7 +12234,7 @@ Image& Image::AttachMainDocumentPart(const std::shared_ptr<Packaging::MainDocume
 
 Image& Image::SetCrop(Real left, Real top, Real right, Real bottom)
 {
-    auto blipFill = FindPictureBlipFill(m_drawing);
+    auto blipFill = WordDrawingHelper::FindPictureBlipFill(m_drawing);
     if (!blipFill)
     {
         return *this;
@@ -12209,7 +12269,7 @@ Image& Image::SetCrop(Real left, Real top, Real right, Real bottom)
 
 bool Image::TryGetCrop(ImageCrop& output) const
 {
-    auto blipFill = FindPictureBlipFill(m_drawing);
+    auto blipFill = WordDrawingHelper::FindPictureBlipFill(m_drawing);
     if (!blipFill)
     {
         return false;
@@ -12230,7 +12290,7 @@ bool Image::TryGetCrop(ImageCrop& output) const
 
 Image& Image::ClearCrop()
 {
-    auto blipFill = FindPictureBlipFill(m_drawing);
+    auto blipFill = WordDrawingHelper::FindPictureBlipFill(m_drawing);
     if (!blipFill)
     {
         return *this;
@@ -12245,7 +12305,7 @@ Image& Image::ClearCrop()
 
 Image& Image::SetAltText(std::string_view title, std::string_view description)
 {
-    auto cNvPr = FindPictureNonVisualProperties(m_drawing);
+    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing);
     if (!cNvPr)
     {
         return *this;
@@ -12258,26 +12318,26 @@ Image& Image::SetAltText(std::string_view title, std::string_view description)
 
 std::string Image::GetTitle() const
 {
-    auto cNvPr = FindPictureNonVisualProperties(m_drawing);
+    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing);
     return cNvPr ? cNvPr->GetTitle().ToString() : std::string();
 }
 
 std::string Image::GetDescription() const
 {
-    auto cNvPr = FindPictureNonVisualProperties(m_drawing);
+    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing);
     return cNvPr ? cNvPr->GetDescription().ToString() : std::string();
 }
 
 Image& Image::SetRotation(Real degrees)
 {
-    auto shapeProps = FindPictureShapeProperties(m_drawing);
+    auto shapeProps = WordDrawingHelper::FindPictureShapeProperties(m_drawing);
     if (!shapeProps)
     {
         return *this;
     }
 
-    auto transform = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties,
-                                       ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>(shapeProps);
+    auto transform = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties,
+                                                            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>(shapeProps);
     if (!transform)
     {
         return *this;
@@ -12295,7 +12355,7 @@ Image& Image::SetRotation(Real degrees)
 
 Real Image::GetRotation() const
 {
-    auto shapeProps = FindPictureShapeProperties(m_drawing);
+    auto shapeProps = WordDrawingHelper::FindPictureShapeProperties(m_drawing);
     auto transform = shapeProps
                          ? shapeProps->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>()
                          : nullptr;
@@ -12308,14 +12368,14 @@ Real Image::GetRotation() const
 
 Image& Image::SetFlip(bool horizontal, bool vertical)
 {
-    auto shapeProps = FindPictureShapeProperties(m_drawing);
+    auto shapeProps = WordDrawingHelper::FindPictureShapeProperties(m_drawing);
     if (!shapeProps)
     {
         return *this;
     }
 
-    auto transform = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties,
-                                       ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>(shapeProps);
+    auto transform = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::ShapeProperties,
+                                                            ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>(shapeProps);
     if (!transform)
     {
         return *this;
@@ -12331,7 +12391,7 @@ bool Image::TryGetFlip(bool& horizontal, bool& vertical) const
     horizontal = false;
     vertical = false;
 
-    auto shapeProps = FindPictureShapeProperties(m_drawing);
+    auto shapeProps = WordDrawingHelper::FindPictureShapeProperties(m_drawing);
     auto transform = shapeProps
                          ? shapeProps->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Transform2D>()
                          : nullptr;
@@ -12352,7 +12412,7 @@ Image& Image::SetHyperlink(std::string_view url, bool newWindow, std::string_vie
         return *this;
     }
 
-    auto cNvPr = FindPictureNonVisualProperties(m_drawing);
+    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing);
     if (!cNvPr)
     {
         return *this;
@@ -12394,7 +12454,7 @@ Image& Image::SetHyperlink(std::string_view url, bool newWindow, std::string_vie
 
 bool Image::TryGetHyperlink(ImageHyperlink& output) const
 {
-    auto cNvPr = FindPictureNonVisualProperties(m_drawing);
+    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing);
     if (!cNvPr)
     {
         return false;
@@ -12430,7 +12490,7 @@ bool Image::TryGetHyperlink(ImageHyperlink& output) const
 
 Image& Image::RemoveHyperlink()
 {
-    auto cNvPr = FindPictureNonVisualProperties(m_drawing);
+    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing);
     if (!cNvPr)
     {
         return *this;
@@ -12512,8 +12572,8 @@ std::vector<std::vector<TableGridCell>> Table::GetLogicalGrid() const
         Size logicalColumn = 0;
         for (const auto& cell : rows[rowIndex]->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>())
         {
-            const auto columnSpan = static_cast<Size>(TableCellGridSpan(cell));
-            const auto mergeValue = TableCellVerticalMergeValue(cell);
+            const auto columnSpan = static_cast<Size>(WordTableHelper::TableCellGridSpan(cell));
+            const auto mergeValue = WordTableHelper::TableCellVerticalMergeValue(cell);
             const bool continuesVertical = mergeValue == "continue";
 
             if (active.size() < logicalColumn + columnSpan)
@@ -12630,11 +12690,11 @@ std::vector<std::shared_ptr<Table>> Table::Tables() const
 
 Table& Table::SetWidth(const ExyokiOffice::MeasuringUnits& width)
 {
-    auto props = EnsureTableProperties(m_table);
-    auto tableWidth = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidth>(props);
+    auto props = WordPropertiesElementHelper::EnsureTableProperties(m_table);
+    auto tableWidth = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidth>(props);
     if (tableWidth)
     {
-        tableWidth->SetWidth(StringValue(std::to_string(ToTwipsInt(width))));
+        tableWidth->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(width))));
         tableWidth->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
@@ -12643,8 +12703,8 @@ Table& Table::SetWidth(const ExyokiOffice::MeasuringUnits& width)
 
 Table& Table::SetAlignment(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowAlignmentValues alignment)
 {
-    auto props = EnsureTableProperties(m_table);
-    auto justification = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableJustification>(props);
+    auto props = WordPropertiesElementHelper::EnsureTableProperties(m_table);
+    auto justification = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableJustification>(props);
     if (justification)
     {
         justification->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowAlignmentValues>(alignment));
@@ -12656,8 +12716,8 @@ Table& Table::SetBorders(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::
                          UInt32 size,
                          const ExyokiOffice::Color& color)
 {
-    auto props = EnsureTableProperties(m_table);
-    auto borders = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders>(props);
+    auto props = WordPropertiesElementHelper::EnsureTableProperties(m_table);
+    auto borders = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders>(props);
     if (!borders)
     {
         return *this;
@@ -12676,12 +12736,12 @@ Table& Table::SetBorders(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::
         border->SetSpace(UInt32Value(0));
     };
 
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsideHorizontalBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsideVerticalBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsideHorizontalBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableBorders, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsideVerticalBorder>(borders));
 
     return *this;
 }
@@ -12690,7 +12750,7 @@ Table& Table::SetBorders(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::
                          const ExyokiOffice::MeasuringUnits& size,
                          const ExyokiOffice::Color& color)
 {
-    return SetBorders(style, ToBorderSizeUInt32(size), color);
+    return SetBorders(style, WordValueHelper::ToBorderSizeUInt32(size), color);
 }
 
 Table& Table::SetDefaultCellMargins(const ExyokiOffice::MeasuringUnits& left,
@@ -12698,39 +12758,39 @@ Table& Table::SetDefaultCellMargins(const ExyokiOffice::MeasuringUnits& left,
                                     const ExyokiOffice::MeasuringUnits& right,
                                     const ExyokiOffice::MeasuringUnits& bottom)
 {
-    auto props = EnsureTableProperties(m_table);
-    auto margins = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault>(props);
+    auto props = WordPropertiesElementHelper::EnsureTableProperties(m_table);
+    auto margins = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault>(props);
     if (!margins)
     {
         return *this;
     }
 
-    auto leftMargin = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftMargin>(margins);
-    auto rightMargin = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightMargin>(margins);
-    auto topMargin = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopMargin>(margins);
-    auto bottomMargin = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomMargin>(margins);
+    auto leftMargin = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftMargin>(margins);
+    auto rightMargin = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightMargin>(margins);
+    auto topMargin = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopMargin>(margins);
+    auto bottomMargin = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMarginDefault, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomMargin>(margins);
 
     if (leftMargin)
     {
-        leftMargin->SetWidth(StringValue(std::to_string(ToTwipsInt(left))));
+        leftMargin->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(left))));
         leftMargin->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
     if (rightMargin)
     {
-        rightMargin->SetWidth(StringValue(std::to_string(ToTwipsInt(right))));
+        rightMargin->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(right))));
         rightMargin->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
     if (topMargin)
     {
-        topMargin->SetWidth(StringValue(std::to_string(ToTwipsInt(top))));
+        topMargin->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(top))));
         topMargin->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
     if (bottomMargin)
     {
-        bottomMargin->SetWidth(StringValue(std::to_string(ToTwipsInt(bottom))));
+        bottomMargin->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(bottom))));
         bottomMargin->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
@@ -12754,10 +12814,10 @@ Table& Table::AddRow(Size columns)
 
     for (Size column = 0; column < columnCount; ++column)
     {
-        AppendEmptyTableCell(row);
+        WordTableHelper::AppendEmptyTableCell(row);
     }
 
-    EnsureTableGridColumnCount(m_table, std::max(GetLogicalColumnCount(), columnCount));
+    WordTableHelper::EnsureTableGridColumnCount(m_table, std::max(GetLogicalColumnCount(), columnCount));
     return *this;
 }
 
@@ -12785,9 +12845,9 @@ Table& Table::InsertRow(Size row)
 
     for (Size column = 0; column < columnCount; ++column)
     {
-        AppendEmptyTableCell(inserted);
+        WordTableHelper::AppendEmptyTableCell(inserted);
     }
-    EnsureTableGridColumnCount(m_table, columnCount);
+    WordTableHelper::EnsureTableGridColumnCount(m_table, columnCount);
     return *this;
 }
 
@@ -12804,7 +12864,7 @@ Table& Table::RemoveRow(Size row)
     {
         m_table->RemoveChild(rows[row]);
     }
-    EnsureTableGridColumnCount(m_table, GetLogicalColumnCount());
+    WordTableHelper::EnsureTableGridColumnCount(m_table, GetLogicalColumnCount());
     return *this;
 }
 
@@ -12827,10 +12887,10 @@ Table& Table::InsertColumn(Size column)
     {
         auto cells = row ? row->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>() : std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>>{};
         const auto before = column < cells.size() ? std::static_pointer_cast<ExyokiOffice::OpenXMLElement>(cells[column]) : nullptr;
-        InsertEmptyTableCell(row, before);
+        WordTableHelper::InsertEmptyTableCell(row, before);
     }
 
-    EnsureTableGridColumnCount(m_table, GetLogicalColumnCount());
+    WordTableHelper::EnsureTableGridColumnCount(m_table, GetLogicalColumnCount());
     return *this;
 }
 
@@ -12851,32 +12911,32 @@ Table& Table::RemoveColumn(Size column)
         }
     }
 
-    EnsureTableGridColumnCount(m_table, GetLogicalColumnCount());
+    WordTableHelper::EnsureTableGridColumnCount(m_table, GetLogicalColumnCount());
     return *this;
 }
 
 Table& Table::SetCellText(Size row, Size column, std::string_view text, bool preserveSpaces)
 {
-    auto cell = EnsureLogicalTableCell(m_table, row, column);
+    auto cell = WordTableHelper::EnsureLogicalTableCell(m_table, row, column);
     if (!cell)
     {
         return *this;
     }
 
-    RemoveTableCellBlockContent(cell);
+    WordTableHelper::RemoveTableCellBlockContent(cell);
     auto paragraph = cell->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
     if (!paragraph)
     {
         return *this;
     }
 
-    AppendTextRunToTableCellParagraph(paragraph, text, preserveSpaces);
+    WordTableHelper::AppendTextRunToTableCellParagraph(paragraph, text, preserveSpaces);
     return *this;
 }
 
 Table& Table::AppendCellText(Size row, Size column, std::string_view text, bool preserveSpaces)
 {
-    auto cell = EnsureLogicalTableCell(m_table, row, column);
+    auto cell = WordTableHelper::EnsureLogicalTableCell(m_table, row, column);
     if (!cell)
     {
         return *this;
@@ -12891,7 +12951,7 @@ Table& Table::AppendCellText(Size row, Size column, std::string_view text, bool 
         return *this;
     }
 
-    AppendTextRunToTableCellParagraph(paragraph, text, preserveSpaces);
+    WordTableHelper::AppendTextRunToTableCellParagraph(paragraph, text, preserveSpaces);
     return *this;
 }
 
@@ -12902,40 +12962,40 @@ Table& Table::SetCellMargins(Size row,
                              const ExyokiOffice::MeasuringUnits& right,
                              const ExyokiOffice::MeasuringUnits& bottom)
 {
-    auto cell = EnsureLogicalTableCell(m_table, row, column);
-    auto props = EnsureTableCellProperties(cell);
-    auto margins = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin>(props);
+    auto cell = WordTableHelper::EnsureLogicalTableCell(m_table, row, column);
+    auto props = WordPropertiesElementHelper::EnsureTableCellProperties(cell);
+    auto margins = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin>(props);
     if (!margins)
     {
         return *this;
     }
 
-    auto leftMargin = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftMargin>(margins);
-    auto rightMargin = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightMargin>(margins);
-    auto topMargin = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopMargin>(margins);
-    auto bottomMargin = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomMargin>(margins);
+    auto leftMargin = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftMargin>(margins);
+    auto rightMargin = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightMargin>(margins);
+    auto topMargin = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopMargin>(margins);
+    auto bottomMargin = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellMargin, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomMargin>(margins);
 
     if (leftMargin)
     {
-        leftMargin->SetWidth(StringValue(std::to_string(ToTwipsInt(left))));
+        leftMargin->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(left))));
         leftMargin->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
     if (rightMargin)
     {
-        rightMargin->SetWidth(StringValue(std::to_string(ToTwipsInt(right))));
+        rightMargin->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(right))));
         rightMargin->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
     if (topMargin)
     {
-        topMargin->SetWidth(StringValue(std::to_string(ToTwipsInt(top))));
+        topMargin->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(top))));
         topMargin->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
     if (bottomMargin)
     {
-        bottomMargin->SetWidth(StringValue(std::to_string(ToTwipsInt(bottom))));
+        bottomMargin->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(bottom))));
         bottomMargin->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
@@ -12947,7 +13007,7 @@ Table& Table::SetCellHorizontalAlignment(Size row,
                                          Size column,
                                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::JustificationValues alignment)
 {
-    auto cell = EnsureLogicalTableCell(m_table, row, column);
+    auto cell = WordTableHelper::EnsureLogicalTableCell(m_table, row, column);
     if (!cell)
     {
         return *this;
@@ -12960,9 +13020,9 @@ Table& Table::SetCellHorizontalAlignment(Size row,
         return *this;
     }
 
-    auto props = EnsureParagraphProperties(paragraph);
-    auto justification = EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                                           ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Justification>(props);
+    auto props = WordPropertiesElementHelper::EnsureParagraphProperties(paragraph);
+    auto justification = WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                                                ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Justification>(props);
     if (justification)
     {
         justification->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::JustificationValues>(alignment));
@@ -12972,10 +13032,10 @@ Table& Table::SetCellHorizontalAlignment(Size row,
 
 Table& Table::SetCellBackgroundColor(Size row, Size column, const ExyokiOffice::Color& color)
 {
-    auto cell = EnsureLogicalTableCell(m_table, row, column);
-    auto props = EnsureTableCellProperties(cell);
-    auto shading = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties,
-                                     ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Shading>(props);
+    auto cell = WordTableHelper::EnsureLogicalTableCell(m_table, row, column);
+    auto props = WordPropertiesElementHelper::EnsureTableCellProperties(cell);
+    auto shading = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties,
+                                                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Shading>(props);
     if (shading)
     {
         shading->SetFill(StringValue(color.ToHexString()));
@@ -12989,9 +13049,9 @@ Table& Table::SetCellVerticalAlignment(Size row,
                                        Size column,
                                        ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableVerticalAlignmentValues alignment)
 {
-    auto cell = EnsureLogicalTableCell(m_table, row, column);
-    auto props = EnsureTableCellProperties(cell);
-    auto vAlign = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellVerticalAlignment>(props);
+    auto cell = WordTableHelper::EnsureLogicalTableCell(m_table, row, column);
+    auto props = WordPropertiesElementHelper::EnsureTableCellProperties(cell);
+    auto vAlign = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellVerticalAlignment>(props);
     if (vAlign)
     {
         vAlign->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableVerticalAlignmentValues>(alignment));
@@ -13001,12 +13061,12 @@ Table& Table::SetCellVerticalAlignment(Size row,
 
 Table& Table::SetCellWidth(Size row, Size column, const ExyokiOffice::MeasuringUnits& width)
 {
-    auto cell = EnsureLogicalTableCell(m_table, row, column);
-    auto props = EnsureTableCellProperties(cell);
-    auto widthElement = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellWidth>(props);
+    auto cell = WordTableHelper::EnsureLogicalTableCell(m_table, row, column);
+    auto props = WordPropertiesElementHelper::EnsureTableCellProperties(cell);
+    auto widthElement = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties, ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellWidth>(props);
     if (widthElement)
     {
-        widthElement->SetWidth(StringValue(std::to_string(ToTwipsInt(width))));
+        widthElement->SetWidth(StringValue(std::to_string(WordValueHelper::ToTwipsInt(width))));
         widthElement->SetType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues>(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableWidthUnitValues::Dxa));
     }
@@ -13019,10 +13079,10 @@ Table& Table::SetCellBorders(Size row,
                              UInt32 size,
                              const ExyokiOffice::Color& color)
 {
-    auto cell = EnsureLogicalTableCell(m_table, row, column);
-    auto props = EnsureTableCellProperties(cell);
-    auto borders = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties,
-                                     ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders>(props);
+    auto cell = WordTableHelper::EnsureLogicalTableCell(m_table, row, column);
+    auto props = WordPropertiesElementHelper::EnsureTableCellProperties(cell);
+    auto borders = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties,
+                                                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders>(props);
     if (!borders)
     {
         return *this;
@@ -13041,18 +13101,18 @@ Table& Table::SetCellBorders(Size row,
         border->SetSpace(UInt32Value(0));
     };
 
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsideHorizontalBorder>(borders));
-    applyBorder(EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
-                                  ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsideVerticalBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TopBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BottomBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::LeftBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::RightBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsideHorizontalBorder>(borders));
+    applyBorder(WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellBorders,
+                                                       ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsideVerticalBorder>(borders));
 
     return *this;
 }
@@ -13062,20 +13122,20 @@ Table& Table::SetCellBorders(Size row,
                              const ExyokiOffice::MeasuringUnits& size,
                              const ExyokiOffice::Color& color)
 {
-    return SetCellBorders(row, column, style, ToBorderSizeUInt32(size), color);
+    return SetCellBorders(row, column, style, WordValueHelper::ToBorderSizeUInt32(size), color);
 }
 
 Table& Table::SetRowHeight(Size row,
                            const ExyokiOffice::MeasuringUnits& height,
                            ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeightRuleValues rule)
 {
-    auto rowElement = EnsureTableRow(m_table, row);
-    auto props = EnsureTableRowProperties(rowElement);
-    auto heightElement = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties,
-                                           ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowHeight>(props);
+    auto rowElement = WordPropertiesElementHelper::EnsureTableRow(m_table, row);
+    auto props = WordPropertiesElementHelper::EnsureTableRowProperties(rowElement);
+    auto heightElement = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties,
+                                                                ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowHeight>(props);
     if (heightElement)
     {
-        const auto twips = std::max(0, ToTwipsInt(height));
+        const auto twips = std::max(0, WordValueHelper::ToTwipsInt(height));
         heightElement->SetVal(UInt32Value(static_cast<UInt32>(twips)));
         heightElement->SetHeightType(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeightRuleValues>(rule));
     }
@@ -13084,10 +13144,10 @@ Table& Table::SetRowHeight(Size row,
 
 Table& Table::SetRowCantSplit(Size row, bool cantSplit)
 {
-    auto rowElement = EnsureTableRow(m_table, row);
-    auto props = EnsureTableRowProperties(rowElement);
-    auto element = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties,
-                                     ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CantSplit>(props);
+    auto rowElement = WordPropertiesElementHelper::EnsureTableRow(m_table, row);
+    auto props = WordPropertiesElementHelper::EnsureTableRowProperties(rowElement);
+    auto element = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties,
+                                                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::CantSplit>(props);
     if (element)
     {
         element->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::OnOffOnlyValues>(
@@ -13099,10 +13159,10 @@ Table& Table::SetRowCantSplit(Size row, bool cantSplit)
 
 Table& Table::SetRowHeader(Size row, bool isHeader)
 {
-    auto rowElement = EnsureTableRow(m_table, row);
-    auto props = EnsureTableRowProperties(rowElement);
-    auto element = EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties,
-                                     ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableHeader>(props);
+    auto rowElement = WordPropertiesElementHelper::EnsureTableRow(m_table, row);
+    auto props = WordPropertiesElementHelper::EnsureTableRowProperties(rowElement);
+    auto element = WordStructureHelper::EnsureChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRowProperties,
+                                                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableHeader>(props);
     if (element)
     {
         element->SetVal(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::OnOffOnlyValues>(
@@ -13119,7 +13179,7 @@ Table& Table::SetColumnWidth(Size column, const ExyokiOffice::MeasuringUnits& wi
         return *this;
     }
 
-    auto grid = EnsureTableGrid(m_table);
+    auto grid = WordPropertiesElementHelper::EnsureTableGrid(m_table);
     if (!grid)
     {
         return *this;
@@ -13128,7 +13188,7 @@ Table& Table::SetColumnWidth(Size column, const ExyokiOffice::MeasuringUnits& wi
     auto columns = grid->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GridColumn>();
     if (column < columns.size())
     {
-        columns[column]->SetWidth(StringValue(std::to_string(std::max(0, ToTwipsInt(width)))));
+        columns[column]->SetWidth(StringValue(std::to_string(std::max(0, WordValueHelper::ToTwipsInt(width)))));
         return *this;
     }
 
@@ -13141,7 +13201,7 @@ Table& Table::SetColumnWidth(Size column, const ExyokiOffice::MeasuringUnits& wi
         }
         if (i == column)
         {
-            gridCol->SetWidth(StringValue(std::to_string(std::max(0, ToTwipsInt(width)))));
+            gridCol->SetWidth(StringValue(std::to_string(std::max(0, WordValueHelper::ToTwipsInt(width)))));
         }
     }
 
@@ -13165,10 +13225,10 @@ Table& Table::MergeCells(Size row, Size column, Size rowSpan, Size columnSpan)
     {
         for (Size col = 0; col < column + columnSpan; ++col)
         {
-            EnsureLogicalTableCell(m_table, rowIndex, col);
+            WordTableHelper::EnsureLogicalTableCell(m_table, rowIndex, col);
         }
     }
-    EnsureTableGridColumnCount(m_table, std::max(GetLogicalColumnCount(), column + columnSpan));
+    WordTableHelper::EnsureTableGridColumnCount(m_table, std::max(GetLogicalColumnCount(), column + columnSpan));
 
     const auto rows = m_table->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
     const auto endRow = std::min(row + rowSpan, rows.size());
@@ -13182,8 +13242,8 @@ Table& Table::MergeCells(Size row, Size column, Size rowSpan, Size columnSpan)
         }
 
         auto origin = cells[column];
-        SetTableCellGridSpan(origin, columnSpan);
-        SetTableCellVerticalMerge(
+        WordTableHelper::SetTableCellGridSpan(origin, columnSpan);
+        WordTableHelper::SetTableCellVerticalMerge(
             origin,
             rowSpan > 1
                 ? std::optional<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MergedCellValues>(
@@ -13213,7 +13273,7 @@ Table& Table::SplitCell(Size row, Size column)
     const auto target = grid[row][column];
     if (target.RowSpan <= 1 && target.ColumnSpan <= 1)
     {
-        RemoveTableCellMergeMarkup(target.Cell);
+        WordTableHelper::RemoveTableCellMergeMarkup(target.Cell);
         return *this;
     }
 
@@ -13239,17 +13299,17 @@ Table& Table::SplitAllCells()
         for (Size i = 0; i < cells.size(); ++i)
         {
             const auto cell = cells[i];
-            const auto span = static_cast<Size>(TableCellGridSpan(cell));
+            const auto span = static_cast<Size>(WordTableHelper::TableCellGridSpan(cell));
             auto before = cell ? cell->NextSibling() : nullptr;
-            RemoveTableCellMergeMarkup(cell);
+            WordTableHelper::RemoveTableCellMergeMarkup(cell);
             for (Size extra = 1; extra < span; ++extra)
             {
-                InsertEmptyTableCell(row, before);
+                WordTableHelper::InsertEmptyTableCell(row, before);
             }
         }
     }
 
-    EnsureTableGridColumnCount(m_table, GetLogicalColumnCount());
+    WordTableHelper::EnsureTableGridColumnCount(m_table, GetLogicalColumnCount());
     return *this;
 }
 
@@ -13258,7 +13318,7 @@ std::shared_ptr<Table> Table::AddNestedTable(Size row,
                                              Size rows,
                                              Size columns)
 {
-    auto cell = EnsureLogicalTableCell(m_table, row, column);
+    auto cell = WordTableHelper::EnsureLogicalTableCell(m_table, row, column);
     if (!cell)
     {
         return nullptr;
@@ -13464,15 +13524,15 @@ std::optional<SectionStartType> Section::GetStartType() const
         auto value = type->GetVal();
         if (value.IsDefined())
         {
-            if (auto converted = FromDomSectionMark(value.Value()))
+            if (auto converted = WordValueHelper::FromDomSectionMark(value.Value()))
             {
                 return converted;
             }
         }
     }
 
-    auto typeElement = FindFirstChildByName(m_sectionProperties,
-                                            ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "type"));
+    auto typeElement = WordBodyHelper::FindFirstChildByName(m_sectionProperties,
+                                                            ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "type"));
     if (!typeElement)
     {
         return std::nullopt;
@@ -13486,7 +13546,7 @@ std::optional<SectionStartType> Section::GetStartType() const
     {
         return std::nullopt;
     }
-    return FromDomSectionMark(rawValue.Value());
+    return WordValueHelper::FromDomSectionMark(rawValue.Value());
 }
 
 Section& Section::SetStartType(SectionStartType startType)
@@ -13498,17 +13558,17 @@ Section& Section::SetStartType(SectionStartType startType)
 
     const auto value =
         EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionMarkValues>(
-            ToDomSectionMark(startType));
-    if (auto existingType = FindFirstChildByName(m_sectionProperties,
-                                                 ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "type")))
+            WordValueHelper::ToDomSectionMark(startType));
+    if (auto existingType = WordBodyHelper::FindFirstChildByName(m_sectionProperties,
+                                                                 ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "type")))
     {
         existingType->SetAttributeValue(ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "val"), value);
         return *this;
     }
 
     auto type =
-        EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionType>(
+        WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                               ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::SectionType>(
             m_sectionProperties);
     if (type)
     {
@@ -13532,8 +13592,8 @@ std::optional<SectionPageSize> Section::GetPageSize() const
         return std::nullopt;
     }
 
-    const auto width = GetDefinedTwips(pageSize->GetWidth());
-    const auto height = GetDefinedTwips(pageSize->GetHeight());
+    const auto width = WordValueHelper::GetDefinedTwips(pageSize->GetWidth());
+    const auto height = WordValueHelper::GetDefinedTwips(pageSize->GetHeight());
     if (!width || !height)
     {
         return std::nullopt;
@@ -13542,7 +13602,7 @@ std::optional<SectionPageSize> Section::GetPageSize() const
     SectionPageSize result;
     result.Width = *width;
     result.Height = *height;
-    if (auto orientation = FromDomPageOrientation(pageSize->GetOrient().ValueOr(
+    if (auto orientation = WordValueHelper::FromDomPageOrientation(pageSize->GetOrient().ValueOr(
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues::Portrait)))
     {
         result.Orientation = *orientation;
@@ -13558,15 +13618,15 @@ Section& Section::SetPageSize(const SectionPageSize& pageSize)
     }
 
     auto element =
-        EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageSize>(
+        WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                               ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageSize>(
             m_sectionProperties);
     if (element)
     {
-        element->SetWidth(UInt32Value(ToTwipsUInt32(pageSize.Width)));
-        element->SetHeight(UInt32Value(ToTwipsUInt32(pageSize.Height)));
+        element->SetWidth(UInt32Value(WordValueHelper::ToTwipsUInt32(pageSize.Width)));
+        element->SetHeight(UInt32Value(WordValueHelper::ToTwipsUInt32(pageSize.Height)));
         element->SetOrient(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues>(
-            ToDomPageOrientation(pageSize.Orientation)));
+            WordValueHelper::ToDomPageOrientation(pageSize.Orientation)));
     }
     return *this;
 }
@@ -13579,13 +13639,13 @@ Section& Section::SetPageOrientation(PageOrientation orientation)
     }
 
     auto element =
-        EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageSize>(
+        WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                               ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageSize>(
             m_sectionProperties);
     if (element)
     {
         element->SetOrient(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageOrientationValues>(
-            ToDomPageOrientation(orientation)));
+            WordValueHelper::ToDomPageOrientation(orientation)));
     }
     return *this;
 }
@@ -13606,13 +13666,13 @@ std::optional<SectionMargins> Section::GetMargins() const
     }
 
     SectionMargins result;
-    result.Top = GetDefinedTwips(pageMargin->GetTop()).value_or(ExyokiOffice::MeasuringUnits{});
-    result.Right = GetDefinedTwips(pageMargin->GetRight()).value_or(ExyokiOffice::MeasuringUnits{});
-    result.Bottom = GetDefinedTwips(pageMargin->GetBottom()).value_or(ExyokiOffice::MeasuringUnits{});
-    result.Left = GetDefinedTwips(pageMargin->GetLeft()).value_or(ExyokiOffice::MeasuringUnits{});
-    result.Header = GetDefinedTwips(pageMargin->GetHeader()).value_or(ExyokiOffice::MeasuringUnits{});
-    result.Footer = GetDefinedTwips(pageMargin->GetFooter()).value_or(ExyokiOffice::MeasuringUnits{});
-    result.Gutter = GetDefinedTwips(pageMargin->GetGutter()).value_or(ExyokiOffice::MeasuringUnits{});
+    result.Top = WordValueHelper::GetDefinedTwips(pageMargin->GetTop()).value_or(ExyokiOffice::MeasuringUnits{});
+    result.Right = WordValueHelper::GetDefinedTwips(pageMargin->GetRight()).value_or(ExyokiOffice::MeasuringUnits{});
+    result.Bottom = WordValueHelper::GetDefinedTwips(pageMargin->GetBottom()).value_or(ExyokiOffice::MeasuringUnits{});
+    result.Left = WordValueHelper::GetDefinedTwips(pageMargin->GetLeft()).value_or(ExyokiOffice::MeasuringUnits{});
+    result.Header = WordValueHelper::GetDefinedTwips(pageMargin->GetHeader()).value_or(ExyokiOffice::MeasuringUnits{});
+    result.Footer = WordValueHelper::GetDefinedTwips(pageMargin->GetFooter()).value_or(ExyokiOffice::MeasuringUnits{});
+    result.Gutter = WordValueHelper::GetDefinedTwips(pageMargin->GetGutter()).value_or(ExyokiOffice::MeasuringUnits{});
     return result;
 }
 
@@ -13624,18 +13684,18 @@ Section& Section::SetMargins(const SectionMargins& margins)
     }
 
     auto pageMargin =
-        EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageMargin>(
+        WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                               ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::PageMargin>(
             m_sectionProperties);
     if (pageMargin)
     {
-        pageMargin->SetTop(Int32Value(ToTwipsInt(margins.Top)));
-        pageMargin->SetRight(UInt32Value(ToTwipsUInt32(margins.Right)));
-        pageMargin->SetBottom(Int32Value(ToTwipsInt(margins.Bottom)));
-        pageMargin->SetLeft(UInt32Value(ToTwipsUInt32(margins.Left)));
-        pageMargin->SetHeader(UInt32Value(ToTwipsUInt32(margins.Header)));
-        pageMargin->SetFooter(UInt32Value(ToTwipsUInt32(margins.Footer)));
-        pageMargin->SetGutter(UInt32Value(ToTwipsUInt32(margins.Gutter)));
+        pageMargin->SetTop(Int32Value(WordValueHelper::ToTwipsInt(margins.Top)));
+        pageMargin->SetRight(UInt32Value(WordValueHelper::ToTwipsUInt32(margins.Right)));
+        pageMargin->SetBottom(Int32Value(WordValueHelper::ToTwipsInt(margins.Bottom)));
+        pageMargin->SetLeft(UInt32Value(WordValueHelper::ToTwipsUInt32(margins.Left)));
+        pageMargin->SetHeader(UInt32Value(WordValueHelper::ToTwipsUInt32(margins.Header)));
+        pageMargin->SetFooter(UInt32Value(WordValueHelper::ToTwipsUInt32(margins.Footer)));
+        pageMargin->SetGutter(UInt32Value(WordValueHelper::ToTwipsUInt32(margins.Gutter)));
     }
     return *this;
 }
@@ -13661,7 +13721,7 @@ std::optional<SectionColumns> Section::GetColumns() const
     {
         result.Count = static_cast<UInt16>(count.Value());
     }
-    result.Spacing = GetDefinedTwips(columns->GetSpace()).value_or(ExyokiOffice::MeasuringUnits{});
+    result.Spacing = WordValueHelper::GetDefinedTwips(columns->GetSpace()).value_or(ExyokiOffice::MeasuringUnits{});
     result.Separator = columns->GetSeparator().ValueOr(false);
     return result;
 }
@@ -13674,8 +13734,8 @@ Section& Section::SetColumns(const SectionColumns& columns)
     }
 
     auto element =
-        EnsureChildOfType<ExyokiOffice::OpenXMLElement,
-                          ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Columns>(
+        WordStructureHelper::EnsureChildOfType<ExyokiOffice::OpenXMLElement,
+                                               ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Columns>(
             m_sectionProperties);
     if (element)
     {
@@ -13683,7 +13743,7 @@ Section& Section::SetColumns(const SectionColumns& columns)
         element->SetEqualWidth(OnOffValue(true));
         element->SetColumnCount(Int16Value(static_cast<Int16>(
             std::min<UInt16>(clampedCount, static_cast<UInt16>(std::numeric_limits<Int16>::max())))));
-        element->SetSpace(StringValue(std::to_string(ToTwipsUInt32(columns.Spacing))));
+        element->SetSpace(StringValue(std::to_string(WordValueHelper::ToTwipsUInt32(columns.Spacing))));
         element->SetSeparator(OnOffValue(columns.Separator));
     }
     return *this;
@@ -13691,25 +13751,25 @@ Section& Section::SetColumns(const SectionColumns& columns)
 
 bool Section::HasHeader(HeaderFooterType type) const
 {
-    return FindHeaderFooterReference(m_sectionProperties, true, type) != nullptr;
+    return WordHeaderFooterHelper::FindHeaderFooterReference(m_sectionProperties, true, type) != nullptr;
 }
 
 bool Section::HasFooter(HeaderFooterType type) const
 {
-    return FindHeaderFooterReference(m_sectionProperties, false, type) != nullptr;
+    return WordHeaderFooterHelper::FindHeaderFooterReference(m_sectionProperties, false, type) != nullptr;
 }
 
 std::shared_ptr<HeaderFooterContent> Section::GetHeader(HeaderFooterType type) const
 {
-    auto reference = FindHeaderFooterReference(m_sectionProperties, true, type);
-    auto part = FindHeaderPartByRelationshipId(m_mainDocumentPart, GetRelationshipId(reference));
+    auto reference = WordHeaderFooterHelper::FindHeaderFooterReference(m_sectionProperties, true, type);
+    auto part = WordHeaderFooterHelper::FindHeaderPartByRelationshipId(m_mainDocumentPart, WordHeaderFooterHelper::GetRelationshipId(reference));
     return part ? std::make_shared<HeaderFooterContent>(part) : nullptr;
 }
 
 std::shared_ptr<HeaderFooterContent> Section::GetFooter(HeaderFooterType type) const
 {
-    auto reference = FindHeaderFooterReference(m_sectionProperties, false, type);
-    auto part = FindFooterPartByRelationshipId(m_mainDocumentPart, GetRelationshipId(reference));
+    auto reference = WordHeaderFooterHelper::FindHeaderFooterReference(m_sectionProperties, false, type);
+    auto part = WordHeaderFooterHelper::FindFooterPartByRelationshipId(m_mainDocumentPart, WordHeaderFooterHelper::GetRelationshipId(reference));
     return part ? std::make_shared<HeaderFooterContent>(part) : nullptr;
 }
 
@@ -13732,7 +13792,7 @@ std::shared_ptr<HeaderFooterContent> Section::EnsureHeader(HeaderFooterType type
     }
     const std::string relationshipId = part->RelationshipId();
 
-    if (!AppendHeaderFooterReference<
+    if (!WordHeaderFooterHelper::AppendHeaderFooterReference<
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::HeaderReference>(
             m_sectionProperties,
             type,
@@ -13763,7 +13823,7 @@ std::shared_ptr<HeaderFooterContent> Section::EnsureFooter(HeaderFooterType type
     }
     const std::string relationshipId = part->RelationshipId();
 
-    if (!AppendHeaderFooterReference<
+    if (!WordHeaderFooterHelper::AppendHeaderFooterReference<
             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::FooterReference>(
             m_sectionProperties,
             type,
@@ -13795,12 +13855,12 @@ Section& Section::SetFooterText(HeaderFooterType type, std::string_view text, bo
 
 bool Section::RemoveHeader(HeaderFooterType type)
 {
-    return RemoveHeaderFooterReference(m_sectionProperties, m_mainDocumentPart, true, type);
+    return WordHeaderFooterHelper::RemoveHeaderFooterReference(m_sectionProperties, m_mainDocumentPart, true, type);
 }
 
 bool Section::RemoveFooter(HeaderFooterType type)
 {
-    return RemoveHeaderFooterReference(m_sectionProperties, m_mainDocumentPart, false, type);
+    return WordHeaderFooterHelper::RemoveHeaderFooterReference(m_sectionProperties, m_mainDocumentPart, false, type);
 }
 
 bool Section::IsHeaderLinkedToPrevious(HeaderFooterType type) const

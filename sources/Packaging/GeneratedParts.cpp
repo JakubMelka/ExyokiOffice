@@ -48,1644 +48,1646 @@
 
 namespace ExyokiOffice::Packaging
 {
-namespace
+/// File-local part descriptors and the reuse-or-create helper.
+class GeneratedPartsHelper
 {
-template <typename TPart>
-std::shared_ptr<TPart> PreparePart(const std::shared_ptr<TPart>& part)
-{
-    if (part)
+public:
+    template <typename TPart>
+    static std::shared_ptr<TPart> PreparePart(const std::shared_ptr<TPart>& part)
     {
-        return part;
+        if (part)
+        {
+            return part;
+        }
+        return std::make_shared<TPart>();
     }
-    return std::make_shared<TPart>();
-}
 
-constexpr OpenXmlPartDescriptor kAlternativeFormatImportPartDescriptor = {
-    "AlternativeFormatImportPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk",
-    "",
-    "afchunk",
-    ".dat",
-    ".",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
+    static constexpr OpenXmlPartDescriptor kAlternativeFormatImportPartDescriptor = {
+        "AlternativeFormatImportPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk",
+        "",
+        "afchunk",
+        ".dat",
+        ".",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCalculationChainPartDescriptor = {
+        "CalculationChainPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml",
+        "calcChain",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCellMetadataPartDescriptor = {
+        "CellMetadataPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml",
+        "metadata",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kChartColorStylePartDescriptor = {
+        "ChartColorStylePart",
+        "http://schemas.microsoft.com/office/2011/relationships/chartColorStyle",
+        "application/vnd.ms-office.chartcolorstyle+xml",
+        "colors",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kChartDrawingPartDescriptor = {
+        "ChartDrawingPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chartUserShapes",
+        "application/vnd.openxmlformats-officedocument.drawingml.chartshapes+xml",
+        "drawing",
+        ".xml",
+        "../drawings",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kChartPartDescriptor = {
+        "ChartPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart",
+        "application/vnd.openxmlformats-officedocument.drawingml.chart+xml",
+        "chart",
+        ".xml",
+        "charts",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "/word/charts",
+        "/xl/charts",
+        "/ppt/charts"
+    };
+    static constexpr OpenXmlPartDescriptor kChartStylePartDescriptor = {
+        "ChartStylePart",
+        "http://schemas.microsoft.com/office/2011/relationships/chartStyle",
+        "application/vnd.ms-office.chartstyle+xml",
+        "style",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kChartsheetPartDescriptor = {
+        "ChartsheetPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chartsheet",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml",
+        "sheet",
+        ".xml",
+        "chartsheets",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCommentAuthorsPartDescriptor = {
+        "CommentAuthorsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors",
+        "application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml",
+        "commentAuthors",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kConnectionsPartDescriptor = {
+        "ConnectionsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/connections",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml",
+        "connections",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kControlPropertiesPartDescriptor = {
+        "ControlPropertiesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/ctrlProp",
+        "application/vnd.ms-excel.controlproperties+xml",
+        "ctrlProp",
+        ".xml",
+        "../ctrlProps",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCoreFilePropertiesPartDescriptor = {
+        "CoreFilePropertiesPart",
+        "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties",
+        "application/vnd.openxmlformats-package.core-properties+xml",
+        "core",
+        ".xml",
+        "docProps",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCustomDataPartDescriptor = {
+        "CustomDataPart",
+        "http://schemas.microsoft.com/office/2007/relationships/customData",
+        "application/binary",
+        "customData",
+        ".bin",
+        "customData",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCustomDataPropertiesPartDescriptor = {
+        "CustomDataPropertiesPart",
+        "http://schemas.microsoft.com/office/2007/relationships/customDataProps",
+        "application/vnd.ms-excel.customDataProperties+xml",
+        "customDataProps",
+        ".xml",
+        "customData",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCustomFilePropertiesPartDescriptor = {
+        "CustomFilePropertiesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties",
+        "application/vnd.openxmlformats-officedocument.custom-properties+xml",
+        "custom",
+        ".xml",
+        "docProps",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCustomPropertyPartDescriptor = {
+        "CustomPropertyPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customProperty",
+        "",
+        "CustomProperty",
+        ".bin",
+        ".",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCustomXmlMappingsPartDescriptor = {
+        "CustomXmlMappingsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/xmlMaps",
+        "application/xml",
+        "xmlMaps",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCustomXmlPartDescriptor = {
+        "CustomXmlPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml",
+        "",
+        "item",
+        ".bin",
+        "../customXml",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCustomXmlPropertiesPartDescriptor = {
+        "CustomXmlPropertiesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXmlProps",
+        "application/vnd.openxmlformats-officedocument.customXmlProperties+xml",
+        "itemProps",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kCustomizationPartDescriptor = {
+        "CustomizationPart",
+        "http://schemas.microsoft.com/office/2006/relationships/keyMapCustomizations",
+        "application/vnd.ms-word.keyMapCustomizations+xml",
+        "customizations",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDiagramColorsPartDescriptor = {
+        "DiagramColorsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramColors",
+        "application/vnd.openxmlformats-officedocument.drawingml.diagramColors+xml",
+        "colors",
+        ".xml",
+        "../graphics",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDiagramDataPartDescriptor = {
+        "DiagramDataPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData",
+        "application/vnd.openxmlformats-officedocument.drawingml.diagramData+xml",
+        "data",
+        ".xml",
+        "../graphics",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDiagramLayoutDefinitionPartDescriptor = {
+        "DiagramLayoutDefinitionPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramLayout",
+        "application/vnd.openxmlformats-officedocument.drawingml.diagramLayout+xml",
+        "layout",
+        ".xml",
+        "../graphics",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDiagramPersistLayoutPartDescriptor = {
+        "DiagramPersistLayoutPart",
+        "http://schemas.microsoft.com/office/2007/relationships/diagramDrawing",
+        "application/vnd.ms-office.drawingml.diagramDrawing+xml",
+        "drawing",
+        ".xml",
+        "../diagrams",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDiagramStylePartDescriptor = {
+        "DiagramStylePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramQuickStyle",
+        "application/vnd.openxmlformats-officedocument.drawingml.diagramStyle+xml",
+        "quickStyle",
+        ".xml",
+        "../graphics",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDialogsheetPartDescriptor = {
+        "DialogsheetPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/dialogsheet",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.dialogsheet+xml",
+        "sheet",
+        ".xml",
+        "dialogsheets",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDigitalSignatureOriginPartDescriptor = {
+        "DigitalSignatureOriginPart",
+        "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/origin",
+        "application/vnd.openxmlformats-package.digital-signature-origin",
+        "origin",
+        ".sigs",
+        "_xmlsignatures",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDocumentSettingsPartDescriptor = {
+        "DocumentSettingsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml",
+        "settings",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDocumentTasksPartDescriptor = {
+        "DocumentTasksPart",
+        "http://schemas.microsoft.com/office/2019/05/relationships/documenttasks",
+        "application/vnd.ms-office.documenttasks+xml",
+        "tasks",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kDrawingsPartDescriptor = {
+        "DrawingsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing",
+        "application/vnd.openxmlformats-officedocument.drawing+xml",
+        "drawing",
+        ".xml",
+        "../drawings",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kEmbeddedControlPersistenceBinaryDataPartDescriptor = {
+        "EmbeddedControlPersistenceBinaryDataPart",
+        "http://schemas.microsoft.com/office/2006/relationships/activeXControlBinary",
+        "",
+        "ActiveXControl",
+        ".bin",
+        ".",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kEmbeddedControlPersistencePartDescriptor = {
+        "EmbeddedControlPersistencePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/control",
+        "",
+        "control",
+        ".bin",
+        "embeddings",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kEmbeddedObjectPartDescriptor = {
+        "EmbeddedObjectPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject",
+        "",
+        "embeddedObject",
+        ".bin",
+        "embeddings",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kEmbeddedPackagePartDescriptor = {
+        "EmbeddedPackagePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package",
+        "",
+        "package",
+        ".bin",
+        "embeddings",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kEndnotesPartDescriptor = {
+        "EndnotesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml",
+        "endnotes",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kExcelAttachedToolbarsPartDescriptor = {
+        "ExcelAttachedToolbarsPart",
+        "http://schemas.microsoft.com/office/2006/relationships/attachedToolbars",
+        "application/vnd.ms-excel.attachedToolbars",
+        "attachedToolbars",
+        ".bin",
+        ".",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kExtendedChartPartDescriptor = {
+        "ExtendedChartPart",
+        "http://schemas.microsoft.com/office/2014/relationships/chartEx",
+        "application/vnd.ms-office.chartex+xml",
+        "chart",
+        ".xml",
+        "extendedCharts",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kExtendedFilePropertiesPartDescriptor = {
+        "ExtendedFilePropertiesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties",
+        "application/vnd.openxmlformats-officedocument.extended-properties+xml",
+        "app",
+        ".xml",
+        "docProps",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kExternalWorkbookPartDescriptor = {
+        "ExternalWorkbookPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.externalLink+xml",
+        "externalReference",
+        ".xml",
+        "externalReferences",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kFeaturePropertyBagsPartDescriptor = {
+        "FeaturePropertyBagsPart",
+        "http://schemas.microsoft.com/office/2022/11/relationships/FeaturePropertyBag",
+        "application/vnd.ms-excel.featurepropertybag+xml",
+        "featurePropertyBag",
+        ".xml",
+        "featurePropertyBag",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kFontPartDescriptor = {
+        "FontPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/font",
+        "",
+        "font",
+        ".dat",
+        "fonts",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kFontTablePartDescriptor = {
+        "FontTablePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml",
+        "fontTable",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kFooterPartDescriptor = {
+        "FooterPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml",
+        "footer",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kFootnotesPartDescriptor = {
+        "FootnotesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml",
+        "footnotes",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kGlossaryDocumentPartDescriptor = {
+        "GlossaryDocumentPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/glossaryDocument",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document.glossary+xml",
+        "document",
+        ".xml",
+        "glossary",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kHandoutMasterPartDescriptor = {
+        "HandoutMasterPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/handoutMaster",
+        "application/vnd.openxmlformats-officedocument.presentationml.handoutMaster+xml",
+        "handoutMaster",
+        ".xml",
+        "handoutMasters",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kHeaderPartDescriptor = {
+        "HeaderPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/header",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml",
+        "header",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kImagePartDescriptor = {
+        "ImagePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+        "",
+        "image",
+        ".bin",
+        "../media",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "/word/media",
+        "/xl/media",
+        "/ppt/media"
+    };
+    static constexpr OpenXmlPartDescriptor kInternationalMacroSheetPartDescriptor = {
+        "InternationalMacroSheetPart",
+        "http://schemas.microsoft.com/office/2006/relationships/xlIntlMacrosheet",
+        "application/vnd.ms-excel.intlmacrosheet+xml",
+        "intlsheet",
+        ".xml",
+        "macrosheets",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kLabelInfoPartDescriptor = {
+        "LabelInfoPart",
+        "http://schemas.microsoft.com/office/2020/02/relationships/classificationlabels",
+        "application/vnd.ms-office.classificationlabels+xml",
+        "LabelInfo",
+        ".xml",
+        "docMetadata",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kLegacyDiagramTextInfoPartDescriptor = {
+        "LegacyDiagramTextInfoPart",
+        "http://schemas.microsoft.com/office/2006/relationships/legacyDocTextInfo",
+        "application/vnd.ms-office.legacyDocTextInfo",
+        "legacyDocTextInfo",
+        ".bin",
+        ".",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kLegacyDiagramTextPartDescriptor = {
+        "LegacyDiagramTextPart",
+        "http://schemas.microsoft.com/office/2006/relationships/legacyDiagramText",
+        "application/vnd.ms-office.legacyDiagramText",
+        "legacyDiagramText",
+        ".bin",
+        ".",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kMacroSheetPartDescriptor = {
+        "MacroSheetPart",
+        "http://schemas.microsoft.com/office/2006/relationships/xlMacrosheet",
+        "application/vnd.ms-excel.macrosheet+xml",
+        "sheet",
+        ".xml",
+        "macrosheets",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kMailMergeRecipientDataPartDescriptor = {
+        "MailMergeRecipientDataPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/recipientData",
+        "",
+        "recipients",
+        ".bin",
+        ".",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kMainDocumentPartDescriptor = {
+        "MainDocumentPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
+        "",
+        "document",
+        ".xml",
+        "word",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kModel3DReferenceRelationshipPartDescriptor = {
+        "Model3DReferenceRelationshipPart",
+        "http://schemas.microsoft.com/office/2017/06/relationships/model3d",
+        "model/gltf-binary",
+        "model3d",
+        ".glb",
+        "../media",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "/word/media",
+        "/xl/media",
+        "/ppt/media"
+    };
+    static constexpr OpenXmlPartDescriptor kNamedSheetViewsPartDescriptor = {
+        "NamedSheetViewsPart",
+        "http://schemas.microsoft.com/office/2019/04/relationships/namedSheetView",
+        "application/vnd.ms-excel.namedsheetviews+xml",
+        "namedSheetView",
+        ".xml",
+        "../namedSheetViews",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kNotesMasterPartDescriptor = {
+        "NotesMasterPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
+        "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml",
+        "notesMaster",
+        ".xml",
+        "notesMasters",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kNotesSlidePartDescriptor = {
+        "NotesSlidePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide",
+        "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml",
+        "notesSlide",
+        ".xml",
+        "../notesSlides",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kNumberingDefinitionsPartDescriptor = {
+        "NumberingDefinitionsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
+        "numbering",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kPivotTableCacheDefinitionPartDescriptor = {
+        "PivotTableCacheDefinitionPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheDefinition+xml",
+        "pivotCacheDefinition",
+        ".xml",
+        "../pivotCache",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kPivotTableCacheRecordsPartDescriptor = {
+        "PivotTableCacheRecordsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheRecords",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml",
+        "pivotCacheRecords",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kPivotTablePartDescriptor = {
+        "PivotTablePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotTable+xml",
+        "pivotTable",
+        ".xml",
+        "../pivotTables",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kPowerPointAuthorsPartDescriptor = {
+        "PowerPointAuthorsPart",
+        "http://schemas.microsoft.com/office/2018/10/relationships/authors",
+        "application/vnd.ms-powerpoint.authors+xml",
+        "authors",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kPowerPointCommentPartDescriptor = {
+        "PowerPointCommentPart",
+        "http://schemas.microsoft.com/office/2018/10/relationships/comments",
+        "application/vnd.ms-powerpoint.comments+xml",
+        "modernComment",
+        ".xml",
+        "../comments",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kPresentationPartDescriptor = {
+        "PresentationPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
+        "",
+        "presentation",
+        ".xml",
+        "ppt",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kPresentationPropertiesPartDescriptor = {
+        "PresentationPropertiesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps",
+        "application/vnd.openxmlformats-officedocument.presentationml.presProps+xml",
+        "presProps",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kQueryTablePartDescriptor = {
+        "QueryTablePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/queryTable",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.queryTable+xml",
+        "queryTable",
+        ".xml",
+        "../queryTables",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kQuickAccessToolbarCustomizationsPartDescriptor = {
+        "QuickAccessToolbarCustomizationsPart",
+        "http://schemas.microsoft.com/office/2006/relationships/ui/userCustomization",
+        "application/xml",
+        "customUI",
+        ".xml",
+        "userCustomization",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRdArrayPartDescriptor = {
+        "RdArrayPart",
+        "http://schemas.microsoft.com/office/2017/06/relationships/rdArray",
+        "application/vnd.ms-excel.rdarray+xml",
+        "rdarray",
+        ".xml",
+        "richData",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRdRichValuePartDescriptor = {
+        "RdRichValuePart",
+        "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValue",
+        "application/vnd.ms-excel.rdrichvalue+xml",
+        "rdrichvalue",
+        ".xml",
+        "richData",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRdRichValueStructurePartDescriptor = {
+        "RdRichValueStructurePart",
+        "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueStructure",
+        "application/vnd.ms-excel.rdrichvaluestructure+xml",
+        "rdrichvaluestructure",
+        ".xml",
+        "richData",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRdRichValueTypesPartDescriptor = {
+        "RdRichValueTypesPart",
+        "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueTypes",
+        "application/vnd.ms-excel.rdrichvaluetypes+xml",
+        "rdRichValueTypes",
+        ".xml",
+        "richData",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRdRichValueWebImagePartDescriptor = {
+        "RdRichValueWebImagePart",
+        "http://schemas.microsoft.com/office/2020/07/relationships/rdRichValueWebImage",
+        "application/vnd.ms-excel.rdrichvaluewebimage+xml",
+        "rdRichValueWebImage",
+        ".xml",
+        "richData",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRdSupportingPropertyBagPartDescriptor = {
+        "RdSupportingPropertyBagPart",
+        "http://schemas.microsoft.com/office/2017/06/relationships/rdSupportingPropertyBag",
+        "application/vnd.ms-excel.rdsupportingpropertybag+xml",
+        "rdsupportingpropertybag",
+        ".xml",
+        "richData",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRdSupportingPropertyBagStructurePartDescriptor = {
+        "RdSupportingPropertyBagStructurePart",
+        "http://schemas.microsoft.com/office/2017/06/relationships/rdSupportingPropertyBagStructure",
+        "application/vnd.ms-excel.rdsupportingpropertybagstructure+xml",
+        "rdsupportingpropertybagstructure",
+        ".xml",
+        "richData",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRibbonAndBackstageCustomizationsPartDescriptor = {
+        "RibbonAndBackstageCustomizationsPart",
+        "http://schemas.microsoft.com/office/2007/relationships/ui/extensibility",
+        "application/xml",
+        "customUI",
+        ".xml",
+        "customUI",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRibbonExtensibilityPartDescriptor = {
+        "RibbonExtensibilityPart",
+        "http://schemas.microsoft.com/office/2006/relationships/ui/extensibility",
+        "application/xml",
+        "customUI",
+        ".xml",
+        "customUI",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kRichStylesPartDescriptor = {
+        "RichStylesPart",
+        "http://schemas.microsoft.com/office/2017/06/relationships/richStyles",
+        "application/vnd.ms-excel.richstyles+xml",
+        "richStyles",
+        ".xml",
+        "richData",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSharedStringTablePartDescriptor = {
+        "SharedStringTablePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml",
+        "sharedStrings",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSingleCellTablePartDescriptor = {
+        "SingleCellTablePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableSingleCells",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.tableSingleCells+xml",
+        "tableSingleCells",
+        ".xml",
+        "../tables",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSlicerCachePartDescriptor = {
+        "SlicerCachePart",
+        "http://schemas.microsoft.com/office/2007/relationships/slicerCache",
+        "application/vnd.ms-excel.slicerCache+xml",
+        "slicerCache",
+        ".xml",
+        "slicerCaches",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSlicersPartDescriptor = {
+        "SlicersPart",
+        "http://schemas.microsoft.com/office/2007/relationships/slicer",
+        "application/vnd.ms-excel.slicer+xml",
+        "slicer",
+        ".xml",
+        "../slicers",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSlideCommentsPartDescriptor = {
+        "SlideCommentsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
+        "application/vnd.openxmlformats-officedocument.presentationml.comments+xml",
+        "comment",
+        ".xml",
+        "../comments",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSlideLayoutPartDescriptor = {
+        "SlideLayoutPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout",
+        "application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml",
+        "slideLayout",
+        ".xml",
+        "../slideLayouts",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSlideMasterPartDescriptor = {
+        "SlideMasterPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster",
+        "application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml",
+        "slideMaster",
+        ".xml",
+        "slideMasters",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSlidePartDescriptor = {
+        "SlidePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide",
+        "application/vnd.openxmlformats-officedocument.presentationml.slide+xml",
+        "slide",
+        ".xml",
+        "slides",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSlideSyncDataPartDescriptor = {
+        "SlideSyncDataPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideUpdateInfo",
+        "application/vnd.openxmlformats-officedocument.presentationml.slideUpdateInfo+xml",
+        "slideUpdateInfo",
+        ".xml",
+        "slideUpdateInfo",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kSpreadsheetPrinterSettingsPartDescriptor = {
+        "SpreadsheetPrinterSettingsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/printerSettings",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.printerSettings",
+        "printerSettings",
+        ".bin",
+        "../printerSettings",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kStyleDefinitionsPartDescriptor = {
+        "StyleDefinitionsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml",
+        "styles",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kStylesWithEffectsPartDescriptor = {
+        "StylesWithEffectsPart",
+        "http://schemas.microsoft.com/office/2007/relationships/stylesWithEffects",
+        "application/vnd.ms-word.stylesWithEffects+xml",
+        "stylesWithEffects",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kTableDefinitionPartDescriptor = {
+        "TableDefinitionPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/table",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml",
+        "table",
+        ".xml",
+        "../tables",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kTableStylesPartDescriptor = {
+        "TableStylesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles",
+        "application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml",
+        "tableStyles",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kThemeOverridePartDescriptor = {
+        "ThemeOverridePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/themeOverride",
+        "application/vnd.openxmlformats-officedocument.themeOverride+xml",
+        "themeoverride",
+        ".xml",
+        "theme",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kThemePartDescriptor = {
+        "ThemePart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
+        "application/vnd.openxmlformats-officedocument.theme+xml",
+        "theme",
+        ".xml",
+        "theme",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "/word/theme",
+        "/xl/theme",
+        "/ppt/theme"
+    };
+    static constexpr OpenXmlPartDescriptor kThumbnailPartDescriptor = {
+        "ThumbnailPart",
+        "http://schemas.openxmlformats.org/package/2006/relationships/metadata/thumbnail",
+        "",
+        "thumbnail",
+        ".bin",
+        "docProps",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kTimeLineCachePartDescriptor = {
+        "TimeLineCachePart",
+        "http://schemas.microsoft.com/office/2011/relationships/timelineCache",
+        "application/vnd.ms-excel.timelineCache+xml",
+        "timelineCache",
+        ".xml",
+        "timelineCaches",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kTimeLinePartDescriptor = {
+        "TimeLinePart",
+        "http://schemas.microsoft.com/office/2011/relationships/timeline",
+        "application/vnd.ms-excel.timeline+xml",
+        "timeline",
+        ".xml",
+        "../timelines",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kUserDefinedTagsPartDescriptor = {
+        "UserDefinedTagsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tags",
+        "application/vnd.openxmlformats-officedocument.presentationml.tags+xml",
+        "tag",
+        ".xml",
+        "tags",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kVbaDataPartDescriptor = {
+        "VbaDataPart",
+        "http://schemas.microsoft.com/office/2006/relationships/wordVbaData",
+        "application/vnd.ms-word.vbaData+xml",
+        "vbaData",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kVbaProjectPartDescriptor = {
+        "VbaProjectPart",
+        "http://schemas.microsoft.com/office/2006/relationships/vbaProject",
+        "application/vnd.ms-office.vbaProject",
+        "vbaProject",
+        ".bin",
+        ".",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kViewPropertiesPartDescriptor = {
+        "ViewPropertiesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps",
+        "application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml",
+        "viewProps",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kVmlDrawingPartDescriptor = {
+        "VmlDrawingPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing",
+        "application/vnd.openxmlformats-officedocument.vmlDrawing",
+        "vmldrawing",
+        ".vml",
+        "../drawings",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kVolatileDependenciesPartDescriptor = {
+        "VolatileDependenciesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/volatileDependencies",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.volatileDependencies+xml",
+        "volatileDependencies",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWebExTaskpanesPartDescriptor = {
+        "WebExTaskpanesPart",
+        "http://schemas.microsoft.com/office/2011/relationships/webextensiontaskpanes",
+        "application/vnd.ms-office.webextensiontaskpanes+xml",
+        "taskpanes",
+        ".xml",
+        "../webextensions",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
+        "word/webextensions",
+        "xl/webextensions",
+        "ppt/webextensions"
+    };
+    static constexpr OpenXmlPartDescriptor kWebExtensionPartDescriptor = {
+        "WebExtensionPart",
+        "http://schemas.microsoft.com/office/2011/relationships/webextension",
+        "application/vnd.ms-office.webextension+xml",
+        "webextension",
+        ".xml",
+        "../webextensions",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWebSettingsPartDescriptor = {
+        "WebSettingsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.webSettings+xml",
+        "webSettings",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWordAttachedToolbarsPartDescriptor = {
+        "WordAttachedToolbarsPart",
+        "http://schemas.microsoft.com/office/2006/relationships/attachedToolbars",
+        "application/vnd.ms-word.attachedToolbars",
+        "attachedToolbars",
+        ".bin",
+        ".",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWordCommentsExtensiblePartDescriptor = {
+        "WordCommentsExtensiblePart",
+        "http://schemas.microsoft.com/office/2018/08/relationships/commentsExtensible",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtensible+xml",
+        "commentsExtensible",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWordprocessingCommentsExPartDescriptor = {
+        "WordprocessingCommentsExPart",
+        "http://schemas.microsoft.com/office/2011/relationships/commentsExtended",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtended+xml",
+        "commentsExtended",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWordprocessingCommentsIdsPartDescriptor = {
+        "WordprocessingCommentsIdsPart",
+        "http://schemas.microsoft.com/office/2016/09/relationships/commentsIds",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.commentsIds+xml",
+        "commentsIds",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWordprocessingCommentsPartDescriptor = {
+        "WordprocessingCommentsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml",
+        "comments",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWordprocessingPeoplePartDescriptor = {
+        "WordprocessingPeoplePart",
+        "http://schemas.microsoft.com/office/2011/relationships/people",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.people+xml",
+        "people",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWordprocessingPrinterSettingsPartDescriptor = {
+        "WordprocessingPrinterSettingsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/printerSettings",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.printerSettings",
+        "printerSettings",
+        ".bin",
+        "../printerSettings",
+        OpenXmlPartKind::Binary,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorkbookPartDescriptor = {
+        "WorkbookPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
+        "",
+        "workbook",
+        ".xml",
+        "xl",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorkbookPersonPartDescriptor = {
+        "WorkbookPersonPart",
+        "http://schemas.microsoft.com/office/2017/10/relationships/person",
+        "application/vnd.ms-excel.person+xml",
+        "person",
+        ".xml",
+        "persons",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorkbookRevisionHeaderPartDescriptor = {
+        "WorkbookRevisionHeaderPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/revisionHeaders",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.revisionHeaders+xml",
+        "revisionHeaders",
+        ".xml",
+        "revisions",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorkbookRevisionLogPartDescriptor = {
+        "WorkbookRevisionLogPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/revisionLog",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.revisionLog+xml",
+        "revisionLog",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorkbookStylesPartDescriptor = {
+        "WorkbookStylesPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml",
+        "styles",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorkbookUserDataPartDescriptor = {
+        "WorkbookUserDataPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/usernames",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.userNames+xml",
+        "userNames",
+        ".xml",
+        "revisions",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorksheetCommentsPartDescriptor = {
+        "WorksheetCommentsPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml",
+        "comments",
+        ".xml",
+        "..",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorksheetPartDescriptor = {
+        "WorksheetPart",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml",
+        "sheet",
+        ".xml",
+        "worksheets",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorksheetSortMapPartDescriptor = {
+        "WorksheetSortMapPart",
+        "http://schemas.microsoft.com/office/2006/relationships/wsSortMap",
+        "application/vnd.ms-excel.wsSortMap+xml",
+        "wsSortMap",
+        ".xml",
+        ".",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kWorksheetThreadedCommentsPartDescriptor = {
+        "WorksheetThreadedCommentsPart",
+        "http://schemas.microsoft.com/office/2017/10/relationships/threadedComment",
+        "application/vnd.ms-excel.threadedcomments+xml",
+        "threadedcomment",
+        ".xml",
+        "../threadedcomments",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
+        "",
+        "",
+        ""
+    };
+    static constexpr OpenXmlPartDescriptor kXmlSignaturePartDescriptor = {
+        "XmlSignaturePart",
+        "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/signature",
+        "application/vnd.openxmlformats-package.digital-signature-xmlsignature+xml",
+        "sig",
+        ".xml",
+        "_xmlsignatures",
+        OpenXmlPartKind::Xml,
+        ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
+        "",
+        "",
+        ""
+    };
 };
-constexpr OpenXmlPartDescriptor kCalculationChainPartDescriptor = {
-    "CalculationChainPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml",
-    "calcChain",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCellMetadataPartDescriptor = {
-    "CellMetadataPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml",
-    "metadata",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kChartColorStylePartDescriptor = {
-    "ChartColorStylePart",
-    "http://schemas.microsoft.com/office/2011/relationships/chartColorStyle",
-    "application/vnd.ms-office.chartcolorstyle+xml",
-    "colors",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kChartDrawingPartDescriptor = {
-    "ChartDrawingPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chartUserShapes",
-    "application/vnd.openxmlformats-officedocument.drawingml.chartshapes+xml",
-    "drawing",
-    ".xml",
-    "../drawings",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kChartPartDescriptor = {
-    "ChartPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart",
-    "application/vnd.openxmlformats-officedocument.drawingml.chart+xml",
-    "chart",
-    ".xml",
-    "charts",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "/word/charts",
-    "/xl/charts",
-    "/ppt/charts"
-};
-constexpr OpenXmlPartDescriptor kChartStylePartDescriptor = {
-    "ChartStylePart",
-    "http://schemas.microsoft.com/office/2011/relationships/chartStyle",
-    "application/vnd.ms-office.chartstyle+xml",
-    "style",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kChartsheetPartDescriptor = {
-    "ChartsheetPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chartsheet",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml",
-    "sheet",
-    ".xml",
-    "chartsheets",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCommentAuthorsPartDescriptor = {
-    "CommentAuthorsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors",
-    "application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml",
-    "commentAuthors",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kConnectionsPartDescriptor = {
-    "ConnectionsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/connections",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml",
-    "connections",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kControlPropertiesPartDescriptor = {
-    "ControlPropertiesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/ctrlProp",
-    "application/vnd.ms-excel.controlproperties+xml",
-    "ctrlProp",
-    ".xml",
-    "../ctrlProps",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCoreFilePropertiesPartDescriptor = {
-    "CoreFilePropertiesPart",
-    "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties",
-    "application/vnd.openxmlformats-package.core-properties+xml",
-    "core",
-    ".xml",
-    "docProps",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCustomDataPartDescriptor = {
-    "CustomDataPart",
-    "http://schemas.microsoft.com/office/2007/relationships/customData",
-    "application/binary",
-    "customData",
-    ".bin",
-    "customData",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCustomDataPropertiesPartDescriptor = {
-    "CustomDataPropertiesPart",
-    "http://schemas.microsoft.com/office/2007/relationships/customDataProps",
-    "application/vnd.ms-excel.customDataProperties+xml",
-    "customDataProps",
-    ".xml",
-    "customData",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCustomFilePropertiesPartDescriptor = {
-    "CustomFilePropertiesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties",
-    "application/vnd.openxmlformats-officedocument.custom-properties+xml",
-    "custom",
-    ".xml",
-    "docProps",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCustomPropertyPartDescriptor = {
-    "CustomPropertyPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customProperty",
-    "",
-    "CustomProperty",
-    ".bin",
-    ".",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCustomXmlMappingsPartDescriptor = {
-    "CustomXmlMappingsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/xmlMaps",
-    "application/xml",
-    "xmlMaps",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCustomXmlPartDescriptor = {
-    "CustomXmlPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml",
-    "",
-    "item",
-    ".bin",
-    "../customXml",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCustomXmlPropertiesPartDescriptor = {
-    "CustomXmlPropertiesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXmlProps",
-    "application/vnd.openxmlformats-officedocument.customXmlProperties+xml",
-    "itemProps",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kCustomizationPartDescriptor = {
-    "CustomizationPart",
-    "http://schemas.microsoft.com/office/2006/relationships/keyMapCustomizations",
-    "application/vnd.ms-word.keyMapCustomizations+xml",
-    "customizations",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDiagramColorsPartDescriptor = {
-    "DiagramColorsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramColors",
-    "application/vnd.openxmlformats-officedocument.drawingml.diagramColors+xml",
-    "colors",
-    ".xml",
-    "../graphics",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDiagramDataPartDescriptor = {
-    "DiagramDataPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData",
-    "application/vnd.openxmlformats-officedocument.drawingml.diagramData+xml",
-    "data",
-    ".xml",
-    "../graphics",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDiagramLayoutDefinitionPartDescriptor = {
-    "DiagramLayoutDefinitionPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramLayout",
-    "application/vnd.openxmlformats-officedocument.drawingml.diagramLayout+xml",
-    "layout",
-    ".xml",
-    "../graphics",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDiagramPersistLayoutPartDescriptor = {
-    "DiagramPersistLayoutPart",
-    "http://schemas.microsoft.com/office/2007/relationships/diagramDrawing",
-    "application/vnd.ms-office.drawingml.diagramDrawing+xml",
-    "drawing",
-    ".xml",
-    "../diagrams",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDiagramStylePartDescriptor = {
-    "DiagramStylePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramQuickStyle",
-    "application/vnd.openxmlformats-officedocument.drawingml.diagramStyle+xml",
-    "quickStyle",
-    ".xml",
-    "../graphics",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDialogsheetPartDescriptor = {
-    "DialogsheetPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/dialogsheet",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.dialogsheet+xml",
-    "sheet",
-    ".xml",
-    "dialogsheets",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDigitalSignatureOriginPartDescriptor = {
-    "DigitalSignatureOriginPart",
-    "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/origin",
-    "application/vnd.openxmlformats-package.digital-signature-origin",
-    "origin",
-    ".sigs",
-    "_xmlsignatures",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDocumentSettingsPartDescriptor = {
-    "DocumentSettingsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml",
-    "settings",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDocumentTasksPartDescriptor = {
-    "DocumentTasksPart",
-    "http://schemas.microsoft.com/office/2019/05/relationships/documenttasks",
-    "application/vnd.ms-office.documenttasks+xml",
-    "tasks",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kDrawingsPartDescriptor = {
-    "DrawingsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing",
-    "application/vnd.openxmlformats-officedocument.drawing+xml",
-    "drawing",
-    ".xml",
-    "../drawings",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kEmbeddedControlPersistenceBinaryDataPartDescriptor = {
-    "EmbeddedControlPersistenceBinaryDataPart",
-    "http://schemas.microsoft.com/office/2006/relationships/activeXControlBinary",
-    "",
-    "ActiveXControl",
-    ".bin",
-    ".",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kEmbeddedControlPersistencePartDescriptor = {
-    "EmbeddedControlPersistencePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/control",
-    "",
-    "control",
-    ".bin",
-    "embeddings",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kEmbeddedObjectPartDescriptor = {
-    "EmbeddedObjectPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject",
-    "",
-    "embeddedObject",
-    ".bin",
-    "embeddings",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kEmbeddedPackagePartDescriptor = {
-    "EmbeddedPackagePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package",
-    "",
-    "package",
-    ".bin",
-    "embeddings",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kEndnotesPartDescriptor = {
-    "EndnotesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml",
-    "endnotes",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kExcelAttachedToolbarsPartDescriptor = {
-    "ExcelAttachedToolbarsPart",
-    "http://schemas.microsoft.com/office/2006/relationships/attachedToolbars",
-    "application/vnd.ms-excel.attachedToolbars",
-    "attachedToolbars",
-    ".bin",
-    ".",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kExtendedChartPartDescriptor = {
-    "ExtendedChartPart",
-    "http://schemas.microsoft.com/office/2014/relationships/chartEx",
-    "application/vnd.ms-office.chartex+xml",
-    "chart",
-    ".xml",
-    "extendedCharts",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kExtendedFilePropertiesPartDescriptor = {
-    "ExtendedFilePropertiesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties",
-    "application/vnd.openxmlformats-officedocument.extended-properties+xml",
-    "app",
-    ".xml",
-    "docProps",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kExternalWorkbookPartDescriptor = {
-    "ExternalWorkbookPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.externalLink+xml",
-    "externalReference",
-    ".xml",
-    "externalReferences",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kFeaturePropertyBagsPartDescriptor = {
-    "FeaturePropertyBagsPart",
-    "http://schemas.microsoft.com/office/2022/11/relationships/FeaturePropertyBag",
-    "application/vnd.ms-excel.featurepropertybag+xml",
-    "featurePropertyBag",
-    ".xml",
-    "featurePropertyBag",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kFontPartDescriptor = {
-    "FontPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/font",
-    "",
-    "font",
-    ".dat",
-    "fonts",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kFontTablePartDescriptor = {
-    "FontTablePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml",
-    "fontTable",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kFooterPartDescriptor = {
-    "FooterPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml",
-    "footer",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kFootnotesPartDescriptor = {
-    "FootnotesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml",
-    "footnotes",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kGlossaryDocumentPartDescriptor = {
-    "GlossaryDocumentPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/glossaryDocument",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document.glossary+xml",
-    "document",
-    ".xml",
-    "glossary",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kHandoutMasterPartDescriptor = {
-    "HandoutMasterPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/handoutMaster",
-    "application/vnd.openxmlformats-officedocument.presentationml.handoutMaster+xml",
-    "handoutMaster",
-    ".xml",
-    "handoutMasters",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kHeaderPartDescriptor = {
-    "HeaderPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/header",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml",
-    "header",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kImagePartDescriptor = {
-    "ImagePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-    "",
-    "image",
-    ".bin",
-    "../media",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "/word/media",
-    "/xl/media",
-    "/ppt/media"
-};
-constexpr OpenXmlPartDescriptor kInternationalMacroSheetPartDescriptor = {
-    "InternationalMacroSheetPart",
-    "http://schemas.microsoft.com/office/2006/relationships/xlIntlMacrosheet",
-    "application/vnd.ms-excel.intlmacrosheet+xml",
-    "intlsheet",
-    ".xml",
-    "macrosheets",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kLabelInfoPartDescriptor = {
-    "LabelInfoPart",
-    "http://schemas.microsoft.com/office/2020/02/relationships/classificationlabels",
-    "application/vnd.ms-office.classificationlabels+xml",
-    "LabelInfo",
-    ".xml",
-    "docMetadata",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kLegacyDiagramTextInfoPartDescriptor = {
-    "LegacyDiagramTextInfoPart",
-    "http://schemas.microsoft.com/office/2006/relationships/legacyDocTextInfo",
-    "application/vnd.ms-office.legacyDocTextInfo",
-    "legacyDocTextInfo",
-    ".bin",
-    ".",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kLegacyDiagramTextPartDescriptor = {
-    "LegacyDiagramTextPart",
-    "http://schemas.microsoft.com/office/2006/relationships/legacyDiagramText",
-    "application/vnd.ms-office.legacyDiagramText",
-    "legacyDiagramText",
-    ".bin",
-    ".",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kMacroSheetPartDescriptor = {
-    "MacroSheetPart",
-    "http://schemas.microsoft.com/office/2006/relationships/xlMacrosheet",
-    "application/vnd.ms-excel.macrosheet+xml",
-    "sheet",
-    ".xml",
-    "macrosheets",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kMailMergeRecipientDataPartDescriptor = {
-    "MailMergeRecipientDataPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/recipientData",
-    "",
-    "recipients",
-    ".bin",
-    ".",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kMainDocumentPartDescriptor = {
-    "MainDocumentPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
-    "",
-    "document",
-    ".xml",
-    "word",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kModel3DReferenceRelationshipPartDescriptor = {
-    "Model3DReferenceRelationshipPart",
-    "http://schemas.microsoft.com/office/2017/06/relationships/model3d",
-    "model/gltf-binary",
-    "model3d",
-    ".glb",
-    "../media",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "/word/media",
-    "/xl/media",
-    "/ppt/media"
-};
-constexpr OpenXmlPartDescriptor kNamedSheetViewsPartDescriptor = {
-    "NamedSheetViewsPart",
-    "http://schemas.microsoft.com/office/2019/04/relationships/namedSheetView",
-    "application/vnd.ms-excel.namedsheetviews+xml",
-    "namedSheetView",
-    ".xml",
-    "../namedSheetViews",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kNotesMasterPartDescriptor = {
-    "NotesMasterPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
-    "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml",
-    "notesMaster",
-    ".xml",
-    "notesMasters",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kNotesSlidePartDescriptor = {
-    "NotesSlidePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide",
-    "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml",
-    "notesSlide",
-    ".xml",
-    "../notesSlides",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kNumberingDefinitionsPartDescriptor = {
-    "NumberingDefinitionsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
-    "numbering",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kPivotTableCacheDefinitionPartDescriptor = {
-    "PivotTableCacheDefinitionPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheDefinition+xml",
-    "pivotCacheDefinition",
-    ".xml",
-    "../pivotCache",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kPivotTableCacheRecordsPartDescriptor = {
-    "PivotTableCacheRecordsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheRecords",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotCacheRecords+xml",
-    "pivotCacheRecords",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kPivotTablePartDescriptor = {
-    "PivotTablePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.pivotTable+xml",
-    "pivotTable",
-    ".xml",
-    "../pivotTables",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kPowerPointAuthorsPartDescriptor = {
-    "PowerPointAuthorsPart",
-    "http://schemas.microsoft.com/office/2018/10/relationships/authors",
-    "application/vnd.ms-powerpoint.authors+xml",
-    "authors",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kPowerPointCommentPartDescriptor = {
-    "PowerPointCommentPart",
-    "http://schemas.microsoft.com/office/2018/10/relationships/comments",
-    "application/vnd.ms-powerpoint.comments+xml",
-    "modernComment",
-    ".xml",
-    "../comments",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kPresentationPartDescriptor = {
-    "PresentationPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
-    "",
-    "presentation",
-    ".xml",
-    "ppt",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kPresentationPropertiesPartDescriptor = {
-    "PresentationPropertiesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps",
-    "application/vnd.openxmlformats-officedocument.presentationml.presProps+xml",
-    "presProps",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kQueryTablePartDescriptor = {
-    "QueryTablePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/queryTable",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.queryTable+xml",
-    "queryTable",
-    ".xml",
-    "../queryTables",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kQuickAccessToolbarCustomizationsPartDescriptor = {
-    "QuickAccessToolbarCustomizationsPart",
-    "http://schemas.microsoft.com/office/2006/relationships/ui/userCustomization",
-    "application/xml",
-    "customUI",
-    ".xml",
-    "userCustomization",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRdArrayPartDescriptor = {
-    "RdArrayPart",
-    "http://schemas.microsoft.com/office/2017/06/relationships/rdArray",
-    "application/vnd.ms-excel.rdarray+xml",
-    "rdarray",
-    ".xml",
-    "richData",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRdRichValuePartDescriptor = {
-    "RdRichValuePart",
-    "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValue",
-    "application/vnd.ms-excel.rdrichvalue+xml",
-    "rdrichvalue",
-    ".xml",
-    "richData",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRdRichValueStructurePartDescriptor = {
-    "RdRichValueStructurePart",
-    "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueStructure",
-    "application/vnd.ms-excel.rdrichvaluestructure+xml",
-    "rdrichvaluestructure",
-    ".xml",
-    "richData",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRdRichValueTypesPartDescriptor = {
-    "RdRichValueTypesPart",
-    "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueTypes",
-    "application/vnd.ms-excel.rdrichvaluetypes+xml",
-    "rdRichValueTypes",
-    ".xml",
-    "richData",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRdRichValueWebImagePartDescriptor = {
-    "RdRichValueWebImagePart",
-    "http://schemas.microsoft.com/office/2020/07/relationships/rdRichValueWebImage",
-    "application/vnd.ms-excel.rdrichvaluewebimage+xml",
-    "rdRichValueWebImage",
-    ".xml",
-    "richData",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRdSupportingPropertyBagPartDescriptor = {
-    "RdSupportingPropertyBagPart",
-    "http://schemas.microsoft.com/office/2017/06/relationships/rdSupportingPropertyBag",
-    "application/vnd.ms-excel.rdsupportingpropertybag+xml",
-    "rdsupportingpropertybag",
-    ".xml",
-    "richData",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRdSupportingPropertyBagStructurePartDescriptor = {
-    "RdSupportingPropertyBagStructurePart",
-    "http://schemas.microsoft.com/office/2017/06/relationships/rdSupportingPropertyBagStructure",
-    "application/vnd.ms-excel.rdsupportingpropertybagstructure+xml",
-    "rdsupportingpropertybagstructure",
-    ".xml",
-    "richData",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRibbonAndBackstageCustomizationsPartDescriptor = {
-    "RibbonAndBackstageCustomizationsPart",
-    "http://schemas.microsoft.com/office/2007/relationships/ui/extensibility",
-    "application/xml",
-    "customUI",
-    ".xml",
-    "customUI",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRibbonExtensibilityPartDescriptor = {
-    "RibbonExtensibilityPart",
-    "http://schemas.microsoft.com/office/2006/relationships/ui/extensibility",
-    "application/xml",
-    "customUI",
-    ".xml",
-    "customUI",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kRichStylesPartDescriptor = {
-    "RichStylesPart",
-    "http://schemas.microsoft.com/office/2017/06/relationships/richStyles",
-    "application/vnd.ms-excel.richstyles+xml",
-    "richStyles",
-    ".xml",
-    "richData",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSharedStringTablePartDescriptor = {
-    "SharedStringTablePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml",
-    "sharedStrings",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSingleCellTablePartDescriptor = {
-    "SingleCellTablePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableSingleCells",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.tableSingleCells+xml",
-    "tableSingleCells",
-    ".xml",
-    "../tables",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSlicerCachePartDescriptor = {
-    "SlicerCachePart",
-    "http://schemas.microsoft.com/office/2007/relationships/slicerCache",
-    "application/vnd.ms-excel.slicerCache+xml",
-    "slicerCache",
-    ".xml",
-    "slicerCaches",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSlicersPartDescriptor = {
-    "SlicersPart",
-    "http://schemas.microsoft.com/office/2007/relationships/slicer",
-    "application/vnd.ms-excel.slicer+xml",
-    "slicer",
-    ".xml",
-    "../slicers",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSlideCommentsPartDescriptor = {
-    "SlideCommentsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
-    "application/vnd.openxmlformats-officedocument.presentationml.comments+xml",
-    "comment",
-    ".xml",
-    "../comments",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSlideLayoutPartDescriptor = {
-    "SlideLayoutPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout",
-    "application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml",
-    "slideLayout",
-    ".xml",
-    "../slideLayouts",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSlideMasterPartDescriptor = {
-    "SlideMasterPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster",
-    "application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml",
-    "slideMaster",
-    ".xml",
-    "slideMasters",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSlidePartDescriptor = {
-    "SlidePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide",
-    "application/vnd.openxmlformats-officedocument.presentationml.slide+xml",
-    "slide",
-    ".xml",
-    "slides",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSlideSyncDataPartDescriptor = {
-    "SlideSyncDataPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideUpdateInfo",
-    "application/vnd.openxmlformats-officedocument.presentationml.slideUpdateInfo+xml",
-    "slideUpdateInfo",
-    ".xml",
-    "slideUpdateInfo",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kSpreadsheetPrinterSettingsPartDescriptor = {
-    "SpreadsheetPrinterSettingsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/printerSettings",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.printerSettings",
-    "printerSettings",
-    ".bin",
-    "../printerSettings",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kStyleDefinitionsPartDescriptor = {
-    "StyleDefinitionsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml",
-    "styles",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kStylesWithEffectsPartDescriptor = {
-    "StylesWithEffectsPart",
-    "http://schemas.microsoft.com/office/2007/relationships/stylesWithEffects",
-    "application/vnd.ms-word.stylesWithEffects+xml",
-    "stylesWithEffects",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2010,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kTableDefinitionPartDescriptor = {
-    "TableDefinitionPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/table",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml",
-    "table",
-    ".xml",
-    "../tables",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kTableStylesPartDescriptor = {
-    "TableStylesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles",
-    "application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml",
-    "tableStyles",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kThemeOverridePartDescriptor = {
-    "ThemeOverridePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/themeOverride",
-    "application/vnd.openxmlformats-officedocument.themeOverride+xml",
-    "themeoverride",
-    ".xml",
-    "theme",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kThemePartDescriptor = {
-    "ThemePart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
-    "application/vnd.openxmlformats-officedocument.theme+xml",
-    "theme",
-    ".xml",
-    "theme",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "/word/theme",
-    "/xl/theme",
-    "/ppt/theme"
-};
-constexpr OpenXmlPartDescriptor kThumbnailPartDescriptor = {
-    "ThumbnailPart",
-    "http://schemas.openxmlformats.org/package/2006/relationships/metadata/thumbnail",
-    "",
-    "thumbnail",
-    ".bin",
-    "docProps",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kTimeLineCachePartDescriptor = {
-    "TimeLineCachePart",
-    "http://schemas.microsoft.com/office/2011/relationships/timelineCache",
-    "application/vnd.ms-excel.timelineCache+xml",
-    "timelineCache",
-    ".xml",
-    "timelineCaches",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kTimeLinePartDescriptor = {
-    "TimeLinePart",
-    "http://schemas.microsoft.com/office/2011/relationships/timeline",
-    "application/vnd.ms-excel.timeline+xml",
-    "timeline",
-    ".xml",
-    "../timelines",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kUserDefinedTagsPartDescriptor = {
-    "UserDefinedTagsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tags",
-    "application/vnd.openxmlformats-officedocument.presentationml.tags+xml",
-    "tag",
-    ".xml",
-    "tags",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kVbaDataPartDescriptor = {
-    "VbaDataPart",
-    "http://schemas.microsoft.com/office/2006/relationships/wordVbaData",
-    "application/vnd.ms-word.vbaData+xml",
-    "vbaData",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kVbaProjectPartDescriptor = {
-    "VbaProjectPart",
-    "http://schemas.microsoft.com/office/2006/relationships/vbaProject",
-    "application/vnd.ms-office.vbaProject",
-    "vbaProject",
-    ".bin",
-    ".",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kViewPropertiesPartDescriptor = {
-    "ViewPropertiesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps",
-    "application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml",
-    "viewProps",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kVmlDrawingPartDescriptor = {
-    "VmlDrawingPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing",
-    "application/vnd.openxmlformats-officedocument.vmlDrawing",
-    "vmldrawing",
-    ".vml",
-    "../drawings",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kVolatileDependenciesPartDescriptor = {
-    "VolatileDependenciesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/volatileDependencies",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.volatileDependencies+xml",
-    "volatileDependencies",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWebExTaskpanesPartDescriptor = {
-    "WebExTaskpanesPart",
-    "http://schemas.microsoft.com/office/2011/relationships/webextensiontaskpanes",
-    "application/vnd.ms-office.webextensiontaskpanes+xml",
-    "taskpanes",
-    ".xml",
-    "../webextensions",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
-    "word/webextensions",
-    "xl/webextensions",
-    "ppt/webextensions"
-};
-constexpr OpenXmlPartDescriptor kWebExtensionPartDescriptor = {
-    "WebExtensionPart",
-    "http://schemas.microsoft.com/office/2011/relationships/webextension",
-    "application/vnd.ms-office.webextension+xml",
-    "webextension",
-    ".xml",
-    "../webextensions",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWebSettingsPartDescriptor = {
-    "WebSettingsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/webSettings",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.webSettings+xml",
-    "webSettings",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWordAttachedToolbarsPartDescriptor = {
-    "WordAttachedToolbarsPart",
-    "http://schemas.microsoft.com/office/2006/relationships/attachedToolbars",
-    "application/vnd.ms-word.attachedToolbars",
-    "attachedToolbars",
-    ".bin",
-    ".",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWordCommentsExtensiblePartDescriptor = {
-    "WordCommentsExtensiblePart",
-    "http://schemas.microsoft.com/office/2018/08/relationships/commentsExtensible",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtensible+xml",
-    "commentsExtensible",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2021,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWordprocessingCommentsExPartDescriptor = {
-    "WordprocessingCommentsExPart",
-    "http://schemas.microsoft.com/office/2011/relationships/commentsExtended",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtended+xml",
-    "commentsExtended",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWordprocessingCommentsIdsPartDescriptor = {
-    "WordprocessingCommentsIdsPart",
-    "http://schemas.microsoft.com/office/2016/09/relationships/commentsIds",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.commentsIds+xml",
-    "commentsIds",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWordprocessingCommentsPartDescriptor = {
-    "WordprocessingCommentsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml",
-    "comments",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWordprocessingPeoplePartDescriptor = {
-    "WordprocessingPeoplePart",
-    "http://schemas.microsoft.com/office/2011/relationships/people",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.people+xml",
-    "people",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2013,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWordprocessingPrinterSettingsPartDescriptor = {
-    "WordprocessingPrinterSettingsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/printerSettings",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.printerSettings",
-    "printerSettings",
-    ".bin",
-    "../printerSettings",
-    OpenXmlPartKind::Binary,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorkbookPartDescriptor = {
-    "WorkbookPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
-    "",
-    "workbook",
-    ".xml",
-    "xl",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorkbookPersonPartDescriptor = {
-    "WorkbookPersonPart",
-    "http://schemas.microsoft.com/office/2017/10/relationships/person",
-    "application/vnd.ms-excel.person+xml",
-    "person",
-    ".xml",
-    "persons",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorkbookRevisionHeaderPartDescriptor = {
-    "WorkbookRevisionHeaderPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/revisionHeaders",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.revisionHeaders+xml",
-    "revisionHeaders",
-    ".xml",
-    "revisions",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorkbookRevisionLogPartDescriptor = {
-    "WorkbookRevisionLogPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/revisionLog",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.revisionLog+xml",
-    "revisionLog",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorkbookStylesPartDescriptor = {
-    "WorkbookStylesPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml",
-    "styles",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorkbookUserDataPartDescriptor = {
-    "WorkbookUserDataPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/usernames",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.userNames+xml",
-    "userNames",
-    ".xml",
-    "revisions",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorksheetCommentsPartDescriptor = {
-    "WorksheetCommentsPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml",
-    "comments",
-    ".xml",
-    "..",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorksheetPartDescriptor = {
-    "WorksheetPart",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml",
-    "sheet",
-    ".xml",
-    "worksheets",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorksheetSortMapPartDescriptor = {
-    "WorksheetSortMapPart",
-    "http://schemas.microsoft.com/office/2006/relationships/wsSortMap",
-    "application/vnd.ms-excel.wsSortMap+xml",
-    "wsSortMap",
-    ".xml",
-    ".",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kWorksheetThreadedCommentsPartDescriptor = {
-    "WorksheetThreadedCommentsPart",
-    "http://schemas.microsoft.com/office/2017/10/relationships/threadedComment",
-    "application/vnd.ms-excel.threadedcomments+xml",
-    "threadedcomment",
-    ".xml",
-    "../threadedcomments",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2019,
-    "",
-    "",
-    ""
-};
-constexpr OpenXmlPartDescriptor kXmlSignaturePartDescriptor = {
-    "XmlSignaturePart",
-    "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/signature",
-    "application/vnd.openxmlformats-package.digital-signature-xmlsignature+xml",
-    "sig",
-    ".xml",
-    "_xmlsignatures",
-    OpenXmlPartKind::Xml,
-    ExyokiOffice::OpenXml::FileFormatVersions::Office2007,
-    "",
-    "",
-    ""
-};
-} // namespace
 
 AlternativeFormatImportPart::AlternativeFormatImportPart()
     : OpenXmlPackagePart(Descriptor())
@@ -1696,7 +1698,7 @@ AlternativeFormatImportPart::~AlternativeFormatImportPart() = default;
 
 const OpenXmlPartDescriptor& AlternativeFormatImportPart::Descriptor() noexcept
 {
-    return kAlternativeFormatImportPartDescriptor;
+    return GeneratedPartsHelper::kAlternativeFormatImportPartDescriptor;
 }
 
 CalculationChainPart::CalculationChainPart()
@@ -1709,7 +1711,7 @@ CalculationChainPart::~CalculationChainPart() = default;
 
 const OpenXmlPartDescriptor& CalculationChainPart::Descriptor() noexcept
 {
-    return kCalculationChainPartDescriptor;
+    return GeneratedPartsHelper::kCalculationChainPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CalculationChain> CalculationChainPart::GetCalculationChain() const
@@ -1737,7 +1739,7 @@ CellMetadataPart::~CellMetadataPart() = default;
 
 const OpenXmlPartDescriptor& CellMetadataPart::Descriptor() noexcept
 {
-    return kCellMetadataPartDescriptor;
+    return GeneratedPartsHelper::kCellMetadataPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Metadata> CellMetadataPart::GetMetadata() const
@@ -1765,7 +1767,7 @@ ChartColorStylePart::~ChartColorStylePart() = default;
 
 const OpenXmlPartDescriptor& ChartColorStylePart::Descriptor() noexcept
 {
-    return kChartColorStylePartDescriptor;
+    return GeneratedPartsHelper::kChartColorStylePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::ChartStyle::ColorStyle> ChartColorStylePart::GetColorStyle() const
@@ -1793,7 +1795,7 @@ ChartDrawingPart::~ChartDrawingPart() = default;
 
 const OpenXmlPartDescriptor& ChartDrawingPart::Descriptor() noexcept
 {
-    return kChartDrawingPartDescriptor;
+    return GeneratedPartsHelper::kChartDrawingPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::UserShapes> ChartDrawingPart::GetUserShapes() const
@@ -1818,7 +1820,7 @@ std::shared_ptr<ChartPart> ChartDrawingPart::GetChartPart() const
 
 std::shared_ptr<ChartPart> ChartDrawingPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetChartPart(instance);
     return instance;
 }
@@ -1857,7 +1859,7 @@ std::shared_ptr<ExtendedChartPart> ChartDrawingPart::GetExtendedChartPart() cons
 
 std::shared_ptr<ExtendedChartPart> ChartDrawingPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetExtendedChartPart(instance);
     return instance;
 }
@@ -1896,7 +1898,7 @@ std::vector<std::shared_ptr<ImagePart>> ChartDrawingPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> ChartDrawingPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -1920,7 +1922,7 @@ ChartPart::~ChartPart() = default;
 
 const OpenXmlPartDescriptor& ChartPart::Descriptor() noexcept
 {
-    return kChartPartDescriptor;
+    return GeneratedPartsHelper::kChartPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts::ChartSpace> ChartPart::GetChartSpace() const
@@ -1945,7 +1947,7 @@ std::shared_ptr<ChartDrawingPart> ChartPart::GetChartDrawingPart() const
 
 std::shared_ptr<ChartDrawingPart> ChartPart::AddChartDrawingPart(const std::shared_ptr<ChartDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetChartDrawingPart(instance);
     return instance;
 }
@@ -1984,7 +1986,7 @@ std::shared_ptr<EmbeddedPackagePart> ChartPart::GetEmbeddedPackagePart() const
 
 std::shared_ptr<EmbeddedPackagePart> ChartPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetEmbeddedPackagePart(instance);
     return instance;
 }
@@ -2023,7 +2025,7 @@ std::vector<std::shared_ptr<ImagePart>> ChartPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> ChartPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -2044,7 +2046,7 @@ std::shared_ptr<ThemeOverridePart> ChartPart::GetThemeOverridePart() const
 
 std::shared_ptr<ThemeOverridePart> ChartPart::AddThemeOverridePart(const std::shared_ptr<ThemeOverridePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemeOverridePart(instance);
     return instance;
 }
@@ -2083,7 +2085,7 @@ std::vector<std::shared_ptr<ChartStylePart>> ChartPart::GetChartStyleParts() con
 
 std::shared_ptr<ChartStylePart> ChartPart::AddChartStylePart(const std::shared_ptr<ChartStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartStylePart::Descriptor(), true);
     return instance;
 }
@@ -2104,7 +2106,7 @@ std::vector<std::shared_ptr<ChartColorStylePart>> ChartPart::GetChartColorStyleP
 
 std::shared_ptr<ChartColorStylePart> ChartPart::AddChartColorStylePart(const std::shared_ptr<ChartColorStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartColorStylePart::Descriptor(), true);
     return instance;
 }
@@ -2128,7 +2130,7 @@ ChartStylePart::~ChartStylePart() = default;
 
 const OpenXmlPartDescriptor& ChartStylePart::Descriptor() noexcept
 {
-    return kChartStylePartDescriptor;
+    return GeneratedPartsHelper::kChartStylePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2013::Drawing::ChartStyle::ChartStyle> ChartStylePart::GetChartStyle() const
@@ -2156,7 +2158,7 @@ ChartsheetPart::~ChartsheetPart() = default;
 
 const OpenXmlPartDescriptor& ChartsheetPart::Descriptor() noexcept
 {
-    return kChartsheetPartDescriptor;
+    return GeneratedPartsHelper::kChartsheetPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Chartsheet> ChartsheetPart::GetChartsheet() const
@@ -2181,7 +2183,7 @@ std::vector<std::shared_ptr<SpreadsheetPrinterSettingsPart>> ChartsheetPart::Get
 
 std::shared_ptr<SpreadsheetPrinterSettingsPart> ChartsheetPart::AddSpreadsheetPrinterSettingsPart(const std::shared_ptr<SpreadsheetPrinterSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SpreadsheetPrinterSettingsPart::Descriptor(), true);
     return instance;
 }
@@ -2202,7 +2204,7 @@ std::shared_ptr<DrawingsPart> ChartsheetPart::GetDrawingsPart() const
 
 std::shared_ptr<DrawingsPart> ChartsheetPart::AddDrawingsPart(const std::shared_ptr<DrawingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDrawingsPart(instance);
     return instance;
 }
@@ -2241,7 +2243,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> ChartsheetPart::GetVmlDrawingParts(
 
 std::shared_ptr<VmlDrawingPart> ChartsheetPart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -2262,7 +2264,7 @@ std::vector<std::shared_ptr<ImagePart>> ChartsheetPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> ChartsheetPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -2286,7 +2288,7 @@ CommentAuthorsPart::~CommentAuthorsPart() = default;
 
 const OpenXmlPartDescriptor& CommentAuthorsPart::Descriptor() noexcept
 {
-    return kCommentAuthorsPartDescriptor;
+    return GeneratedPartsHelper::kCommentAuthorsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::CommentAuthorList> CommentAuthorsPart::GetCommentAuthorList() const
@@ -2314,7 +2316,7 @@ ConnectionsPart::~ConnectionsPart() = default;
 
 const OpenXmlPartDescriptor& ConnectionsPart::Descriptor() noexcept
 {
-    return kConnectionsPartDescriptor;
+    return GeneratedPartsHelper::kConnectionsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Connections> ConnectionsPart::GetConnections() const
@@ -2342,7 +2344,7 @@ ControlPropertiesPart::~ControlPropertiesPart() = default;
 
 const OpenXmlPartDescriptor& ControlPropertiesPart::Descriptor() noexcept
 {
-    return kControlPropertiesPartDescriptor;
+    return GeneratedPartsHelper::kControlPropertiesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::FormControlProperties> ControlPropertiesPart::GetFormControlProperties() const
@@ -2370,7 +2372,7 @@ CoreFilePropertiesPart::~CoreFilePropertiesPart() = default;
 
 const OpenXmlPartDescriptor& CoreFilePropertiesPart::Descriptor() noexcept
 {
-    return kCoreFilePropertiesPartDescriptor;
+    return GeneratedPartsHelper::kCoreFilePropertiesPartDescriptor;
 }
 
 CustomDataPart::CustomDataPart()
@@ -2382,7 +2384,7 @@ CustomDataPart::~CustomDataPart() = default;
 
 const OpenXmlPartDescriptor& CustomDataPart::Descriptor() noexcept
 {
-    return kCustomDataPartDescriptor;
+    return GeneratedPartsHelper::kCustomDataPartDescriptor;
 }
 
 CustomDataPropertiesPart::CustomDataPropertiesPart()
@@ -2395,7 +2397,7 @@ CustomDataPropertiesPart::~CustomDataPropertiesPart() = default;
 
 const OpenXmlPartDescriptor& CustomDataPropertiesPart::Descriptor() noexcept
 {
-    return kCustomDataPropertiesPartDescriptor;
+    return GeneratedPartsHelper::kCustomDataPropertiesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::DatastoreItem> CustomDataPropertiesPart::GetDatastoreItem() const
@@ -2420,7 +2422,7 @@ std::shared_ptr<CustomDataPart> CustomDataPropertiesPart::GetCustomDataPart() co
 
 std::shared_ptr<CustomDataPart> CustomDataPropertiesPart::AddCustomDataPart(const std::shared_ptr<CustomDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCustomDataPart(instance);
     return instance;
 }
@@ -2462,7 +2464,7 @@ CustomFilePropertiesPart::~CustomFilePropertiesPart() = default;
 
 const OpenXmlPartDescriptor& CustomFilePropertiesPart::Descriptor() noexcept
 {
-    return kCustomFilePropertiesPartDescriptor;
+    return GeneratedPartsHelper::kCustomFilePropertiesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::CustomProperties::Properties> CustomFilePropertiesPart::GetProperties() const
@@ -2489,7 +2491,7 @@ CustomPropertyPart::~CustomPropertyPart() = default;
 
 const OpenXmlPartDescriptor& CustomPropertyPart::Descriptor() noexcept
 {
-    return kCustomPropertyPartDescriptor;
+    return GeneratedPartsHelper::kCustomPropertyPartDescriptor;
 }
 
 CustomXmlMappingsPart::CustomXmlMappingsPart()
@@ -2502,7 +2504,7 @@ CustomXmlMappingsPart::~CustomXmlMappingsPart() = default;
 
 const OpenXmlPartDescriptor& CustomXmlMappingsPart::Descriptor() noexcept
 {
-    return kCustomXmlMappingsPartDescriptor;
+    return GeneratedPartsHelper::kCustomXmlMappingsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MapInfo> CustomXmlMappingsPart::GetMapInfo() const
@@ -2529,7 +2531,7 @@ CustomXmlPart::~CustomXmlPart() = default;
 
 const OpenXmlPartDescriptor& CustomXmlPart::Descriptor() noexcept
 {
-    return kCustomXmlPartDescriptor;
+    return GeneratedPartsHelper::kCustomXmlPartDescriptor;
 }
 
 std::shared_ptr<CustomXmlPropertiesPart> CustomXmlPart::GetCustomXmlPropertiesPart() const
@@ -2539,7 +2541,7 @@ std::shared_ptr<CustomXmlPropertiesPart> CustomXmlPart::GetCustomXmlPropertiesPa
 
 std::shared_ptr<CustomXmlPropertiesPart> CustomXmlPart::AddCustomXmlPropertiesPart(const std::shared_ptr<CustomXmlPropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCustomXmlPropertiesPart(instance);
     return instance;
 }
@@ -2581,7 +2583,7 @@ CustomXmlPropertiesPart::~CustomXmlPropertiesPart() = default;
 
 const OpenXmlPartDescriptor& CustomXmlPropertiesPart::Descriptor() noexcept
 {
-    return kCustomXmlPropertiesPartDescriptor;
+    return GeneratedPartsHelper::kCustomXmlPropertiesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::CustomXmlDataProperties::DataStoreItem> CustomXmlPropertiesPart::GetDataStoreItem() const
@@ -2609,7 +2611,7 @@ CustomizationPart::~CustomizationPart() = default;
 
 const OpenXmlPartDescriptor& CustomizationPart::Descriptor() noexcept
 {
-    return kCustomizationPartDescriptor;
+    return GeneratedPartsHelper::kCustomizationPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office::Word::TemplateCommandGroup> CustomizationPart::GetTemplateCommandGroup() const
@@ -2634,7 +2636,7 @@ std::shared_ptr<WordAttachedToolbarsPart> CustomizationPart::GetWordAttachedTool
 
 std::shared_ptr<WordAttachedToolbarsPart> CustomizationPart::AddWordAttachedToolbarsPart(const std::shared_ptr<WordAttachedToolbarsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordAttachedToolbarsPart(instance);
     return instance;
 }
@@ -2676,7 +2678,7 @@ DiagramColorsPart::~DiagramColorsPart() = default;
 
 const OpenXmlPartDescriptor& DiagramColorsPart::Descriptor() noexcept
 {
-    return kDiagramColorsPartDescriptor;
+    return GeneratedPartsHelper::kDiagramColorsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::ColorsDefinition> DiagramColorsPart::GetColorsDefinition() const
@@ -2704,7 +2706,7 @@ DiagramDataPart::~DiagramDataPart() = default;
 
 const OpenXmlPartDescriptor& DiagramDataPart::Descriptor() noexcept
 {
-    return kDiagramDataPartDescriptor;
+    return GeneratedPartsHelper::kDiagramDataPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::DataModelRoot> DiagramDataPart::GetDataModelRoot() const
@@ -2729,7 +2731,7 @@ std::vector<std::shared_ptr<ImagePart>> DiagramDataPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> DiagramDataPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -2750,7 +2752,7 @@ std::vector<std::shared_ptr<SlidePart>> DiagramDataPart::GetSlideParts() const
 
 std::shared_ptr<SlidePart> DiagramDataPart::AddSlidePart(const std::shared_ptr<SlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlidePart::Descriptor(), true);
     return instance;
 }
@@ -2771,7 +2773,7 @@ std::vector<std::shared_ptr<WorksheetPart>> DiagramDataPart::GetWorksheetParts()
 
 std::shared_ptr<WorksheetPart> DiagramDataPart::AddWorksheetPart(const std::shared_ptr<WorksheetPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WorksheetPart::Descriptor(), true);
     return instance;
 }
@@ -2795,7 +2797,7 @@ DiagramLayoutDefinitionPart::~DiagramLayoutDefinitionPart() = default;
 
 const OpenXmlPartDescriptor& DiagramLayoutDefinitionPart::Descriptor() noexcept
 {
-    return kDiagramLayoutDefinitionPartDescriptor;
+    return GeneratedPartsHelper::kDiagramLayoutDefinitionPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::LayoutDefinition> DiagramLayoutDefinitionPart::GetLayoutDefinition() const
@@ -2820,7 +2822,7 @@ std::vector<std::shared_ptr<ImagePart>> DiagramLayoutDefinitionPart::GetImagePar
 
 std::shared_ptr<ImagePart> DiagramLayoutDefinitionPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -2844,7 +2846,7 @@ DiagramPersistLayoutPart::~DiagramPersistLayoutPart() = default;
 
 const OpenXmlPartDescriptor& DiagramPersistLayoutPart::Descriptor() noexcept
 {
-    return kDiagramPersistLayoutPartDescriptor;
+    return GeneratedPartsHelper::kDiagramPersistLayoutPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office::Drawing::Drawing> DiagramPersistLayoutPart::GetDrawing() const
@@ -2869,7 +2871,7 @@ std::vector<std::shared_ptr<ImagePart>> DiagramPersistLayoutPart::GetImageParts(
 
 std::shared_ptr<ImagePart> DiagramPersistLayoutPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -2893,7 +2895,7 @@ DiagramStylePart::~DiagramStylePart() = default;
 
 const OpenXmlPartDescriptor& DiagramStylePart::Descriptor() noexcept
 {
-    return kDiagramStylePartDescriptor;
+    return GeneratedPartsHelper::kDiagramStylePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams::StyleDefinition> DiagramStylePart::GetStyleDefinition() const
@@ -2921,7 +2923,7 @@ DialogsheetPart::~DialogsheetPart() = default;
 
 const OpenXmlPartDescriptor& DialogsheetPart::Descriptor() noexcept
 {
-    return kDialogsheetPartDescriptor;
+    return GeneratedPartsHelper::kDialogsheetPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DialogSheet> DialogsheetPart::GetDialogSheet() const
@@ -2946,7 +2948,7 @@ std::vector<std::shared_ptr<SpreadsheetPrinterSettingsPart>> DialogsheetPart::Ge
 
 std::shared_ptr<SpreadsheetPrinterSettingsPart> DialogsheetPart::AddSpreadsheetPrinterSettingsPart(const std::shared_ptr<SpreadsheetPrinterSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SpreadsheetPrinterSettingsPart::Descriptor(), true);
     return instance;
 }
@@ -2967,7 +2969,7 @@ std::shared_ptr<DrawingsPart> DialogsheetPart::GetDrawingsPart() const
 
 std::shared_ptr<DrawingsPart> DialogsheetPart::AddDrawingsPart(const std::shared_ptr<DrawingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDrawingsPart(instance);
     return instance;
 }
@@ -3006,7 +3008,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> DialogsheetPart::GetVmlDrawingParts
 
 std::shared_ptr<VmlDrawingPart> DialogsheetPart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -3027,7 +3029,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> DialogsheetPart::GetEmbeddedObj
 
 std::shared_ptr<EmbeddedObjectPart> DialogsheetPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -3050,7 +3052,7 @@ DigitalSignatureOriginPart::~DigitalSignatureOriginPart() = default;
 
 const OpenXmlPartDescriptor& DigitalSignatureOriginPart::Descriptor() noexcept
 {
-    return kDigitalSignatureOriginPartDescriptor;
+    return GeneratedPartsHelper::kDigitalSignatureOriginPartDescriptor;
 }
 
 std::vector<std::shared_ptr<XmlSignaturePart>> DigitalSignatureOriginPart::GetXmlSignatureParts() const
@@ -3060,7 +3062,7 @@ std::vector<std::shared_ptr<XmlSignaturePart>> DigitalSignatureOriginPart::GetXm
 
 std::shared_ptr<XmlSignaturePart> DigitalSignatureOriginPart::AddXmlSignaturePart(const std::shared_ptr<XmlSignaturePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, XmlSignaturePart::Descriptor(), true);
     return instance;
 }
@@ -3084,7 +3086,7 @@ DocumentSettingsPart::~DocumentSettingsPart() = default;
 
 const OpenXmlPartDescriptor& DocumentSettingsPart::Descriptor() noexcept
 {
-    return kDocumentSettingsPartDescriptor;
+    return GeneratedPartsHelper::kDocumentSettingsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Settings> DocumentSettingsPart::GetSettings() const
@@ -3109,7 +3111,7 @@ std::shared_ptr<MailMergeRecipientDataPart> DocumentSettingsPart::GetMailMergeRe
 
 std::shared_ptr<MailMergeRecipientDataPart> DocumentSettingsPart::AddMailMergeRecipientDataPart(const std::shared_ptr<MailMergeRecipientDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetMailMergeRecipientDataPart(instance);
     return instance;
 }
@@ -3148,7 +3150,7 @@ std::vector<std::shared_ptr<ImagePart>> DocumentSettingsPart::GetImageParts() co
 
 std::shared_ptr<ImagePart> DocumentSettingsPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -3172,7 +3174,7 @@ DocumentTasksPart::~DocumentTasksPart() = default;
 
 const OpenXmlPartDescriptor& DocumentTasksPart::Descriptor() noexcept
 {
-    return kDocumentTasksPartDescriptor;
+    return GeneratedPartsHelper::kDocumentTasksPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::Tasks> DocumentTasksPart::GetTasks() const
@@ -3200,7 +3202,7 @@ DrawingsPart::~DrawingsPart() = default;
 
 const OpenXmlPartDescriptor& DrawingsPart::Descriptor() noexcept
 {
-    return kDrawingsPartDescriptor;
+    return GeneratedPartsHelper::kDrawingsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::WorksheetDrawing> DrawingsPart::GetWorksheetDrawing() const
@@ -3225,7 +3227,7 @@ std::vector<std::shared_ptr<ChartPart>> DrawingsPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> DrawingsPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -3246,7 +3248,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> DrawingsPart::GetExtendedChartPa
 
 std::shared_ptr<ExtendedChartPart> DrawingsPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -3267,7 +3269,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> DrawingsPart::GetDiagramColorsPa
 
 std::shared_ptr<DiagramColorsPart> DrawingsPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -3288,7 +3290,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> DrawingsPart::GetDiagramDataParts(
 
 std::shared_ptr<DiagramDataPart> DrawingsPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -3309,7 +3311,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> DrawingsPart::GetDiagramP
 
 std::shared_ptr<DiagramPersistLayoutPart> DrawingsPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -3330,7 +3332,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> DrawingsPart::GetDiagr
 
 std::shared_ptr<DiagramLayoutDefinitionPart> DrawingsPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -3351,7 +3353,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> DrawingsPart::GetDiagramStylePart
 
 std::shared_ptr<DiagramStylePart> DrawingsPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -3372,7 +3374,7 @@ std::vector<std::shared_ptr<ImagePart>> DrawingsPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> DrawingsPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -3393,7 +3395,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> DrawingsPart::GetCustomXmlParts() co
 
 std::shared_ptr<CustomXmlPart> DrawingsPart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -3414,7 +3416,7 @@ std::vector<std::shared_ptr<WebExtensionPart>> DrawingsPart::GetWebExtensionPart
 
 std::shared_ptr<WebExtensionPart> DrawingsPart::AddWebExtensionPart(const std::shared_ptr<WebExtensionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WebExtensionPart::Descriptor(), true);
     return instance;
 }
@@ -3437,7 +3439,7 @@ EmbeddedControlPersistenceBinaryDataPart::~EmbeddedControlPersistenceBinaryDataP
 
 const OpenXmlPartDescriptor& EmbeddedControlPersistenceBinaryDataPart::Descriptor() noexcept
 {
-    return kEmbeddedControlPersistenceBinaryDataPartDescriptor;
+    return GeneratedPartsHelper::kEmbeddedControlPersistenceBinaryDataPartDescriptor;
 }
 
 EmbeddedControlPersistencePart::EmbeddedControlPersistencePart()
@@ -3449,7 +3451,7 @@ EmbeddedControlPersistencePart::~EmbeddedControlPersistencePart() = default;
 
 const OpenXmlPartDescriptor& EmbeddedControlPersistencePart::Descriptor() noexcept
 {
-    return kEmbeddedControlPersistencePartDescriptor;
+    return GeneratedPartsHelper::kEmbeddedControlPersistencePartDescriptor;
 }
 
 std::vector<std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>> EmbeddedControlPersistencePart::GetEmbeddedControlPersistenceBinaryDataParts() const
@@ -3459,7 +3461,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>> EmbeddedC
 
 std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart> EmbeddedControlPersistencePart::AddEmbeddedControlPersistenceBinaryDataPart(const std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistenceBinaryDataPart::Descriptor(), true);
     return instance;
 }
@@ -3482,7 +3484,7 @@ EmbeddedObjectPart::~EmbeddedObjectPart() = default;
 
 const OpenXmlPartDescriptor& EmbeddedObjectPart::Descriptor() noexcept
 {
-    return kEmbeddedObjectPartDescriptor;
+    return GeneratedPartsHelper::kEmbeddedObjectPartDescriptor;
 }
 
 EmbeddedPackagePart::EmbeddedPackagePart()
@@ -3494,7 +3496,7 @@ EmbeddedPackagePart::~EmbeddedPackagePart() = default;
 
 const OpenXmlPartDescriptor& EmbeddedPackagePart::Descriptor() noexcept
 {
-    return kEmbeddedPackagePartDescriptor;
+    return GeneratedPartsHelper::kEmbeddedPackagePartDescriptor;
 }
 
 EndnotesPart::EndnotesPart()
@@ -3507,7 +3509,7 @@ EndnotesPart::~EndnotesPart() = default;
 
 const OpenXmlPartDescriptor& EndnotesPart::Descriptor() noexcept
 {
-    return kEndnotesPartDescriptor;
+    return GeneratedPartsHelper::kEndnotesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Endnotes> EndnotesPart::GetEndnotes() const
@@ -3547,7 +3549,7 @@ std::vector<std::shared_ptr<AlternativeFormatImportPart>> EndnotesPart::GetAlter
 
 std::shared_ptr<AlternativeFormatImportPart> EndnotesPart::AddAlternativeFormatImportPart(const std::shared_ptr<AlternativeFormatImportPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, AlternativeFormatImportPart::Descriptor(), true);
     return instance;
 }
@@ -3568,7 +3570,7 @@ std::vector<std::shared_ptr<ChartPart>> EndnotesPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> EndnotesPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -3589,7 +3591,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> EndnotesPart::GetExtendedChartPa
 
 std::shared_ptr<ExtendedChartPart> EndnotesPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -3610,7 +3612,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> EndnotesPart::GetDiagramColorsPa
 
 std::shared_ptr<DiagramColorsPart> EndnotesPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -3631,7 +3633,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> EndnotesPart::GetDiagramDataParts(
 
 std::shared_ptr<DiagramDataPart> EndnotesPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -3652,7 +3654,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> EndnotesPart::GetDiagramP
 
 std::shared_ptr<DiagramPersistLayoutPart> EndnotesPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -3673,7 +3675,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> EndnotesPart::GetDiagr
 
 std::shared_ptr<DiagramLayoutDefinitionPart> EndnotesPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -3694,7 +3696,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> EndnotesPart::GetDiagramStylePart
 
 std::shared_ptr<DiagramStylePart> EndnotesPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -3715,7 +3717,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> EndnotesPart::GetEm
 
 std::shared_ptr<EmbeddedControlPersistencePart> EndnotesPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -3736,7 +3738,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> EndnotesPart::GetEmbeddedObject
 
 std::shared_ptr<EmbeddedObjectPart> EndnotesPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -3757,7 +3759,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> EndnotesPart::GetEmbeddedPacka
 
 std::shared_ptr<EmbeddedPackagePart> EndnotesPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -3778,7 +3780,7 @@ std::vector<std::shared_ptr<ImagePart>> EndnotesPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> EndnotesPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -3799,7 +3801,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> EndnotesPart::Get
 
 std::shared_ptr<Model3DReferenceRelationshipPart> EndnotesPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -3822,7 +3824,7 @@ ExcelAttachedToolbarsPart::~ExcelAttachedToolbarsPart() = default;
 
 const OpenXmlPartDescriptor& ExcelAttachedToolbarsPart::Descriptor() noexcept
 {
-    return kExcelAttachedToolbarsPartDescriptor;
+    return GeneratedPartsHelper::kExcelAttachedToolbarsPartDescriptor;
 }
 
 ExtendedChartPart::ExtendedChartPart()
@@ -3835,7 +3837,7 @@ ExtendedChartPart::~ExtendedChartPart() = default;
 
 const OpenXmlPartDescriptor& ExtendedChartPart::Descriptor() noexcept
 {
-    return kExtendedChartPartDescriptor;
+    return GeneratedPartsHelper::kExtendedChartPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::ChartDrawing::ChartSpace> ExtendedChartPart::GetChartSpace() const
@@ -3860,7 +3862,7 @@ std::shared_ptr<ChartDrawingPart> ExtendedChartPart::GetChartDrawingPart() const
 
 std::shared_ptr<ChartDrawingPart> ExtendedChartPart::AddChartDrawingPart(const std::shared_ptr<ChartDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetChartDrawingPart(instance);
     return instance;
 }
@@ -3899,7 +3901,7 @@ std::shared_ptr<EmbeddedPackagePart> ExtendedChartPart::GetEmbeddedPackagePart()
 
 std::shared_ptr<EmbeddedPackagePart> ExtendedChartPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetEmbeddedPackagePart(instance);
     return instance;
 }
@@ -3938,7 +3940,7 @@ std::vector<std::shared_ptr<ImagePart>> ExtendedChartPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> ExtendedChartPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -3959,7 +3961,7 @@ std::shared_ptr<ThemeOverridePart> ExtendedChartPart::GetThemeOverridePart() con
 
 std::shared_ptr<ThemeOverridePart> ExtendedChartPart::AddThemeOverridePart(const std::shared_ptr<ThemeOverridePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemeOverridePart(instance);
     return instance;
 }
@@ -3998,7 +4000,7 @@ std::vector<std::shared_ptr<ChartStylePart>> ExtendedChartPart::GetChartStylePar
 
 std::shared_ptr<ChartStylePart> ExtendedChartPart::AddChartStylePart(const std::shared_ptr<ChartStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartStylePart::Descriptor(), true);
     return instance;
 }
@@ -4019,7 +4021,7 @@ std::vector<std::shared_ptr<ChartColorStylePart>> ExtendedChartPart::GetChartCol
 
 std::shared_ptr<ChartColorStylePart> ExtendedChartPart::AddChartColorStylePart(const std::shared_ptr<ChartColorStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartColorStylePart::Descriptor(), true);
     return instance;
 }
@@ -4043,7 +4045,7 @@ ExtendedFilePropertiesPart::~ExtendedFilePropertiesPart() = default;
 
 const OpenXmlPartDescriptor& ExtendedFilePropertiesPart::Descriptor() noexcept
 {
-    return kExtendedFilePropertiesPartDescriptor;
+    return GeneratedPartsHelper::kExtendedFilePropertiesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::ExtendedProperties::Properties> ExtendedFilePropertiesPart::GetProperties() const
@@ -4071,7 +4073,7 @@ ExternalWorkbookPart::~ExternalWorkbookPart() = default;
 
 const OpenXmlPartDescriptor& ExternalWorkbookPart::Descriptor() noexcept
 {
-    return kExternalWorkbookPartDescriptor;
+    return GeneratedPartsHelper::kExternalWorkbookPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExternalLink> ExternalWorkbookPart::GetExternalLink() const
@@ -4099,7 +4101,7 @@ FeaturePropertyBagsPart::~FeaturePropertyBagsPart() = default;
 
 const OpenXmlPartDescriptor& FeaturePropertyBagsPart::Descriptor() noexcept
 {
-    return kFeaturePropertyBagsPartDescriptor;
+    return GeneratedPartsHelper::kFeaturePropertyBagsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office::Y2022::FeaturePropertyBag::FeaturePropertyBags> FeaturePropertyBagsPart::GetFeaturePropertyBags() const
@@ -4126,7 +4128,7 @@ FontPart::~FontPart() = default;
 
 const OpenXmlPartDescriptor& FontPart::Descriptor() noexcept
 {
-    return kFontPartDescriptor;
+    return GeneratedPartsHelper::kFontPartDescriptor;
 }
 
 FontTablePart::FontTablePart()
@@ -4139,7 +4141,7 @@ FontTablePart::~FontTablePart() = default;
 
 const OpenXmlPartDescriptor& FontTablePart::Descriptor() noexcept
 {
-    return kFontTablePartDescriptor;
+    return GeneratedPartsHelper::kFontTablePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Fonts> FontTablePart::GetFonts() const
@@ -4164,7 +4166,7 @@ std::vector<std::shared_ptr<FontPart>> FontTablePart::GetFontParts() const
 
 std::shared_ptr<FontPart> FontTablePart::AddFontPart(const std::shared_ptr<FontPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, FontPart::Descriptor(), true);
     return instance;
 }
@@ -4188,7 +4190,7 @@ FooterPart::~FooterPart() = default;
 
 const OpenXmlPartDescriptor& FooterPart::Descriptor() noexcept
 {
-    return kFooterPartDescriptor;
+    return GeneratedPartsHelper::kFooterPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Footer> FooterPart::GetFooter() const
@@ -4228,7 +4230,7 @@ std::vector<std::shared_ptr<AlternativeFormatImportPart>> FooterPart::GetAlterna
 
 std::shared_ptr<AlternativeFormatImportPart> FooterPart::AddAlternativeFormatImportPart(const std::shared_ptr<AlternativeFormatImportPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, AlternativeFormatImportPart::Descriptor(), true);
     return instance;
 }
@@ -4249,7 +4251,7 @@ std::vector<std::shared_ptr<ChartPart>> FooterPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> FooterPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -4270,7 +4272,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> FooterPart::GetExtendedChartPart
 
 std::shared_ptr<ExtendedChartPart> FooterPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -4291,7 +4293,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> FooterPart::GetDiagramColorsPart
 
 std::shared_ptr<DiagramColorsPart> FooterPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -4312,7 +4314,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> FooterPart::GetDiagramDataParts() 
 
 std::shared_ptr<DiagramDataPart> FooterPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -4333,7 +4335,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> FooterPart::GetDiagramPer
 
 std::shared_ptr<DiagramPersistLayoutPart> FooterPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -4354,7 +4356,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> FooterPart::GetDiagram
 
 std::shared_ptr<DiagramLayoutDefinitionPart> FooterPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -4375,7 +4377,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> FooterPart::GetDiagramStyleParts(
 
 std::shared_ptr<DiagramStylePart> FooterPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -4396,7 +4398,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> FooterPart::GetEmbe
 
 std::shared_ptr<EmbeddedControlPersistencePart> FooterPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -4417,7 +4419,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> FooterPart::GetEmbeddedObjectPa
 
 std::shared_ptr<EmbeddedObjectPart> FooterPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -4438,7 +4440,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> FooterPart::GetEmbeddedPackage
 
 std::shared_ptr<EmbeddedPackagePart> FooterPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -4459,7 +4461,7 @@ std::vector<std::shared_ptr<ImagePart>> FooterPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> FooterPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -4480,7 +4482,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> FooterPart::GetMo
 
 std::shared_ptr<Model3DReferenceRelationshipPart> FooterPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -4504,7 +4506,7 @@ FootnotesPart::~FootnotesPart() = default;
 
 const OpenXmlPartDescriptor& FootnotesPart::Descriptor() noexcept
 {
-    return kFootnotesPartDescriptor;
+    return GeneratedPartsHelper::kFootnotesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Footnotes> FootnotesPart::GetFootnotes() const
@@ -4544,7 +4546,7 @@ std::vector<std::shared_ptr<AlternativeFormatImportPart>> FootnotesPart::GetAlte
 
 std::shared_ptr<AlternativeFormatImportPart> FootnotesPart::AddAlternativeFormatImportPart(const std::shared_ptr<AlternativeFormatImportPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, AlternativeFormatImportPart::Descriptor(), true);
     return instance;
 }
@@ -4565,7 +4567,7 @@ std::vector<std::shared_ptr<ChartPart>> FootnotesPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> FootnotesPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -4586,7 +4588,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> FootnotesPart::GetExtendedChartP
 
 std::shared_ptr<ExtendedChartPart> FootnotesPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -4607,7 +4609,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> FootnotesPart::GetDiagramColorsP
 
 std::shared_ptr<DiagramColorsPart> FootnotesPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -4628,7 +4630,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> FootnotesPart::GetDiagramDataParts
 
 std::shared_ptr<DiagramDataPart> FootnotesPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -4649,7 +4651,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> FootnotesPart::GetDiagram
 
 std::shared_ptr<DiagramPersistLayoutPart> FootnotesPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -4670,7 +4672,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> FootnotesPart::GetDiag
 
 std::shared_ptr<DiagramLayoutDefinitionPart> FootnotesPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -4691,7 +4693,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> FootnotesPart::GetDiagramStylePar
 
 std::shared_ptr<DiagramStylePart> FootnotesPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -4712,7 +4714,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> FootnotesPart::GetE
 
 std::shared_ptr<EmbeddedControlPersistencePart> FootnotesPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -4733,7 +4735,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> FootnotesPart::GetEmbeddedObjec
 
 std::shared_ptr<EmbeddedObjectPart> FootnotesPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -4754,7 +4756,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> FootnotesPart::GetEmbeddedPack
 
 std::shared_ptr<EmbeddedPackagePart> FootnotesPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -4775,7 +4777,7 @@ std::vector<std::shared_ptr<ImagePart>> FootnotesPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> FootnotesPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -4796,7 +4798,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> FootnotesPart::Ge
 
 std::shared_ptr<Model3DReferenceRelationshipPart> FootnotesPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -4820,7 +4822,7 @@ GlossaryDocumentPart::~GlossaryDocumentPart() = default;
 
 const OpenXmlPartDescriptor& GlossaryDocumentPart::Descriptor() noexcept
 {
-    return kGlossaryDocumentPartDescriptor;
+    return GeneratedPartsHelper::kGlossaryDocumentPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::GlossaryDocument> GlossaryDocumentPart::GetGlossaryDocument() const
@@ -4860,7 +4862,7 @@ std::shared_ptr<WordprocessingCommentsPart> GlossaryDocumentPart::GetWordprocess
 
 std::shared_ptr<WordprocessingCommentsPart> GlossaryDocumentPart::AddWordprocessingCommentsPart(const std::shared_ptr<WordprocessingCommentsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordprocessingCommentsPart(instance);
     return instance;
 }
@@ -4899,7 +4901,7 @@ std::shared_ptr<DocumentSettingsPart> GlossaryDocumentPart::GetDocumentSettingsP
 
 std::shared_ptr<DocumentSettingsPart> GlossaryDocumentPart::AddDocumentSettingsPart(const std::shared_ptr<DocumentSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDocumentSettingsPart(instance);
     return instance;
 }
@@ -4938,7 +4940,7 @@ std::shared_ptr<EndnotesPart> GlossaryDocumentPart::GetEndnotesPart() const
 
 std::shared_ptr<EndnotesPart> GlossaryDocumentPart::AddEndnotesPart(const std::shared_ptr<EndnotesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetEndnotesPart(instance);
     return instance;
 }
@@ -4977,7 +4979,7 @@ std::shared_ptr<FontTablePart> GlossaryDocumentPart::GetFontTablePart() const
 
 std::shared_ptr<FontTablePart> GlossaryDocumentPart::AddFontTablePart(const std::shared_ptr<FontTablePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetFontTablePart(instance);
     return instance;
 }
@@ -5016,7 +5018,7 @@ std::shared_ptr<FootnotesPart> GlossaryDocumentPart::GetFootnotesPart() const
 
 std::shared_ptr<FootnotesPart> GlossaryDocumentPart::AddFootnotesPart(const std::shared_ptr<FootnotesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetFootnotesPart(instance);
     return instance;
 }
@@ -5055,7 +5057,7 @@ std::shared_ptr<NumberingDefinitionsPart> GlossaryDocumentPart::GetNumberingDefi
 
 std::shared_ptr<NumberingDefinitionsPart> GlossaryDocumentPart::AddNumberingDefinitionsPart(const std::shared_ptr<NumberingDefinitionsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetNumberingDefinitionsPart(instance);
     return instance;
 }
@@ -5094,7 +5096,7 @@ std::shared_ptr<StyleDefinitionsPart> GlossaryDocumentPart::GetStyleDefinitionsP
 
 std::shared_ptr<StyleDefinitionsPart> GlossaryDocumentPart::AddStyleDefinitionsPart(const std::shared_ptr<StyleDefinitionsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetStyleDefinitionsPart(instance);
     return instance;
 }
@@ -5133,7 +5135,7 @@ std::shared_ptr<StylesWithEffectsPart> GlossaryDocumentPart::GetStylesWithEffect
 
 std::shared_ptr<StylesWithEffectsPart> GlossaryDocumentPart::AddStylesWithEffectsPart(const std::shared_ptr<StylesWithEffectsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetStylesWithEffectsPart(instance);
     return instance;
 }
@@ -5172,7 +5174,7 @@ std::shared_ptr<WebSettingsPart> GlossaryDocumentPart::GetWebSettingsPart() cons
 
 std::shared_ptr<WebSettingsPart> GlossaryDocumentPart::AddWebSettingsPart(const std::shared_ptr<WebSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWebSettingsPart(instance);
     return instance;
 }
@@ -5211,7 +5213,7 @@ std::vector<std::shared_ptr<FooterPart>> GlossaryDocumentPart::GetFooterParts() 
 
 std::shared_ptr<FooterPart> GlossaryDocumentPart::AddFooterPart(const std::shared_ptr<FooterPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, FooterPart::Descriptor(), true);
     return instance;
 }
@@ -5232,7 +5234,7 @@ std::vector<std::shared_ptr<HeaderPart>> GlossaryDocumentPart::GetHeaderParts() 
 
 std::shared_ptr<HeaderPart> GlossaryDocumentPart::AddHeaderPart(const std::shared_ptr<HeaderPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, HeaderPart::Descriptor(), true);
     return instance;
 }
@@ -5253,7 +5255,7 @@ std::vector<std::shared_ptr<WordprocessingPrinterSettingsPart>> GlossaryDocument
 
 std::shared_ptr<WordprocessingPrinterSettingsPart> GlossaryDocumentPart::AddWordprocessingPrinterSettingsPart(const std::shared_ptr<WordprocessingPrinterSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WordprocessingPrinterSettingsPart::Descriptor(), true);
     return instance;
 }
@@ -5274,7 +5276,7 @@ std::shared_ptr<CustomizationPart> GlossaryDocumentPart::GetCustomizationPart() 
 
 std::shared_ptr<CustomizationPart> GlossaryDocumentPart::AddCustomizationPart(const std::shared_ptr<CustomizationPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCustomizationPart(instance);
     return instance;
 }
@@ -5313,7 +5315,7 @@ std::shared_ptr<VbaProjectPart> GlossaryDocumentPart::GetVbaProjectPart() const
 
 std::shared_ptr<VbaProjectPart> GlossaryDocumentPart::AddVbaProjectPart(const std::shared_ptr<VbaProjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetVbaProjectPart(instance);
     return instance;
 }
@@ -5352,7 +5354,7 @@ std::shared_ptr<WordprocessingCommentsExPart> GlossaryDocumentPart::GetWordproce
 
 std::shared_ptr<WordprocessingCommentsExPart> GlossaryDocumentPart::AddWordprocessingCommentsExPart(const std::shared_ptr<WordprocessingCommentsExPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordprocessingCommentsExPart(instance);
     return instance;
 }
@@ -5391,7 +5393,7 @@ std::shared_ptr<WordprocessingPeoplePart> GlossaryDocumentPart::GetWordprocessin
 
 std::shared_ptr<WordprocessingPeoplePart> GlossaryDocumentPart::AddWordprocessingPeoplePart(const std::shared_ptr<WordprocessingPeoplePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordprocessingPeoplePart(instance);
     return instance;
 }
@@ -5430,7 +5432,7 @@ std::shared_ptr<WordprocessingCommentsIdsPart> GlossaryDocumentPart::GetWordproc
 
 std::shared_ptr<WordprocessingCommentsIdsPart> GlossaryDocumentPart::AddWordprocessingCommentsIdsPart(const std::shared_ptr<WordprocessingCommentsIdsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordprocessingCommentsIdsPart(instance);
     return instance;
 }
@@ -5469,7 +5471,7 @@ std::shared_ptr<DocumentTasksPart> GlossaryDocumentPart::GetDocumentTasksPart() 
 
 std::shared_ptr<DocumentTasksPart> GlossaryDocumentPart::AddDocumentTasksPart(const std::shared_ptr<DocumentTasksPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDocumentTasksPart(instance);
     return instance;
 }
@@ -5508,7 +5510,7 @@ std::shared_ptr<WordCommentsExtensiblePart> GlossaryDocumentPart::GetWordComment
 
 std::shared_ptr<WordCommentsExtensiblePart> GlossaryDocumentPart::AddWordCommentsExtensiblePart(const std::shared_ptr<WordCommentsExtensiblePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordCommentsExtensiblePart(instance);
     return instance;
 }
@@ -5547,7 +5549,7 @@ std::vector<std::shared_ptr<AlternativeFormatImportPart>> GlossaryDocumentPart::
 
 std::shared_ptr<AlternativeFormatImportPart> GlossaryDocumentPart::AddAlternativeFormatImportPart(const std::shared_ptr<AlternativeFormatImportPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, AlternativeFormatImportPart::Descriptor(), true);
     return instance;
 }
@@ -5568,7 +5570,7 @@ std::vector<std::shared_ptr<ChartPart>> GlossaryDocumentPart::GetChartParts() co
 
 std::shared_ptr<ChartPart> GlossaryDocumentPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -5589,7 +5591,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> GlossaryDocumentPart::GetExtende
 
 std::shared_ptr<ExtendedChartPart> GlossaryDocumentPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -5610,7 +5612,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> GlossaryDocumentPart::GetDiagram
 
 std::shared_ptr<DiagramColorsPart> GlossaryDocumentPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -5631,7 +5633,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> GlossaryDocumentPart::GetDiagramDa
 
 std::shared_ptr<DiagramDataPart> GlossaryDocumentPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -5652,7 +5654,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> GlossaryDocumentPart::Get
 
 std::shared_ptr<DiagramPersistLayoutPart> GlossaryDocumentPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -5673,7 +5675,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> GlossaryDocumentPart::
 
 std::shared_ptr<DiagramLayoutDefinitionPart> GlossaryDocumentPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -5694,7 +5696,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> GlossaryDocumentPart::GetDiagramS
 
 std::shared_ptr<DiagramStylePart> GlossaryDocumentPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -5715,7 +5717,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> GlossaryDocumentPar
 
 std::shared_ptr<EmbeddedControlPersistencePart> GlossaryDocumentPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -5736,7 +5738,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> GlossaryDocumentPart::GetEmbedd
 
 std::shared_ptr<EmbeddedObjectPart> GlossaryDocumentPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -5757,7 +5759,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> GlossaryDocumentPart::GetEmbed
 
 std::shared_ptr<EmbeddedPackagePart> GlossaryDocumentPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -5778,7 +5780,7 @@ std::vector<std::shared_ptr<ImagePart>> GlossaryDocumentPart::GetImageParts() co
 
 std::shared_ptr<ImagePart> GlossaryDocumentPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -5799,7 +5801,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> GlossaryDocumentP
 
 std::shared_ptr<Model3DReferenceRelationshipPart> GlossaryDocumentPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -5823,7 +5825,7 @@ HandoutMasterPart::~HandoutMasterPart() = default;
 
 const OpenXmlPartDescriptor& HandoutMasterPart::Descriptor() noexcept
 {
-    return kHandoutMasterPartDescriptor;
+    return GeneratedPartsHelper::kHandoutMasterPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::HandoutMaster> HandoutMasterPart::GetHandoutMaster() const
@@ -5878,7 +5880,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> HandoutMasterPart::GetCustomXmlParts
 
 std::shared_ptr<CustomXmlPart> HandoutMasterPart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -5899,7 +5901,7 @@ std::vector<std::shared_ptr<ChartPart>> HandoutMasterPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> HandoutMasterPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -5920,7 +5922,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> HandoutMasterPart::GetExtendedCh
 
 std::shared_ptr<ExtendedChartPart> HandoutMasterPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -5941,7 +5943,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> HandoutMasterPart::GetDiagramCol
 
 std::shared_ptr<DiagramColorsPart> HandoutMasterPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -5962,7 +5964,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> HandoutMasterPart::GetDiagramDataP
 
 std::shared_ptr<DiagramDataPart> HandoutMasterPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -5983,7 +5985,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> HandoutMasterPart::GetDia
 
 std::shared_ptr<DiagramPersistLayoutPart> HandoutMasterPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -6004,7 +6006,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> HandoutMasterPart::Get
 
 std::shared_ptr<DiagramLayoutDefinitionPart> HandoutMasterPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -6025,7 +6027,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> HandoutMasterPart::GetDiagramStyl
 
 std::shared_ptr<DiagramStylePart> HandoutMasterPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -6046,7 +6048,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> HandoutMasterPart::GetEmbeddedO
 
 std::shared_ptr<EmbeddedObjectPart> HandoutMasterPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -6067,7 +6069,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> HandoutMasterPart::GetEmbedded
 
 std::shared_ptr<EmbeddedPackagePart> HandoutMasterPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -6088,7 +6090,7 @@ std::vector<std::shared_ptr<ImagePart>> HandoutMasterPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> HandoutMasterPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -6109,7 +6111,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> HandoutMasterPart::GetVmlDrawingPar
 
 std::shared_ptr<VmlDrawingPart> HandoutMasterPart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -6130,7 +6132,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>> HandoutMa
 
 std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart> HandoutMasterPart::AddEmbeddedControlPersistenceBinaryDataPart(const std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistenceBinaryDataPart::Descriptor(), true);
     return instance;
 }
@@ -6151,7 +6153,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> HandoutMasterPart
 
 std::shared_ptr<Model3DReferenceRelationshipPart> HandoutMasterPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -6172,7 +6174,7 @@ std::shared_ptr<ThemePart> HandoutMasterPart::GetThemePart() const
 
 std::shared_ptr<ThemePart> HandoutMasterPart::AddThemePart(const std::shared_ptr<ThemePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemePart(instance);
     return instance;
 }
@@ -6211,7 +6213,7 @@ std::vector<std::shared_ptr<UserDefinedTagsPart>> HandoutMasterPart::GetUserDefi
 
 std::shared_ptr<UserDefinedTagsPart> HandoutMasterPart::AddUserDefinedTagsPart(const std::shared_ptr<UserDefinedTagsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, UserDefinedTagsPart::Descriptor(), true);
     return instance;
 }
@@ -6232,7 +6234,7 @@ std::shared_ptr<SlidePart> HandoutMasterPart::GetSlidePart() const
 
 std::shared_ptr<SlidePart> HandoutMasterPart::AddSlidePart(const std::shared_ptr<SlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetSlidePart(instance);
     return instance;
 }
@@ -6274,7 +6276,7 @@ HeaderPart::~HeaderPart() = default;
 
 const OpenXmlPartDescriptor& HeaderPart::Descriptor() noexcept
 {
-    return kHeaderPartDescriptor;
+    return GeneratedPartsHelper::kHeaderPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Header> HeaderPart::GetHeader() const
@@ -6314,7 +6316,7 @@ std::vector<std::shared_ptr<AlternativeFormatImportPart>> HeaderPart::GetAlterna
 
 std::shared_ptr<AlternativeFormatImportPart> HeaderPart::AddAlternativeFormatImportPart(const std::shared_ptr<AlternativeFormatImportPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, AlternativeFormatImportPart::Descriptor(), true);
     return instance;
 }
@@ -6335,7 +6337,7 @@ std::vector<std::shared_ptr<ChartPart>> HeaderPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> HeaderPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -6356,7 +6358,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> HeaderPart::GetExtendedChartPart
 
 std::shared_ptr<ExtendedChartPart> HeaderPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -6377,7 +6379,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> HeaderPart::GetDiagramColorsPart
 
 std::shared_ptr<DiagramColorsPart> HeaderPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -6398,7 +6400,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> HeaderPart::GetDiagramDataParts() 
 
 std::shared_ptr<DiagramDataPart> HeaderPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -6419,7 +6421,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> HeaderPart::GetDiagramPer
 
 std::shared_ptr<DiagramPersistLayoutPart> HeaderPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -6440,7 +6442,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> HeaderPart::GetDiagram
 
 std::shared_ptr<DiagramLayoutDefinitionPart> HeaderPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -6461,7 +6463,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> HeaderPart::GetDiagramStyleParts(
 
 std::shared_ptr<DiagramStylePart> HeaderPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -6482,7 +6484,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> HeaderPart::GetEmbe
 
 std::shared_ptr<EmbeddedControlPersistencePart> HeaderPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -6503,7 +6505,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> HeaderPart::GetEmbeddedObjectPa
 
 std::shared_ptr<EmbeddedObjectPart> HeaderPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -6524,7 +6526,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> HeaderPart::GetEmbeddedPackage
 
 std::shared_ptr<EmbeddedPackagePart> HeaderPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -6545,7 +6547,7 @@ std::vector<std::shared_ptr<ImagePart>> HeaderPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> HeaderPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -6566,7 +6568,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> HeaderPart::GetMo
 
 std::shared_ptr<Model3DReferenceRelationshipPart> HeaderPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -6589,7 +6591,7 @@ ImagePart::~ImagePart() = default;
 
 const OpenXmlPartDescriptor& ImagePart::Descriptor() noexcept
 {
-    return kImagePartDescriptor;
+    return GeneratedPartsHelper::kImagePartDescriptor;
 }
 
 InternationalMacroSheetPart::InternationalMacroSheetPart()
@@ -6601,7 +6603,7 @@ InternationalMacroSheetPart::~InternationalMacroSheetPart() = default;
 
 const OpenXmlPartDescriptor& InternationalMacroSheetPart::Descriptor() noexcept
 {
-    return kInternationalMacroSheetPartDescriptor;
+    return GeneratedPartsHelper::kInternationalMacroSheetPartDescriptor;
 }
 
 std::vector<std::shared_ptr<SpreadsheetPrinterSettingsPart>> InternationalMacroSheetPart::GetSpreadsheetPrinterSettingsParts() const
@@ -6611,7 +6613,7 @@ std::vector<std::shared_ptr<SpreadsheetPrinterSettingsPart>> InternationalMacroS
 
 std::shared_ptr<SpreadsheetPrinterSettingsPart> InternationalMacroSheetPart::AddSpreadsheetPrinterSettingsPart(const std::shared_ptr<SpreadsheetPrinterSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SpreadsheetPrinterSettingsPart::Descriptor(), true);
     return instance;
 }
@@ -6632,7 +6634,7 @@ std::shared_ptr<DrawingsPart> InternationalMacroSheetPart::GetDrawingsPart() con
 
 std::shared_ptr<DrawingsPart> InternationalMacroSheetPart::AddDrawingsPart(const std::shared_ptr<DrawingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDrawingsPart(instance);
     return instance;
 }
@@ -6671,7 +6673,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> InternationalMacroSheetPart::GetVml
 
 std::shared_ptr<VmlDrawingPart> InternationalMacroSheetPart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -6692,7 +6694,7 @@ std::shared_ptr<WorksheetCommentsPart> InternationalMacroSheetPart::GetWorksheet
 
 std::shared_ptr<WorksheetCommentsPart> InternationalMacroSheetPart::AddWorksheetCommentsPart(const std::shared_ptr<WorksheetCommentsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWorksheetCommentsPart(instance);
     return instance;
 }
@@ -6731,7 +6733,7 @@ std::vector<std::shared_ptr<CustomPropertyPart>> InternationalMacroSheetPart::Ge
 
 std::shared_ptr<CustomPropertyPart> InternationalMacroSheetPart::AddCustomPropertyPart(const std::shared_ptr<CustomPropertyPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomPropertyPart::Descriptor(), true);
     return instance;
 }
@@ -6752,7 +6754,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> InternationalMacroSheetPart::Ge
 
 std::shared_ptr<EmbeddedObjectPart> InternationalMacroSheetPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -6773,7 +6775,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> InternationalMacroSheetPart::G
 
 std::shared_ptr<EmbeddedPackagePart> InternationalMacroSheetPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -6794,7 +6796,7 @@ std::vector<std::shared_ptr<ImagePart>> InternationalMacroSheetPart::GetImagePar
 
 std::shared_ptr<ImagePart> InternationalMacroSheetPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -6818,7 +6820,7 @@ LabelInfoPart::~LabelInfoPart() = default;
 
 const OpenXmlPartDescriptor& LabelInfoPart::Descriptor() noexcept
 {
-    return kLabelInfoPartDescriptor;
+    return GeneratedPartsHelper::kLabelInfoPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2021::MipLabelMetaData::ClassificationLabelList> LabelInfoPart::GetClassificationLabelList() const
@@ -6845,7 +6847,7 @@ LegacyDiagramTextInfoPart::~LegacyDiagramTextInfoPart() = default;
 
 const OpenXmlPartDescriptor& LegacyDiagramTextInfoPart::Descriptor() noexcept
 {
-    return kLegacyDiagramTextInfoPartDescriptor;
+    return GeneratedPartsHelper::kLegacyDiagramTextInfoPartDescriptor;
 }
 
 LegacyDiagramTextPart::LegacyDiagramTextPart()
@@ -6857,7 +6859,7 @@ LegacyDiagramTextPart::~LegacyDiagramTextPart() = default;
 
 const OpenXmlPartDescriptor& LegacyDiagramTextPart::Descriptor() noexcept
 {
-    return kLegacyDiagramTextPartDescriptor;
+    return GeneratedPartsHelper::kLegacyDiagramTextPartDescriptor;
 }
 
 MacroSheetPart::MacroSheetPart()
@@ -6870,7 +6872,7 @@ MacroSheetPart::~MacroSheetPart() = default;
 
 const OpenXmlPartDescriptor& MacroSheetPart::Descriptor() noexcept
 {
-    return kMacroSheetPartDescriptor;
+    return GeneratedPartsHelper::kMacroSheetPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office::Excel::Macrosheet> MacroSheetPart::GetMacrosheet() const
@@ -6895,7 +6897,7 @@ std::vector<std::shared_ptr<SpreadsheetPrinterSettingsPart>> MacroSheetPart::Get
 
 std::shared_ptr<SpreadsheetPrinterSettingsPart> MacroSheetPart::AddSpreadsheetPrinterSettingsPart(const std::shared_ptr<SpreadsheetPrinterSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SpreadsheetPrinterSettingsPart::Descriptor(), true);
     return instance;
 }
@@ -6916,7 +6918,7 @@ std::shared_ptr<DrawingsPart> MacroSheetPart::GetDrawingsPart() const
 
 std::shared_ptr<DrawingsPart> MacroSheetPart::AddDrawingsPart(const std::shared_ptr<DrawingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDrawingsPart(instance);
     return instance;
 }
@@ -6955,7 +6957,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> MacroSheetPart::GetVmlDrawingParts(
 
 std::shared_ptr<VmlDrawingPart> MacroSheetPart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -6976,7 +6978,7 @@ std::shared_ptr<WorksheetCommentsPart> MacroSheetPart::GetWorksheetCommentsPart(
 
 std::shared_ptr<WorksheetCommentsPart> MacroSheetPart::AddWorksheetCommentsPart(const std::shared_ptr<WorksheetCommentsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWorksheetCommentsPart(instance);
     return instance;
 }
@@ -7015,7 +7017,7 @@ std::vector<std::shared_ptr<CustomPropertyPart>> MacroSheetPart::GetCustomProper
 
 std::shared_ptr<CustomPropertyPart> MacroSheetPart::AddCustomPropertyPart(const std::shared_ptr<CustomPropertyPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomPropertyPart::Descriptor(), true);
     return instance;
 }
@@ -7036,7 +7038,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> MacroSheetPart::GetEmbeddedObje
 
 std::shared_ptr<EmbeddedObjectPart> MacroSheetPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -7057,7 +7059,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> MacroSheetPart::GetEmbeddedPac
 
 std::shared_ptr<EmbeddedPackagePart> MacroSheetPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -7078,7 +7080,7 @@ std::vector<std::shared_ptr<ImagePart>> MacroSheetPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> MacroSheetPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -7101,7 +7103,7 @@ MailMergeRecipientDataPart::~MailMergeRecipientDataPart() = default;
 
 const OpenXmlPartDescriptor& MailMergeRecipientDataPart::Descriptor() noexcept
 {
-    return kMailMergeRecipientDataPartDescriptor;
+    return GeneratedPartsHelper::kMailMergeRecipientDataPartDescriptor;
 }
 
 MainDocumentPart::MainDocumentPart()
@@ -7114,7 +7116,7 @@ MainDocumentPart::~MainDocumentPart() = default;
 
 const OpenXmlPartDescriptor& MainDocumentPart::Descriptor() noexcept
 {
-    return kMainDocumentPartDescriptor;
+    return GeneratedPartsHelper::kMainDocumentPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Document> MainDocumentPart::GetDocument() const
@@ -7154,7 +7156,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> MainDocumentPart::GetCustomXmlParts(
 
 std::shared_ptr<CustomXmlPart> MainDocumentPart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -7175,7 +7177,7 @@ std::shared_ptr<GlossaryDocumentPart> MainDocumentPart::GetGlossaryDocumentPart(
 
 std::shared_ptr<GlossaryDocumentPart> MainDocumentPart::AddGlossaryDocumentPart(const std::shared_ptr<GlossaryDocumentPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetGlossaryDocumentPart(instance);
     return instance;
 }
@@ -7214,7 +7216,7 @@ std::shared_ptr<ThemePart> MainDocumentPart::GetThemePart() const
 
 std::shared_ptr<ThemePart> MainDocumentPart::AddThemePart(const std::shared_ptr<ThemePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemePart(instance);
     return instance;
 }
@@ -7253,7 +7255,7 @@ std::shared_ptr<ThumbnailPart> MainDocumentPart::GetThumbnailPart() const
 
 std::shared_ptr<ThumbnailPart> MainDocumentPart::AddThumbnailPart(const std::shared_ptr<ThumbnailPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThumbnailPart(instance);
     return instance;
 }
@@ -7292,7 +7294,7 @@ std::shared_ptr<WordprocessingCommentsPart> MainDocumentPart::GetWordprocessingC
 
 std::shared_ptr<WordprocessingCommentsPart> MainDocumentPart::AddWordprocessingCommentsPart(const std::shared_ptr<WordprocessingCommentsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordprocessingCommentsPart(instance);
     return instance;
 }
@@ -7331,7 +7333,7 @@ std::shared_ptr<DocumentSettingsPart> MainDocumentPart::GetDocumentSettingsPart(
 
 std::shared_ptr<DocumentSettingsPart> MainDocumentPart::AddDocumentSettingsPart(const std::shared_ptr<DocumentSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDocumentSettingsPart(instance);
     return instance;
 }
@@ -7370,7 +7372,7 @@ std::shared_ptr<EndnotesPart> MainDocumentPart::GetEndnotesPart() const
 
 std::shared_ptr<EndnotesPart> MainDocumentPart::AddEndnotesPart(const std::shared_ptr<EndnotesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetEndnotesPart(instance);
     return instance;
 }
@@ -7409,7 +7411,7 @@ std::shared_ptr<FontTablePart> MainDocumentPart::GetFontTablePart() const
 
 std::shared_ptr<FontTablePart> MainDocumentPart::AddFontTablePart(const std::shared_ptr<FontTablePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetFontTablePart(instance);
     return instance;
 }
@@ -7448,7 +7450,7 @@ std::shared_ptr<FootnotesPart> MainDocumentPart::GetFootnotesPart() const
 
 std::shared_ptr<FootnotesPart> MainDocumentPart::AddFootnotesPart(const std::shared_ptr<FootnotesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetFootnotesPart(instance);
     return instance;
 }
@@ -7487,7 +7489,7 @@ std::shared_ptr<NumberingDefinitionsPart> MainDocumentPart::GetNumberingDefiniti
 
 std::shared_ptr<NumberingDefinitionsPart> MainDocumentPart::AddNumberingDefinitionsPart(const std::shared_ptr<NumberingDefinitionsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetNumberingDefinitionsPart(instance);
     return instance;
 }
@@ -7526,7 +7528,7 @@ std::shared_ptr<StyleDefinitionsPart> MainDocumentPart::GetStyleDefinitionsPart(
 
 std::shared_ptr<StyleDefinitionsPart> MainDocumentPart::AddStyleDefinitionsPart(const std::shared_ptr<StyleDefinitionsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetStyleDefinitionsPart(instance);
     return instance;
 }
@@ -7565,7 +7567,7 @@ std::shared_ptr<StylesWithEffectsPart> MainDocumentPart::GetStylesWithEffectsPar
 
 std::shared_ptr<StylesWithEffectsPart> MainDocumentPart::AddStylesWithEffectsPart(const std::shared_ptr<StylesWithEffectsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetStylesWithEffectsPart(instance);
     return instance;
 }
@@ -7604,7 +7606,7 @@ std::shared_ptr<WebSettingsPart> MainDocumentPart::GetWebSettingsPart() const
 
 std::shared_ptr<WebSettingsPart> MainDocumentPart::AddWebSettingsPart(const std::shared_ptr<WebSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWebSettingsPart(instance);
     return instance;
 }
@@ -7643,7 +7645,7 @@ std::vector<std::shared_ptr<FooterPart>> MainDocumentPart::GetFooterParts() cons
 
 std::shared_ptr<FooterPart> MainDocumentPart::AddFooterPart(const std::shared_ptr<FooterPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, FooterPart::Descriptor(), true);
     return instance;
 }
@@ -7664,7 +7666,7 @@ std::vector<std::shared_ptr<HeaderPart>> MainDocumentPart::GetHeaderParts() cons
 
 std::shared_ptr<HeaderPart> MainDocumentPart::AddHeaderPart(const std::shared_ptr<HeaderPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, HeaderPart::Descriptor(), true);
     return instance;
 }
@@ -7685,7 +7687,7 @@ std::vector<std::shared_ptr<WordprocessingPrinterSettingsPart>> MainDocumentPart
 
 std::shared_ptr<WordprocessingPrinterSettingsPart> MainDocumentPart::AddWordprocessingPrinterSettingsPart(const std::shared_ptr<WordprocessingPrinterSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WordprocessingPrinterSettingsPart::Descriptor(), true);
     return instance;
 }
@@ -7706,7 +7708,7 @@ std::shared_ptr<CustomizationPart> MainDocumentPart::GetCustomizationPart() cons
 
 std::shared_ptr<CustomizationPart> MainDocumentPart::AddCustomizationPart(const std::shared_ptr<CustomizationPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCustomizationPart(instance);
     return instance;
 }
@@ -7745,7 +7747,7 @@ std::shared_ptr<VbaProjectPart> MainDocumentPart::GetVbaProjectPart() const
 
 std::shared_ptr<VbaProjectPart> MainDocumentPart::AddVbaProjectPart(const std::shared_ptr<VbaProjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetVbaProjectPart(instance);
     return instance;
 }
@@ -7784,7 +7786,7 @@ std::shared_ptr<WordprocessingCommentsExPart> MainDocumentPart::GetWordprocessin
 
 std::shared_ptr<WordprocessingCommentsExPart> MainDocumentPart::AddWordprocessingCommentsExPart(const std::shared_ptr<WordprocessingCommentsExPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordprocessingCommentsExPart(instance);
     return instance;
 }
@@ -7823,7 +7825,7 @@ std::shared_ptr<WordprocessingPeoplePart> MainDocumentPart::GetWordprocessingPeo
 
 std::shared_ptr<WordprocessingPeoplePart> MainDocumentPart::AddWordprocessingPeoplePart(const std::shared_ptr<WordprocessingPeoplePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordprocessingPeoplePart(instance);
     return instance;
 }
@@ -7862,7 +7864,7 @@ std::shared_ptr<WordprocessingCommentsIdsPart> MainDocumentPart::GetWordprocessi
 
 std::shared_ptr<WordprocessingCommentsIdsPart> MainDocumentPart::AddWordprocessingCommentsIdsPart(const std::shared_ptr<WordprocessingCommentsIdsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordprocessingCommentsIdsPart(instance);
     return instance;
 }
@@ -7901,7 +7903,7 @@ std::shared_ptr<DocumentTasksPart> MainDocumentPart::GetDocumentTasksPart() cons
 
 std::shared_ptr<DocumentTasksPart> MainDocumentPart::AddDocumentTasksPart(const std::shared_ptr<DocumentTasksPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDocumentTasksPart(instance);
     return instance;
 }
@@ -7940,7 +7942,7 @@ std::shared_ptr<WordCommentsExtensiblePart> MainDocumentPart::GetWordCommentsExt
 
 std::shared_ptr<WordCommentsExtensiblePart> MainDocumentPart::AddWordCommentsExtensiblePart(const std::shared_ptr<WordCommentsExtensiblePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWordCommentsExtensiblePart(instance);
     return instance;
 }
@@ -7979,7 +7981,7 @@ std::vector<std::shared_ptr<AlternativeFormatImportPart>> MainDocumentPart::GetA
 
 std::shared_ptr<AlternativeFormatImportPart> MainDocumentPart::AddAlternativeFormatImportPart(const std::shared_ptr<AlternativeFormatImportPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, AlternativeFormatImportPart::Descriptor(), true);
     return instance;
 }
@@ -8000,7 +8002,7 @@ std::vector<std::shared_ptr<ChartPart>> MainDocumentPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> MainDocumentPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -8021,7 +8023,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> MainDocumentPart::GetExtendedCha
 
 std::shared_ptr<ExtendedChartPart> MainDocumentPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -8042,7 +8044,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> MainDocumentPart::GetDiagramColo
 
 std::shared_ptr<DiagramColorsPart> MainDocumentPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -8063,7 +8065,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> MainDocumentPart::GetDiagramDataPa
 
 std::shared_ptr<DiagramDataPart> MainDocumentPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -8084,7 +8086,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> MainDocumentPart::GetDiag
 
 std::shared_ptr<DiagramPersistLayoutPart> MainDocumentPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -8105,7 +8107,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> MainDocumentPart::GetD
 
 std::shared_ptr<DiagramLayoutDefinitionPart> MainDocumentPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -8126,7 +8128,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> MainDocumentPart::GetDiagramStyle
 
 std::shared_ptr<DiagramStylePart> MainDocumentPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -8147,7 +8149,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> MainDocumentPart::G
 
 std::shared_ptr<EmbeddedControlPersistencePart> MainDocumentPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -8168,7 +8170,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> MainDocumentPart::GetEmbeddedOb
 
 std::shared_ptr<EmbeddedObjectPart> MainDocumentPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -8189,7 +8191,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> MainDocumentPart::GetEmbeddedP
 
 std::shared_ptr<EmbeddedPackagePart> MainDocumentPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -8210,7 +8212,7 @@ std::vector<std::shared_ptr<ImagePart>> MainDocumentPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> MainDocumentPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -8231,7 +8233,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> MainDocumentPart:
 
 std::shared_ptr<Model3DReferenceRelationshipPart> MainDocumentPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -8254,7 +8256,7 @@ Model3DReferenceRelationshipPart::~Model3DReferenceRelationshipPart() = default;
 
 const OpenXmlPartDescriptor& Model3DReferenceRelationshipPart::Descriptor() noexcept
 {
-    return kModel3DReferenceRelationshipPartDescriptor;
+    return GeneratedPartsHelper::kModel3DReferenceRelationshipPartDescriptor;
 }
 
 NamedSheetViewsPart::NamedSheetViewsPart()
@@ -8267,7 +8269,7 @@ NamedSheetViewsPart::~NamedSheetViewsPart() = default;
 
 const OpenXmlPartDescriptor& NamedSheetViewsPart::Descriptor() noexcept
 {
-    return kNamedSheetViewsPartDescriptor;
+    return GeneratedPartsHelper::kNamedSheetViewsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2021::Excel::NamedSheetViews::NamedSheetViews> NamedSheetViewsPart::GetNamedSheetViews() const
@@ -8295,7 +8297,7 @@ NotesMasterPart::~NotesMasterPart() = default;
 
 const OpenXmlPartDescriptor& NotesMasterPart::Descriptor() noexcept
 {
-    return kNotesMasterPartDescriptor;
+    return GeneratedPartsHelper::kNotesMasterPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::NotesMaster> NotesMasterPart::GetNotesMaster() const
@@ -8350,7 +8352,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> NotesMasterPart::GetCustomXmlParts()
 
 std::shared_ptr<CustomXmlPart> NotesMasterPart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -8371,7 +8373,7 @@ std::vector<std::shared_ptr<ChartPart>> NotesMasterPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> NotesMasterPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -8392,7 +8394,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> NotesMasterPart::GetExtendedChar
 
 std::shared_ptr<ExtendedChartPart> NotesMasterPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -8413,7 +8415,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> NotesMasterPart::GetDiagramColor
 
 std::shared_ptr<DiagramColorsPart> NotesMasterPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -8434,7 +8436,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> NotesMasterPart::GetDiagramDataPar
 
 std::shared_ptr<DiagramDataPart> NotesMasterPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -8455,7 +8457,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> NotesMasterPart::GetDiagr
 
 std::shared_ptr<DiagramPersistLayoutPart> NotesMasterPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -8476,7 +8478,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> NotesMasterPart::GetDi
 
 std::shared_ptr<DiagramLayoutDefinitionPart> NotesMasterPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -8497,7 +8499,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> NotesMasterPart::GetDiagramStyleP
 
 std::shared_ptr<DiagramStylePart> NotesMasterPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -8518,7 +8520,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> NotesMasterPart::GetEmbeddedObj
 
 std::shared_ptr<EmbeddedObjectPart> NotesMasterPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -8539,7 +8541,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> NotesMasterPart::GetEmbeddedPa
 
 std::shared_ptr<EmbeddedPackagePart> NotesMasterPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -8560,7 +8562,7 @@ std::vector<std::shared_ptr<ImagePart>> NotesMasterPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> NotesMasterPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -8581,7 +8583,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> NotesMasterPart::GetVmlDrawingParts
 
 std::shared_ptr<VmlDrawingPart> NotesMasterPart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -8602,7 +8604,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>> NotesMast
 
 std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart> NotesMasterPart::AddEmbeddedControlPersistenceBinaryDataPart(const std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistenceBinaryDataPart::Descriptor(), true);
     return instance;
 }
@@ -8623,7 +8625,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> NotesMasterPart::
 
 std::shared_ptr<Model3DReferenceRelationshipPart> NotesMasterPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -8644,7 +8646,7 @@ std::shared_ptr<ThemePart> NotesMasterPart::GetThemePart() const
 
 std::shared_ptr<ThemePart> NotesMasterPart::AddThemePart(const std::shared_ptr<ThemePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemePart(instance);
     return instance;
 }
@@ -8683,7 +8685,7 @@ std::vector<std::shared_ptr<UserDefinedTagsPart>> NotesMasterPart::GetUserDefine
 
 std::shared_ptr<UserDefinedTagsPart> NotesMasterPart::AddUserDefinedTagsPart(const std::shared_ptr<UserDefinedTagsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, UserDefinedTagsPart::Descriptor(), true);
     return instance;
 }
@@ -8704,7 +8706,7 @@ std::shared_ptr<SlidePart> NotesMasterPart::GetSlidePart() const
 
 std::shared_ptr<SlidePart> NotesMasterPart::AddSlidePart(const std::shared_ptr<SlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetSlidePart(instance);
     return instance;
 }
@@ -8746,7 +8748,7 @@ NotesSlidePart::~NotesSlidePart() = default;
 
 const OpenXmlPartDescriptor& NotesSlidePart::Descriptor() noexcept
 {
-    return kNotesSlidePartDescriptor;
+    return GeneratedPartsHelper::kNotesSlidePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::NotesSlide> NotesSlidePart::GetNotesSlide() const
@@ -8801,7 +8803,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> NotesSlidePart::GetCustomXmlParts() 
 
 std::shared_ptr<CustomXmlPart> NotesSlidePart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -8822,7 +8824,7 @@ std::vector<std::shared_ptr<ChartPart>> NotesSlidePart::GetChartParts() const
 
 std::shared_ptr<ChartPart> NotesSlidePart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -8843,7 +8845,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> NotesSlidePart::GetExtendedChart
 
 std::shared_ptr<ExtendedChartPart> NotesSlidePart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -8864,7 +8866,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> NotesSlidePart::GetDiagramColors
 
 std::shared_ptr<DiagramColorsPart> NotesSlidePart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -8885,7 +8887,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> NotesSlidePart::GetDiagramDataPart
 
 std::shared_ptr<DiagramDataPart> NotesSlidePart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -8906,7 +8908,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> NotesSlidePart::GetDiagra
 
 std::shared_ptr<DiagramPersistLayoutPart> NotesSlidePart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -8927,7 +8929,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> NotesSlidePart::GetDia
 
 std::shared_ptr<DiagramLayoutDefinitionPart> NotesSlidePart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -8948,7 +8950,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> NotesSlidePart::GetDiagramStylePa
 
 std::shared_ptr<DiagramStylePart> NotesSlidePart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -8969,7 +8971,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> NotesSlidePart::GetEmbeddedObje
 
 std::shared_ptr<EmbeddedObjectPart> NotesSlidePart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -8990,7 +8992,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> NotesSlidePart::GetEmbeddedPac
 
 std::shared_ptr<EmbeddedPackagePart> NotesSlidePart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -9011,7 +9013,7 @@ std::vector<std::shared_ptr<ImagePart>> NotesSlidePart::GetImageParts() const
 
 std::shared_ptr<ImagePart> NotesSlidePart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -9032,7 +9034,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> NotesSlidePart::GetVmlDrawingParts(
 
 std::shared_ptr<VmlDrawingPart> NotesSlidePart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -9053,7 +9055,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>> NotesSlid
 
 std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart> NotesSlidePart::AddEmbeddedControlPersistenceBinaryDataPart(const std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistenceBinaryDataPart::Descriptor(), true);
     return instance;
 }
@@ -9074,7 +9076,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> NotesSlidePart::G
 
 std::shared_ptr<Model3DReferenceRelationshipPart> NotesSlidePart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -9095,7 +9097,7 @@ std::shared_ptr<NotesMasterPart> NotesSlidePart::GetNotesMasterPart() const
 
 std::shared_ptr<NotesMasterPart> NotesSlidePart::AddNotesMasterPart(const std::shared_ptr<NotesMasterPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetNotesMasterPart(instance);
     return instance;
 }
@@ -9134,7 +9136,7 @@ std::shared_ptr<ThemeOverridePart> NotesSlidePart::GetThemeOverridePart() const
 
 std::shared_ptr<ThemeOverridePart> NotesSlidePart::AddThemeOverridePart(const std::shared_ptr<ThemeOverridePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemeOverridePart(instance);
     return instance;
 }
@@ -9173,7 +9175,7 @@ std::shared_ptr<SlidePart> NotesSlidePart::GetSlidePart() const
 
 std::shared_ptr<SlidePart> NotesSlidePart::AddSlidePart(const std::shared_ptr<SlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetSlidePart(instance);
     return instance;
 }
@@ -9212,7 +9214,7 @@ std::vector<std::shared_ptr<UserDefinedTagsPart>> NotesSlidePart::GetUserDefined
 
 std::shared_ptr<UserDefinedTagsPart> NotesSlidePart::AddUserDefinedTagsPart(const std::shared_ptr<UserDefinedTagsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, UserDefinedTagsPart::Descriptor(), true);
     return instance;
 }
@@ -9236,7 +9238,7 @@ NumberingDefinitionsPart::~NumberingDefinitionsPart() = default;
 
 const OpenXmlPartDescriptor& NumberingDefinitionsPart::Descriptor() noexcept
 {
-    return kNumberingDefinitionsPartDescriptor;
+    return GeneratedPartsHelper::kNumberingDefinitionsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Numbering> NumberingDefinitionsPart::GetNumbering() const
@@ -9261,7 +9263,7 @@ std::vector<std::shared_ptr<ImagePart>> NumberingDefinitionsPart::GetImageParts(
 
 std::shared_ptr<ImagePart> NumberingDefinitionsPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -9285,7 +9287,7 @@ PivotTableCacheDefinitionPart::~PivotTableCacheDefinitionPart() = default;
 
 const OpenXmlPartDescriptor& PivotTableCacheDefinitionPart::Descriptor() noexcept
 {
-    return kPivotTableCacheDefinitionPartDescriptor;
+    return GeneratedPartsHelper::kPivotTableCacheDefinitionPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotCacheDefinition> PivotTableCacheDefinitionPart::GetPivotCacheDefinition() const
@@ -9310,7 +9312,7 @@ std::shared_ptr<PivotTableCacheRecordsPart> PivotTableCacheDefinitionPart::GetPi
 
 std::shared_ptr<PivotTableCacheRecordsPart> PivotTableCacheDefinitionPart::AddPivotTableCacheRecordsPart(const std::shared_ptr<PivotTableCacheRecordsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetPivotTableCacheRecordsPart(instance);
     return instance;
 }
@@ -9352,7 +9354,7 @@ PivotTableCacheRecordsPart::~PivotTableCacheRecordsPart() = default;
 
 const OpenXmlPartDescriptor& PivotTableCacheRecordsPart::Descriptor() noexcept
 {
-    return kPivotTableCacheRecordsPartDescriptor;
+    return GeneratedPartsHelper::kPivotTableCacheRecordsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotCacheRecords> PivotTableCacheRecordsPart::GetPivotCacheRecords() const
@@ -9380,7 +9382,7 @@ PivotTablePart::~PivotTablePart() = default;
 
 const OpenXmlPartDescriptor& PivotTablePart::Descriptor() noexcept
 {
-    return kPivotTablePartDescriptor;
+    return GeneratedPartsHelper::kPivotTablePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotTableDefinition> PivotTablePart::GetPivotTableDefinition() const
@@ -9405,7 +9407,7 @@ std::shared_ptr<PivotTableCacheDefinitionPart> PivotTablePart::GetPivotTableCach
 
 std::shared_ptr<PivotTableCacheDefinitionPart> PivotTablePart::AddPivotTableCacheDefinitionPart(const std::shared_ptr<PivotTableCacheDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetPivotTableCacheDefinitionPart(instance);
     return instance;
 }
@@ -9447,7 +9449,7 @@ PowerPointAuthorsPart::~PowerPointAuthorsPart() = default;
 
 const OpenXmlPartDescriptor& PowerPointAuthorsPart::Descriptor() noexcept
 {
-    return kPowerPointAuthorsPartDescriptor;
+    return GeneratedPartsHelper::kPowerPointAuthorsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::AuthorList> PowerPointAuthorsPart::GetAuthorList() const
@@ -9475,7 +9477,7 @@ PowerPointCommentPart::~PowerPointCommentPart() = default;
 
 const OpenXmlPartDescriptor& PowerPointCommentPart::Descriptor() noexcept
 {
-    return kPowerPointCommentPartDescriptor;
+    return GeneratedPartsHelper::kPowerPointCommentPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::CommentList> PowerPointCommentPart::GetCommentList() const
@@ -9503,7 +9505,7 @@ PresentationPart::~PresentationPart() = default;
 
 const OpenXmlPartDescriptor& PresentationPart::Descriptor() noexcept
 {
-    return kPresentationPartDescriptor;
+    return GeneratedPartsHelper::kPresentationPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::Presentation> PresentationPart::GetPresentation() const
@@ -9528,7 +9530,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> PresentationPart::GetCustomXmlParts(
 
 std::shared_ptr<CustomXmlPart> PresentationPart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -9549,7 +9551,7 @@ std::vector<std::shared_ptr<FontPart>> PresentationPart::GetFontParts() const
 
 std::shared_ptr<FontPart> PresentationPart::AddFontPart(const std::shared_ptr<FontPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, FontPart::Descriptor(), true);
     return instance;
 }
@@ -9570,7 +9572,7 @@ std::shared_ptr<PresentationPropertiesPart> PresentationPart::GetPresentationPro
 
 std::shared_ptr<PresentationPropertiesPart> PresentationPart::AddPresentationPropertiesPart(const std::shared_ptr<PresentationPropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetPresentationPropertiesPart(instance);
     return instance;
 }
@@ -9609,7 +9611,7 @@ std::shared_ptr<TableStylesPart> PresentationPart::GetTableStylesPart() const
 
 std::shared_ptr<TableStylesPart> PresentationPart::AddTableStylesPart(const std::shared_ptr<TableStylesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetTableStylesPart(instance);
     return instance;
 }
@@ -9648,7 +9650,7 @@ std::shared_ptr<ThemePart> PresentationPart::GetThemePart() const
 
 std::shared_ptr<ThemePart> PresentationPart::AddThemePart(const std::shared_ptr<ThemePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemePart(instance);
     return instance;
 }
@@ -9687,7 +9689,7 @@ std::shared_ptr<ViewPropertiesPart> PresentationPart::GetViewPropertiesPart() co
 
 std::shared_ptr<ViewPropertiesPart> PresentationPart::AddViewPropertiesPart(const std::shared_ptr<ViewPropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetViewPropertiesPart(instance);
     return instance;
 }
@@ -9726,7 +9728,7 @@ std::shared_ptr<NotesMasterPart> PresentationPart::GetNotesMasterPart() const
 
 std::shared_ptr<NotesMasterPart> PresentationPart::AddNotesMasterPart(const std::shared_ptr<NotesMasterPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetNotesMasterPart(instance);
     return instance;
 }
@@ -9765,7 +9767,7 @@ std::vector<std::shared_ptr<SlidePart>> PresentationPart::GetSlideParts() const
 
 std::shared_ptr<SlidePart> PresentationPart::AddSlidePart(const std::shared_ptr<SlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlidePart::Descriptor(), true);
     return instance;
 }
@@ -9786,7 +9788,7 @@ std::vector<std::shared_ptr<SlideMasterPart>> PresentationPart::GetSlideMasterPa
 
 std::shared_ptr<SlideMasterPart> PresentationPart::AddSlideMasterPart(const std::shared_ptr<SlideMasterPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlideMasterPart::Descriptor(), true);
     return instance;
 }
@@ -9807,7 +9809,7 @@ std::shared_ptr<UserDefinedTagsPart> PresentationPart::GetUserDefinedTagsPart() 
 
 std::shared_ptr<UserDefinedTagsPart> PresentationPart::AddUserDefinedTagsPart(const std::shared_ptr<UserDefinedTagsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetUserDefinedTagsPart(instance);
     return instance;
 }
@@ -9846,7 +9848,7 @@ std::shared_ptr<CommentAuthorsPart> PresentationPart::GetCommentAuthorsPart() co
 
 std::shared_ptr<CommentAuthorsPart> PresentationPart::AddCommentAuthorsPart(const std::shared_ptr<CommentAuthorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCommentAuthorsPart(instance);
     return instance;
 }
@@ -9885,7 +9887,7 @@ std::shared_ptr<HandoutMasterPart> PresentationPart::GetHandoutMasterPart() cons
 
 std::shared_ptr<HandoutMasterPart> PresentationPart::AddHandoutMasterPart(const std::shared_ptr<HandoutMasterPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetHandoutMasterPart(instance);
     return instance;
 }
@@ -9924,7 +9926,7 @@ std::shared_ptr<LegacyDiagramTextInfoPart> PresentationPart::GetLegacyDiagramTex
 
 std::shared_ptr<LegacyDiagramTextInfoPart> PresentationPart::AddLegacyDiagramTextInfoPart(const std::shared_ptr<LegacyDiagramTextInfoPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetLegacyDiagramTextInfoPart(instance);
     return instance;
 }
@@ -9963,7 +9965,7 @@ std::shared_ptr<VbaProjectPart> PresentationPart::GetVbaProjectPart() const
 
 std::shared_ptr<VbaProjectPart> PresentationPart::AddVbaProjectPart(const std::shared_ptr<VbaProjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetVbaProjectPart(instance);
     return instance;
 }
@@ -10002,7 +10004,7 @@ std::vector<std::shared_ptr<PowerPointCommentPart>> PresentationPart::Getcomment
 
 std::shared_ptr<PowerPointCommentPart> PresentationPart::AddPowerPointCommentPart(const std::shared_ptr<PowerPointCommentPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, PowerPointCommentPart::Descriptor(), true);
     return instance;
 }
@@ -10023,7 +10025,7 @@ std::shared_ptr<PowerPointAuthorsPart> PresentationPart::GetauthorsPart() const
 
 std::shared_ptr<PowerPointAuthorsPart> PresentationPart::AddPowerPointAuthorsPart(const std::shared_ptr<PowerPointAuthorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetauthorsPart(instance);
     return instance;
 }
@@ -10065,7 +10067,7 @@ PresentationPropertiesPart::~PresentationPropertiesPart() = default;
 
 const OpenXmlPartDescriptor& PresentationPropertiesPart::Descriptor() noexcept
 {
-    return kPresentationPropertiesPartDescriptor;
+    return GeneratedPartsHelper::kPresentationPropertiesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::PresentationProperties> PresentationPropertiesPart::GetPresentationProperties() const
@@ -10093,7 +10095,7 @@ QueryTablePart::~QueryTablePart() = default;
 
 const OpenXmlPartDescriptor& QueryTablePart::Descriptor() noexcept
 {
-    return kQueryTablePartDescriptor;
+    return GeneratedPartsHelper::kQueryTablePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::QueryTable> QueryTablePart::GetQueryTable() const
@@ -10121,7 +10123,7 @@ QuickAccessToolbarCustomizationsPart::~QuickAccessToolbarCustomizationsPart() = 
 
 const OpenXmlPartDescriptor& QuickAccessToolbarCustomizationsPart::Descriptor() noexcept
 {
-    return kQuickAccessToolbarCustomizationsPartDescriptor;
+    return GeneratedPartsHelper::kQuickAccessToolbarCustomizationsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office::CustomUI::CustomUI> QuickAccessToolbarCustomizationsPart::GetCustomUI() const
@@ -10149,7 +10151,7 @@ RdArrayPart::~RdArrayPart() = default;
 
 const OpenXmlPartDescriptor& RdArrayPart::Descriptor() noexcept
 {
-    return kRdArrayPartDescriptor;
+    return GeneratedPartsHelper::kRdArrayPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ArrayData> RdArrayPart::GetArrayData() const
@@ -10177,7 +10179,7 @@ RdRichValuePart::~RdRichValuePart() = default;
 
 const OpenXmlPartDescriptor& RdRichValuePart::Descriptor() noexcept
 {
-    return kRdRichValuePartDescriptor;
+    return GeneratedPartsHelper::kRdRichValuePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData::RichValueData> RdRichValuePart::GetRichValueData() const
@@ -10205,7 +10207,7 @@ RdRichValueStructurePart::~RdRichValueStructurePart() = default;
 
 const OpenXmlPartDescriptor& RdRichValueStructurePart::Descriptor() noexcept
 {
-    return kRdRichValueStructurePartDescriptor;
+    return GeneratedPartsHelper::kRdRichValueStructurePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData::RichValueStructures> RdRichValueStructurePart::GetRichValueStructures() const
@@ -10233,7 +10235,7 @@ RdRichValueTypesPart::~RdRichValueTypesPart() = default;
 
 const OpenXmlPartDescriptor& RdRichValueTypesPart::Descriptor() noexcept
 {
-    return kRdRichValueTypesPartDescriptor;
+    return GeneratedPartsHelper::kRdRichValueTypesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichValueTypesInfo> RdRichValueTypesPart::GetRichValueTypesInfo() const
@@ -10261,7 +10263,7 @@ RdRichValueWebImagePart::~RdRichValueWebImagePart() = default;
 
 const OpenXmlPartDescriptor& RdRichValueWebImagePart::Descriptor() noexcept
 {
-    return kRdRichValueWebImagePartDescriptor;
+    return GeneratedPartsHelper::kRdRichValueWebImagePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2021::Excel::RichDataWebImage::WebImagesSupportingRichData> RdRichValueWebImagePart::GetWebImagesSupportingRichData() const
@@ -10289,7 +10291,7 @@ RdSupportingPropertyBagPart::~RdSupportingPropertyBagPart() = default;
 
 const OpenXmlPartDescriptor& RdSupportingPropertyBagPart::Descriptor() noexcept
 {
-    return kRdSupportingPropertyBagPartDescriptor;
+    return GeneratedPartsHelper::kRdSupportingPropertyBagPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBags> RdSupportingPropertyBagPart::GetSupportingPropertyBags() const
@@ -10317,7 +10319,7 @@ RdSupportingPropertyBagStructurePart::~RdSupportingPropertyBagStructurePart() = 
 
 const OpenXmlPartDescriptor& RdSupportingPropertyBagStructurePart::Descriptor() noexcept
 {
-    return kRdSupportingPropertyBagStructurePartDescriptor;
+    return GeneratedPartsHelper::kRdSupportingPropertyBagStructurePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagStructures> RdSupportingPropertyBagStructurePart::GetSupportingPropertyBagStructures() const
@@ -10345,7 +10347,7 @@ RibbonAndBackstageCustomizationsPart::~RibbonAndBackstageCustomizationsPart() = 
 
 const OpenXmlPartDescriptor& RibbonAndBackstageCustomizationsPart::Descriptor() noexcept
 {
-    return kRibbonAndBackstageCustomizationsPartDescriptor;
+    return GeneratedPartsHelper::kRibbonAndBackstageCustomizationsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CustomUI> RibbonAndBackstageCustomizationsPart::GetCustomUI() const
@@ -10370,7 +10372,7 @@ std::vector<std::shared_ptr<ImagePart>> RibbonAndBackstageCustomizationsPart::Ge
 
 std::shared_ptr<ImagePart> RibbonAndBackstageCustomizationsPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -10394,7 +10396,7 @@ RibbonExtensibilityPart::~RibbonExtensibilityPart() = default;
 
 const OpenXmlPartDescriptor& RibbonExtensibilityPart::Descriptor() noexcept
 {
-    return kRibbonExtensibilityPartDescriptor;
+    return GeneratedPartsHelper::kRibbonExtensibilityPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office::CustomUI::CustomUI> RibbonExtensibilityPart::GetCustomUI() const
@@ -10419,7 +10421,7 @@ std::vector<std::shared_ptr<ImagePart>> RibbonExtensibilityPart::GetImageParts()
 
 std::shared_ptr<ImagePart> RibbonExtensibilityPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -10443,7 +10445,7 @@ RichStylesPart::~RichStylesPart() = default;
 
 const OpenXmlPartDescriptor& RichStylesPart::Descriptor() noexcept
 {
-    return kRichStylesPartDescriptor;
+    return GeneratedPartsHelper::kRichStylesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichStylesheet> RichStylesPart::GetRichStylesheet() const
@@ -10471,7 +10473,7 @@ SharedStringTablePart::~SharedStringTablePart() = default;
 
 const OpenXmlPartDescriptor& SharedStringTablePart::Descriptor() noexcept
 {
-    return kSharedStringTablePartDescriptor;
+    return GeneratedPartsHelper::kSharedStringTablePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SharedStringTable> SharedStringTablePart::GetSharedStringTable() const
@@ -10499,7 +10501,7 @@ SingleCellTablePart::~SingleCellTablePart() = default;
 
 const OpenXmlPartDescriptor& SingleCellTablePart::Descriptor() noexcept
 {
-    return kSingleCellTablePartDescriptor;
+    return GeneratedPartsHelper::kSingleCellTablePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SingleXmlCells> SingleCellTablePart::GetSingleXmlCells() const
@@ -10527,7 +10529,7 @@ SlicerCachePart::~SlicerCachePart() = default;
 
 const OpenXmlPartDescriptor& SlicerCachePart::Descriptor() noexcept
 {
-    return kSlicerCachePartDescriptor;
+    return GeneratedPartsHelper::kSlicerCachePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SlicerCacheDefinition> SlicerCachePart::GetSlicerCacheDefinition() const
@@ -10555,7 +10557,7 @@ SlicersPart::~SlicersPart() = default;
 
 const OpenXmlPartDescriptor& SlicersPart::Descriptor() noexcept
 {
-    return kSlicersPartDescriptor;
+    return GeneratedPartsHelper::kSlicersPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::Slicers> SlicersPart::GetSlicers() const
@@ -10583,7 +10585,7 @@ SlideCommentsPart::~SlideCommentsPart() = default;
 
 const OpenXmlPartDescriptor& SlideCommentsPart::Descriptor() noexcept
 {
-    return kSlideCommentsPartDescriptor;
+    return GeneratedPartsHelper::kSlideCommentsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::CommentList> SlideCommentsPart::GetCommentList() const
@@ -10611,7 +10613,7 @@ SlideLayoutPart::~SlideLayoutPart() = default;
 
 const OpenXmlPartDescriptor& SlideLayoutPart::Descriptor() noexcept
 {
-    return kSlideLayoutPartDescriptor;
+    return GeneratedPartsHelper::kSlideLayoutPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::SlideLayout> SlideLayoutPart::GetSlideLayout() const
@@ -10681,7 +10683,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> SlideLayoutPart::GetCustomXmlParts()
 
 std::shared_ptr<CustomXmlPart> SlideLayoutPart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -10702,7 +10704,7 @@ std::vector<std::shared_ptr<ChartPart>> SlideLayoutPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> SlideLayoutPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -10723,7 +10725,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> SlideLayoutPart::GetExtendedChar
 
 std::shared_ptr<ExtendedChartPart> SlideLayoutPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -10744,7 +10746,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> SlideLayoutPart::GetDiagramColor
 
 std::shared_ptr<DiagramColorsPart> SlideLayoutPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -10765,7 +10767,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> SlideLayoutPart::GetDiagramDataPar
 
 std::shared_ptr<DiagramDataPart> SlideLayoutPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -10786,7 +10788,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> SlideLayoutPart::GetDiagr
 
 std::shared_ptr<DiagramPersistLayoutPart> SlideLayoutPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -10807,7 +10809,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> SlideLayoutPart::GetDi
 
 std::shared_ptr<DiagramLayoutDefinitionPart> SlideLayoutPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -10828,7 +10830,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> SlideLayoutPart::GetDiagramStyleP
 
 std::shared_ptr<DiagramStylePart> SlideLayoutPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -10849,7 +10851,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> SlideLayoutPart::GetEmbeddedObj
 
 std::shared_ptr<EmbeddedObjectPart> SlideLayoutPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -10870,7 +10872,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> SlideLayoutPart::GetEmbeddedPa
 
 std::shared_ptr<EmbeddedPackagePart> SlideLayoutPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -10891,7 +10893,7 @@ std::vector<std::shared_ptr<ImagePart>> SlideLayoutPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> SlideLayoutPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -10912,7 +10914,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> SlideLayoutPart::GetVmlDrawingParts
 
 std::shared_ptr<VmlDrawingPart> SlideLayoutPart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -10933,7 +10935,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>> SlideLayo
 
 std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart> SlideLayoutPart::AddEmbeddedControlPersistenceBinaryDataPart(const std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistenceBinaryDataPart::Descriptor(), true);
     return instance;
 }
@@ -10954,7 +10956,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> SlideLayoutPart::
 
 std::shared_ptr<Model3DReferenceRelationshipPart> SlideLayoutPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -10975,7 +10977,7 @@ std::vector<std::shared_ptr<SlidePart>> SlideLayoutPart::GetSlideParts() const
 
 std::shared_ptr<SlidePart> SlideLayoutPart::AddSlidePart(const std::shared_ptr<SlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlidePart::Descriptor(), true);
     return instance;
 }
@@ -10996,7 +10998,7 @@ std::shared_ptr<SlideMasterPart> SlideLayoutPart::GetSlideMasterPart() const
 
 std::shared_ptr<SlideMasterPart> SlideLayoutPart::AddSlideMasterPart(const std::shared_ptr<SlideMasterPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetSlideMasterPart(instance);
     return instance;
 }
@@ -11035,7 +11037,7 @@ std::shared_ptr<ThemeOverridePart> SlideLayoutPart::GetThemeOverridePart() const
 
 std::shared_ptr<ThemeOverridePart> SlideLayoutPart::AddThemeOverridePart(const std::shared_ptr<ThemeOverridePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemeOverridePart(instance);
     return instance;
 }
@@ -11074,7 +11076,7 @@ std::vector<std::shared_ptr<UserDefinedTagsPart>> SlideLayoutPart::GetUserDefine
 
 std::shared_ptr<UserDefinedTagsPart> SlideLayoutPart::AddUserDefinedTagsPart(const std::shared_ptr<UserDefinedTagsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, UserDefinedTagsPart::Descriptor(), true);
     return instance;
 }
@@ -11095,7 +11097,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> SlideLayoutPart::Ge
 
 std::shared_ptr<EmbeddedControlPersistencePart> SlideLayoutPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -11119,7 +11121,7 @@ SlideMasterPart::~SlideMasterPart() = default;
 
 const OpenXmlPartDescriptor& SlideMasterPart::Descriptor() noexcept
 {
-    return kSlideMasterPartDescriptor;
+    return GeneratedPartsHelper::kSlideMasterPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::SlideMaster> SlideMasterPart::GetSlideMaster() const
@@ -11189,7 +11191,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> SlideMasterPart::GetCustomXmlParts()
 
 std::shared_ptr<CustomXmlPart> SlideMasterPart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -11210,7 +11212,7 @@ std::vector<std::shared_ptr<ChartPart>> SlideMasterPart::GetChartParts() const
 
 std::shared_ptr<ChartPart> SlideMasterPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -11231,7 +11233,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> SlideMasterPart::GetExtendedChar
 
 std::shared_ptr<ExtendedChartPart> SlideMasterPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -11252,7 +11254,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> SlideMasterPart::GetDiagramColor
 
 std::shared_ptr<DiagramColorsPart> SlideMasterPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -11273,7 +11275,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> SlideMasterPart::GetDiagramDataPar
 
 std::shared_ptr<DiagramDataPart> SlideMasterPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -11294,7 +11296,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> SlideMasterPart::GetDiagr
 
 std::shared_ptr<DiagramPersistLayoutPart> SlideMasterPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -11315,7 +11317,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> SlideMasterPart::GetDi
 
 std::shared_ptr<DiagramLayoutDefinitionPart> SlideMasterPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -11336,7 +11338,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> SlideMasterPart::GetDiagramStyleP
 
 std::shared_ptr<DiagramStylePart> SlideMasterPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -11357,7 +11359,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> SlideMasterPart::GetEmbeddedObj
 
 std::shared_ptr<EmbeddedObjectPart> SlideMasterPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -11378,7 +11380,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> SlideMasterPart::GetEmbeddedPa
 
 std::shared_ptr<EmbeddedPackagePart> SlideMasterPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -11399,7 +11401,7 @@ std::vector<std::shared_ptr<ImagePart>> SlideMasterPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> SlideMasterPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -11420,7 +11422,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> SlideMasterPart::GetVmlDrawingParts
 
 std::shared_ptr<VmlDrawingPart> SlideMasterPart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -11441,7 +11443,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>> SlideMast
 
 std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart> SlideMasterPart::AddEmbeddedControlPersistenceBinaryDataPart(const std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistenceBinaryDataPart::Descriptor(), true);
     return instance;
 }
@@ -11462,7 +11464,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> SlideMasterPart::
 
 std::shared_ptr<Model3DReferenceRelationshipPart> SlideMasterPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -11483,7 +11485,7 @@ std::shared_ptr<ThemePart> SlideMasterPart::GetThemePart() const
 
 std::shared_ptr<ThemePart> SlideMasterPart::AddThemePart(const std::shared_ptr<ThemePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemePart(instance);
     return instance;
 }
@@ -11522,7 +11524,7 @@ std::vector<std::shared_ptr<SlidePart>> SlideMasterPart::GetSlideParts() const
 
 std::shared_ptr<SlidePart> SlideMasterPart::AddSlidePart(const std::shared_ptr<SlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlidePart::Descriptor(), true);
     return instance;
 }
@@ -11543,7 +11545,7 @@ std::vector<std::shared_ptr<SlideLayoutPart>> SlideMasterPart::GetSlideLayoutPar
 
 std::shared_ptr<SlideLayoutPart> SlideMasterPart::AddSlideLayoutPart(const std::shared_ptr<SlideLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlideLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -11564,7 +11566,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> SlideMasterPart::Ge
 
 std::shared_ptr<EmbeddedControlPersistencePart> SlideMasterPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -11585,7 +11587,7 @@ std::vector<std::shared_ptr<UserDefinedTagsPart>> SlideMasterPart::GetUserDefine
 
 std::shared_ptr<UserDefinedTagsPart> SlideMasterPart::AddUserDefinedTagsPart(const std::shared_ptr<UserDefinedTagsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, UserDefinedTagsPart::Descriptor(), true);
     return instance;
 }
@@ -11609,7 +11611,7 @@ SlidePart::~SlidePart() = default;
 
 const OpenXmlPartDescriptor& SlidePart::Descriptor() noexcept
 {
-    return kSlidePartDescriptor;
+    return GeneratedPartsHelper::kSlidePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::Slide> SlidePart::GetSlide() const
@@ -11679,7 +11681,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> SlidePart::GetCustomXmlParts() const
 
 std::shared_ptr<CustomXmlPart> SlidePart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -11700,7 +11702,7 @@ std::vector<std::shared_ptr<ChartPart>> SlidePart::GetChartParts() const
 
 std::shared_ptr<ChartPart> SlidePart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -11721,7 +11723,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> SlidePart::GetExtendedChartParts
 
 std::shared_ptr<ExtendedChartPart> SlidePart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -11742,7 +11744,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> SlidePart::GetDiagramColorsParts
 
 std::shared_ptr<DiagramColorsPart> SlidePart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -11763,7 +11765,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> SlidePart::GetDiagramDataParts() c
 
 std::shared_ptr<DiagramDataPart> SlidePart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -11784,7 +11786,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> SlidePart::GetDiagramPers
 
 std::shared_ptr<DiagramPersistLayoutPart> SlidePart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -11805,7 +11807,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> SlidePart::GetDiagramL
 
 std::shared_ptr<DiagramLayoutDefinitionPart> SlidePart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -11826,7 +11828,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> SlidePart::GetDiagramStyleParts()
 
 std::shared_ptr<DiagramStylePart> SlidePart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -11847,7 +11849,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> SlidePart::GetEmbeddedObjectPar
 
 std::shared_ptr<EmbeddedObjectPart> SlidePart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -11868,7 +11870,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> SlidePart::GetEmbeddedPackageP
 
 std::shared_ptr<EmbeddedPackagePart> SlidePart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -11889,7 +11891,7 @@ std::vector<std::shared_ptr<ImagePart>> SlidePart::GetImageParts() const
 
 std::shared_ptr<ImagePart> SlidePart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -11910,7 +11912,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> SlidePart::GetVmlDrawingParts() con
 
 std::shared_ptr<VmlDrawingPart> SlidePart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -11931,7 +11933,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>> SlidePart
 
 std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart> SlidePart::AddEmbeddedControlPersistenceBinaryDataPart(const std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistenceBinaryDataPart::Descriptor(), true);
     return instance;
 }
@@ -11952,7 +11954,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> SlidePart::GetMod
 
 std::shared_ptr<Model3DReferenceRelationshipPart> SlidePart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -11973,7 +11975,7 @@ std::shared_ptr<SlideCommentsPart> SlidePart::GetSlideCommentsPart() const
 
 std::shared_ptr<SlideCommentsPart> SlidePart::AddSlideCommentsPart(const std::shared_ptr<SlideCommentsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetSlideCommentsPart(instance);
     return instance;
 }
@@ -12012,7 +12014,7 @@ std::shared_ptr<NotesSlidePart> SlidePart::GetNotesSlidePart() const
 
 std::shared_ptr<NotesSlidePart> SlidePart::AddNotesSlidePart(const std::shared_ptr<NotesSlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetNotesSlidePart(instance);
     return instance;
 }
@@ -12051,7 +12053,7 @@ std::shared_ptr<ThemeOverridePart> SlidePart::GetThemeOverridePart() const
 
 std::shared_ptr<ThemeOverridePart> SlidePart::AddThemeOverridePart(const std::shared_ptr<ThemeOverridePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemeOverridePart(instance);
     return instance;
 }
@@ -12090,7 +12092,7 @@ std::shared_ptr<SlideLayoutPart> SlidePart::GetSlideLayoutPart() const
 
 std::shared_ptr<SlideLayoutPart> SlidePart::AddSlideLayoutPart(const std::shared_ptr<SlideLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetSlideLayoutPart(instance);
     return instance;
 }
@@ -12129,7 +12131,7 @@ std::shared_ptr<SlideSyncDataPart> SlidePart::GetSlideSyncDataPart() const
 
 std::shared_ptr<SlideSyncDataPart> SlidePart::AddSlideSyncDataPart(const std::shared_ptr<SlideSyncDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetSlideSyncDataPart(instance);
     return instance;
 }
@@ -12168,7 +12170,7 @@ std::vector<std::shared_ptr<UserDefinedTagsPart>> SlidePart::GetUserDefinedTagsP
 
 std::shared_ptr<UserDefinedTagsPart> SlidePart::AddUserDefinedTagsPart(const std::shared_ptr<UserDefinedTagsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, UserDefinedTagsPart::Descriptor(), true);
     return instance;
 }
@@ -12189,7 +12191,7 @@ std::vector<std::shared_ptr<SlidePart>> SlidePart::GetSlideParts() const
 
 std::shared_ptr<SlidePart> SlidePart::AddSlidePart(const std::shared_ptr<SlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlidePart::Descriptor(), true);
     return instance;
 }
@@ -12210,7 +12212,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> SlidePart::GetEmbed
 
 std::shared_ptr<EmbeddedControlPersistencePart> SlidePart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -12231,7 +12233,7 @@ std::vector<std::shared_ptr<WebExtensionPart>> SlidePart::GetWebExtensionParts()
 
 std::shared_ptr<WebExtensionPart> SlidePart::AddWebExtensionPart(const std::shared_ptr<WebExtensionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WebExtensionPart::Descriptor(), true);
     return instance;
 }
@@ -12252,7 +12254,7 @@ std::vector<std::shared_ptr<PowerPointCommentPart>> SlidePart::GetcommentParts()
 
 std::shared_ptr<PowerPointCommentPart> SlidePart::AddPowerPointCommentPart(const std::shared_ptr<PowerPointCommentPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, PowerPointCommentPart::Descriptor(), true);
     return instance;
 }
@@ -12276,7 +12278,7 @@ SlideSyncDataPart::~SlideSyncDataPart() = default;
 
 const OpenXmlPartDescriptor& SlideSyncDataPart::Descriptor() noexcept
 {
-    return kSlideSyncDataPartDescriptor;
+    return GeneratedPartsHelper::kSlideSyncDataPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::SlideSyncProperties> SlideSyncDataPart::GetSlideSyncProperties() const
@@ -12303,7 +12305,7 @@ SpreadsheetPrinterSettingsPart::~SpreadsheetPrinterSettingsPart() = default;
 
 const OpenXmlPartDescriptor& SpreadsheetPrinterSettingsPart::Descriptor() noexcept
 {
-    return kSpreadsheetPrinterSettingsPartDescriptor;
+    return GeneratedPartsHelper::kSpreadsheetPrinterSettingsPartDescriptor;
 }
 
 StyleDefinitionsPart::StyleDefinitionsPart()
@@ -12316,7 +12318,7 @@ StyleDefinitionsPart::~StyleDefinitionsPart() = default;
 
 const OpenXmlPartDescriptor& StyleDefinitionsPart::Descriptor() noexcept
 {
-    return kStyleDefinitionsPartDescriptor;
+    return GeneratedPartsHelper::kStyleDefinitionsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Styles> StyleDefinitionsPart::GetStyles() const
@@ -12344,7 +12346,7 @@ StylesWithEffectsPart::~StylesWithEffectsPart() = default;
 
 const OpenXmlPartDescriptor& StylesWithEffectsPart::Descriptor() noexcept
 {
-    return kStylesWithEffectsPartDescriptor;
+    return GeneratedPartsHelper::kStylesWithEffectsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Styles> StylesWithEffectsPart::GetStyles() const
@@ -12372,7 +12374,7 @@ TableDefinitionPart::~TableDefinitionPart() = default;
 
 const OpenXmlPartDescriptor& TableDefinitionPart::Descriptor() noexcept
 {
-    return kTableDefinitionPartDescriptor;
+    return GeneratedPartsHelper::kTableDefinitionPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Table> TableDefinitionPart::GetTable() const
@@ -12397,7 +12399,7 @@ std::vector<std::shared_ptr<QueryTablePart>> TableDefinitionPart::GetQueryTableP
 
 std::shared_ptr<QueryTablePart> TableDefinitionPart::AddQueryTablePart(const std::shared_ptr<QueryTablePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, QueryTablePart::Descriptor(), true);
     return instance;
 }
@@ -12421,7 +12423,7 @@ TableStylesPart::~TableStylesPart() = default;
 
 const OpenXmlPartDescriptor& TableStylesPart::Descriptor() noexcept
 {
-    return kTableStylesPartDescriptor;
+    return GeneratedPartsHelper::kTableStylesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::TableStyleList> TableStylesPart::GetTableStyleList() const
@@ -12449,7 +12451,7 @@ ThemeOverridePart::~ThemeOverridePart() = default;
 
 const OpenXmlPartDescriptor& ThemeOverridePart::Descriptor() noexcept
 {
-    return kThemeOverridePartDescriptor;
+    return GeneratedPartsHelper::kThemeOverridePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::ThemeOverride> ThemeOverridePart::GetThemeOverride() const
@@ -12474,7 +12476,7 @@ std::vector<std::shared_ptr<ImagePart>> ThemeOverridePart::GetImageParts() const
 
 std::shared_ptr<ImagePart> ThemeOverridePart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -12498,7 +12500,7 @@ ThemePart::~ThemePart() = default;
 
 const OpenXmlPartDescriptor& ThemePart::Descriptor() noexcept
 {
-    return kThemePartDescriptor;
+    return GeneratedPartsHelper::kThemePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Theme> ThemePart::GetTheme() const
@@ -12523,7 +12525,7 @@ std::vector<std::shared_ptr<ImagePart>> ThemePart::GetImageParts() const
 
 std::shared_ptr<ImagePart> ThemePart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -12546,7 +12548,7 @@ ThumbnailPart::~ThumbnailPart() = default;
 
 const OpenXmlPartDescriptor& ThumbnailPart::Descriptor() noexcept
 {
-    return kThumbnailPartDescriptor;
+    return GeneratedPartsHelper::kThumbnailPartDescriptor;
 }
 
 TimeLineCachePart::TimeLineCachePart()
@@ -12559,7 +12561,7 @@ TimeLineCachePart::~TimeLineCachePart() = default;
 
 const OpenXmlPartDescriptor& TimeLineCachePart::Descriptor() noexcept
 {
-    return kTimeLineCachePartDescriptor;
+    return GeneratedPartsHelper::kTimeLineCachePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelineCacheDefinition> TimeLineCachePart::GetTimelineCacheDefinition() const
@@ -12587,7 +12589,7 @@ TimeLinePart::~TimeLinePart() = default;
 
 const OpenXmlPartDescriptor& TimeLinePart::Descriptor() noexcept
 {
-    return kTimeLinePartDescriptor;
+    return GeneratedPartsHelper::kTimeLinePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::Timelines> TimeLinePart::GetTimelines() const
@@ -12615,7 +12617,7 @@ UserDefinedTagsPart::~UserDefinedTagsPart() = default;
 
 const OpenXmlPartDescriptor& UserDefinedTagsPart::Descriptor() noexcept
 {
-    return kUserDefinedTagsPartDescriptor;
+    return GeneratedPartsHelper::kUserDefinedTagsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::TagList> UserDefinedTagsPart::GetTagList() const
@@ -12643,7 +12645,7 @@ VbaDataPart::~VbaDataPart() = default;
 
 const OpenXmlPartDescriptor& VbaDataPart::Descriptor() noexcept
 {
-    return kVbaDataPartDescriptor;
+    return GeneratedPartsHelper::kVbaDataPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office::Word::VbaSuppData> VbaDataPart::GetVbaSuppData() const
@@ -12670,7 +12672,7 @@ VbaProjectPart::~VbaProjectPart() = default;
 
 const OpenXmlPartDescriptor& VbaProjectPart::Descriptor() noexcept
 {
-    return kVbaProjectPartDescriptor;
+    return GeneratedPartsHelper::kVbaProjectPartDescriptor;
 }
 
 std::shared_ptr<VbaDataPart> VbaProjectPart::GetVbaDataPart() const
@@ -12680,7 +12682,7 @@ std::shared_ptr<VbaDataPart> VbaProjectPart::GetVbaDataPart() const
 
 std::shared_ptr<VbaDataPart> VbaProjectPart::AddVbaDataPart(const std::shared_ptr<VbaDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetVbaDataPart(instance);
     return instance;
 }
@@ -12722,7 +12724,7 @@ ViewPropertiesPart::~ViewPropertiesPart() = default;
 
 const OpenXmlPartDescriptor& ViewPropertiesPart::Descriptor() noexcept
 {
-    return kViewPropertiesPartDescriptor;
+    return GeneratedPartsHelper::kViewPropertiesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Presentation::ViewProperties> ViewPropertiesPart::GetViewProperties() const
@@ -12747,7 +12749,7 @@ std::vector<std::shared_ptr<SlidePart>> ViewPropertiesPart::GetSlideParts() cons
 
 std::shared_ptr<SlidePart> ViewPropertiesPart::AddSlidePart(const std::shared_ptr<SlidePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlidePart::Descriptor(), true);
     return instance;
 }
@@ -12770,7 +12772,7 @@ VmlDrawingPart::~VmlDrawingPart() = default;
 
 const OpenXmlPartDescriptor& VmlDrawingPart::Descriptor() noexcept
 {
-    return kVmlDrawingPartDescriptor;
+    return GeneratedPartsHelper::kVmlDrawingPartDescriptor;
 }
 
 std::vector<std::shared_ptr<ImagePart>> VmlDrawingPart::GetImageParts() const
@@ -12780,7 +12782,7 @@ std::vector<std::shared_ptr<ImagePart>> VmlDrawingPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> VmlDrawingPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -12801,7 +12803,7 @@ std::vector<std::shared_ptr<LegacyDiagramTextPart>> VmlDrawingPart::GetLegacyDia
 
 std::shared_ptr<LegacyDiagramTextPart> VmlDrawingPart::AddLegacyDiagramTextPart(const std::shared_ptr<LegacyDiagramTextPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, LegacyDiagramTextPart::Descriptor(), true);
     return instance;
 }
@@ -12825,7 +12827,7 @@ VolatileDependenciesPart::~VolatileDependenciesPart() = default;
 
 const OpenXmlPartDescriptor& VolatileDependenciesPart::Descriptor() noexcept
 {
-    return kVolatileDependenciesPartDescriptor;
+    return GeneratedPartsHelper::kVolatileDependenciesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::VolatileTypes> VolatileDependenciesPart::GetVolatileTypes() const
@@ -12853,7 +12855,7 @@ WebExTaskpanesPart::~WebExTaskpanesPart() = default;
 
 const OpenXmlPartDescriptor& WebExTaskpanesPart::Descriptor() noexcept
 {
-    return kWebExTaskpanesPartDescriptor;
+    return GeneratedPartsHelper::kWebExTaskpanesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2013::WebExtentionPane::Taskpanes> WebExTaskpanesPart::GetTaskpanes() const
@@ -12878,7 +12880,7 @@ std::vector<std::shared_ptr<WebExtensionPart>> WebExTaskpanesPart::GetWebExtensi
 
 std::shared_ptr<WebExtensionPart> WebExTaskpanesPart::AddWebExtensionPart(const std::shared_ptr<WebExtensionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WebExtensionPart::Descriptor(), true);
     return instance;
 }
@@ -12902,7 +12904,7 @@ WebExtensionPart::~WebExtensionPart() = default;
 
 const OpenXmlPartDescriptor& WebExtensionPart::Descriptor() noexcept
 {
-    return kWebExtensionPartDescriptor;
+    return GeneratedPartsHelper::kWebExtensionPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2013::WebExtension::WebExtension> WebExtensionPart::GetWebExtension() const
@@ -12927,7 +12929,7 @@ std::vector<std::shared_ptr<ImagePart>> WebExtensionPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> WebExtensionPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -12951,7 +12953,7 @@ WebSettingsPart::~WebSettingsPart() = default;
 
 const OpenXmlPartDescriptor& WebSettingsPart::Descriptor() noexcept
 {
-    return kWebSettingsPartDescriptor;
+    return GeneratedPartsHelper::kWebSettingsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::WebSettings> WebSettingsPart::GetWebSettings() const
@@ -12978,7 +12980,7 @@ WordAttachedToolbarsPart::~WordAttachedToolbarsPart() = default;
 
 const OpenXmlPartDescriptor& WordAttachedToolbarsPart::Descriptor() noexcept
 {
-    return kWordAttachedToolbarsPartDescriptor;
+    return GeneratedPartsHelper::kWordAttachedToolbarsPartDescriptor;
 }
 
 WordCommentsExtensiblePart::WordCommentsExtensiblePart()
@@ -12991,7 +12993,7 @@ WordCommentsExtensiblePart::~WordCommentsExtensiblePart() = default;
 
 const OpenXmlPartDescriptor& WordCommentsExtensiblePart::Descriptor() noexcept
 {
-    return kWordCommentsExtensiblePartDescriptor;
+    return GeneratedPartsHelper::kWordCommentsExtensiblePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2021::Word::CommentsExt::CommentsExtensible> WordCommentsExtensiblePart::GetCommentsExtensible() const
@@ -13019,7 +13021,7 @@ WordprocessingCommentsExPart::~WordprocessingCommentsExPart() = default;
 
 const OpenXmlPartDescriptor& WordprocessingCommentsExPart::Descriptor() noexcept
 {
-    return kWordprocessingCommentsExPartDescriptor;
+    return GeneratedPartsHelper::kWordprocessingCommentsExPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::CommentsEx> WordprocessingCommentsExPart::GetCommentsEx() const
@@ -13059,7 +13061,7 @@ std::vector<std::shared_ptr<AlternativeFormatImportPart>> WordprocessingComments
 
 std::shared_ptr<AlternativeFormatImportPart> WordprocessingCommentsExPart::AddAlternativeFormatImportPart(const std::shared_ptr<AlternativeFormatImportPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, AlternativeFormatImportPart::Descriptor(), true);
     return instance;
 }
@@ -13080,7 +13082,7 @@ std::vector<std::shared_ptr<ChartPart>> WordprocessingCommentsExPart::GetChartPa
 
 std::shared_ptr<ChartPart> WordprocessingCommentsExPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -13101,7 +13103,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> WordprocessingCommentsExPart::Ge
 
 std::shared_ptr<ExtendedChartPart> WordprocessingCommentsExPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -13122,7 +13124,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> WordprocessingCommentsExPart::Ge
 
 std::shared_ptr<DiagramColorsPart> WordprocessingCommentsExPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -13143,7 +13145,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> WordprocessingCommentsExPart::GetD
 
 std::shared_ptr<DiagramDataPart> WordprocessingCommentsExPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -13164,7 +13166,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> WordprocessingCommentsExP
 
 std::shared_ptr<DiagramPersistLayoutPart> WordprocessingCommentsExPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -13185,7 +13187,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> WordprocessingComments
 
 std::shared_ptr<DiagramLayoutDefinitionPart> WordprocessingCommentsExPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -13206,7 +13208,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> WordprocessingCommentsExPart::Get
 
 std::shared_ptr<DiagramStylePart> WordprocessingCommentsExPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -13227,7 +13229,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> WordprocessingComme
 
 std::shared_ptr<EmbeddedControlPersistencePart> WordprocessingCommentsExPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -13248,7 +13250,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> WordprocessingCommentsExPart::G
 
 std::shared_ptr<EmbeddedObjectPart> WordprocessingCommentsExPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -13269,7 +13271,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> WordprocessingCommentsExPart::
 
 std::shared_ptr<EmbeddedPackagePart> WordprocessingCommentsExPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -13290,7 +13292,7 @@ std::vector<std::shared_ptr<ImagePart>> WordprocessingCommentsExPart::GetImagePa
 
 std::shared_ptr<ImagePart> WordprocessingCommentsExPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -13311,7 +13313,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> WordprocessingCom
 
 std::shared_ptr<Model3DReferenceRelationshipPart> WordprocessingCommentsExPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -13335,7 +13337,7 @@ WordprocessingCommentsIdsPart::~WordprocessingCommentsIdsPart() = default;
 
 const OpenXmlPartDescriptor& WordprocessingCommentsIdsPart::Descriptor() noexcept
 {
-    return kWordprocessingCommentsIdsPartDescriptor;
+    return GeneratedPartsHelper::kWordprocessingCommentsIdsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Word::Cid::CommentsIds> WordprocessingCommentsIdsPart::GetCommentsIds() const
@@ -13375,7 +13377,7 @@ std::vector<std::shared_ptr<AlternativeFormatImportPart>> WordprocessingComments
 
 std::shared_ptr<AlternativeFormatImportPart> WordprocessingCommentsIdsPart::AddAlternativeFormatImportPart(const std::shared_ptr<AlternativeFormatImportPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, AlternativeFormatImportPart::Descriptor(), true);
     return instance;
 }
@@ -13396,7 +13398,7 @@ std::vector<std::shared_ptr<ChartPart>> WordprocessingCommentsIdsPart::GetChartP
 
 std::shared_ptr<ChartPart> WordprocessingCommentsIdsPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -13417,7 +13419,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> WordprocessingCommentsIdsPart::G
 
 std::shared_ptr<ExtendedChartPart> WordprocessingCommentsIdsPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -13438,7 +13440,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> WordprocessingCommentsIdsPart::G
 
 std::shared_ptr<DiagramColorsPart> WordprocessingCommentsIdsPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -13459,7 +13461,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> WordprocessingCommentsIdsPart::Get
 
 std::shared_ptr<DiagramDataPart> WordprocessingCommentsIdsPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -13480,7 +13482,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> WordprocessingCommentsIds
 
 std::shared_ptr<DiagramPersistLayoutPart> WordprocessingCommentsIdsPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -13501,7 +13503,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> WordprocessingComments
 
 std::shared_ptr<DiagramLayoutDefinitionPart> WordprocessingCommentsIdsPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -13522,7 +13524,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> WordprocessingCommentsIdsPart::Ge
 
 std::shared_ptr<DiagramStylePart> WordprocessingCommentsIdsPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -13543,7 +13545,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> WordprocessingComme
 
 std::shared_ptr<EmbeddedControlPersistencePart> WordprocessingCommentsIdsPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -13564,7 +13566,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> WordprocessingCommentsIdsPart::
 
 std::shared_ptr<EmbeddedObjectPart> WordprocessingCommentsIdsPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -13585,7 +13587,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> WordprocessingCommentsIdsPart:
 
 std::shared_ptr<EmbeddedPackagePart> WordprocessingCommentsIdsPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -13606,7 +13608,7 @@ std::vector<std::shared_ptr<ImagePart>> WordprocessingCommentsIdsPart::GetImageP
 
 std::shared_ptr<ImagePart> WordprocessingCommentsIdsPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -13627,7 +13629,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> WordprocessingCom
 
 std::shared_ptr<Model3DReferenceRelationshipPart> WordprocessingCommentsIdsPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -13651,7 +13653,7 @@ WordprocessingCommentsPart::~WordprocessingCommentsPart() = default;
 
 const OpenXmlPartDescriptor& WordprocessingCommentsPart::Descriptor() noexcept
 {
-    return kWordprocessingCommentsPartDescriptor;
+    return GeneratedPartsHelper::kWordprocessingCommentsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comments> WordprocessingCommentsPart::GetComments() const
@@ -13691,7 +13693,7 @@ std::vector<std::shared_ptr<AlternativeFormatImportPart>> WordprocessingComments
 
 std::shared_ptr<AlternativeFormatImportPart> WordprocessingCommentsPart::AddAlternativeFormatImportPart(const std::shared_ptr<AlternativeFormatImportPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, AlternativeFormatImportPart::Descriptor(), true);
     return instance;
 }
@@ -13712,7 +13714,7 @@ std::vector<std::shared_ptr<ChartPart>> WordprocessingCommentsPart::GetChartPart
 
 std::shared_ptr<ChartPart> WordprocessingCommentsPart::AddChartPart(const std::shared_ptr<ChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartPart::Descriptor(), true);
     return instance;
 }
@@ -13733,7 +13735,7 @@ std::vector<std::shared_ptr<ExtendedChartPart>> WordprocessingCommentsPart::GetE
 
 std::shared_ptr<ExtendedChartPart> WordprocessingCommentsPart::AddExtendedChartPart(const std::shared_ptr<ExtendedChartPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExtendedChartPart::Descriptor(), true);
     return instance;
 }
@@ -13754,7 +13756,7 @@ std::vector<std::shared_ptr<DiagramColorsPart>> WordprocessingCommentsPart::GetD
 
 std::shared_ptr<DiagramColorsPart> WordprocessingCommentsPart::AddDiagramColorsPart(const std::shared_ptr<DiagramColorsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramColorsPart::Descriptor(), true);
     return instance;
 }
@@ -13775,7 +13777,7 @@ std::vector<std::shared_ptr<DiagramDataPart>> WordprocessingCommentsPart::GetDia
 
 std::shared_ptr<DiagramDataPart> WordprocessingCommentsPart::AddDiagramDataPart(const std::shared_ptr<DiagramDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramDataPart::Descriptor(), true);
     return instance;
 }
@@ -13796,7 +13798,7 @@ std::vector<std::shared_ptr<DiagramPersistLayoutPart>> WordprocessingCommentsPar
 
 std::shared_ptr<DiagramPersistLayoutPart> WordprocessingCommentsPart::AddDiagramPersistLayoutPart(const std::shared_ptr<DiagramPersistLayoutPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramPersistLayoutPart::Descriptor(), true);
     return instance;
 }
@@ -13817,7 +13819,7 @@ std::vector<std::shared_ptr<DiagramLayoutDefinitionPart>> WordprocessingComments
 
 std::shared_ptr<DiagramLayoutDefinitionPart> WordprocessingCommentsPart::AddDiagramLayoutDefinitionPart(const std::shared_ptr<DiagramLayoutDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramLayoutDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -13838,7 +13840,7 @@ std::vector<std::shared_ptr<DiagramStylePart>> WordprocessingCommentsPart::GetDi
 
 std::shared_ptr<DiagramStylePart> WordprocessingCommentsPart::AddDiagramStylePart(const std::shared_ptr<DiagramStylePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DiagramStylePart::Descriptor(), true);
     return instance;
 }
@@ -13859,7 +13861,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> WordprocessingComme
 
 std::shared_ptr<EmbeddedControlPersistencePart> WordprocessingCommentsPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -13880,7 +13882,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> WordprocessingCommentsPart::Get
 
 std::shared_ptr<EmbeddedObjectPart> WordprocessingCommentsPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -13901,7 +13903,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> WordprocessingCommentsPart::Ge
 
 std::shared_ptr<EmbeddedPackagePart> WordprocessingCommentsPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -13922,7 +13924,7 @@ std::vector<std::shared_ptr<ImagePart>> WordprocessingCommentsPart::GetImagePart
 
 std::shared_ptr<ImagePart> WordprocessingCommentsPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -13943,7 +13945,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> WordprocessingCom
 
 std::shared_ptr<Model3DReferenceRelationshipPart> WordprocessingCommentsPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -13967,7 +13969,7 @@ WordprocessingPeoplePart::~WordprocessingPeoplePart() = default;
 
 const OpenXmlPartDescriptor& WordprocessingPeoplePart::Descriptor() noexcept
 {
-    return kWordprocessingPeoplePartDescriptor;
+    return GeneratedPartsHelper::kWordprocessingPeoplePartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::People> WordprocessingPeoplePart::GetPeople() const
@@ -13994,7 +13996,7 @@ WordprocessingPrinterSettingsPart::~WordprocessingPrinterSettingsPart() = defaul
 
 const OpenXmlPartDescriptor& WordprocessingPrinterSettingsPart::Descriptor() noexcept
 {
-    return kWordprocessingPrinterSettingsPartDescriptor;
+    return GeneratedPartsHelper::kWordprocessingPrinterSettingsPartDescriptor;
 }
 
 WorkbookPart::WorkbookPart()
@@ -14007,7 +14009,7 @@ WorkbookPart::~WorkbookPart() = default;
 
 const OpenXmlPartDescriptor& WorkbookPart::Descriptor() noexcept
 {
-    return kWorkbookPartDescriptor;
+    return GeneratedPartsHelper::kWorkbookPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Workbook> WorkbookPart::GetWorkbook() const
@@ -14032,7 +14034,7 @@ std::vector<std::shared_ptr<CustomXmlPart>> WorkbookPart::GetCustomXmlParts() co
 
 std::shared_ptr<CustomXmlPart> WorkbookPart::AddCustomXmlPart(const std::shared_ptr<CustomXmlPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomXmlPart::Descriptor(), true);
     return instance;
 }
@@ -14053,7 +14055,7 @@ std::shared_ptr<CalculationChainPart> WorkbookPart::GetCalculationChainPart() co
 
 std::shared_ptr<CalculationChainPart> WorkbookPart::AddCalculationChainPart(const std::shared_ptr<CalculationChainPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCalculationChainPart(instance);
     return instance;
 }
@@ -14092,7 +14094,7 @@ std::shared_ptr<CellMetadataPart> WorkbookPart::GetCellMetadataPart() const
 
 std::shared_ptr<CellMetadataPart> WorkbookPart::AddCellMetadataPart(const std::shared_ptr<CellMetadataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCellMetadataPart(instance);
     return instance;
 }
@@ -14131,7 +14133,7 @@ std::shared_ptr<ConnectionsPart> WorkbookPart::GetConnectionsPart() const
 
 std::shared_ptr<ConnectionsPart> WorkbookPart::AddConnectionsPart(const std::shared_ptr<ConnectionsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetConnectionsPart(instance);
     return instance;
 }
@@ -14170,7 +14172,7 @@ std::shared_ptr<CustomXmlMappingsPart> WorkbookPart::GetCustomXmlMappingsPart() 
 
 std::shared_ptr<CustomXmlMappingsPart> WorkbookPart::AddCustomXmlMappingsPart(const std::shared_ptr<CustomXmlMappingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCustomXmlMappingsPart(instance);
     return instance;
 }
@@ -14209,7 +14211,7 @@ std::shared_ptr<SharedStringTablePart> WorkbookPart::GetSharedStringTablePart() 
 
 std::shared_ptr<SharedStringTablePart> WorkbookPart::AddSharedStringTablePart(const std::shared_ptr<SharedStringTablePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetSharedStringTablePart(instance);
     return instance;
 }
@@ -14248,7 +14250,7 @@ std::shared_ptr<WorkbookRevisionHeaderPart> WorkbookPart::GetWorkbookRevisionHea
 
 std::shared_ptr<WorkbookRevisionHeaderPart> WorkbookPart::AddWorkbookRevisionHeaderPart(const std::shared_ptr<WorkbookRevisionHeaderPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWorkbookRevisionHeaderPart(instance);
     return instance;
 }
@@ -14287,7 +14289,7 @@ std::shared_ptr<WorkbookUserDataPart> WorkbookPart::GetWorkbookUserDataPart() co
 
 std::shared_ptr<WorkbookUserDataPart> WorkbookPart::AddWorkbookUserDataPart(const std::shared_ptr<WorkbookUserDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWorkbookUserDataPart(instance);
     return instance;
 }
@@ -14326,7 +14328,7 @@ std::shared_ptr<WorkbookStylesPart> WorkbookPart::GetWorkbookStylesPart() const
 
 std::shared_ptr<WorkbookStylesPart> WorkbookPart::AddWorkbookStylesPart(const std::shared_ptr<WorkbookStylesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWorkbookStylesPart(instance);
     return instance;
 }
@@ -14365,7 +14367,7 @@ std::shared_ptr<ThemePart> WorkbookPart::GetThemePart() const
 
 std::shared_ptr<ThemePart> WorkbookPart::AddThemePart(const std::shared_ptr<ThemePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThemePart(instance);
     return instance;
 }
@@ -14404,7 +14406,7 @@ std::shared_ptr<ThumbnailPart> WorkbookPart::GetThumbnailPart() const
 
 std::shared_ptr<ThumbnailPart> WorkbookPart::AddThumbnailPart(const std::shared_ptr<ThumbnailPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThumbnailPart(instance);
     return instance;
 }
@@ -14443,7 +14445,7 @@ std::shared_ptr<VolatileDependenciesPart> WorkbookPart::GetVolatileDependenciesP
 
 std::shared_ptr<VolatileDependenciesPart> WorkbookPart::AddVolatileDependenciesPart(const std::shared_ptr<VolatileDependenciesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetVolatileDependenciesPart(instance);
     return instance;
 }
@@ -14482,7 +14484,7 @@ std::vector<std::shared_ptr<ChartsheetPart>> WorkbookPart::GetChartsheetParts() 
 
 std::shared_ptr<ChartsheetPart> WorkbookPart::AddChartsheetPart(const std::shared_ptr<ChartsheetPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ChartsheetPart::Descriptor(), true);
     return instance;
 }
@@ -14503,7 +14505,7 @@ std::vector<std::shared_ptr<DialogsheetPart>> WorkbookPart::GetDialogsheetParts(
 
 std::shared_ptr<DialogsheetPart> WorkbookPart::AddDialogsheetPart(const std::shared_ptr<DialogsheetPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, DialogsheetPart::Descriptor(), true);
     return instance;
 }
@@ -14524,7 +14526,7 @@ std::vector<std::shared_ptr<ExternalWorkbookPart>> WorkbookPart::GetExternalWork
 
 std::shared_ptr<ExternalWorkbookPart> WorkbookPart::AddExternalWorkbookPart(const std::shared_ptr<ExternalWorkbookPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ExternalWorkbookPart::Descriptor(), true);
     return instance;
 }
@@ -14545,7 +14547,7 @@ std::vector<std::shared_ptr<PivotTableCacheDefinitionPart>> WorkbookPart::GetPiv
 
 std::shared_ptr<PivotTableCacheDefinitionPart> WorkbookPart::AddPivotTableCacheDefinitionPart(const std::shared_ptr<PivotTableCacheDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, PivotTableCacheDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -14566,7 +14568,7 @@ std::vector<std::shared_ptr<WorksheetPart>> WorkbookPart::GetWorksheetParts() co
 
 std::shared_ptr<WorksheetPart> WorkbookPart::AddWorksheetPart(const std::shared_ptr<WorksheetPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WorksheetPart::Descriptor(), true);
     return instance;
 }
@@ -14587,7 +14589,7 @@ std::shared_ptr<ExcelAttachedToolbarsPart> WorkbookPart::GetExcelAttachedToolbar
 
 std::shared_ptr<ExcelAttachedToolbarsPart> WorkbookPart::AddExcelAttachedToolbarsPart(const std::shared_ptr<ExcelAttachedToolbarsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetExcelAttachedToolbarsPart(instance);
     return instance;
 }
@@ -14626,7 +14628,7 @@ std::shared_ptr<VbaProjectPart> WorkbookPart::GetVbaProjectPart() const
 
 std::shared_ptr<VbaProjectPart> WorkbookPart::AddVbaProjectPart(const std::shared_ptr<VbaProjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetVbaProjectPart(instance);
     return instance;
 }
@@ -14665,7 +14667,7 @@ std::vector<std::shared_ptr<MacroSheetPart>> WorkbookPart::GetMacroSheetParts() 
 
 std::shared_ptr<MacroSheetPart> WorkbookPart::AddMacroSheetPart(const std::shared_ptr<MacroSheetPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, MacroSheetPart::Descriptor(), true);
     return instance;
 }
@@ -14686,7 +14688,7 @@ std::vector<std::shared_ptr<InternationalMacroSheetPart>> WorkbookPart::GetInter
 
 std::shared_ptr<InternationalMacroSheetPart> WorkbookPart::AddInternationalMacroSheetPart(const std::shared_ptr<InternationalMacroSheetPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, InternationalMacroSheetPart::Descriptor(), true);
     return instance;
 }
@@ -14707,7 +14709,7 @@ std::vector<std::shared_ptr<CustomDataPropertiesPart>> WorkbookPart::GetCustomDa
 
 std::shared_ptr<CustomDataPropertiesPart> WorkbookPart::AddCustomDataPropertiesPart(const std::shared_ptr<CustomDataPropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomDataPropertiesPart::Descriptor(), true);
     return instance;
 }
@@ -14728,7 +14730,7 @@ std::vector<std::shared_ptr<SlicerCachePart>> WorkbookPart::GetSlicerCacheParts(
 
 std::shared_ptr<SlicerCachePart> WorkbookPart::AddSlicerCachePart(const std::shared_ptr<SlicerCachePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlicerCachePart::Descriptor(), true);
     return instance;
 }
@@ -14749,7 +14751,7 @@ std::vector<std::shared_ptr<TimeLineCachePart>> WorkbookPart::GetTimeLineCachePa
 
 std::shared_ptr<TimeLineCachePart> WorkbookPart::AddTimeLineCachePart(const std::shared_ptr<TimeLineCachePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, TimeLineCachePart::Descriptor(), true);
     return instance;
 }
@@ -14770,7 +14772,7 @@ std::vector<std::shared_ptr<WorkbookPersonPart>> WorkbookPart::GetWorkbookPerson
 
 std::shared_ptr<WorkbookPersonPart> WorkbookPart::AddWorkbookPersonPart(const std::shared_ptr<WorkbookPersonPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WorkbookPersonPart::Descriptor(), true);
     return instance;
 }
@@ -14791,7 +14793,7 @@ std::vector<std::shared_ptr<RdRichValuePart>> WorkbookPart::GetRdRichValueParts(
 
 std::shared_ptr<RdRichValuePart> WorkbookPart::AddRdRichValuePart(const std::shared_ptr<RdRichValuePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, RdRichValuePart::Descriptor(), true);
     return instance;
 }
@@ -14812,7 +14814,7 @@ std::vector<std::shared_ptr<RdRichValueStructurePart>> WorkbookPart::GetCT_RdRic
 
 std::shared_ptr<RdRichValueStructurePart> WorkbookPart::AddRdRichValueStructurePart(const std::shared_ptr<RdRichValueStructurePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, RdRichValueStructurePart::Descriptor(), true);
     return instance;
 }
@@ -14833,7 +14835,7 @@ std::vector<std::shared_ptr<RdArrayPart>> WorkbookPart::GetRdArrayParts() const
 
 std::shared_ptr<RdArrayPart> WorkbookPart::AddRdArrayPart(const std::shared_ptr<RdArrayPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, RdArrayPart::Descriptor(), true);
     return instance;
 }
@@ -14854,7 +14856,7 @@ std::vector<std::shared_ptr<RichStylesPart>> WorkbookPart::GetRichStylesParts() 
 
 std::shared_ptr<RichStylesPart> WorkbookPart::AddRichStylesPart(const std::shared_ptr<RichStylesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, RichStylesPart::Descriptor(), true);
     return instance;
 }
@@ -14875,7 +14877,7 @@ std::vector<std::shared_ptr<RdSupportingPropertyBagPart>> WorkbookPart::GetRdSup
 
 std::shared_ptr<RdSupportingPropertyBagPart> WorkbookPart::AddRdSupportingPropertyBagPart(const std::shared_ptr<RdSupportingPropertyBagPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, RdSupportingPropertyBagPart::Descriptor(), true);
     return instance;
 }
@@ -14896,7 +14898,7 @@ std::vector<std::shared_ptr<RdSupportingPropertyBagStructurePart>> WorkbookPart:
 
 std::shared_ptr<RdSupportingPropertyBagStructurePart> WorkbookPart::AddRdSupportingPropertyBagStructurePart(const std::shared_ptr<RdSupportingPropertyBagStructurePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, RdSupportingPropertyBagStructurePart::Descriptor(), true);
     return instance;
 }
@@ -14917,7 +14919,7 @@ std::vector<std::shared_ptr<RdRichValueTypesPart>> WorkbookPart::GetRdRichValueT
 
 std::shared_ptr<RdRichValueTypesPart> WorkbookPart::AddRdRichValueTypesPart(const std::shared_ptr<RdRichValueTypesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, RdRichValueTypesPart::Descriptor(), true);
     return instance;
 }
@@ -14938,7 +14940,7 @@ std::shared_ptr<RdRichValueWebImagePart> WorkbookPart::GetRdRichValueWebImagePar
 
 std::shared_ptr<RdRichValueWebImagePart> WorkbookPart::AddRdRichValueWebImagePart(const std::shared_ptr<RdRichValueWebImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetRdRichValueWebImagePart(instance);
     return instance;
 }
@@ -14977,7 +14979,7 @@ std::shared_ptr<FeaturePropertyBagsPart> WorkbookPart::GetFeaturePropertyBagsPar
 
 std::shared_ptr<FeaturePropertyBagsPart> WorkbookPart::AddFeaturePropertyBagsPart(const std::shared_ptr<FeaturePropertyBagsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetFeaturePropertyBagsPart(instance);
     return instance;
 }
@@ -15019,7 +15021,7 @@ WorkbookPersonPart::~WorkbookPersonPart() = default;
 
 const OpenXmlPartDescriptor& WorkbookPersonPart::Descriptor() noexcept
 {
-    return kWorkbookPersonPartDescriptor;
+    return GeneratedPartsHelper::kWorkbookPersonPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::PersonList> WorkbookPersonPart::GetPersonList() const
@@ -15047,7 +15049,7 @@ WorkbookRevisionHeaderPart::~WorkbookRevisionHeaderPart() = default;
 
 const OpenXmlPartDescriptor& WorkbookRevisionHeaderPart::Descriptor() noexcept
 {
-    return kWorkbookRevisionHeaderPartDescriptor;
+    return GeneratedPartsHelper::kWorkbookRevisionHeaderPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Headers> WorkbookRevisionHeaderPart::GetHeaders() const
@@ -15072,7 +15074,7 @@ std::vector<std::shared_ptr<WorkbookRevisionLogPart>> WorkbookRevisionHeaderPart
 
 std::shared_ptr<WorkbookRevisionLogPart> WorkbookRevisionHeaderPart::AddWorkbookRevisionLogPart(const std::shared_ptr<WorkbookRevisionLogPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WorkbookRevisionLogPart::Descriptor(), true);
     return instance;
 }
@@ -15096,7 +15098,7 @@ WorkbookRevisionLogPart::~WorkbookRevisionLogPart() = default;
 
 const OpenXmlPartDescriptor& WorkbookRevisionLogPart::Descriptor() noexcept
 {
-    return kWorkbookRevisionLogPartDescriptor;
+    return GeneratedPartsHelper::kWorkbookRevisionLogPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Revisions> WorkbookRevisionLogPart::GetRevisions() const
@@ -15124,7 +15126,7 @@ WorkbookStylesPart::~WorkbookStylesPart() = default;
 
 const OpenXmlPartDescriptor& WorkbookStylesPart::Descriptor() noexcept
 {
-    return kWorkbookStylesPartDescriptor;
+    return GeneratedPartsHelper::kWorkbookStylesPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Stylesheet> WorkbookStylesPart::GetStylesheet() const
@@ -15152,7 +15154,7 @@ WorkbookUserDataPart::~WorkbookUserDataPart() = default;
 
 const OpenXmlPartDescriptor& WorkbookUserDataPart::Descriptor() noexcept
 {
-    return kWorkbookUserDataPartDescriptor;
+    return GeneratedPartsHelper::kWorkbookUserDataPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Users> WorkbookUserDataPart::GetUsers() const
@@ -15180,7 +15182,7 @@ WorksheetCommentsPart::~WorksheetCommentsPart() = default;
 
 const OpenXmlPartDescriptor& WorksheetCommentsPart::Descriptor() noexcept
 {
-    return kWorksheetCommentsPartDescriptor;
+    return GeneratedPartsHelper::kWorksheetCommentsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Comments> WorksheetCommentsPart::GetComments() const
@@ -15208,7 +15210,7 @@ WorksheetPart::~WorksheetPart() = default;
 
 const OpenXmlPartDescriptor& WorksheetPart::Descriptor() noexcept
 {
-    return kWorksheetPartDescriptor;
+    return GeneratedPartsHelper::kWorksheetPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Worksheet> WorksheetPart::GetWorksheet() const
@@ -15233,7 +15235,7 @@ std::vector<std::shared_ptr<SpreadsheetPrinterSettingsPart>> WorksheetPart::GetS
 
 std::shared_ptr<SpreadsheetPrinterSettingsPart> WorksheetPart::AddSpreadsheetPrinterSettingsPart(const std::shared_ptr<SpreadsheetPrinterSettingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SpreadsheetPrinterSettingsPart::Descriptor(), true);
     return instance;
 }
@@ -15254,7 +15256,7 @@ std::shared_ptr<DrawingsPart> WorksheetPart::GetDrawingsPart() const
 
 std::shared_ptr<DrawingsPart> WorksheetPart::AddDrawingsPart(const std::shared_ptr<DrawingsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDrawingsPart(instance);
     return instance;
 }
@@ -15293,7 +15295,7 @@ std::vector<std::shared_ptr<VmlDrawingPart>> WorksheetPart::GetVmlDrawingParts()
 
 std::shared_ptr<VmlDrawingPart> WorksheetPart::AddVmlDrawingPart(const std::shared_ptr<VmlDrawingPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, VmlDrawingPart::Descriptor(), true);
     return instance;
 }
@@ -15314,7 +15316,7 @@ std::shared_ptr<WorksheetCommentsPart> WorksheetPart::GetWorksheetCommentsPart()
 
 std::shared_ptr<WorksheetCommentsPart> WorksheetPart::AddWorksheetCommentsPart(const std::shared_ptr<WorksheetCommentsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWorksheetCommentsPart(instance);
     return instance;
 }
@@ -15353,7 +15355,7 @@ std::vector<std::shared_ptr<PivotTablePart>> WorksheetPart::GetPivotTableParts()
 
 std::shared_ptr<PivotTablePart> WorksheetPart::AddPivotTablePart(const std::shared_ptr<PivotTablePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, PivotTablePart::Descriptor(), true);
     return instance;
 }
@@ -15374,7 +15376,7 @@ std::shared_ptr<SingleCellTablePart> WorksheetPart::GetSingleCellTablePart() con
 
 std::shared_ptr<SingleCellTablePart> WorksheetPart::AddSingleCellTablePart(const std::shared_ptr<SingleCellTablePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetSingleCellTablePart(instance);
     return instance;
 }
@@ -15413,7 +15415,7 @@ std::vector<std::shared_ptr<TableDefinitionPart>> WorksheetPart::GetTableDefinit
 
 std::shared_ptr<TableDefinitionPart> WorksheetPart::AddTableDefinitionPart(const std::shared_ptr<TableDefinitionPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, TableDefinitionPart::Descriptor(), true);
     return instance;
 }
@@ -15434,7 +15436,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistencePart>> WorksheetPart::GetE
 
 std::shared_ptr<EmbeddedControlPersistencePart> WorksheetPart::AddEmbeddedControlPersistencePart(const std::shared_ptr<EmbeddedControlPersistencePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistencePart::Descriptor(), true);
     return instance;
 }
@@ -15455,7 +15457,7 @@ std::vector<std::shared_ptr<ControlPropertiesPart>> WorksheetPart::GetControlPro
 
 std::shared_ptr<ControlPropertiesPart> WorksheetPart::AddControlPropertiesPart(const std::shared_ptr<ControlPropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ControlPropertiesPart::Descriptor(), true);
     return instance;
 }
@@ -15476,7 +15478,7 @@ std::vector<std::shared_ptr<EmbeddedObjectPart>> WorksheetPart::GetEmbeddedObjec
 
 std::shared_ptr<EmbeddedObjectPart> WorksheetPart::AddEmbeddedObjectPart(const std::shared_ptr<EmbeddedObjectPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedObjectPart::Descriptor(), true);
     return instance;
 }
@@ -15497,7 +15499,7 @@ std::vector<std::shared_ptr<EmbeddedPackagePart>> WorksheetPart::GetEmbeddedPack
 
 std::shared_ptr<EmbeddedPackagePart> WorksheetPart::AddEmbeddedPackagePart(const std::shared_ptr<EmbeddedPackagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedPackagePart::Descriptor(), true);
     return instance;
 }
@@ -15518,7 +15520,7 @@ std::vector<std::shared_ptr<ImagePart>> WorksheetPart::GetImageParts() const
 
 std::shared_ptr<ImagePart> WorksheetPart::AddImagePart(const std::shared_ptr<ImagePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, ImagePart::Descriptor(), true);
     return instance;
 }
@@ -15539,7 +15541,7 @@ std::vector<std::shared_ptr<CustomPropertyPart>> WorksheetPart::GetCustomPropert
 
 std::shared_ptr<CustomPropertyPart> WorksheetPart::AddCustomPropertyPart(const std::shared_ptr<CustomPropertyPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, CustomPropertyPart::Descriptor(), true);
     return instance;
 }
@@ -15560,7 +15562,7 @@ std::shared_ptr<WorksheetSortMapPart> WorksheetPart::GetWorksheetSortMapPart() c
 
 std::shared_ptr<WorksheetSortMapPart> WorksheetPart::AddWorksheetSortMapPart(const std::shared_ptr<WorksheetSortMapPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWorksheetSortMapPart(instance);
     return instance;
 }
@@ -15599,7 +15601,7 @@ std::vector<std::shared_ptr<QueryTablePart>> WorksheetPart::GetQueryTableParts()
 
 std::shared_ptr<QueryTablePart> WorksheetPart::AddQueryTablePart(const std::shared_ptr<QueryTablePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, QueryTablePart::Descriptor(), true);
     return instance;
 }
@@ -15620,7 +15622,7 @@ std::vector<std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>> Worksheet
 
 std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart> WorksheetPart::AddEmbeddedControlPersistenceBinaryDataPart(const std::shared_ptr<EmbeddedControlPersistenceBinaryDataPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, EmbeddedControlPersistenceBinaryDataPart::Descriptor(), true);
     return instance;
 }
@@ -15641,7 +15643,7 @@ std::vector<std::shared_ptr<SlicersPart>> WorksheetPart::GetSlicersParts() const
 
 std::shared_ptr<SlicersPart> WorksheetPart::AddSlicersPart(const std::shared_ptr<SlicersPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, SlicersPart::Descriptor(), true);
     return instance;
 }
@@ -15662,7 +15664,7 @@ std::vector<std::shared_ptr<TimeLinePart>> WorksheetPart::GetTimeLineParts() con
 
 std::shared_ptr<TimeLinePart> WorksheetPart::AddTimeLinePart(const std::shared_ptr<TimeLinePart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, TimeLinePart::Descriptor(), true);
     return instance;
 }
@@ -15683,7 +15685,7 @@ std::vector<std::shared_ptr<WorksheetThreadedCommentsPart>> WorksheetPart::GetWo
 
 std::shared_ptr<WorksheetThreadedCommentsPart> WorksheetPart::AddWorksheetThreadedCommentsPart(const std::shared_ptr<WorksheetThreadedCommentsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, WorksheetThreadedCommentsPart::Descriptor(), true);
     return instance;
 }
@@ -15704,7 +15706,7 @@ std::vector<std::shared_ptr<Model3DReferenceRelationshipPart>> WorksheetPart::Ge
 
 std::shared_ptr<Model3DReferenceRelationshipPart> WorksheetPart::AddModel3DReferenceRelationshipPart(const std::shared_ptr<Model3DReferenceRelationshipPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, Model3DReferenceRelationshipPart::Descriptor(), true);
     return instance;
 }
@@ -15725,7 +15727,7 @@ std::vector<std::shared_ptr<NamedSheetViewsPart>> WorksheetPart::GetNamedSheetVi
 
 std::shared_ptr<NamedSheetViewsPart> WorksheetPart::AddNamedSheetViewsPart(const std::shared_ptr<NamedSheetViewsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     AttachChildPart(instance, NamedSheetViewsPart::Descriptor(), true);
     return instance;
 }
@@ -15749,7 +15751,7 @@ WorksheetSortMapPart::~WorksheetSortMapPart() = default;
 
 const OpenXmlPartDescriptor& WorksheetSortMapPart::Descriptor() noexcept
 {
-    return kWorksheetSortMapPartDescriptor;
+    return GeneratedPartsHelper::kWorksheetSortMapPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office::Excel::WorksheetSortMap> WorksheetSortMapPart::GetWorksheetSortMap() const
@@ -15777,7 +15779,7 @@ WorksheetThreadedCommentsPart::~WorksheetThreadedCommentsPart() = default;
 
 const OpenXmlPartDescriptor& WorksheetThreadedCommentsPart::Descriptor() noexcept
 {
-    return kWorksheetThreadedCommentsPartDescriptor;
+    return GeneratedPartsHelper::kWorksheetThreadedCommentsPartDescriptor;
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::ThreadedComments> WorksheetThreadedCommentsPart::GetThreadedComments() const
@@ -15805,7 +15807,7 @@ XmlSignaturePart::~XmlSignaturePart() = default;
 
 const OpenXmlPartDescriptor& XmlSignaturePart::Descriptor() noexcept
 {
-    return kXmlSignaturePartDescriptor;
+    return GeneratedPartsHelper::kXmlSignaturePartDescriptor;
 }
 
 PresentationDocument::PresentationDocument() = default;
@@ -15818,7 +15820,7 @@ std::shared_ptr<PresentationPart> PresentationDocument::GetPresentationPart() co
 
 std::shared_ptr<PresentationPart> PresentationDocument::AddPresentationPart(const std::shared_ptr<PresentationPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetPresentationPart(instance);
     return instance;
 }
@@ -15857,7 +15859,7 @@ std::shared_ptr<CoreFilePropertiesPart> PresentationDocument::GetCoreFilePropert
 
 std::shared_ptr<CoreFilePropertiesPart> PresentationDocument::AddCoreFilePropertiesPart(const std::shared_ptr<CoreFilePropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCoreFilePropertiesPart(instance);
     return instance;
 }
@@ -15896,7 +15898,7 @@ std::shared_ptr<ExtendedFilePropertiesPart> PresentationDocument::GetExtendedFil
 
 std::shared_ptr<ExtendedFilePropertiesPart> PresentationDocument::AddExtendedFilePropertiesPart(const std::shared_ptr<ExtendedFilePropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetExtendedFilePropertiesPart(instance);
     return instance;
 }
@@ -15935,7 +15937,7 @@ std::shared_ptr<CustomFilePropertiesPart> PresentationDocument::GetCustomFilePro
 
 std::shared_ptr<CustomFilePropertiesPart> PresentationDocument::AddCustomFilePropertiesPart(const std::shared_ptr<CustomFilePropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCustomFilePropertiesPart(instance);
     return instance;
 }
@@ -15974,7 +15976,7 @@ std::shared_ptr<ThumbnailPart> PresentationDocument::GetThumbnailPart() const
 
 std::shared_ptr<ThumbnailPart> PresentationDocument::AddThumbnailPart(const std::shared_ptr<ThumbnailPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThumbnailPart(instance);
     return instance;
 }
@@ -16013,7 +16015,7 @@ std::shared_ptr<DigitalSignatureOriginPart> PresentationDocument::GetDigitalSign
 
 std::shared_ptr<DigitalSignatureOriginPart> PresentationDocument::AddDigitalSignatureOriginPart(const std::shared_ptr<DigitalSignatureOriginPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDigitalSignatureOriginPart(instance);
     return instance;
 }
@@ -16052,7 +16054,7 @@ std::shared_ptr<QuickAccessToolbarCustomizationsPart> PresentationDocument::GetQ
 
 std::shared_ptr<QuickAccessToolbarCustomizationsPart> PresentationDocument::AddQuickAccessToolbarCustomizationsPart(const std::shared_ptr<QuickAccessToolbarCustomizationsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetQuickAccessToolbarCustomizationsPart(instance);
     return instance;
 }
@@ -16091,7 +16093,7 @@ std::shared_ptr<RibbonExtensibilityPart> PresentationDocument::GetRibbonExtensib
 
 std::shared_ptr<RibbonExtensibilityPart> PresentationDocument::AddRibbonExtensibilityPart(const std::shared_ptr<RibbonExtensibilityPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetRibbonExtensibilityPart(instance);
     return instance;
 }
@@ -16130,7 +16132,7 @@ std::shared_ptr<RibbonAndBackstageCustomizationsPart> PresentationDocument::GetR
 
 std::shared_ptr<RibbonAndBackstageCustomizationsPart> PresentationDocument::AddRibbonAndBackstageCustomizationsPart(const std::shared_ptr<RibbonAndBackstageCustomizationsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetRibbonAndBackstageCustomizationsPart(instance);
     return instance;
 }
@@ -16169,7 +16171,7 @@ std::shared_ptr<WebExTaskpanesPart> PresentationDocument::GetWebExTaskpanesPart(
 
 std::shared_ptr<WebExTaskpanesPart> PresentationDocument::AddWebExTaskpanesPart(const std::shared_ptr<WebExTaskpanesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWebExTaskpanesPart(instance);
     return instance;
 }
@@ -16208,7 +16210,7 @@ std::shared_ptr<LabelInfoPart> PresentationDocument::GetLabelInfoPart() const
 
 std::shared_ptr<LabelInfoPart> PresentationDocument::AddLabelInfoPart(const std::shared_ptr<LabelInfoPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetLabelInfoPart(instance);
     return instance;
 }
@@ -16250,7 +16252,7 @@ std::shared_ptr<WorkbookPart> SpreadsheetDocument::GetWorkbookPart() const
 
 std::shared_ptr<WorkbookPart> SpreadsheetDocument::AddWorkbookPart(const std::shared_ptr<WorkbookPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWorkbookPart(instance);
     return instance;
 }
@@ -16289,7 +16291,7 @@ std::shared_ptr<CoreFilePropertiesPart> SpreadsheetDocument::GetCoreFileProperti
 
 std::shared_ptr<CoreFilePropertiesPart> SpreadsheetDocument::AddCoreFilePropertiesPart(const std::shared_ptr<CoreFilePropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCoreFilePropertiesPart(instance);
     return instance;
 }
@@ -16328,7 +16330,7 @@ std::shared_ptr<ExtendedFilePropertiesPart> SpreadsheetDocument::GetExtendedFile
 
 std::shared_ptr<ExtendedFilePropertiesPart> SpreadsheetDocument::AddExtendedFilePropertiesPart(const std::shared_ptr<ExtendedFilePropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetExtendedFilePropertiesPart(instance);
     return instance;
 }
@@ -16367,7 +16369,7 @@ std::shared_ptr<CustomFilePropertiesPart> SpreadsheetDocument::GetCustomFileProp
 
 std::shared_ptr<CustomFilePropertiesPart> SpreadsheetDocument::AddCustomFilePropertiesPart(const std::shared_ptr<CustomFilePropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCustomFilePropertiesPart(instance);
     return instance;
 }
@@ -16406,7 +16408,7 @@ std::shared_ptr<ThumbnailPart> SpreadsheetDocument::GetThumbnailPart() const
 
 std::shared_ptr<ThumbnailPart> SpreadsheetDocument::AddThumbnailPart(const std::shared_ptr<ThumbnailPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThumbnailPart(instance);
     return instance;
 }
@@ -16445,7 +16447,7 @@ std::shared_ptr<DigitalSignatureOriginPart> SpreadsheetDocument::GetDigitalSigna
 
 std::shared_ptr<DigitalSignatureOriginPart> SpreadsheetDocument::AddDigitalSignatureOriginPart(const std::shared_ptr<DigitalSignatureOriginPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDigitalSignatureOriginPart(instance);
     return instance;
 }
@@ -16484,7 +16486,7 @@ std::shared_ptr<QuickAccessToolbarCustomizationsPart> SpreadsheetDocument::GetQu
 
 std::shared_ptr<QuickAccessToolbarCustomizationsPart> SpreadsheetDocument::AddQuickAccessToolbarCustomizationsPart(const std::shared_ptr<QuickAccessToolbarCustomizationsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetQuickAccessToolbarCustomizationsPart(instance);
     return instance;
 }
@@ -16523,7 +16525,7 @@ std::shared_ptr<RibbonExtensibilityPart> SpreadsheetDocument::GetRibbonExtensibi
 
 std::shared_ptr<RibbonExtensibilityPart> SpreadsheetDocument::AddRibbonExtensibilityPart(const std::shared_ptr<RibbonExtensibilityPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetRibbonExtensibilityPart(instance);
     return instance;
 }
@@ -16562,7 +16564,7 @@ std::shared_ptr<RibbonAndBackstageCustomizationsPart> SpreadsheetDocument::GetRi
 
 std::shared_ptr<RibbonAndBackstageCustomizationsPart> SpreadsheetDocument::AddRibbonAndBackstageCustomizationsPart(const std::shared_ptr<RibbonAndBackstageCustomizationsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetRibbonAndBackstageCustomizationsPart(instance);
     return instance;
 }
@@ -16601,7 +16603,7 @@ std::shared_ptr<WebExTaskpanesPart> SpreadsheetDocument::GetWebExTaskpanesPart()
 
 std::shared_ptr<WebExTaskpanesPart> SpreadsheetDocument::AddWebExTaskpanesPart(const std::shared_ptr<WebExTaskpanesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWebExTaskpanesPart(instance);
     return instance;
 }
@@ -16640,7 +16642,7 @@ std::shared_ptr<LabelInfoPart> SpreadsheetDocument::GetLabelInfoPart() const
 
 std::shared_ptr<LabelInfoPart> SpreadsheetDocument::AddLabelInfoPart(const std::shared_ptr<LabelInfoPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetLabelInfoPart(instance);
     return instance;
 }
@@ -16682,7 +16684,7 @@ std::shared_ptr<MainDocumentPart> WordprocessingDocument::GetMainDocumentPart() 
 
 std::shared_ptr<MainDocumentPart> WordprocessingDocument::AddMainDocumentPart(const std::shared_ptr<MainDocumentPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetMainDocumentPart(instance);
     return instance;
 }
@@ -16721,7 +16723,7 @@ std::shared_ptr<CoreFilePropertiesPart> WordprocessingDocument::GetCoreFilePrope
 
 std::shared_ptr<CoreFilePropertiesPart> WordprocessingDocument::AddCoreFilePropertiesPart(const std::shared_ptr<CoreFilePropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCoreFilePropertiesPart(instance);
     return instance;
 }
@@ -16760,7 +16762,7 @@ std::shared_ptr<ExtendedFilePropertiesPart> WordprocessingDocument::GetExtendedF
 
 std::shared_ptr<ExtendedFilePropertiesPart> WordprocessingDocument::AddExtendedFilePropertiesPart(const std::shared_ptr<ExtendedFilePropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetExtendedFilePropertiesPart(instance);
     return instance;
 }
@@ -16799,7 +16801,7 @@ std::shared_ptr<CustomFilePropertiesPart> WordprocessingDocument::GetCustomFileP
 
 std::shared_ptr<CustomFilePropertiesPart> WordprocessingDocument::AddCustomFilePropertiesPart(const std::shared_ptr<CustomFilePropertiesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetCustomFilePropertiesPart(instance);
     return instance;
 }
@@ -16838,7 +16840,7 @@ std::shared_ptr<ThumbnailPart> WordprocessingDocument::GetThumbnailPart() const
 
 std::shared_ptr<ThumbnailPart> WordprocessingDocument::AddThumbnailPart(const std::shared_ptr<ThumbnailPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetThumbnailPart(instance);
     return instance;
 }
@@ -16877,7 +16879,7 @@ std::shared_ptr<DigitalSignatureOriginPart> WordprocessingDocument::GetDigitalSi
 
 std::shared_ptr<DigitalSignatureOriginPart> WordprocessingDocument::AddDigitalSignatureOriginPart(const std::shared_ptr<DigitalSignatureOriginPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetDigitalSignatureOriginPart(instance);
     return instance;
 }
@@ -16916,7 +16918,7 @@ std::shared_ptr<QuickAccessToolbarCustomizationsPart> WordprocessingDocument::Ge
 
 std::shared_ptr<QuickAccessToolbarCustomizationsPart> WordprocessingDocument::AddQuickAccessToolbarCustomizationsPart(const std::shared_ptr<QuickAccessToolbarCustomizationsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetQuickAccessToolbarCustomizationsPart(instance);
     return instance;
 }
@@ -16955,7 +16957,7 @@ std::shared_ptr<RibbonExtensibilityPart> WordprocessingDocument::GetRibbonExtens
 
 std::shared_ptr<RibbonExtensibilityPart> WordprocessingDocument::AddRibbonExtensibilityPart(const std::shared_ptr<RibbonExtensibilityPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetRibbonExtensibilityPart(instance);
     return instance;
 }
@@ -16994,7 +16996,7 @@ std::shared_ptr<RibbonAndBackstageCustomizationsPart> WordprocessingDocument::Ge
 
 std::shared_ptr<RibbonAndBackstageCustomizationsPart> WordprocessingDocument::AddRibbonAndBackstageCustomizationsPart(const std::shared_ptr<RibbonAndBackstageCustomizationsPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetRibbonAndBackstageCustomizationsPart(instance);
     return instance;
 }
@@ -17033,7 +17035,7 @@ std::shared_ptr<WebExTaskpanesPart> WordprocessingDocument::GetWebExTaskpanesPar
 
 std::shared_ptr<WebExTaskpanesPart> WordprocessingDocument::AddWebExTaskpanesPart(const std::shared_ptr<WebExTaskpanesPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetWebExTaskpanesPart(instance);
     return instance;
 }
@@ -17072,7 +17074,7 @@ std::shared_ptr<LabelInfoPart> WordprocessingDocument::GetLabelInfoPart() const
 
 std::shared_ptr<LabelInfoPart> WordprocessingDocument::AddLabelInfoPart(const std::shared_ptr<LabelInfoPart>& part)
 {
-    auto instance = PreparePart(part);
+    auto instance = GeneratedPartsHelper::PreparePart(part);
     SetLabelInfoPart(instance);
     return instance;
 }

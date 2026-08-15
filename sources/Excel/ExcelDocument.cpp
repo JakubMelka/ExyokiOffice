@@ -2305,40 +2305,15 @@ bool ExcelDocumentEditor::RestoreMemento(const DocumentEditMemento& memento,
     return true;
 }
 
-DocumentEditTransaction ExcelDocumentEditor::BeginTransaction(
-    const ICancellationToken* cancellationToken)
+DocumentEditTransaction ExcelDocumentEditor::BeginTransaction(const ICancellationToken* cancellationToken)
 {
-    if (!m_transactionOwner || !m_transactionOwner->IsAlive(this))
-    {
-        m_transactionOwner = std::make_shared<detail::DocumentEditTransactionOwner>(this);
-    }
-
-    if (!m_transactionOwner->TryBeginTransaction(this))
-    {
-        return {};
-    }
-
-    try
-    {
-        auto memento = CreateMemento(cancellationToken);
-        if (!memento)
-        {
-            m_transactionOwner->EndTransaction(this);
-            return {};
-        }
-
-        return DocumentEditTransaction(
-            std::move(*memento),
-            [this](const DocumentEditMemento& value)
-            { return RestoreMemento(value); },
-            m_transactionOwner,
-            this);
-    }
-    catch (...)
-    {
-        m_transactionOwner->EndTransaction(this);
-        throw;
-    }
+    return detail::DocumentEditTransactionStarter::Begin(
+        m_transactionOwner,
+        this,
+        [this, cancellationToken]
+        { return CreateMemento(cancellationToken); },
+        [this](const DocumentEditMemento& value)
+        { return RestoreMemento(value); });
 }
 
 void ExcelDocumentEditor::SetDocument(const ExcelDocument::Ptr& document)
