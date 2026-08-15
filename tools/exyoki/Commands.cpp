@@ -61,16 +61,23 @@ std::string ReportEmitter::Render(const ReportDocument& document, const std::str
     return RenderPlain(document);
 }
 
-void ReportEmitter::WritePayload(const std::string& payload, const GlobalOptions& options)
+bool ReportEmitter::WritePayload(const std::string& payload, const GlobalOptions& options)
 {
     if (options.Output == "-")
     {
         std::cout << payload;
-        return;
+        return static_cast<bool>(std::cout);
     }
 
     std::ofstream file(options.Output, std::ios::binary | std::ios::trunc);
     file << payload;
+    file.close();
+    if (!file)
+    {
+        std::cerr << "exyoki: cannot write '" << options.Output << "'\n";
+        return false;
+    }
+    return true;
 }
 
 void ReportEmitter::WriteDiagnostics(const std::vector<ToolDiagnostic>& diagnostics, bool quiet)
@@ -91,9 +98,9 @@ void ReportEmitter::WriteDiagnostics(const std::vector<ToolDiagnostic>& diagnost
     }
 }
 
-void ReportEmitter::Emit(const ReportDocument& document, const GlobalOptions& options)
+bool ReportEmitter::Emit(const ReportDocument& document, const GlobalOptions& options)
 {
-    WritePayload(Render(document, options.Format), options);
+    const bool written = WritePayload(Render(document, options.Format), options);
 
     // The other formats are consumed by a program, which reads the diagnostics
     // out of the document itself rather than off the error stream.
@@ -101,13 +108,17 @@ void ReportEmitter::Emit(const ReportDocument& document, const GlobalOptions& op
     {
         WriteDiagnostics(document.Diagnostics, options.Quiet);
     }
+    return written;
 }
 
 int ReportEmitter::Finish(const CommandOutcome& outcome, const GlobalOptions& options)
 {
     if (!outcome.WroteOwnOutput)
     {
-        Emit(outcome.Document, options);
+        if (!Emit(outcome.Document, options))
+        {
+            return static_cast<int>(ExitCode::OperationFailed);
+        }
     }
 
     return static_cast<int>(outcome.Code);
@@ -196,10 +207,14 @@ CommandOutcome PropsSetCommand::Run(const CommandContext&) const
     for (const auto& entry : Custom)
     {
         const auto equals = entry.find('=');
-        if (equals != std::string::npos)
+        if (equals == std::string::npos || equals == 0)
         {
-            updates.emplace_back(entry.substr(0, equals), entry.substr(equals + 1));
+            auto document = AdaptPropsSet(false, "", "");
+            document.Diagnostics.push_back(
+                ToolDiagnostic{ToolSeverity::Error, "Property assignment must be in name=value form", entry});
+            return {std::move(document), ExitCode::UsageError};
         }
+        updates.emplace_back(entry.substr(0, equals), entry.substr(equals + 1));
     }
 
     // The report names the last property written, so an empty --set list is
@@ -601,8 +616,8 @@ CommandOutcome SchemaCommand::Run(const CommandContext& context) const
 
     // The schema is the payload itself, not a report envelope; --format does
     // not apply, while --output still selects the destination.
-    ReportEmitter::WritePayload(GetDocumentModelJsonSchema(), context.Options);
-    return {{}, ExitCode::Ok, true};
+    const bool written = ReportEmitter::WritePayload(GetDocumentModelJsonSchema(), context.Options);
+    return {{}, written ? ExitCode::Ok : ExitCode::OperationFailed, true};
 }
 
 CommandOutcome CompletionsCommand::Run(const CommandContext& context) const
@@ -616,8 +631,8 @@ CommandOutcome CompletionsCommand::Run(const CommandContext& context) const
         return {{}, ExitCode::UsageError, true};
     }
 
-    ReportEmitter::WritePayload(script, context.Options);
-    return {{}, ExitCode::Ok, true};
+    const bool written = ReportEmitter::WritePayload(script, context.Options);
+    return {{}, written ? ExitCode::Ok : ExitCode::OperationFailed, true};
 }
 
 } // namespace exyoki

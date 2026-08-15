@@ -77,7 +77,11 @@ public:
     [[nodiscard]] const exyoki::CommandContext& Context() const noexcept { return m_context; }
     [[nodiscard]] exyoki::GlobalOptions& Options() noexcept { return m_options; }
     [[nodiscard]] exyoki::CommandSet& Commands() noexcept { return m_commands; }
+    [[nodiscard]] std::vector<exyoki::DispatchEntry>& Dispatch() noexcept { return m_dispatch; }
     [[nodiscard]] CLI::App& App() noexcept { return m_app; }
+
+    /// Parses arguments exactly as main() would, while leaving bound fields available to assertions.
+    void Parse(std::vector<std::string> arguments);
 
 private:
     CLI::App m_app{"exyoki - ExyokiOffice command-line utility for OPC packages"};
@@ -99,8 +103,20 @@ public:
      */
     [[nodiscard]] static std::filesystem::path WordDocument(std::string_view marker = "Alpha");
 
+    /// A Word document containing one embedded PNG.
+    [[nodiscard]] static std::filesystem::path WordDocumentWithImage();
+
+    /// A loadable Word package whose main part violates the Word content model twice.
+    [[nodiscard]] static std::filesystem::path InvalidWordDocument();
+
+    /// A Word mail-merge template with one MERGEFIELD.
+    [[nodiscard]] static std::filesystem::path WordTemplate();
+
     /// A .xlsx with a named worksheet, a few text cells and a formula.
     [[nodiscard]] static std::filesystem::path Workbook();
+
+    /// The Office-signed corpus document saved after changing signed content.
+    [[nodiscard]] static std::filesystem::path TamperedSignedDocument();
 
     /// A .pptx with two titled slides.
     [[nodiscard]] static std::filesystem::path Presentation();

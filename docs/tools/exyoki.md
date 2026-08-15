@@ -109,6 +109,9 @@ In `plain`/`markdown` mode, the report goes to stdout (or `--output`) and
 diagnostics are additionally printed to stderr (suppressed by `--quiet`). In
 `json`/`xml` mode, diagnostics are only in the envelope, so stderr can be
 ignored (and `--quiet` has no additional effect).
+If the `--output` file cannot be opened or completely written, the command
+reports the I/O error on stderr and exits with code `1` instead of silently
+succeeding.
 
 The JSON envelope looks like:
 
@@ -343,6 +346,8 @@ the package is updated in place. `props set` never creates a properties part
 that doesn't already exist — virtually every real Word/Excel/PowerPoint file
 has one; if a package genuinely lacks core/extended properties, the affected
 property update reports `updated: false` with a diagnostic.
+Every `--set` value must contain a non-empty name followed by `=`; malformed
+assignments are usage errors (exit code `2`).
 
 ```
 $ exyoki props set report.docx --title "New Title" --out-package retitled.docx
@@ -464,7 +469,7 @@ data:
 
 The exit code is the worst outcome across all files: `1` when any file failed
 to load, else `3` when any file has errors, else `0`. `--max-issues` caps the
-issue list per file, not in total. A wildcard that matches nothing adds a
+issue list per file, not in total, and must be non-negative. A wildcard that matches nothing adds a
 warning diagnostic; when no input remains at all, the command fails with
 exit code `1`.
 

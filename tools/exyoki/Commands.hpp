@@ -81,10 +81,10 @@ public:
     static std::string Render(const ReportDocument& document, const std::string& format);
 
     /// Writes the rendered report to --output (or stdout) and diagnostics to stderr.
-    static void Emit(const ReportDocument& document, const GlobalOptions& options);
+    [[nodiscard]] static bool Emit(const ReportDocument& document, const GlobalOptions& options);
 
     /// Writes a command's own payload to --output (or stdout), with no envelope.
-    static void WritePayload(const std::string& payload, const GlobalOptions& options);
+    [[nodiscard]] static bool WritePayload(const std::string& payload, const GlobalOptions& options);
 
     /// Writes @p diagnostics to stderr, unless --quiet.
     static void WriteDiagnostics(const std::vector<ToolDiagnostic>& diagnostics, bool quiet);

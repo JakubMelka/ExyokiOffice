@@ -41,8 +41,10 @@ inline constexpr std::array<ExitCodeDescription, 9> AllExitCodes{
       "support."},
      {ExitCode::UsageError, "usageError", "The command line could not be parsed or the arguments are inconsistent."},
      {ExitCode::ValidationErrors, "validationErrors",
-      "validate found at least one error (or a warning, with --warnings-as-errors)."},
-     {ExitCode::DiffDifferent, "diffDifferent", "diff found at least one difference between the two packages."},
+      "validate found at least one error (or a warning, with --warnings-as-errors), or schema --check found a "
+      "non-conforming document."},
+     {ExitCode::DiffDifferent, "diffDifferent",
+      "diff found at least one package difference, or compare created at least one tracked revision."},
      {ExitCode::SearchNoMatch, "searchNoMatch", "search completed but matched nothing (grep-like convention)."},
      {ExitCode::QueryNoMatch, "queryNoMatch", "query completed but matched no nodes (grep-like convention)."},
      {ExitCode::UnhandledException, "unhandledException", "An unexpected exception escaped the command."},

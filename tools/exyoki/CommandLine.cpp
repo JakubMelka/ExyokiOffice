@@ -45,7 +45,9 @@ std::vector<DispatchEntry> BuildCommandLine(CLI::App& app, GlobalOptions& option
     // parts
     auto* partsCmd = app.add_subcommand("parts", "List every part in a package")->fallthrough();
     partsCmd->add_option("package", commands.Parts.Package, "Path to the .docx/.xlsx/.pptx package")->required();
-    partsCmd->add_option("--sort", commands.Parts.Sort, "Sort order")->check(CLI::IsMember({"uri", "size", "type"}));
+    partsCmd->add_option("--sort", commands.Parts.Sort, "Sort order")
+        ->default_val("uri")
+        ->check(CLI::IsMember({"uri", "size", "type"}));
 
     // relationships
     auto* relCmd = app.add_subcommand("relationships", "List relationships in a package")->fallthrough();
@@ -89,7 +91,8 @@ std::vector<DispatchEntry> BuildCommandLine(CLI::App& app, GlobalOptions& option
     validateCmd->add_flag("--no-dom", commands.Validate.NoDom, "Skip per-part DOM/schema validation");
     validateCmd->add_flag("--cross-check-content-model", commands.Validate.CrossCheckContentModel,
                           "Check every content-model verdict against the reference matcher (slow)");
-    validateCmd->add_option("--max-issues", commands.Validate.MaxIssues, "Cap the number of reported issues");
+    validateCmd->add_option("--max-issues", commands.Validate.MaxIssues, "Cap the number of reported issues")
+        ->check(CLI::NonNegativeNumber);
     validateCmd->add_flag("--errors-only", commands.Validate.ErrorsOnly, "Only report errors");
     validateCmd->add_flag("--warnings-as-errors", commands.Validate.WarningsAsErrors, "Treat warnings as errors");
 
@@ -194,7 +197,8 @@ std::vector<DispatchEntry> BuildCommandLine(CLI::App& app, GlobalOptions& option
     searchCmd->add_option("package", commands.Search.Package, "Path to the .docx/.xlsx/.pptx package")->required();
     searchCmd->add_option("needle", commands.Search.Needle, "Text to search for")->required();
     searchCmd->add_option("--context", commands.Search.Context, "Characters of context on each side of a match")
-        ->default_val(40);
+        ->default_val(40)
+        ->check(CLI::NonNegativeNumber);
     searchCmd->add_flag("--regex", commands.Search.Regex, "Treat <needle> as an ECMAScript regular expression");
     searchCmd->add_flag("--ignore-case", commands.Search.IgnoreCase, "Case-insensitive match (plain text or regex)");
 
@@ -204,7 +208,9 @@ std::vector<DispatchEntry> BuildCommandLine(CLI::App& app, GlobalOptions& option
     queryCmd->add_option("xpath", commands.Query.Xpath, "XPath 1.0 expression (prefixed names resolve by namespace)")->required();
     queryCmd->add_option("--part", commands.Query.Part, "Part URI to query (default: the main document part)");
     queryCmd->add_option("--ns", commands.Query.Namespaces, "Bind a namespace prefix as prefix=uri (repeatable)");
-    queryCmd->add_option("--max", commands.Query.Max, "Maximum matches to return (0 = unlimited)")->default_val(0);
+    queryCmd->add_option("--max", commands.Query.Max, "Maximum matches to return (0 = unlimited)")
+        ->default_val(0)
+        ->check(CLI::NonNegativeNumber);
 
     // extract-text
     auto* extractCmd = app.add_subcommand("extract-text", "Extract all readable text from a Word/Excel/PowerPoint package")->fallthrough();

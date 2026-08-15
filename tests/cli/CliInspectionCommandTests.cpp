@@ -85,14 +85,19 @@ TEST_CASE("info recognizes the document family [cli] [cli-inspect]")
     const auto wordOutcome = word.Commands().Info.Run(word.Context());
     CHECK(wordOutcome.Code == ExitCode::Ok);
     CHECK(wordOutcome.Document.Command == "info");
+    CHECK(RenderJson(wordOutcome.Document).find("\"family\": \"word\"") != std::string::npos);
 
     ParserFixture workbook;
     workbook.Commands().Info.Package = Fixture::Workbook().string();
-    CHECK(workbook.Commands().Info.Run(workbook.Context()).Code == ExitCode::Ok);
+    const auto workbookOutcome = workbook.Commands().Info.Run(workbook.Context());
+    CHECK(workbookOutcome.Code == ExitCode::Ok);
+    CHECK(RenderJson(workbookOutcome.Document).find("\"family\": \"excel\"") != std::string::npos);
 
     ParserFixture presentation;
     presentation.Commands().Info.Package = Fixture::Presentation().string();
-    CHECK(presentation.Commands().Info.Run(presentation.Context()).Code == ExitCode::Ok);
+    const auto presentationOutcome = presentation.Commands().Info.Run(presentation.Context());
+    CHECK(presentationOutcome.Code == ExitCode::Ok);
+    CHECK(RenderJson(presentationOutcome.Document).find("\"family\": \"powerpoint\"") != std::string::npos);
 
     ParserFixture missing;
     missing.Commands().Info.Package = MissingPackage::Path();
@@ -207,7 +212,7 @@ TEST_CASE("props set with nothing to write succeeds without saving [cli] [cli-in
     CHECK(!std::filesystem::exists(fixture.Commands().PropsSet.OutPackage));
 }
 
-TEST_CASE("props set ignores a --set argument with no equals sign [cli] [cli-inspect]")
+TEST_CASE("props set rejects a --set argument with no equals sign [cli] [cli-inspect]")
 {
     ParserFixture fixture;
     fixture.Commands().PropsSet.Package = Fixture::WordDocument().string();
@@ -216,8 +221,29 @@ TEST_CASE("props set ignores a --set argument with no equals sign [cli] [cli-ins
 
     const auto outcome = fixture.Commands().PropsSet.Run(fixture.Context());
 
-    CHECK(outcome.Code == ExitCode::Ok);
+    CHECK(outcome.Code == ExitCode::UsageError);
     CHECK(!std::filesystem::exists(fixture.Commands().PropsSet.OutPackage));
+    CHECK(RenderJson(outcome.Document).find("name=value") != std::string::npos);
+}
+
+TEST_CASE("props set rejects an empty property name [cli] [cli-inspect]")
+{
+    ParserFixture fixture;
+    fixture.Commands().PropsSet.Package = Fixture::WordDocument().string();
+    fixture.Commands().PropsSet.Custom = {"=value"};
+
+    CHECK(fixture.Commands().PropsSet.Run(fixture.Context()).Code == ExitCode::UsageError);
+}
+
+TEST_CASE("props set retains failure after a later assignment succeeds [cli] [cli-inspect]")
+{
+    ParserFixture fixture;
+    fixture.Commands().PropsSet.Package = Fixture::WordDocument().string();
+    fixture.Commands().PropsSet.Custom = {"Created=yesterday", "Department=Research"};
+    fixture.Commands().PropsSet.OutPackage = Fixture::UnusedPath(".docx").string();
+
+    CHECK(fixture.Commands().PropsSet.Run(fixture.Context()).Code == ExitCode::OperationFailed);
+    CHECK_FALSE(std::filesystem::exists(fixture.Commands().PropsSet.OutPackage));
 }
 
 TEST_CASE("signatures treats an unsigned package as intact [cli] [cli-inspect]")
@@ -235,6 +261,26 @@ TEST_CASE("signatures treats an unsigned package as intact [cli] [cli-inspect]")
     ParserFixture missing;
     missing.Commands().Signatures.Package = MissingPackage::Path();
     CHECK(missing.Commands().Signatures.Run(missing.Context()).Code == ExitCode::OperationFailed);
+}
+
+TEST_CASE("signatures accepts an intact signed package [cli] [cli-inspect]")
+{
+    ParserFixture fixture;
+    fixture.Commands().Signatures.Package =
+        (std::filesystem::path(EXYOKIOFFICE_SOURCE_DIR) / "corpus" / "word" / "DigitalSignature.docx").string();
+
+    CHECK(fixture.Commands().Signatures.Run(fixture.Context()).Code == ExitCode::Ok);
+}
+
+TEST_CASE("signatures returns its dedicated code for changed signed content [cli] [cli-inspect]")
+{
+    ParserFixture fixture;
+    fixture.Commands().Signatures.Package = Fixture::TamperedSignedDocument().string();
+
+    const auto outcome = fixture.Commands().Signatures.Run(fixture.Context());
+
+    CHECK(outcome.Code == ExitCode::SignatureInvalid);
+    CHECK(outcome.Document.Command == "signatures");
 }
 
 TEST_CASE("external lists what the package references from outside [cli] [cli-inspect]")
@@ -278,6 +324,23 @@ TEST_CASE("validate reports a batch when given several packages [cli] [cli-inspe
     CHECK(outcome.Document.Command == "validate");
 }
 
+TEST_CASE("validate retains batch failures after the first failed file [cli] [cli-inspect]")
+{
+    ParserFixture fixture;
+    fixture.Commands().Validate.Packages = {"no-such-package-first.docx", Fixture::WordDocument().string()};
+
+    CHECK(fixture.Commands().Validate.Run(fixture.Context()).Code == ExitCode::OperationFailed);
+}
+
+TEST_CASE("validate retains a prior validation failure while scanning a batch [cli] [cli-inspect]")
+{
+    ParserFixture fixture;
+    fixture.Commands().Validate.Packages = {Fixture::InvalidWordDocument().string(),
+                                            Fixture::WordDocument().string()};
+
+    CHECK(fixture.Commands().Validate.Run(fixture.Context()).Code == ExitCode::ValidationErrors);
+}
+
 TEST_CASE("validate reports no input rather than succeeding at nothing [cli] [cli-inspect]")
 {
     ParserFixture fixture;
@@ -290,20 +353,31 @@ TEST_CASE("validate reports no input rather than succeeding at nothing [cli] [cl
     CHECK(RenderJson(outcome.Document).find("No input files") != std::string::npos);
 }
 
-TEST_CASE("validate honours --max-issues and the target Office version [cli] [cli-inspect]")
+TEST_CASE("validate caps reported issues while preserving the error exit code [cli] [cli-inspect]")
 {
-    const auto document = Fixture::WordDocument();
+    const auto document = Fixture::InvalidWordDocument();
 
     ParserFixture capped;
     capped.Commands().Validate.Packages = {document.string()};
-    capped.Commands().Validate.MaxIssues = 1;
-    CHECK(capped.Commands().Validate.Run(capped.Context()).Code == ExitCode::Ok);
+    capped.Commands().Validate.MaxIssues = 0;
+    const auto outcome = capped.Commands().Validate.Run(capped.Context());
 
-    ParserFixture legacy;
-    legacy.Commands().Validate.Packages = {document.string()};
-    legacy.Commands().Validate.OfficeVersion = "2007";
-    const auto outcome = legacy.Commands().Validate.Run(legacy.Context());
-    CHECK((outcome.Code == ExitCode::Ok || outcome.Code == ExitCode::ValidationErrors));
+    CHECK(outcome.Code == ExitCode::ValidationErrors);
+    ExyokiOffice::UInt64 errorCount = 0;
+    ExyokiOffice::Size reportedIssues = 0;
+    for (const auto& [key, value] : outcome.Document.Data.AsObject())
+    {
+        if (key == "errorCount")
+        {
+            errorCount = value.AsUInt();
+        }
+        else if (key == "issues")
+        {
+            reportedIssues = value.AsArray().size();
+        }
+    }
+    CHECK(errorCount >= 1);
+    CHECK(reportedIssues == 0);
 }
 
 TEST_CASE("extract-text returns the text of each family [cli] [cli-inspect]")
@@ -317,11 +391,15 @@ TEST_CASE("extract-text returns the text of each family [cli] [cli-inspect]")
 
     ParserFixture workbook;
     workbook.Commands().ExtractText.Package = Fixture::Workbook().string();
-    CHECK(workbook.Commands().ExtractText.Run(workbook.Context()).Code == ExitCode::Ok);
+    const auto workbookOutcome = workbook.Commands().ExtractText.Run(workbook.Context());
+    CHECK(workbookOutcome.Code == ExitCode::Ok);
+    CHECK(RenderJson(workbookOutcome.Document).find("Alpha") != std::string::npos);
 
     ParserFixture presentation;
     presentation.Commands().ExtractText.Package = Fixture::Presentation().string();
-    CHECK(presentation.Commands().ExtractText.Run(presentation.Context()).Code == ExitCode::Ok);
+    const auto presentationOutcome = presentation.Commands().ExtractText.Run(presentation.Context());
+    CHECK(presentationOutcome.Code == ExitCode::Ok);
+    CHECK(RenderJson(presentationOutcome.Document).find("Alpha slide") != std::string::npos);
 
     ParserFixture missing;
     missing.Commands().ExtractText.Package = MissingPackage::Path();
@@ -337,6 +415,9 @@ TEST_CASE("stat counts the content of a document [cli] [cli-inspect]")
 
     CHECK(outcome.Code == ExitCode::Ok);
     CHECK(outcome.Document.Command == "stat");
+    const auto rendered = RenderJson(outcome.Document);
+    CHECK(rendered.find("\"family\": \"word\"") != std::string::npos);
+    CHECK(rendered.find("\"paragraphCount\": 4") != std::string::npos);
 
     ParserFixture missing;
     missing.Commands().Stat.Package = MissingPackage::Path();
@@ -515,6 +596,26 @@ TEST_CASE("completions writes a script for every supported shell [cli] [cli-insp
         CHECK(outcome.Code == ExitCode::Ok);
         CHECK(outcome.WroteOwnOutput);
         CHECK(captured.Out().find("exyoki") != std::string::npos);
+        CHECK(captured.Out().find("--out-package") != std::string::npos);
+        CHECK(captured.Out().find("props") != std::string::npos);
+        CHECK(captured.Out().find("get") != std::string::npos);
+        CHECK(captured.Out().find("set") != std::string::npos);
+
+        if (std::string(shell) == "bash")
+        {
+            CHECK(captured.Out().find("--format|--output|--package-limits") != std::string::npos);
+        }
+        else if (std::string(shell) == "zsh")
+        {
+            CHECK(captured.Out().find("global_opts_with_values") != std::string::npos);
+            CHECK(captured.Out().find("skip_next") != std::string::npos);
+            CHECK(captured.Out().find("opts words") == std::string::npos);
+        }
+        else
+        {
+            CHECK(captured.Out().find("$globalOptionsWithValues") != std::string::npos);
+            CHECK(captured.Out().find("$skipNext") != std::string::npos);
+        }
     }
 }
 

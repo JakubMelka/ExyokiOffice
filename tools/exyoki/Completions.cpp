@@ -33,6 +33,10 @@ public:
             for (const auto* option : VisibleOptions(app))
             {
                 AppendLongNames(*option, m_globalOptions);
+                if (option->get_items_expected_max() != 0)
+                {
+                    AppendLongNames(*option, m_globalOptionsWithValues);
+                }
             }
             for (const auto* command : Subcommands(app))
             {
@@ -51,6 +55,7 @@ public:
         }
 
         const std::vector<std::string>& GlobalOptions() const { return m_globalOptions; }
+        const std::vector<std::string>& GlobalOptionsWithValues() const { return m_globalOptionsWithValues; }
         const std::vector<CommandWords>& Commands() const { return m_commands; }
 
         std::string CommandNameList() const
@@ -68,15 +73,16 @@ public:
         }
 
         std::string GlobalOptionList() const { return Join(m_globalOptions); }
+        std::string GlobalValueOptionPattern() const { return Join(m_globalOptionsWithValues, "|"); }
 
-        static std::string Join(const std::vector<std::string>& words)
+        static std::string Join(const std::vector<std::string>& words, std::string_view separator = " ")
         {
             std::string list;
             for (const auto& word : words)
             {
                 if (!list.empty())
                 {
-                    list += ' ';
+                    list += separator;
                 }
                 list += word;
             }
@@ -134,6 +140,7 @@ public:
         }
 
         std::vector<std::string> m_globalOptions;
+        std::vector<std::string> m_globalOptionsWithValues;
         std::vector<CommandWords> m_commands;
     };
 
@@ -168,6 +175,7 @@ public:
         script += "    cmd=\"\"\n";
         script += "    for ((i=1; i < COMP_CWORD; i++)); do\n";
         script += "        case \"${COMP_WORDS[i]}\" in\n";
+        script += "            " + model.GlobalValueOptionPattern() + ") i=$((i + 1)) ;;\n";
         script += "            -*) ;;\n";
         script += "            *) cmd=\"${COMP_WORDS[i]}\"; break ;;\n";
         script += "        esac\n";
@@ -207,7 +215,7 @@ public:
         script += "# somewhere on $fpath, e.g.: exyoki completions zsh > ~/.zsh/completions/_exyoki\n";
         script += "_exyoki()\n";
         script += "{\n";
-        script += "    local -a commands global_opts opts words\n";
+        script += "    local -a commands global_opts global_opts_with_values opts\n";
         script += "    commands=(\n";
         for (const auto& command : model.Commands())
         {
@@ -215,11 +223,21 @@ public:
         }
         script += "    )\n";
         script += "    global_opts=(" + model.GlobalOptionList() + ")\n";
+        script += "    global_opts_with_values=(" + CompletionModel::Join(model.GlobalOptionsWithValues()) + ")\n";
         script += "    if (( CURRENT == 2 )); then\n";
         script += "        _describe -t commands 'exyoki command' commands\n";
         script += "        return\n";
         script += "    fi\n";
-        script += "    local cmd=${words[2]}\n";
+        script += "    local cmd=\"\" token\n";
+        script += "    local i=2 skip_next=0\n";
+        script += "    while (( i < CURRENT )); do\n";
+        script += "        token=${words[i]}\n";
+        script += "        if (( skip_next )); then skip_next=0; (( i++ )); continue; fi\n";
+        script += "        if (( ${global_opts_with_values[(Ie)$token]} )); then skip_next=1\n";
+        script += "        elif [[ $token != -* ]]; then cmd=$token; break\n";
+        script += "        fi\n";
+        script += "        (( i++ ))\n";
+        script += "    done\n";
         script += "    local -a cmd_opts cmd_words\n";
         script += "    case $cmd in\n";
         for (const auto& command : model.Commands())
@@ -274,11 +292,22 @@ public:
             firstGlobal = false;
         }
         script += ")\n";
+        script += "    $globalOptionsWithValues = @(";
+        bool firstGlobalValue = true;
+        for (const auto& option : model.GlobalOptionsWithValues())
+        {
+            script += std::string(firstGlobalValue ? "" : ", ") + "'" + option + "'";
+            firstGlobalValue = false;
+        }
+        script += ")\n";
         script += "    $elements = $commandAst.CommandElements | Select-Object -Skip 1 |\n";
         script += "        ForEach-Object { $_.Extent.Text }\n";
         script += "    $command = $null\n";
+        script += "    $skipNext = $false\n";
         script += "    foreach ($element in $elements) {\n";
         script += "        if ($element -eq $wordToComplete) { continue }\n";
+        script += "        if ($skipNext) { $skipNext = $false; continue }\n";
+        script += "        if ($globalOptionsWithValues -contains $element) { $skipNext = $true; continue }\n";
         script += "        if (-not $element.StartsWith('-')) { $command = $element; break }\n";
         script += "    }\n";
         script += "    $candidates = if ($null -eq $command) {\n";

@@ -21,6 +21,7 @@ exyokioffice_add_test_executable(ExyokiOfficeCliTests
         CliInspectionCommandTests.cpp
         CliDocumentCommandTests.cpp
         CliReportTests.cpp
+        CliAdapterTests.cpp
     LINK exyoki_core)
 
 exyokioffice_add_test_area(cli

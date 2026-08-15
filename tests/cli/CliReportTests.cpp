@@ -65,7 +65,7 @@ TEST_CASE("--output sends the report to a file instead of stdout [cli] [cli-repo
     options.Output = destination.string();
 
     const CapturedOutput captured;
-    ReportEmitter::Emit(SampleReport::Build(), options);
+    REQUIRE(ReportEmitter::Emit(SampleReport::Build(), options));
 
     CHECK(captured.Out().empty());
     REQUIRE(std::filesystem::exists(destination));
@@ -85,7 +85,7 @@ TEST_CASE("Diagnostics reach stderr only for the human formats [cli] [cli-report
         options.Format = format;
 
         const CapturedOutput captured;
-        ReportEmitter::Emit(document, options);
+        REQUIRE(ReportEmitter::Emit(document, options));
         CHECK(captured.Err().find("A warning worth printing") != std::string::npos);
         CHECK(captured.Err().find("the context") != std::string::npos);
     }
@@ -97,7 +97,7 @@ TEST_CASE("Diagnostics reach stderr only for the human formats [cli] [cli-report
         options.Format = format;
 
         const CapturedOutput captured;
-        ReportEmitter::Emit(document, options);
+        REQUIRE(ReportEmitter::Emit(document, options));
         CHECK(captured.Err().empty());
     }
 }
@@ -108,7 +108,7 @@ TEST_CASE("--quiet silences the diagnostics but not the report [cli] [cli-report
     options.Quiet = true;
 
     const CapturedOutput captured;
-    ReportEmitter::Emit(SampleReport::Build(), options);
+    REQUIRE(ReportEmitter::Emit(SampleReport::Build(), options));
 
     CHECK(captured.Err().empty());
     CHECK(!captured.Out().empty());
@@ -119,7 +119,7 @@ TEST_CASE("A payload goes to stdout or to --output, with no envelope [cli] [cli-
     {
         GlobalOptions options;
         const CapturedOutput captured;
-        ReportEmitter::WritePayload("the payload", options);
+        REQUIRE(ReportEmitter::WritePayload("the payload", options));
         CHECK(captured.Out() == "the payload");
     }
 
@@ -128,10 +128,29 @@ TEST_CASE("A payload goes to stdout or to --output, with no envelope [cli] [cli-
     options.Output = destination.string();
 
     const CapturedOutput captured;
-    ReportEmitter::WritePayload("the payload", options);
+    REQUIRE(ReportEmitter::WritePayload("the payload", options));
 
     CHECK(captured.Out().empty());
     CHECK(Fixture::ReadText(destination) == "the payload");
+}
+
+TEST_CASE("An unwritable --output is an operation failure [cli] [cli-report]")
+{
+    const auto missingDirectory = Fixture::UnusedPath("");
+    GlobalOptions options;
+    options.Output = (missingDirectory / "report.json").string();
+
+    {
+        const CapturedOutput captured;
+        CHECK_FALSE(ReportEmitter::WritePayload("the payload", options));
+        CHECK(captured.Err().find("cannot write") != std::string::npos);
+    }
+    CHECK_FALSE(std::filesystem::exists(options.Output));
+
+    const CapturedOutput captured;
+    const exyoki::CommandOutcome outcome{SampleReport::Build(), ExitCode::Ok, false};
+    CHECK(ReportEmitter::Finish(outcome, options) == static_cast<int>(ExitCode::OperationFailed));
+    CHECK(captured.Err().find("cannot write") != std::string::npos);
 }
 
 TEST_CASE("Finish emits a report but never a payload command's [cli] [cli-report]")

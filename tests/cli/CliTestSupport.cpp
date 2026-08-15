@@ -5,8 +5,10 @@
 #include "CliTestSupport.hpp"
 
 #include "TestSupport.hpp"
+#include "ImageFixtures.hpp"
 
 #include "ExyokiOffice/Excel/ExcelDocument.hpp"
+#include "ExyokiOffice/OpenXmlPackage.hpp"
 #include "ExyokiOffice/PowerPoint/PowerPointDocument.hpp"
 #include "ExyokiOffice/Word/WordDocument.hpp"
 
@@ -39,6 +41,18 @@ ParserFixture::ParserFixture()
 {
 }
 
+void ParserFixture::Parse(std::vector<std::string> arguments)
+{
+    arguments.insert(arguments.begin(), "exyoki");
+    std::vector<char*> argv;
+    argv.reserve(arguments.size());
+    for (auto& argument : arguments)
+    {
+        argv.push_back(argument.data());
+    }
+    m_app.parse(static_cast<int>(argv.size()), argv.data());
+}
+
 std::filesystem::path Fixture::WordDocument(std::string_view marker)
 {
     auto editor = WordDocumentEditor::CreateNew();
@@ -61,6 +75,63 @@ std::filesystem::path Fixture::WordDocument(std::string_view marker)
     return path;
 }
 
+std::filesystem::path Fixture::WordDocumentWithImage()
+{
+    auto editor = WordDocumentEditor::CreateNew();
+    if (!editor || !editor->AddImageFromData(ExyokiOfficeTests::BuildPng(8, 8)))
+    {
+        throw std::runtime_error("could not create a Word document with an image");
+    }
+
+    const auto path = MakeTemporaryPath("cli-word-image", ".docx");
+    if (!editor->SaveToFile(path))
+    {
+        throw std::runtime_error("could not save the Word document with an image");
+    }
+    return path;
+}
+
+std::filesystem::path Fixture::InvalidWordDocument()
+{
+    ExyokiOffice::OpenXmlPackage package;
+    if (!package.LoadFromFile(WordDocument()))
+    {
+        throw std::runtime_error("could not load the Word document to invalidate");
+    }
+
+    const auto document = package.GetPartByUri("/word/document.xml");
+    if (!document)
+    {
+        throw std::runtime_error("the Word document has no main part");
+    }
+    document->SetXmlString(
+        R"(<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:bookmarkStart/></w:p><w:p><w:bookmarkStart/></w:p></w:body></w:document>)");
+
+    const auto path = MakeTemporaryPath("cli-invalid-word", ".docx");
+    if (!package.SaveToFile(path))
+    {
+        throw std::runtime_error("could not save the invalid Word document");
+    }
+    return path;
+}
+
+std::filesystem::path Fixture::WordTemplate()
+{
+    auto editor = WordDocumentEditor::CreateNew();
+    auto paragraph = editor ? editor->AddParagraph("Dear ") : nullptr;
+    if (!paragraph || !paragraph->AddField("MERGEFIELD FirstName", "First"))
+    {
+        throw std::runtime_error("could not create a Word mail-merge template");
+    }
+
+    const auto path = MakeTemporaryPath("cli-word-template", ".docx");
+    if (!editor->SaveToFile(path))
+    {
+        throw std::runtime_error("could not save the Word mail-merge template");
+    }
+    return path;
+}
+
 std::filesystem::path Fixture::Workbook()
 {
     auto editor = ExcelDocumentEditor::CreateNew();
@@ -79,9 +150,14 @@ std::filesystem::path Fixture::Workbook()
     sheet->SetCellText(1, 1, "Name");
     sheet->SetCellText(1, 2, "Value");
     sheet->SetCellText(2, 1, "Alpha");
-    sheet->SetCellText(2, 2, "11");
+    sheet->SetCellNumber(2, 2, 11.0);
     sheet->SetCellText(3, 1, "Beta");
-    sheet->SetCellText(3, 2, "31");
+    sheet->SetCellNumber(3, 2, 31.0);
+    const auto formulaCell = ExyokiOffice::Excel::CellAddress::ParseA1("B4");
+    if (!formulaCell || !sheet->SetCellFormula(*formulaCell, "=SUM(B2:B3)"))
+    {
+        throw std::runtime_error("could not add a formula to the workbook");
+    }
 
     const auto path = MakeTemporaryPath("cli-excel", ".xlsx");
     if (!editor->SaveToFile(path))
@@ -89,6 +165,32 @@ std::filesystem::path Fixture::Workbook()
         throw std::runtime_error("could not save the workbook");
     }
 
+    return path;
+}
+
+std::filesystem::path Fixture::TamperedSignedDocument()
+{
+    const auto signedPath = std::filesystem::path(EXYOKIOFFICE_SOURCE_DIR) / "corpus" / "word" /
+                            "DigitalSignature.docx";
+    ExyokiOffice::OpenXmlPackage package;
+    if (!package.LoadFromFile(signedPath))
+    {
+        throw std::runtime_error("could not load the signed corpus document");
+    }
+
+    const auto document = package.GetPartByUri("/word/document.xml");
+    if (!document)
+    {
+        throw std::runtime_error("the signed corpus document has no main part");
+    }
+    document->SetXmlString(document->GetXmlString() + " ");
+    package.SetSignatureSavePolicy(ExyokiOffice::SignatureSavePolicy::Ignore);
+
+    const auto path = MakeTemporaryPath("cli-tampered-signature", ".docx");
+    if (!package.SaveToFile(path))
+    {
+        throw std::runtime_error("could not save the tampered signed document");
+    }
     return path;
 }
 
