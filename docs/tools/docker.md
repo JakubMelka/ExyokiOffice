@@ -125,6 +125,26 @@ docker image inspect \
 workflow. The workflow fails the build if any of the twelve is missing, so an
 image that loads is an image that can be identified.
 
+### What `licenses` covers, and what it does not
+
+The `org.opencontainers.image.licenses` label reads `MIT`, and that is the
+license of what this repository puts into the image: the four programs, the
+shared library and the dispatcher. Their notices, and those of every vendored
+component compiled into them, are the files under `share/` listed above.
+
+The image is not only those files. Under them sits
+`gcr.io/distroless/cc-debian13`, which contributes glibc, libstdc++ and a small
+set of Debian base packages; those carry their own terms — the LGPL and the GPL
+with the GCC runtime exception among them — and are not covered by the label or
+by anything under `share/licenses/`. The `base.name` label names that image so
+the boundary is checkable from outside.
+
+This matters if you redistribute the image rather than only run it: the
+obligations that come with the base are the base's, and the place to satisfy
+them is [the distroless project](https://github.com/GoogleContainerTools/distroless)
+and Debian's sources for the packages it installs. Running the image, or
+building your own from `docker/Dockerfile`, needs nothing of the sort.
+
 The public headers and the CMake package configuration are **not** in the
 image: nothing inside it compiles against the library, and the headers are the
 bulk of the archive. To build your own program against ExyokiOffice, use the

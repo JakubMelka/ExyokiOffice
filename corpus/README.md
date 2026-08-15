@@ -120,11 +120,37 @@ Deliberately not covered yet, and worth adding when suitable files exist:
 - deliberately corrupt packages — those live in `tests/fuzz/corpus`, where the
   fuzz targets replay them.
 
+## Where the content came from
+
+These files ship with the repository under its licence, which makes the content
+inside them a licensing question and not only a testing one. All of it
+originates here:
+
+- **The text, the workbooks and the slide content** were written for this
+  corpus. Every package records `Jakub Melka` as its `dc:creator`, and Office
+  saved each one.
+- **Every image** — 32 JPEG and PNG files across the Word and PowerPoint
+  fixtures — is AI-generated, produced with Microsoft Copilot. Most still carry
+  the C2PA manifest that records it, naming `Azure OpenAI ImageGen` as the
+  software agent and `trainedAlgorithmicMedia` as the source type; the two
+  photographs in `word/The_United_States_of_America.docx` lost theirs when Word
+  recompressed them on save, which strips the metadata but says nothing about
+  where the image came from.
+- **The one signature**, in `word/DigitalSignature.docx`, is over a self-signed
+  test certificate. No real identity is bound into that fixture.
+
+Nothing here is stock photography, a downloaded image, a Microsoft template, or
+an embedded font. Keep it that way — see below.
+
 ## Adding a fixture
 
 1. Copy the file under `corpus/<family>/`. Keep it small and keep its content
    free of anything that is not yours to publish; these files ship with the
-   repository under its licence.
+   repository under its licence. Images are the easy place to get this wrong:
+   generate them or shoot them yourself rather than downloading one, and record
+   which in the section above. A saved package can also carry an embedded font
+   or a template's artwork without anyone intending it — check what parts the
+   file actually has before committing it.
 2. Read the numbers off it:
    `exyoki info --format json <file>` and `exyoki parts --format json <file>`.
 3. Add a `manifest.json` entry, including a `Purpose` that says what this file

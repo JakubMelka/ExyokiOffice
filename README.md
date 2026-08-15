@@ -277,8 +277,42 @@ and OpenAI Codex have been used extensively during implementation,
 documentation, testing, and review. Design decisions, release responsibility,
 and final acceptance remain with the project maintainer.
 
+## Third-party libraries
+
+ExyokiOffice vendors its dependencies rather than resolving them at build time,
+so a checkout builds with nothing fetched. Each copy is listed below with the
+version it came from and why it is here;
+[THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) reproduces the licenses
+themselves and records which binary each component ends up in.
+
+| Component | Version | Where it lives | Why it is here |
+| --- | --- | --- | --- |
+| [pugixml](https://pugixml.org/) | 1.14 (`PUGIXML_VERSION 1140`) | `sources/pugixml/` | The XML parser under every package part. Patched only in `pugiconfig.hpp`, to move it into the `ExyokiOffice::Pugi` namespace so a consumer's own pugixml cannot collide with it. |
+| [zip](https://github.com/kuba--/zip) with [miniz](https://github.com/richgel999/miniz) | miniz 3.0.2, recorded at the top of `miniz.h`; zip carries no version marker | `sources/zip/` | Reads and writes the OPC ZIP container. `zip.c` was renamed to `zip.cpp`; the code is otherwise upstream's. |
+| [nlohmann/json](https://github.com/nlohmann/json) | 3.12.0 | `3rdparty/nlohmann/` | JSON for the document model, the MCP servers, the `--format json` output, and the generator's metadata reader. |
+| [nlohmann/json-schema-validator](https://github.com/pboettch/json-schema-validator) | 2.4.0; the vendored files carry no version marker of their own | `3rdparty/json-schema-validator/` | Validates MCP tool arguments against the published input schemas. |
+| [CLI11](https://github.com/CLIUtils/CLI11) | 2.7.1 (`CLI11_VERSION`) | `3rdparty/CLI11/` | Argument parsing for `exyoki` and the MCP servers. The `commands` catalog and the shell completions are derived from the live parser, so this is load-bearing beyond argument handling. |
+| [doctest](https://github.com/doctest/doctest) | 2.5.0 (`DOCTEST_VERSION_*`) | `3rdparty/doctest/` | The test framework. Linked into the test executables only; nothing installed contains it. |
+| [Open-XML-SDK metadata](https://github.com/dotnet/Open-XML-SDK) | snapshot, not pinned to a release | `data/` | Schema, part and namespace descriptions that `OpenXmlGenerator` turns into the typed DOM. Metadata only — no Open-XML-SDK code is used, and the C++ implementation is independent. `data/README.md` records which files are the import and which three are this repository's own overlays. |
+
+Vendored copies are unmodified except where the table says otherwise, and the
+upstream notices inside them are intact.
+
 ## License
 
 ExyokiOffice is released under the [MIT License](LICENSE). Vendored dependencies
 use compatible permissive licenses; their notices are collected in
-[THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md).
+[THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md), which also covers the code
+those single-header copies carry from further upstreams.
+
+## Trademarks
+
+Microsoft, Microsoft Office, Word, Excel, PowerPoint, OneDrive and SharePoint
+are trademarks of the Microsoft Corporation. Other names may be trademarks of
+their respective owners.
+
+ExyokiOffice is an independent project. It is not affiliated with, endorsed by,
+sponsored by, or otherwise connected to the Microsoft Corporation. Those names
+are used here only to identify the file formats the library reads and writes and
+the applications it interoperates with, as permitted by nominative fair use — no
+claim to them is made or implied.

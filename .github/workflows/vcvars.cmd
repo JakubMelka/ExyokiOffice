@@ -1,5 +1,5 @@
 @echo off
-rem Copyright (c) 2026 Jakub Melka and Collaborators
+rem Copyright (c) 2026 Jakub Melka and Contributors
 rem SPDX-License-Identifier: MIT
 rem See LICENSE file in the project root for full license text.
 rem

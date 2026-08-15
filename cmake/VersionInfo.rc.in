@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Jakub Melka and Contributors
+// SPDX-License-Identifier: MIT
+// See LICENSE file in the project root for full license text.
+
 #include <winres.h>
 
 // The fourth field of FILEVERSION/PRODUCTVERSION is the build number and stays
@@ -20,7 +24,8 @@ BEGIN
             VALUE "FileDescription", "@RC_FILE_DESCRIPTION@"
             VALUE "FileVersion", "@PROJECT_VERSION@"
             VALUE "InternalName", "@RC_INTERNAL_NAME@"
-            VALUE "LegalCopyright", "Copyright (c) 2025 Jakub Melka"
+            VALUE "LegalCopyright", "Copyright (c) 2026 Jakub Melka and Contributors. MIT licensed."
+            VALUE "LegalTrademarks", "Microsoft, Word, Excel and PowerPoint are trademarks of the Microsoft Corporation. This product is not affiliated with or endorsed by Microsoft."
             VALUE "OriginalFilename", "@RC_ORIGINAL_FILENAME@"
             VALUE "ProductName", "ExyokiOffice"
             VALUE "ProductVersion", "@PROJECT_VERSION@"

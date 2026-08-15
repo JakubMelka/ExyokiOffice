@@ -45,6 +45,15 @@ FROM gcr.io/distroless/cc-debian13:nonroot
 # depend on the run: version, revision and creation time are what does, and
 # create_install.yml passes those with `docker build --label` rather than
 # letting a default here quietly claim something untrue.
+#
+# `licenses` is the license of what this repository puts into the image - the
+# four programs, the shared library and the dispatcher. It is not a statement
+# about the whole filesystem: the distroless base underneath contributes glibc,
+# libstdc++ and a handful of Debian base packages, which carry their own terms,
+# LGPL and GPL-with-exception among them. Naming those in an SPDX expression
+# here would mean pinning a component list this file does not control, so
+# `base.name` below points at the image that does, and docs/tools/docker.md
+# spells the split out for anyone redistributing the image.
 LABEL org.opencontainers.image.title="ExyokiOffice" \
       org.opencontainers.image.description="ExyokiOffice command-line tool and MCP servers for reading and writing OpenXML documents" \
       org.opencontainers.image.licenses="MIT" \

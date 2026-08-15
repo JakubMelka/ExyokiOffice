@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Jakub Melka and Collaborators
+// Copyright (c) 2026 Jakub Melka and Contributors
 // SPDX-License-Identifier: MIT
 // See LICENSE file in the project root for full license text.
 

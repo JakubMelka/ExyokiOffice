@@ -6,6 +6,14 @@ copyright notice to be preserved — in source form and, for the ones compiled
 into a shipped binary, in binary form as well. This file reproduces every one
 of those notices in full.
 
+Two of the vendored files are single-header amalgamations that carry code from
+further upstreams inside them, under licenses of their own. Those notices sit in
+the file at the code they cover, which is where their licenses require them to
+be, and no vendored file has been edited in a way that touches one. They are
+listed with the component that carries them — [nlohmann/json](#code-carried-inside-the-amalgamation)
+and [doctest](#code-carried-inside-the-doctest-header) — so this file states
+what a recipient receives rather than only what the top-level license is.
+
 [README.md](README.md#third-party-libraries) has the companion table: version,
 upstream release the copy was taken from, and why each component is here. This
 file is the notice, that one is the provenance.
@@ -16,11 +24,11 @@ file is the notice, that one is the provenance.
 | --- | --- | --- |
 | [pugixml](#pugixml) 1.14 | MIT | `ExyokiOffice` shared library, and therefore `exyoki` and the `exyoki-mcp-*` servers |
 | [zip / miniz](#zip--miniz) | MIT (zip); Unlicense (miniz), with an MIT notice on its compression sections | `ExyokiOffice` shared library, and therefore `exyoki` and the `exyoki-mcp-*` servers |
-| [nlohmann/json](#nlohmannjson) 3.12.0 | MIT | `ExyokiOffice` shared library and the `exyoki-mcp-*` servers; also the build-time generator |
+| [nlohmann/json](#nlohmannjson) 3.12.0 | MIT, plus CC0-1.0 and MIT on code carried inside it | `ExyokiOffice` shared library and the `exyoki-mcp-*` servers; also the build-time generator |
 | [nlohmann/json-schema-validator](#nlohmannjson-schema-validator) 2.4.0 | MIT | `ExyokiOffice` shared library and the `exyoki-mcp-*` servers |
-| [CLI11](#cli11) 2.5.0 | BSD-3-Clause | `exyoki` and the `exyoki-mcp-*` servers only — not the library |
+| [CLI11](#cli11) 2.7.1 | BSD-3-Clause | `exyoki` and the `exyoki-mcp-*` servers only — not the library |
 | [Open-XML-SDK metadata](#open-xml-sdk-metadata) | MIT | nothing directly; it is the generator's input, and the DOM generated from it ships in the library and its headers |
-| [doctest](#doctest) 2.5.0 | MIT | **nothing that is installed** — the test executables only |
+| [doctest](#doctest) 2.5.0 | MIT, plus BSL-1.0 on code carried inside it | **nothing that is installed** — the test executables only |
 
 A binary package produced by the `create_install` workflow carries these
 notices as files under `share/doc/ExyokiOffice/licenses/`, next to this file
@@ -28,9 +36,10 @@ and the project's own `LICENSE`. In the source tree each one also sits beside
 the code it covers: `3rdparty/*/LICENSE*`, `sources/pugixml/LICENSE`,
 `sources/zip/LICENSE` and `data/LICENSE`.
 
-BSD-3-Clause and the Unlicense are, like MIT, short permissive licenses without
-copyleft. Combining and redistributing them alongside MIT-licensed code is
-standard practice and changes nothing about the terms of ExyokiOffice itself.
+BSD-3-Clause, the Unlicense, CC0-1.0 and the Boost Software License are, like
+MIT, short permissive licenses without copyleft. Combining and redistributing
+them alongside MIT-licensed code is standard practice and changes nothing about
+the terms of ExyokiOffice itself.
 
 ---
 
@@ -162,7 +171,10 @@ THE SOFTWARE.
 
 ## nlohmann/json
 
-Vendored under `3rdparty/nlohmann/`; the file is `3rdparty/nlohmann/LICENSE.MIT`.
+Vendored under `3rdparty/nlohmann/` as the upstream single-header amalgamation;
+the file is `3rdparty/nlohmann/LICENSE.MIT`. Five small pieces of code inside
+that header come from elsewhere and are covered
+[below](#code-carried-inside-the-amalgamation).
 
 ```text
 MIT License
@@ -187,6 +199,48 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+### Code carried inside the amalgamation
+
+`json.hpp` is generated from the upstream sources, and five passages in it came
+from further upstreams. Each carries its attribution at the code it covers, in
+the comment upstream put there; none has been touched here. Two of them reach a
+shipped binary:
+
+- **Hedley**, the compiler-feature detection macros, by Evan Nemerson, under
+  **CC0-1.0**. A public domain dedication: it attaches no condition to use or
+  redistribution, and the notice is kept because the file keeps it.
+- **The Grisu2 `dtoa` implementation**, by Florian Loitsch, under **MIT**. This
+  is what serializes a floating-point number, so it is compiled into every
+  binary that links nlohmann/json. Its notice reads, in the header's own words:
+
+  ```text
+  This implementation is a slightly modified version of the reference
+  implementation which may be obtained from
+  http://florian.loitsch.com/publications (bench.tar.gz).
+
+  The code is distributed under the MIT license, Copyright (c) 2009 Florian Loitsch.
+  ```
+
+The other three put nothing into one:
+
+- **`integer_sequence` and its aliases from Google Abseil**, under
+  **Apache-2.0** (full text at <https://www.apache.org/licenses/LICENSE-2.0>).
+  Upstream places it in the `#else` branch of `#ifdef JSON_HAS_CPP_14`, as the
+  fallback for compilers older than C++14. ExyokiOffice sets
+  `CMAKE_CXX_STANDARD 20`, so `JSON_HAS_CPP_14` is defined and the preprocessor
+  discards the block entirely: it is redistributed in source form only and is
+  compiled by nothing here. The attribution comment upstream wrapped it in,
+  naming the exact Abseil revision it came from, is intact.
+- **`priority_tag` and `static_const`, attributed to ranges-v3**, which is under
+  the **Boost Software License 1.0**. Both are empty class templates used to
+  steer overload resolution; they emit no object code of their own. BSL-1.0
+  exempts machine-executable object code from carrying the notice in any case,
+  and asks only that it accompany the source, which it does.
+- **`is_complete_type`**, a two-line SFINAE trait upstream attributes to a 2015
+  Visual C++ team blog post and records as written by Xiang Fan, "who agreed to
+  use it in this library". No separate license is stated; the permission and the
+  attribution are both in that comment, which is preserved.
 
 ## nlohmann/json-schema-validator
 
@@ -292,7 +346,9 @@ SOFTWARE.
 Vendored under `3rdparty/doctest/` and used by the test layers only. It is in
 no installed binary, so a binary package carries no doctest code and no
 obligation; the notice is here because the source tree does contain the header.
-The file is `3rdparty/doctest/LICENSE.txt`.
+The file is `3rdparty/doctest/LICENSE.txt`. Parts of that header came from two
+other test frameworks and are covered
+[below](#code-carried-inside-the-doctest-header).
 
 ```text
 The MIT License (MIT)
@@ -317,3 +373,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+### Code carried inside the doctest header
+
+`doctest.h` is an amalgamation, and its own banner records that parts of it were
+taken from two other frameworks, both under the **Boost Software License 1.0**
+(full text at <https://www.boost.org/LICENSE_1_0.txt>):
+
+- **Catch2**, by Phil Nash and the Catch2 contributors — the stringification and
+  `StringMaker<>` detection, the `Approx()` float comparison helper, console
+  colors, debugger break, signal and SEH handling, the timer, and the
+  `XmlWriter` class, which the banner records was reused with Phil Nash's
+  permission.
+- **lest**, by Martin Moene — the expression-decomposing templates.
+
+The banner naming both, with links to their license texts, is upstream's and is
+reproduced unchanged at the top of `3rdparty/doctest/doctest.h`. BSL-1.0 asks
+that the notice accompany the source; it exempts machine-executable object code
+from carrying it at all, and no doctest code reaches an installed binary here in
+any case.

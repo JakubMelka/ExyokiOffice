@@ -101,6 +101,21 @@ affects emitted files.
 
 ## Coding style
 
+- Start every new file with the three-line header, in the comment syntax of the
+  file's language. The wording is fixed: it is the copyright notice, and one
+  file spelling the holder differently is what makes an audit of the tree
+  inconclusive.
+
+  ```cpp
+  // Copyright (c) 2026 Jakub Melka and Contributors
+  // SPDX-License-Identifier: MIT
+  // See LICENSE file in the project root for full license text.
+  ```
+
+  Contributions are accepted under the same MIT licence the repository carries;
+  opening a pull request is the statement that you may license your changes
+  that way. Do not add a second copyright line for yourself — `Contributors`
+  covers you, and the git history is the record of who wrote what.
 - Preserve the C++20 baseline.
 - Follow `.clang-format` and the repository's `.clang-tidy` configuration.
 - Put braces around every control-flow body, including single statements.

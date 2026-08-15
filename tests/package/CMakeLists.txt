@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Jakub Melka and Collaborators
+# Copyright (c) 2026 Jakub Melka and Contributors
 # SPDX-License-Identifier: MIT
 # See LICENSE file in the project root for full license text.
 
@@ -29,6 +29,7 @@ exyokioffice_add_test_executable(ExyokiOfficePackageTests
         SecurityCanonicalizationTests.cpp
         PackageSignatureTests.cpp
         ExternalResourceTests.cpp
+        XmlAndArchiveSecurityTests.cpp
         FuzzCorpusReplayTests.cpp)
 
 # Areas follow the cross-cutting table in docs/Compatibility.md. Their tags must
@@ -49,6 +50,8 @@ exyokioffice_add_test_area(package NAME Package.Protection LABELS protection
     TAGS "[protection]")
 exyokioffice_add_test_area(package NAME Package.ExternalResources LABELS external-resources
     TAGS "[external-resources]")
+exyokioffice_add_test_area(package NAME Package.Security LABELS security
+    TAGS "[security-regression]")
 exyokioffice_add_test_area(package NAME Package.Fuzz LABELS fuzz
     TAGS "[fuzz]")
 
