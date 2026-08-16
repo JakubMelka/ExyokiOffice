@@ -8043,6 +8043,10 @@
                 "description": "File written, when working on paths.",
                 "type": "string"
               },
+              "partsRemoved": {
+                "description": "Whole parts detached, such as the thumbnail or customXml.",
+                "type": "integer"
+              },
               "revisionsResolved": {
                 "description": "Tracked revisions accepted.",
                 "type": "integer"

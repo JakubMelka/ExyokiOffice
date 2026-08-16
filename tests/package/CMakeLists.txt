@@ -30,6 +30,7 @@ exyokioffice_add_test_executable(ExyokiOfficePackageTests
         PackageSignatureTests.cpp
         ExternalResourceTests.cpp
         XmlAndArchiveSecurityTests.cpp
+        PackageOpenErrorTests.cpp
         FuzzCorpusReplayTests.cpp)
 
 # Areas follow the cross-cutting table in docs/Compatibility.md. Their tags must

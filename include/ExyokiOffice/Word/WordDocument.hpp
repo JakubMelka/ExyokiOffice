@@ -1460,11 +1460,14 @@ public:
      * @param path Source .docx/.dotx/.docm/.dotm file path.
      * @param settings Optional open settings for compatibility and validation.
      * @param cancellationToken Optional non-owning token used to cancel opening.
+     * @param error Optional out-parameter; when not null and the call fails, it
+     *        receives why. See Packaging::OpenError.
      * @return Editor for the opened document, or nullptr when the package cannot be opened.
      */
     static Ptr Open(const std::filesystem::path& path,
                     const ExyokiOffice::Packaging::OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    ExyokiOffice::Packaging::OpenError* error = nullptr);
 
     /**
      * @brief Opens a Word package from an in-memory byte vector.
@@ -1476,11 +1479,14 @@ public:
      * @param packageBuffer Buffer containing a valid WordprocessingML ZIP package.
      * @param settings Optional open settings for compatibility and validation.
      * @param cancellationToken Optional non-owning token used to cancel opening.
+     * @param error Optional out-parameter; when not null and the call fails, it
+     *        receives why. See Packaging::OpenError.
      * @return Editor for the opened document, or nullptr when the package cannot be opened.
      */
     static Ptr Open(const std::vector<Byte>& packageBuffer,
                     const ExyokiOffice::Packaging::OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    ExyokiOffice::Packaging::OpenError* error = nullptr);
 
     /**
      * @brief Opens a Word package from a contiguous byte range.
@@ -1491,11 +1497,14 @@ public:
      * @param packageBuffer Byte range containing a valid WordprocessingML ZIP package.
      * @param settings Optional open settings for compatibility and validation.
      * @param cancellationToken Optional non-owning token used to cancel opening.
+     * @param error Optional out-parameter; when not null and the call fails, it
+     *        receives why. See Packaging::OpenError.
      * @return Editor for the opened document, or nullptr when the package cannot be opened.
      */
     static Ptr Open(std::span<const Byte> packageBuffer,
                     const ExyokiOffice::Packaging::OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    ExyokiOffice::Packaging::OpenError* error = nullptr);
 
     /**
      * @brief Creates a new regular document by cloning a Word template.
@@ -1946,7 +1955,7 @@ public:
      *        trailing spaces in generated text nodes.
      * @return Counts describing the merge operations that changed the document.
      */
-    TemplateMergeResult MergeTemplate(const TemplateMergeData& data, bool preserveSpaces = false);
+    TemplateMergeResult MergeTemplate(const TemplateMergeData& data, bool preserveSpaces = true);
 
     /**
      * @brief Finds the first bookmark with the given name.
@@ -2428,13 +2437,21 @@ struct ParagraphFormatting
 };
 
 /**
- * @brief Identifies a span of text within a paragraph's direct run sequence.
+ * @brief Identifies a span of text within a paragraph.
  *
- * A ContentRange describes offsets into the concatenation of a paragraph's
- * *direct* run text, in the order Paragraph::Runs() returns them (i.e. the
- * same text Run::PlainText() would produce for each run, joined together).
- * Text nested inside other elements such as hyperlinks is not part of this
- * concatenation and is therefore never touched by range-based operations.
+ * A ContentRange describes offsets into the text of a paragraph, which is what
+ * Paragraph::PlainText() returns and what Paragraph::Runs() concatenates: the
+ * runs of the paragraph in document order, including those inside hyperlinks,
+ * tracked insertions, content controls, smart tags and simple fields, with a
+ * `w:tab` counting as a tab character and a `w:br` as a newline. Text a reader
+ * does not see is not part of it — tracked deletions, field instructions, and
+ * the separate content of a text box anchored in the paragraph.
+ *
+ * @warning Offsets are **bytes**, not code points. Text is UTF-8, so a
+ * character outside ASCII spans several offsets, and a range that starts or
+ * ends in the middle of one describes half a character: Find() and FindAll()
+ * never produce such a range, but one built by hand from a character count
+ * will, and replacing it produces invalid UTF-8.
  *
  * Ranges are produced by Paragraph::Find()/FindAll() or built directly from
  * known offsets, and are consumed by Paragraph::GetText()/ReplaceText(). A
@@ -2442,12 +2459,12 @@ struct ParagraphFormatting
  */
 struct ContentRange
 {
-    /// Inclusive start offset, in characters, from the beginning of the paragraph's direct run text.
+    /// Inclusive start offset, in UTF-8 bytes, from the beginning of the paragraph's text.
     Size Start = 0;
-    /// Exclusive end offset, in characters, from the beginning of the paragraph's direct run text.
+    /// Exclusive end offset, in UTF-8 bytes, from the beginning of the paragraph's text.
     Size End = 0;
 
-    /// @brief Returns the number of characters covered by this range.
+    /// @brief Returns the number of bytes covered by this range.
     Size Length() const noexcept
     {
         return End > Start ? End - Start : 0;
@@ -2546,22 +2563,22 @@ public:
      * @brief Appends text as a new run to the paragraph.
      *
      * @param text Text content to insert.
-     * @param preserveSpaces Whether to preserve whitespace (adds xml:space="preserve").
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return A Text wrapper or nullptr if the paragraph is invalid.
      */
-    std::shared_ptr<Text> AddText(std::string_view text, bool preserveSpaces = false);
+    std::shared_ptr<Text> AddText(std::string_view text, bool preserveSpaces = true);
 
     /**
      * @brief Appends a run with text and applies a formatting preset.
      *
      * @param text Text content to insert.
      * @param style Formatting preset to apply.
-     * @param preserveSpaces Whether to preserve whitespace (adds xml:space="preserve").
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return A Run wrapper or nullptr if the paragraph is invalid.
      */
     std::shared_ptr<Run> AddRun(std::string_view text,
                                 const RunStyle& style,
-                                bool preserveSpaces = false);
+                                bool preserveSpaces = true);
 
     /**
      * @brief Appends an explicit break (`<w:br>`) in a new run.
@@ -3111,7 +3128,7 @@ public:
      * AttachMainDocumentPart(); returns nullptr otherwise.
      *
      * @param text Footnote text.
-     * @param preserveSpaces Whether to preserve whitespace in the text.
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return Note wrapper, or nullptr when the paragraph is invalid or has no
      * main document part attached.
      *
@@ -3119,7 +3136,7 @@ public:
      * auto note = paragraph->AddFootnote("Explanatory text.");
      * @endcode
      */
-    std::shared_ptr<Note> AddFootnote(std::string_view text = {}, bool preserveSpaces = false);
+    std::shared_ptr<Note> AddFootnote(std::string_view text = {}, bool preserveSpaces = true);
 
     /**
      * @brief Appends an endnote reference to this paragraph and creates its content.
@@ -3128,11 +3145,11 @@ public:
      * (`/word/endnotes.xml`) and `<w:endnoteReference>` markers instead.
      *
      * @param text Endnote text.
-     * @param preserveSpaces Whether to preserve whitespace in the text.
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return Note wrapper, or nullptr when the paragraph is invalid or has no
      * main document part attached.
      */
-    std::shared_ptr<Note> AddEndnote(std::string_view text = {}, bool preserveSpaces = false);
+    std::shared_ptr<Note> AddEndnote(std::string_view text = {}, bool preserveSpaces = true);
 
     /**
      * @brief Wraps a contiguous span of this paragraph's direct runs with a comment.
@@ -3414,17 +3431,27 @@ public:
     /**
      * @brief Appends text to the run.
      *
+     * The `<w:t>` element carries `xml:space="preserve"` unless you ask for the
+     * opposite, and every text-taking overload in this API defaults the same
+     * way. Without the attribute an XML consumer is entitled to collapse
+     * leading and trailing whitespace, so `AddParagraph("Hello ")` followed by
+     * `AddText("world")` produced "Helloworld" — text the caller wrote,
+     * silently lost, and only for the runs that happened to end in a space.
+     * Writing the attribute always costs a few bytes per run and is what Word
+     * itself does; that is the trade this default takes.
+     *
      * @param text Text to append as a `<w:t>` element.
-     * @param preserveSpaces When true, sets `xml:space="preserve"` to keep leading
-     *        and trailing whitespace intact.
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default. Pass
+     *        false only when the document deliberately wants whitespace
+     *        collapsed by whoever reads it.
      * @return High-level Text wrapper, or nullptr if the run is invalid.
      *
      * @code
      * auto run = paragraph->AddRun();
-     * auto text = run->AddText("  padded  ", true);
+     * auto text = run->AddText("  padded  ");
      * @endcode
      */
-    std::shared_ptr<Text> AddText(std::string_view text, bool preserveSpaces = false);
+    std::shared_ptr<Text> AddText(std::string_view text, bool preserveSpaces = true);
 
     /**
      * @brief Appends an explicit break (`<w:br>`) to the run.
@@ -4098,10 +4125,10 @@ public:
      * @brief Appends text as a new run to the hyperlink.
      *
      * @param text Text content to insert.
-     * @param preserveSpaces Whether to preserve whitespace (adds xml:space="preserve").
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return A Text wrapper, or nullptr if the hyperlink is invalid.
      */
-    std::shared_ptr<Text> AddText(std::string_view text, bool preserveSpaces = false);
+    std::shared_ptr<Text> AddText(std::string_view text, bool preserveSpaces = true);
 
     /**
      * @brief Enumerates direct run children of this hyperlink.
@@ -4407,11 +4434,11 @@ public:
      * field dirty and returns false.
      *
      * @param result New cached result text.
-     * @param preserveSpaces Whether to preserve leading/trailing spaces in the result text.
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return True when the cached result was replaced; false when the field was
      *         only marked dirty because it depends on layout or is invalid.
      */
-    bool SetResult(std::string_view result, bool preserveSpaces = false);
+    bool SetResult(std::string_view result, bool preserveSpaces = true);
 
     /**
      * @brief Marks the field result as invalid and in need of recalculation.
@@ -4622,10 +4649,10 @@ public:
      * @brief Appends an additional paragraph to this note's content.
      *
      * @param text Optional text content for the new paragraph.
-     * @param preserveSpaces Whether to preserve whitespace in the text.
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return Paragraph wrapper, or nullptr when this wrapper is invalid.
      */
-    std::shared_ptr<Paragraph> AddParagraph(std::string_view text = {}, bool preserveSpaces = false);
+    std::shared_ptr<Paragraph> AddParagraph(std::string_view text = {}, bool preserveSpaces = true);
 
     /**
      * @brief Concatenates the plain text of every paragraph in this note.
@@ -4647,10 +4674,10 @@ public:
      * matching the structure Word itself generates.
      *
      * @param text New note text.
-     * @param preserveSpaces Whether to preserve whitespace in the text.
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return Reference to this note for fluent chaining.
      */
-    Note& SetText(std::string_view text, bool preserveSpaces = false);
+    Note& SetText(std::string_view text, bool preserveSpaces = true);
 
     /**
      * @brief Removes this note entry and its body reference marker.
@@ -4782,10 +4809,10 @@ public:
      * @brief Appends an additional paragraph to this comment's text.
      *
      * @param text Optional text content for the new paragraph.
-     * @param preserveSpaces Whether to preserve whitespace in the text.
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return Paragraph wrapper, or nullptr when this wrapper is invalid.
      */
-    std::shared_ptr<Paragraph> AddParagraph(std::string_view text = {}, bool preserveSpaces = false);
+    std::shared_ptr<Paragraph> AddParagraph(std::string_view text = {}, bool preserveSpaces = true);
 
     /**
      * @brief Concatenates the plain text of every paragraph in this comment.
@@ -4807,10 +4834,10 @@ public:
      * @brief Replaces this comment's text with a single paragraph.
      *
      * @param text New comment text.
-     * @param preserveSpaces Whether to preserve whitespace in the text.
+     * @param preserveSpaces Writes `xml:space="preserve"`; on by default, see Run::AddText.
      * @return Reference to this comment for fluent chaining.
      */
-    Comment& SetText(std::string_view text, bool preserveSpaces = false);
+    Comment& SetText(std::string_view text, bool preserveSpaces = true);
 
     /**
      * @brief Appends a reply to this comment's thread.
@@ -5037,7 +5064,7 @@ public:
      *
      * @return Paragraph wrapper, or nullptr for inline content controls.
      */
-    std::shared_ptr<Paragraph> AddParagraph(std::string_view text = {}, bool preserveSpaces = false);
+    std::shared_ptr<Paragraph> AddParagraph(std::string_view text = {}, bool preserveSpaces = true);
 
     /**
      * @brief Enumerates the runs directly inside this content control.
@@ -5058,7 +5085,7 @@ public:
      *
      * @return Text wrapper, or nullptr for block-level content controls.
      */
-    std::shared_ptr<Text> AddText(std::string_view text, bool preserveSpaces = false);
+    std::shared_ptr<Text> AddText(std::string_view text, bool preserveSpaces = true);
 
     /**
      * @brief Concatenates the plain text of this content control's content.
@@ -5078,7 +5105,7 @@ public:
      *
      * @return Reference to this content control for fluent chaining.
      */
-    ContentControl& SetText(std::string_view text, bool preserveSpaces = false);
+    ContentControl& SetText(std::string_view text, bool preserveSpaces = true);
 
     /**
      * @brief Removes the whole content control, including its content.
@@ -5784,7 +5811,7 @@ public:
     Table& SetCellText(Size row,
                        Size column,
                        std::string_view text,
-                       bool preserveSpaces = false);
+                       bool preserveSpaces = true);
 
     /**
      * @brief Appends text to the first paragraph of a cell.
@@ -5805,7 +5832,7 @@ public:
     Table& AppendCellText(Size row,
                           Size column,
                           std::string_view text,
-                          bool preserveSpaces = false);
+                          bool preserveSpaces = true);
     /**
      * @brief Sets the background fill color of a cell.
      *
@@ -6050,7 +6077,7 @@ public:
      * @return The new paragraph, or nullptr when this wrapper is not attached
      * to a header or footer part.
      */
-    std::shared_ptr<Paragraph> AddParagraph(std::string_view text = {}, bool preserveSpaces = false);
+    std::shared_ptr<Paragraph> AddParagraph(std::string_view text = {}, bool preserveSpaces = true);
 
     /**
      * @brief Concatenates all direct paragraph text.
@@ -6065,7 +6092,7 @@ public:
     /**
      * @brief Replaces the content with a single text paragraph.
      */
-    HeaderFooterContent& SetText(std::string_view text, bool preserveSpaces = false);
+    HeaderFooterContent& SetText(std::string_view text, bool preserveSpaces = true);
 
 private:
     std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Header> HeaderRoot() const;
@@ -6248,12 +6275,12 @@ public:
     /**
      * @brief Replaces the explicit header content with a single text paragraph.
      */
-    Section& SetHeaderText(HeaderFooterType type, std::string_view text, bool preserveSpaces = false);
+    Section& SetHeaderText(HeaderFooterType type, std::string_view text, bool preserveSpaces = true);
 
     /**
      * @brief Replaces the explicit footer content with a single text paragraph.
      */
-    Section& SetFooterText(HeaderFooterType type, std::string_view text, bool preserveSpaces = false);
+    Section& SetFooterText(HeaderFooterType type, std::string_view text, bool preserveSpaces = true);
 
     /**
      * @brief Removes this section's explicit header reference.

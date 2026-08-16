@@ -1231,20 +1231,45 @@ all four categories are scrubbed; each `--keep-*` flag opts one out:
 - **Comments** — Word comment parts (`comments.xml`, the modern
   `commentsExtended`/`commentsIds`/`commentsExtensible` companions, and
   `people.xml`) plus every in-text comment marker; Excel classic and threaded
-  comments; PowerPoint modern comments and their author registry.
-- **Tracked revisions** (Word) — every revision in the main body is
-  **accepted**, matching the usual "final version" publish flow. Nothing of
-  the revision metadata (author, date) remains.
-- **Hidden text** (Word) — runs formatted with `w:vanish` are deleted
-  outright, from the body, headers, footers, footnotes, and endnotes.
-- **Personal metadata** — the `Creator`, `LastModifiedBy`, and `Company`
-  properties are cleared and the custom-properties part
-  (`docProps/custom.xml`), a frequent home of workflow identity data, is
-  removed.
+  comments together with the `xl/persons` registry; PowerPoint comments, both
+  the modern ones and the legacy `ppt/comments/*` parts, and their authors.
+- **Tracked revisions** (Word) — every revision is **accepted**, matching the
+  usual "final version" publish flow, in every story part: body, headers,
+  footers, footnotes, endnotes and comments. That includes deleted paragraph
+  marks (the paragraphs are merged, not just unmarked), deleted table rows, the
+  property-level markers that stand for a change without wrapping anything
+  (`w:trPr/w:ins` on an inserted row, `w:pPr/w:rPr/w:del` on a deleted paragraph
+  mark), and the `w:rPrChange`-family records of what the formatting used to be.
+  Nothing of the revision metadata (author, date) remains.
+- **Hidden text** (Word) — runs hidden by `w:vanish` or `w:specVanish` are
+  deleted outright, from the body, headers, footers, footnotes, and endnotes,
+  and so are runs whose character style carries either: a style is how hidden
+  text is usually applied, and the run itself then says nothing about it. Either
+  element written as `w:val="false"` turns the hiding off, which is how one run
+  opts out of a style that hides text; such a run is visible and stays.
+- **Personal metadata** — `Creator`, `LastModifiedBy`, `Company`, `Manager`,
+  `Title`, `Subject`, `Description`, `Keywords`, `Category`, `ContentStatus`,
+  `Revision`, `HyperlinkBase`, the last-printed timestamp and the attached
+  template name are cleared; the custom-properties part
+  (`docProps/custom.xml`), the `customXml` store, and `docProps/thumbnail.*` —
+  a rendering of the first page as it was before any of this — are removed; and
+  the `w:rsid*` editing-session identifiers are stripped from the Word story
+  parts. The registries that name comment authors (`xl/persons`, PowerPoint's
+  `commentAuthors.xml`, Word's `people.xml`) are **not** in this category: they
+  go with the comments, because a comment whose author registry has been deleted
+  is a broken document rather than a redacted one. With `--keep-comments` they
+  stay, and so do the names in them.
 
 The scrub is structural: it does not search body text for sensitive words.
 Combine it with `replace` for content-level redaction. Without
 `--out-package` the file is redacted in place.
+
+It is also not a guarantee that nothing else is left. Embedded objects are not
+opened, media is not inspected (a photograph can carry EXIF), VBA projects are
+left alone, and text that is merely not displayed — a shape moved off the
+slide, a zero-width column, white text on white — is content rather than
+metadata and stays. Where the scrub has to be complete for a legal or safety
+reason, verify it against the file itself.
 
 ```
 $ exyoki redact report.docx --out-package public.docx
@@ -1256,8 +1281,10 @@ data:
   revisionsResolved: 7
   hiddenRunsRemoved: 1
   metadataFieldsCleared: 3
+  partsRemoved: 2
   saved: true
 [info] Custom properties part removed (/docProps/custom.xml)
+[info] Part removed because it carries data the document does not show (/docProps/thumbnail.jpeg)
 ```
 
 Verify the result the same way a recipient would look at it:

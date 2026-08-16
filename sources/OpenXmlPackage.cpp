@@ -173,7 +173,7 @@ void OpenXmlPackage::SetDefaultPackageLimits(std::optional<OpenXmlPackageLimits>
 
 OpenXmlPackageLimits OpenXmlPackage::DefaultPackageLimits()
 {
-    return OpenXmlPackageDefaultLimits::Get().value_or(OpenXmlPackageLimits::Unlimited());
+    return OpenXmlPackageDefaultLimits::Get().value_or(OpenXmlPackageLimits::Recommended());
 }
 
 std::optional<OpenXmlPackageLimits> OpenXmlPackage::ConfiguredDefaultPackageLimits()
@@ -187,7 +187,7 @@ OpenXmlPackage::OpenXmlPackage()
     // Applied here rather than at load time so that a caller who sets its own
     // limits with SetPackageLimits always wins, whichever order the two happen
     // in: the explicit call comes after construction by definition.
-    m_impl->packageLimits = OpenXmlPackageDefaultLimits::Get().value_or(OpenXmlPackageLimits::Unlimited());
+    m_impl->packageLimits = OpenXmlPackageDefaultLimits::Get().value_or(OpenXmlPackageLimits::Recommended());
 }
 
 OpenXmlPackage::~OpenXmlPackage()

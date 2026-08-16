@@ -16,6 +16,7 @@ exyokioffice_add_test_executable(ExyokiOfficeUnitTests
         MeasuringAngleTests.cpp
         ImageFormatTests.cpp
         OpenXmlSimpleTypesTests.cpp
+        LocaleIndependentNumbersTests.cpp
         GeneratedEnumMetadataTests.cpp
         OpenXmlElementNodeTests.cpp
         OpenXmlElementSiblingTests.cpp

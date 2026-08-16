@@ -81,7 +81,10 @@ TEST_SUITE("WordEditorAuthoringTests")
         auto lineBreak = FirstBreak(paragraphs[0]);
         REQUIRE(lineBreak != nullptr);
         CHECK_FALSE(lineBreak->GetType().IsDefined());
-        CHECK(paragraphs[0]->PlainText() == "beforeafter");
+        // A break is a character in the paragraph's text, not an absence of one:
+        // the text model reads `w:br` as a newline so that a search and a
+        // replacement address the same string the reader sees.
+        CHECK(paragraphs[0]->PlainText() == "before\nafter");
 
         auto pageBreak = FirstBreak(paragraphs[1]);
         REQUIRE(pageBreak != nullptr);

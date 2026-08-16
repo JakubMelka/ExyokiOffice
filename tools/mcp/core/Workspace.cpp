@@ -10,8 +10,8 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstdio>
 #include <ctime>
+#include <format>
 #include <system_error>
 
 namespace ExyokiOffice::Mcp
@@ -433,15 +433,8 @@ std::string Workspace::FormatTimestamp(std::filesystem::file_time_type time)
     }
 #endif
 
-    char buffer[32] = {};
-    const auto length = std::snprintf(buffer, sizeof(buffer), "%04d-%02d-%02dT%02d:%02d:%02dZ", utc.tm_year + 1900,
-                                      utc.tm_mon + 1, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
-    if (length <= 0)
-    {
-        return {};
-    }
-
-    return std::string(buffer, static_cast<Size>(length));
+    return std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", utc.tm_year + 1900, utc.tm_mon + 1, utc.tm_mday,
+                       utc.tm_hour, utc.tm_min, utc.tm_sec);
 }
 
 } // namespace ExyokiOffice::Mcp

@@ -33,15 +33,18 @@ class ExternalResourceGateway;
 /**
  * @brief ZIP and XML ceilings the OPC loader enforces while reading a package.
  *
- * Every field is an independent limit and **zero means unlimited**, which is
- * also the default for all of them. A default-constructed value therefore
- * enforces nothing: the loader will read a package of any size, entry count,
- * and compression ratio, and will not scan XML depth or node counts at all.
+ * Every field is an independent limit and **zero means unlimited**. A
+ * default-constructed value therefore enforces nothing, which is why it is not
+ * what a package starts with: packages start at Recommended(), so a caller who
+ * never thinks about limits still gets a defence against decompression bombs
+ * ("zip bombs") and deeply nested XML. `{}` and Unlimited() switch that off,
+ * and are the right answer only for packages from a source you already trust.
  *
- * @warning Callers that open documents from an untrusted source must set these
- * explicitly. Without them the loader offers no defence against decompression
- * bombs ("zip bombs") or deeply nested XML, because the limits are the only
- * mechanism that bounds either. Pick values from what the application's own
+ * @warning An application that knows its own documents should tighten these
+ * rather than accept Recommended() as final. It is sized so that no ordinary
+ * Office document is rejected, which makes it much wider than what a specific
+ * application needs — a server accepting uploads in particular wants a far
+ * smaller MaxUncompressedBytes. Pick values from what the application's own
  * documents actually need rather than from the format's theoretical maxima.
  *
  * Limits are checked while loading and reject the package rather than
@@ -90,7 +93,7 @@ struct EXYOKIOFFICE_EXPORT OpenXmlPackageLimits
     UInt64 MaxXmlTextCharacters = 0;
 
     /**
-     * @brief Limits sized for ordinary Office documents.
+     * @brief Limits sized for ordinary Office documents; the default for new packages.
      *
      * A sensible starting point for opening documents you do not control. The
      * values are far above what ordinary `.docx`, `.xlsx`, and `.pptx` files
@@ -302,8 +305,9 @@ public:
      * @brief Configures ZIP/XML safety limits enforced by subsequent load operations.
      *
      * Affects later loads only; a package already in memory is not re-checked.
-     * Every limit defaults to zero, which means unlimited — see
-     * OpenXmlPackageLimits for why untrusted input needs explicit values.
+     * A package starts at OpenXmlPackageLimits::Recommended(), or at the
+     * process-wide policy when one was installed; pass Unlimited() to lift the
+     * limits deliberately.
      */
     void SetPackageLimits(OpenXmlPackageLimits limits);
     [[nodiscard]] const OpenXmlPackageLimits& PackageLimits() const noexcept;
@@ -317,12 +321,12 @@ public:
      * editors — there is otherwise no seam to pass limits through. Setting the
      * default once during start-up covers all of them at once.
      *
-     * Unconfigured, packages start at Unlimited(), so a library user who never
-     * calls this sees the behaviour documented at OpenXmlPackageLimits.
-     * `ExyokiOffice::Tools` is the exception and defaults to Recommended() on
-     * its own — see Tools::DefaultPackageLimits for why. `exyoki` and the MCP
-     * servers call this at start-up, so their `--package-limits` reaches every
-     * layer.
+     * Unconfigured, packages start at OpenXmlPackageLimits::Recommended(), so
+     * an application that never calls this is still not defenceless against a
+     * hostile package. Use this to install tighter values than the general
+     * purpose defaults, or an explicit Unlimited() for a process that only ever
+     * sees its own files. `exyoki` and the MCP servers call it at start-up, so
+     * their `--package-limits` reaches every layer.
      *
      * Passing std::nullopt returns the process to the unconfigured state.
      *
@@ -342,11 +346,11 @@ public:
     /**
      * @brief The configured default, or std::nullopt when none was ever set.
      *
-     * DefaultPackageLimits() cannot tell "the application chose Unlimited" from
-     * "the application never said anything", because both read as all zeros. A
-     * layer that wants its own safe default for the second case — as
-     * `ExyokiOffice::Tools` does — has to be able to distinguish them, or an
-     * explicit `--package-limits unlimited` would be silently overruled.
+     * DefaultPackageLimits() answers "what do packages start with", which
+     * cannot distinguish a deliberate Unlimited() from Recommended() having
+     * been substituted for a choice nobody made. A layer that must tell the two
+     * apart asks this instead, so that an explicit `--package-limits unlimited`
+     * is never silently overruled by a safer default.
      */
     [[nodiscard]] static std::optional<OpenXmlPackageLimits> ConfiguredDefaultPackageLimits();
 

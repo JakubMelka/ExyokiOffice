@@ -158,7 +158,8 @@ public:
      */
     static Ptr Open(const std::filesystem::path& path,
                     const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    OpenError* error = nullptr);
     /**
      * @brief Opens a spreadsheet package from a seekable stream.
      *
@@ -171,7 +172,8 @@ public:
      */
     static Ptr Open(std::iostream& stream,
                     const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    OpenError* error = nullptr);
     /**
      * @brief Opens a spreadsheet package from an owned byte buffer.
      *
@@ -185,7 +187,8 @@ public:
      */
     static Ptr Open(const std::vector<Byte>& packageBuffer,
                     const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    OpenError* error = nullptr);
     /**
      * @brief Opens a spreadsheet package from a contiguous byte range.
      *
@@ -196,7 +199,8 @@ public:
      */
     static Ptr Open(std::span<const Byte> packageBuffer,
                     const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    OpenError* error = nullptr);
 
     /**
      * @brief Changes the spreadsheet package flavor and workbook part content type.
@@ -264,6 +268,17 @@ protected:
     bool BeforeSave() override;
 
 private:
+    /**
+     * @brief The part of opening that follows loading, whatever the bytes came from.
+     *
+     * Shared by the four overloads so that every way of opening a workbook
+     * reports the same reason for the same failure.
+     */
+    static Ptr FinishOpen(Ptr document,
+                          const OpenSettings& settings,
+                          const ICancellationToken* cancellationToken,
+                          OpenError* error);
+
     SpreadsheetDocumentType m_documentType = SpreadsheetDocumentType::Workbook;
     OpenSettings m_openSettings;
 

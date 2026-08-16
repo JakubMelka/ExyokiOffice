@@ -44,7 +44,7 @@ using ExyokiOffice::Word::WordDocumentEditor;
 /// signed bytes, which is enough to prove that the same canonical form is
 /// produced when signing and when verifying, and that the plumbing around the
 /// provider works. A real provider signs with a private key.
-class StubCryptoProvider final : public ICryptoProvider
+class StubCryptoProvider : public ICryptoProvider
 {
 public:
     explicit StubCryptoProvider(std::vector<ExyokiOffice::Byte> certificate = {0x30, 0x82, 0x01, 0x0A})
@@ -112,6 +112,11 @@ std::vector<ExyokiOffice::Byte> CreateSignedPackage(const std::shared_ptr<StubCr
 std::unique_ptr<OpenXmlPackage> LoadPackage(const std::vector<ExyokiOffice::Byte>& bytes)
 {
     auto package = std::make_unique<OpenXmlPackage>();
+    // Deliberately without limits. These tests hand the verifier signature XML
+    // built to break it - nested past the canonicalizer's own ceiling, for
+    // instance - and the default limits would reject such a package at load
+    // time, leaving the behaviour under test unreached.
+    package->SetPackageLimits(ExyokiOffice::OpenXmlPackageLimits::Unlimited());
     REQUIRE(package->LoadFromMemory(bytes));
     return package;
 }
@@ -682,6 +687,51 @@ TEST_SUITE("Package signatures")
         CHECK(verification.Signatures.front().ContentIntegrity == SignatureCheck::Valid);
         CHECK(verification.Signatures.front().SignatureValue == SignatureCheck::Invalid);
         CHECK(HasIssue(verification.Diagnostics, ValidationErrorId::SignatureValueInvalid));
+    }
+
+    TEST_CASE("The provider is offered the whole embedded certificate chain [unit] [security] [signature]")
+    {
+        // A provider that builds a path to its own trust anchors needs the
+        // intermediates, and the signature is the only place they exist. Only
+        // the leaf used to be passed, so such a provider had to answer with
+        // less than the signature actually carried.
+        class ChainRecordingProvider final : public StubCryptoProvider
+        {
+        public:
+            bool VerifyDataWithChain(SignatureAlgorithm algorithm,
+                                     std::span<const ExyokiOffice::Byte> data,
+                                     std::span<const ExyokiOffice::Byte> signature,
+                                     std::span<const std::vector<ExyokiOffice::Byte>> chain) const override
+            {
+                ChainSize = chain.size();
+                return StubCryptoProvider::VerifyDataWithChain(algorithm, data, signature, chain);
+            }
+
+            mutable ExyokiOffice::Size ChainSize = 0;
+        };
+
+        auto provider = std::make_shared<ChainRecordingProvider>();
+        const auto bytes = CreateSignedPackage(provider);
+
+        auto package = LoadPackage(bytes);
+        const auto result = VerifySignatures(*package, provider);
+        REQUIRE(result.Signatures.size() == 1);
+        CHECK(result.Signatures.front().IsValid());
+        CHECK(provider->ChainSize == result.Signatures.front().Certificates.size());
+        CHECK(provider->ChainSize >= 1);
+    }
+
+    TEST_CASE("A provider that implements only VerifyData still works [unit] [security] [signature]")
+    {
+        // The chain-aware entry point has a default implementation that forwards
+        // the leaf, so an existing provider does not have to be rewritten.
+        auto provider = std::make_shared<StubCryptoProvider>();
+        const auto bytes = CreateSignedPackage(provider);
+
+        auto package = LoadPackage(bytes);
+        const auto result = VerifySignatures(*package, provider);
+        REQUIRE(result.Signatures.size() == 1);
+        CHECK(result.Signatures.front().SignatureValue == SignatureCheck::Valid);
     }
 
     TEST_CASE("A SignedInfo that cannot be canonicalized does not verify [unit] [security] [signature]")

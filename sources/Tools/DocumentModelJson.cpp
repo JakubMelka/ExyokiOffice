@@ -9,6 +9,9 @@
 
 #include "Base64.hpp"
 
+#include <charconv>
+#include <system_error>
+
 namespace ExyokiOffice::Tools
 {
 
@@ -92,14 +95,14 @@ public:
         }
         if (it->is_string())
         {
-            try
-            {
-                return std::stoll(it->get<std::string>());
-            }
-            catch (...)
-            {
-                return defaultValue;
-            }
+            // std::from_chars rather than std::stoll: no exception to catch for
+            // input that is not a number, no locale, and trailing rubbish is a
+            // rejection instead of a silently truncated prefix.
+            const auto text = it->get<std::string>();
+            Int64 parsed = 0;
+            const auto* const end = text.data() + text.size();
+            const auto result = std::from_chars(text.data(), end, parsed);
+            return (result.ec == std::errc{} && result.ptr == end) ? parsed : defaultValue;
         }
         return defaultValue;
     }
@@ -117,14 +120,13 @@ public:
         }
         if (it->is_string())
         {
-            try
-            {
-                return std::stod(it->get<std::string>());
-            }
-            catch (...)
-            {
-                return defaultValue;
-            }
+            // See GetInt: from_chars is exception-free and, unlike std::stod,
+            // reads `1.5` the same way whatever locale the host installed.
+            const auto text = it->get<std::string>();
+            Real parsed = 0.0;
+            const auto* const end = text.data() + text.size();
+            const auto result = std::from_chars(text.data(), end, parsed, std::chars_format::general);
+            return (result.ec == std::errc{} && result.ptr == end) ? parsed : defaultValue;
         }
         return defaultValue;
     }

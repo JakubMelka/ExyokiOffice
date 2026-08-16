@@ -884,6 +884,7 @@ ReportDocument AdaptRedact(const RedactResult& result)
     document.Data.Set("hiddenRunsRemoved", static_cast<ExyokiOffice::UInt64>(result.HiddenRunsRemoved));
     document.Data.Set("metadataFieldsCleared",
                       static_cast<ExyokiOffice::UInt64>(result.MetadataFieldsCleared));
+    document.Data.Set("partsRemoved", static_cast<ExyokiOffice::UInt64>(result.PartsRemoved));
     document.Data.Set("saved", result.Saved);
     AdapterHelper::AppendDiagnostics(document, result.Diagnostics);
     return document;

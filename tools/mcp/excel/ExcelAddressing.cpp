@@ -342,15 +342,18 @@ nlohmann::json ExcelAddressing::CellValueToJson(const Excel::ExcelCellValue& val
         case Excel::CellValueKind::Number:
         {
             // The stored text is authoritative; converting it back keeps the
-            // exact value the workbook holds instead of a reformatted one.
-            try
+            // exact value the workbook holds instead of a reformatted one. It
+            // is read with from_chars, which is exception-free and reads the
+            // invariant spelling the file uses whatever locale the host has.
+            const auto& text = value.Text();
+            Real number = 0.0;
+            const auto* const end = text.data() + text.size();
+            const auto parsed = std::from_chars(text.data(), end, number, std::chars_format::general);
+            if (parsed.ec != std::errc{} || parsed.ptr != end)
             {
-                return std::stod(value.Text());
+                return text;
             }
-            catch (const std::exception&)
-            {
-                return value.Text();
-            }
+            return number;
         }
         default:
             break;

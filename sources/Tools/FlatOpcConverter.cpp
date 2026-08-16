@@ -16,8 +16,10 @@
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string_view>
+#include <system_error>
 #include <unordered_map>
 
 namespace ExyokiOffice::Tools
@@ -33,6 +35,17 @@ public:
     static void Diagnostic(std::vector<ToolDiagnostic>& diagnostics, std::string message, std::string context = {})
     {
         diagnostics.push_back({ToolSeverity::Error, std::move(message), std::move(context)});
+    }
+
+    /// Why the entry currently open in @p archive is refused; empty when it fits.
+    ///
+    /// Read from the ZIP directory, before zip_entry_read allocates the declared
+    /// uncompressed size. Checking afterwards would mean the allocation a
+    /// decompression bomb is built around has already happened.
+    static std::string_view CheckOpenEntry(zip_t* archive, const OpenXmlPackageLimits& limits)
+    {
+        return limits.CheckEntry(static_cast<UInt64>(zip_entry_size(archive)),
+                                 static_cast<UInt64>(zip_entry_comp_size(archive)));
     }
 
     static std::vector<Byte> ReadEntry(zip_t* archive, bool& ok)
@@ -126,12 +139,33 @@ ToFlatOpcResult ConvertToFlatOpc(std::span<const Byte> packageBytes, const ToFla
         return result;
     }
 
+    const auto entryCount = zip_entries_total(archive);
+    if (entryCount < 0)
+    {
+        FlatOpcHelpers::Diagnostic(result.Diagnostics, "ZIP entry table cannot be read");
+        zip_stream_close(archive);
+        return result;
+    }
+    if (const auto reason = options.Limits.CheckEntryCount(static_cast<UInt64>(entryCount)); !reason.empty())
+    {
+        FlatOpcHelpers::Diagnostic(result.Diagnostics, std::string(reason));
+        zip_stream_close(archive);
+        return result;
+    }
+
     std::unordered_map<std::string, std::string> defaults, overrides;
     if (zip_entry_open(archive, "[Content_Types].xml") == 0)
     {
+        const auto reason = FlatOpcHelpers::CheckOpenEntry(archive, options.Limits);
         bool ok = false;
-        const auto bytes = FlatOpcHelpers::ReadEntry(archive, ok);
+        const auto bytes = reason.empty() ? FlatOpcHelpers::ReadEntry(archive, ok) : std::vector<Byte>();
         zip_entry_close(archive);
+        if (!reason.empty())
+        {
+            FlatOpcHelpers::Diagnostic(result.Diagnostics, std::string(reason), "[Content_Types].xml");
+            zip_stream_close(archive);
+            return result;
+        }
         if (ok)
         {
             FlatOpcHelpers::LoadContentTypes(bytes, defaults, overrides);
@@ -146,15 +180,16 @@ ToFlatOpcResult ConvertToFlatOpc(std::span<const Byte> packageBytes, const ToFla
     auto root = flat.append_child("pkg:package");
     root.append_attribute("xmlns:pkg") = FlatOpcHelpers::Namespace.data();
 
-    const auto total = zip_entries_total(archive);
-    for (ssize_t index = 0; index < total; ++index)
+    UInt64 compressedTotal = 0;
+    UInt64 uncompressedTotal = 0;
+    for (ssize_t index = 0; index < entryCount; ++index)
     {
         if (zip_entry_openbyindex(archive, static_cast<Size>(index)) != 0)
         {
             continue;
         }
         const std::string name = zip_entry_name(archive) ? zip_entry_name(archive) : "";
-        if (zip_entry_isdir(archive) || name.empty())
+        if (name.empty() || zip_entry_isdir(archive))
         {
             zip_entry_close(archive);
             continue;
@@ -165,6 +200,38 @@ ToFlatOpcResult ConvertToFlatOpc(std::span<const Byte> packageBytes, const ToFla
             zip_entry_close(archive);
             continue;
         }
+
+        // One entry over the limit condemns the whole conversion rather than
+        // being skipped: an archive built to be read by something that does not
+        // look is not a damaged file among good ones.
+        if (const auto reason = FlatOpcHelpers::CheckOpenEntry(archive, options.Limits); !reason.empty())
+        {
+            FlatOpcHelpers::Diagnostic(result.Diagnostics, std::string(reason), name);
+            zip_entry_close(archive);
+            zip_stream_close(archive);
+            return ToFlatOpcResult{false, 0, {}, std::move(result.Diagnostics)};
+        }
+
+        const auto uncompressed = static_cast<UInt64>(zip_entry_size(archive));
+        const auto compressed = static_cast<UInt64>(zip_entry_comp_size(archive));
+        if (compressed > std::numeric_limits<UInt64>::max() - compressedTotal ||
+            uncompressed > std::numeric_limits<UInt64>::max() - uncompressedTotal)
+        {
+            FlatOpcHelpers::Diagnostic(result.Diagnostics, "ZIP package size accounting overflowed configured counters", name);
+            zip_entry_close(archive);
+            zip_stream_close(archive);
+            return ToFlatOpcResult{false, 0, {}, std::move(result.Diagnostics)};
+        }
+        compressedTotal += compressed;
+        uncompressedTotal += uncompressed;
+        if (const auto reason = options.Limits.CheckTotals(compressedTotal, uncompressedTotal); !reason.empty())
+        {
+            FlatOpcHelpers::Diagnostic(result.Diagnostics, std::string(reason), name);
+            zip_entry_close(archive);
+            zip_stream_close(archive);
+            return ToFlatOpcResult{false, 0, {}, std::move(result.Diagnostics)};
+        }
+
         bool readOk = false;
         const auto bytes = FlatOpcHelpers::ReadEntry(archive, readOk);
         zip_entry_close(archive);
@@ -221,6 +288,20 @@ ToFlatOpcResult ConvertToFlatOpc(std::span<const Byte> packageBytes, const ToFla
 ToFlatOpcResult ConvertToFlatOpc(const std::filesystem::path& packagePath, const std::filesystem::path& outFile,
                                  const ToFlatOpcOptions& options)
 {
+    // The archive is read whole before it is parsed, so the file size is checked
+    // against the same ceiling here; otherwise the limits would start applying
+    // one full copy of the file too late.
+    std::error_code sizeError;
+    const auto fileSize = std::filesystem::file_size(packagePath, sizeError);
+    if (!sizeError && options.Limits.MaxCompressedBytes != 0 &&
+        static_cast<UInt64>(fileSize) > options.Limits.MaxCompressedBytes)
+    {
+        ToFlatOpcResult result;
+        FlatOpcHelpers::Diagnostic(result.Diagnostics, "ZIP package exceeds configured compressed size limit",
+                                   packagePath.string());
+        return result;
+    }
+
     std::ifstream input(packagePath, std::ios::binary);
     if (!input)
     {

@@ -178,20 +178,22 @@ controlling safety limits (maximum part sizes) and validation behavior.
 
 ### Opening untrusted packages safely
 
-The core package and editor APIs start without ZIP/XML ceilings unless the
-application installs a process-wide policy. That preserves compatibility for
-trusted packages an application produced itself, but it is not a safe default
-for uploads, e-mail attachments, or other untrusted input. Apply the recommended
-limits explicitly:
+Every package starts at `OpenXmlPackageLimits::Recommended()`, so opening an
+upload is bounded without saying anything. Those values are chosen so that no
+ordinary Office document is rejected, which makes them far wider than any one
+application needs — tighten them to what your own documents look like:
 
 ```cpp
 ExyokiOffice::Packaging::OpenSettings settings;
 settings.PackageLimits = ExyokiOffice::OpenXmlPackageLimits::Recommended();
+settings.PackageLimits.MaxUncompressedBytes = 64ull * 1024 * 1024;
 
-auto editor = ExyokiOffice::Word::WordDocumentEditor::Open("upload.docx", settings);
+ExyokiOffice::Packaging::OpenError error;
+auto editor = ExyokiOffice::Word::WordDocumentEditor::Open("upload.docx", settings, nullptr, &error);
 if (!editor)
 {
-    // Malformed input and packages exceeding a limit are both refused.
+    // error.Code tells a missing file from a malformed package, an exceeded
+    // limit, or a document of the wrong family; error.Diagnostics names the part.
 }
 ```
 
@@ -216,10 +218,11 @@ ExyokiOffice::OpenXmlPackage::SetDefaultPackageLimits(
 
 `OpenSettings` captures that default when it is constructed; assigning its
 `PackageLimits` member still overrides the policy for one open. Use
-`OpenXmlPackageLimits::Unlimited()` only for deliberately trusted input so a
-reviewer can distinguish that decision from a forgotten limit. File-oriented
-entry points in `ExyokiOffice::Tools`, `exyoki`, and the MCP servers use
-`Recommended()` by default even when the core policy was never configured.
+`OpenXmlPackageLimits::Unlimited()` only for deliberately trusted input, and say
+it explicitly so a reviewer can tell that decision from a forgotten limit.
+File-oriented entry points in `ExyokiOffice::Tools`, `exyoki`, and the MCP
+servers state the same policy in their own code, so a future change of the core
+default cannot loosen them by accident.
 See [SECURITY.md](../SECURITY.md) for the threat model and reporting policy.
 
 **Structured results for fallible operations.** Operations with meaningful

@@ -4,8 +4,11 @@
 
 #include "ExyokiOffice/Packaging/PowerPointDocument.hpp"
 
+#include "OpenErrorReporting.hpp"
+
 #include "ExyokiOffice/MarkupCompatibility.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/ExtendedProperties.hpp"
+#include "ExyokiOffice/OpenXmlPackageValidator.hpp"
 #include "ExyokiOffice/Packaging/PackageUtilities.hpp"
 #include "pugixml/pugixml.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
@@ -14,6 +17,7 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <utility>
 
 namespace ExyokiOffice::Packaging
 {
@@ -36,6 +40,29 @@ public:
             limits.MaxPartBytes = settings.MaxCharactersInPart;
         }
         return limits;
+    }
+
+    static ValidationResult CopyWithSeverity(const ValidationResult& source, ValidationSeverity severity)
+    {
+        ValidationResult result;
+        for (auto issue : source.Issues())
+        {
+            issue.Severity = severity;
+            result.AddIssue(std::move(issue));
+        }
+        return result;
+    }
+
+    static void ReportDiagnostics(const ValidationResult& result, DiagnosticSink* sink)
+    {
+        if (!sink)
+        {
+            return;
+        }
+        for (const auto& issue : result.Issues())
+        {
+            sink->Report(issue);
+        }
     }
 };
 
@@ -136,10 +163,54 @@ void PowerPointDocument::ApplyOpenSettings(const OpenSettings& settings)
     SetExternalResourcePolicy(settings.ExternalResourcePolicy);
 }
 
+bool PowerPointDocument::ApplyOpcValidationPolicy(const OpenSettings& settings)
+{
+    ClearValidationResult();
+    if (settings.OpcValidation == OpcValidationMode::None)
+    {
+        return true;
+    }
+
+    const auto validation = OpenXmlPackageValidator().Validate(*this);
+    if (settings.OpcValidation == OpcValidationMode::Tolerant)
+    {
+        auto warnings = PowerPointDocumentHelper::CopyWithSeverity(validation, ValidationSeverity::Warning);
+        PowerPointDocumentHelper::ReportDiagnostics(warnings, settings.ValidationDiagnostics);
+        SetLastValidationResult(std::move(warnings));
+        return true;
+    }
+
+    PowerPointDocumentHelper::ReportDiagnostics(validation, settings.ValidationDiagnostics);
+    SetLastValidationResult(validation);
+    return !validation.HasErrors();
+}
+
 bool PowerPointDocument::ApplyMarkupCompatibilityPolicy(const OpenSettings& settings)
 {
     return ProcessMarkupCompatibility(*this, GetPresentationPart(), settings.MarkupCompatibility,
                                       settings.ValidationDiagnostics);
+}
+
+bool PowerPointDocument::EnforcePartCharacterBudget() const
+{
+    if (m_openSettings.MaxCharactersInPart == 0)
+    {
+        return true;
+    }
+
+    const auto budget = m_openSettings.MaxCharactersInPart;
+    bool withinBudget = true;
+    ForEachPart([&](const std::shared_ptr<OpenXmlPackagePart>& part)
+                {
+        if (!withinBudget || !part || !part->IsXmlPart())
+        {
+            return;
+        }
+        if (part->GetXmlString().size() > budget)
+        {
+            withinBudget = false;
+        } });
+    return withinBudget;
 }
 
 DocumentProperties PowerPointDocument::Properties()
@@ -148,62 +219,124 @@ DocumentProperties PowerPointDocument::Properties()
 }
 
 PowerPointDocument::Ptr PowerPointDocument::Open(const std::filesystem::path& path, const OpenSettings& settings,
-                                                 const ICancellationToken* token)
+                                                 const ICancellationToken* token, OpenError* error)
 {
-    if (path.empty() || PowerPointDocumentHelper::Cancelled(token))
+    using Detail::OpenErrorReporter;
+
+    if (path.empty())
     {
+        OpenErrorReporter::Report(error, OpenErrorCode::InvalidArgument, "No path was given to open.");
+        return nullptr;
+    }
+    if (PowerPointDocumentHelper::Cancelled(token))
+    {
+        OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
     auto document = std::make_shared<PowerPointDocument>();
     document->SetPackageLimits(PowerPointDocumentHelper::LimitsFor(settings));
     document->SetPartByteRetention(settings.ByteRetention);
-    if (!document->LoadFromFile(path, token) || PowerPointDocumentHelper::Cancelled(token))
+    if (!document->LoadFromFile(path, token))
     {
+        OpenErrorReporter::ReportFileLoadFailure(error, *document, path, token);
         return nullptr;
     }
-    document->ApplyOpenSettings(settings);
-    if (!document->ApplyMarkupCompatibilityPolicy(settings))
-    {
-        return nullptr;
-    }
-    document->UpdateDocumentTypeFromPresentationPart();
-    return document->GetPresentationPart() ? document : nullptr;
+    return FinishOpen(std::move(document), settings, token, error);
 }
 
 PowerPointDocument::Ptr PowerPointDocument::Open(std::iostream& stream, const OpenSettings& settings,
-                                                 const ICancellationToken* token)
+                                                 const ICancellationToken* token, OpenError* error)
 {
     const auto bytes = ReadStreamFully(stream);
-    return Open(std::span<const Byte>(bytes.data(), bytes.size()), settings, token);
+    return Open(std::span<const Byte>(bytes.data(), bytes.size()), settings, token, error);
 }
 
 PowerPointDocument::Ptr PowerPointDocument::Open(const std::vector<Byte>& bytes, const OpenSettings& settings,
-                                                 const ICancellationToken* token)
+                                                 const ICancellationToken* token, OpenError* error)
 {
-    return Open(std::span<const Byte>(bytes.data(), bytes.size()), settings, token);
+    return Open(std::span<const Byte>(bytes.data(), bytes.size()), settings, token, error);
 }
 
 PowerPointDocument::Ptr PowerPointDocument::Open(std::span<const Byte> bytes, const OpenSettings& settings,
-                                                 const ICancellationToken* token)
+                                                 const ICancellationToken* token, OpenError* error)
 {
-    if (bytes.empty() || PowerPointDocumentHelper::Cancelled(token))
+    using Detail::OpenErrorReporter;
+
+    if (bytes.empty())
     {
+        OpenErrorReporter::Report(error, OpenErrorCode::InvalidArgument, "The package buffer is empty.");
+        return nullptr;
+    }
+    if (PowerPointDocumentHelper::Cancelled(token))
+    {
+        OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
     auto document = std::make_shared<PowerPointDocument>();
     document->SetPackageLimits(PowerPointDocumentHelper::LimitsFor(settings));
     document->SetPartByteRetention(settings.ByteRetention);
-    if (!document->LoadFromMemory(bytes, token) || PowerPointDocumentHelper::Cancelled(token))
+    if (!document->LoadFromMemory(bytes, token))
     {
+        OpenErrorReporter::ReportLoadFailure(error, *document, {}, token);
+        return nullptr;
+    }
+    return FinishOpen(std::move(document), settings, token, error);
+}
+
+PowerPointDocument::Ptr PowerPointDocument::FinishOpen(Ptr document,
+                                                       const OpenSettings& settings,
+                                                       const ICancellationToken* token,
+                                                       OpenError* error)
+{
+    using Detail::OpenErrorReporter;
+
+    if (PowerPointDocumentHelper::Cancelled(token))
+    {
+        OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
     document->ApplyOpenSettings(settings);
+    if (!document->ApplyOpcValidationPolicy(settings))
+    {
+        OpenErrorReporter::Report(error, OpenErrorCode::ValidationFailed,
+                                  "The package failed strict OPC validation.", document.get());
+        return nullptr;
+    }
+    if (PowerPointDocumentHelper::Cancelled(token))
+    {
+        OpenErrorReporter::ReportCancelled(error);
+        return nullptr;
+    }
     if (!document->ApplyMarkupCompatibilityPolicy(settings))
     {
+        OpenErrorReporter::Report(error, OpenErrorCode::MarkupCompatibilityFailed,
+                                  "Markup compatibility processing failed for a part of the package.",
+                                  document.get());
         return nullptr;
     }
     document->UpdateDocumentTypeFromPresentationPart();
-    return document->GetPresentationPart() ? document : nullptr;
+    if (!document->GetPresentationPart())
+    {
+        // A readable package without a presentation part is a document of some
+        // other family - most often a .docx or .xlsx handed to the wrong API.
+        OpenErrorReporter::Report(error, OpenErrorCode::WrongDocumentType,
+                                  "The package has no presentation part, so it is not a PowerPoint document.",
+                                  document.get());
+        return nullptr;
+    }
+    if (PowerPointDocumentHelper::Cancelled(token))
+    {
+        OpenErrorReporter::ReportCancelled(error);
+        return nullptr;
+    }
+    if (!document->EnforcePartCharacterBudget())
+    {
+        OpenErrorReporter::Report(error, OpenErrorCode::PartTooLarge,
+                                  "A part holds more characters than OpenSettings::MaxCharactersInPart allows.",
+                                  document.get());
+        return nullptr;
+    }
+    return document;
 }
 
 void PowerPointDocument::ChangeDocumentType(PowerPointDocumentType type)

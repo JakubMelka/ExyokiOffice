@@ -4,6 +4,8 @@
 
 #include "doctest.h"
 
+#include <clocale>
+
 #include "ExyokiOffice/Excel/ExcelDocument.hpp"
 #include "ExyokiOffice/Excel/ExcelFormulaEngine.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
@@ -1552,6 +1554,33 @@ TEST_SUITE("ExcelFormulaEngineTests")
         // this long answers `#VALUE!` rather than 20001. Pinned here because the
         // documented parser limit is easy to confuse with this one.
         CHECK(H::Error(engine, formula) == FormulaErrorCode::Value);
+    }
+
+    TEST_CASE("Number formatting does not follow the host locale [unit] [excel] [excel-formula-engine]")
+    {
+        // std::snprintf("%.*f") answers according to the global C locale, so
+        // under a German one this produced "1234,50" - and the grouping pass
+        // then read that comma as a separator it had written itself, giving
+        // "1,234,,50". A workbook does not change meaning because the program
+        // was started in another country.
+        const char* previous = std::setlocale(LC_ALL, nullptr);
+        const std::string restore = previous ? previous : "C";
+        for (const char* candidate : {"de_DE.UTF-8", "de_DE", "de-DE", "German_Germany.1252"})
+        {
+            if (std::setlocale(LC_ALL, candidate) != nullptr)
+            {
+                break;
+            }
+        }
+
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Text(engine, "=TEXT(1234.5,\"#,##0.00\")") == "1,234.50");
+        CHECK(H::Text(engine, "=TEXT(0.125,\"0.000\")") == "0.125");
+        CHECK(H::Text(engine, "=1.25&\"\"") == "1.25");
+
+        std::setlocale(LC_ALL, restore.c_str());
     }
 
 } // TEST_SUITE

@@ -18,7 +18,7 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
-#include <cstdlib>
+#include <charconv>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -254,12 +254,15 @@ public:
         return {};
     }
 
+    /// Reads a number out of document markup, which is always in the invariant
+    /// XML spelling. std::strtod would read it through the global C locale, so
+    /// the same document would fail this validation under de-DE and pass under
+    /// en-US - reported as a defect in the document rather than in the reader.
     static bool TryParseSchematronNumber(std::string_view text, Real& value)
     {
-        std::string buffer(text);
-        char* end = nullptr;
-        value = std::strtod(buffer.c_str(), &end);
-        return end != buffer.c_str() && end != nullptr && *end == '\0';
+        const auto* const end = text.data() + text.size();
+        const auto result = std::from_chars(text.data(), end, value, std::chars_format::general);
+        return result.ec == std::errc{} && result.ptr == end;
     }
 
     static bool EvaluateSchematronComparison(Real lhs,

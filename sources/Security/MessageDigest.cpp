@@ -11,6 +11,12 @@ namespace ExyokiOffice::Security
 {
 
 /// Block plumbing shared by the SHA-1 and SHA-2 compression functions.
+///
+/// The message is not copied to pad it. A signed part is hashed as a whole
+/// buffer and parts run to megabytes, so padding into a second vector doubled
+/// the peak memory of every digest for the sake of the last sixty-four bytes.
+/// Whole blocks are compressed where they lie and only the tail - one block, or
+/// two when the length field no longer fits - is assembled separately.
 class MessageDigestHelpers final
 {
 public:
@@ -31,36 +37,30 @@ public:
         return (value >> bits) | (value << (64U - bits));
     }
 
-    /// Applies the SHA-1/SHA-256 padding rule: a 0x80 byte, zero padding to a
-    /// 56 byte remainder, then the big-endian bit length.
-    static std::vector<Byte> PadTo512BitBlocks(std::span<const Byte> data)
+    /**
+     * @brief Builds the padded tail of a message: 0x80, zeros, and the length.
+     *
+     * @param tail        The bytes left after the last whole block.
+     * @param totalBytes  Length of the whole message, which is what the padding
+     *                    encodes - not the length of @p tail.
+     * @tparam BlockSize  64 for SHA-1/SHA-256, 128 for SHA-512/SHA-384.
+     * @tparam LengthSize 8 or 16, the size of the big-endian bit length.
+     * @return One or two whole blocks, ready to be compressed.
+     */
+    template <Size BlockSize, Size LengthSize>
+    static std::vector<Byte> BuildFinalBlocks(std::span<const Byte> tail, UInt64 totalBytes)
     {
-        std::vector<Byte> padded(data.begin(), data.end());
-        const UInt64 bitLength = static_cast<UInt64>(data.size()) * 8U;
+        std::vector<Byte> padded(tail.begin(), tail.end());
         padded.push_back(0x80U);
-        while (padded.size() % 64U != 56U)
+        while (padded.size() % BlockSize != BlockSize - LengthSize)
         {
             padded.push_back(0x00U);
         }
-        for (int shift = 56; shift >= 0; shift -= 8)
-        {
-            padded.push_back(static_cast<UInt8>((bitLength >> shift) & 0xFFU));
-        }
-        return padded;
-    }
 
-    /// Applies the SHA-512 padding rule with a 128-bit big-endian bit length.
-    /// The high 64 bits are always zero for data held in memory.
-    static std::vector<Byte> PadTo1024BitBlocks(std::span<const Byte> data)
-    {
-        std::vector<Byte> padded(data.begin(), data.end());
-        const UInt64 bitLength = static_cast<UInt64>(data.size()) * 8U;
-        padded.push_back(0x80U);
-        while (padded.size() % 128U != 112U)
-        {
-            padded.push_back(0x00U);
-        }
-        padded.insert(padded.end(), 8U, 0x00U);
+        // The high half of a 128-bit length is always zero: the message is held
+        // in memory, so its bit count fits in 64 bits with room to spare.
+        padded.insert(padded.end(), LengthSize - 8U, 0x00U);
+        const UInt64 bitLength = totalBytes * 8U;
         for (int shift = 56; shift >= 0; shift -= 8)
         {
             padded.push_back(static_cast<UInt8>((bitLength >> shift) & 0xFFU));
@@ -100,6 +100,31 @@ public:
         }
     }
 
+    /**
+     * @brief Runs a block compression function over a message and its padding.
+     *
+     * @param data       The message, compressed block by block where it lies.
+     * @param compress   Callable invoked with a pointer to each whole block.
+     * @tparam BlockSize Block size of the algorithm, in bytes.
+     * @tparam LengthSize Size of the trailing length field, in bytes.
+     */
+    template <Size BlockSize, Size LengthSize, typename TCompress>
+    static void CompressMessage(std::span<const Byte> data, TCompress&& compress)
+    {
+        const Size wholeBlocks = data.size() / BlockSize;
+        for (Size index = 0; index < wholeBlocks; ++index)
+        {
+            compress(data.data() + index * BlockSize);
+        }
+
+        const auto tail = data.subspan(wholeBlocks * BlockSize);
+        const auto finalBlocks = BuildFinalBlocks<BlockSize, LengthSize>(tail, static_cast<UInt64>(data.size()));
+        for (Size offset = 0; offset < finalBlocks.size(); offset += BlockSize)
+        {
+            compress(finalBlocks.data() + offset);
+        }
+    }
+
     /// Shared SHA-512/SHA-384 core; the two differ only in the initial state
     /// and in the truncation of the final digest.
     static std::vector<Byte> Sha512Family(std::span<const Byte> data, bool truncateToSha384);
@@ -108,66 +133,68 @@ public:
 std::vector<Byte> MessageDigest::Sha1(std::span<const Byte> data)
 {
     std::array<UInt32, 5> state{0x67452301U, 0xEFCDAB89U, 0x98BADCFEU, 0x10325476U, 0xC3D2E1F0U};
-    const auto padded = MessageDigestHelpers::PadTo512BitBlocks(data);
 
-    for (Size offset = 0; offset < padded.size(); offset += 64U)
-    {
-        std::array<UInt32, 80> schedule{};
-        for (Size index = 0; index < 16U; ++index)
+    MessageDigestHelpers::CompressMessage<64U, 8U>(
+        data,
+        [&state](const UInt8* block)
         {
-            schedule[index] = MessageDigestHelpers::ReadBigEndian32(padded.data() + offset + index * 4U);
-        }
-        for (Size index = 16U; index < 80U; ++index)
-        {
-            schedule[index] = MessageDigestHelpers::RotateLeft32(
-                schedule[index - 3] ^ schedule[index - 8] ^ schedule[index - 14] ^ schedule[index - 16], 1U);
-        }
-
-        UInt32 a = state[0];
-        UInt32 b = state[1];
-        UInt32 c = state[2];
-        UInt32 d = state[3];
-        UInt32 e = state[4];
-
-        for (Size index = 0; index < 80U; ++index)
-        {
-            UInt32 mixed = 0;
-            UInt32 constant = 0;
-            if (index < 20U)
+            std::array<UInt32, 80> schedule{};
+            for (Size index = 0; index < 16U; ++index)
             {
-                mixed = (b & c) | (~b & d);
-                constant = 0x5A827999U;
+                schedule[index] = MessageDigestHelpers::ReadBigEndian32(block + index * 4U);
             }
-            else if (index < 40U)
+            for (Size index = 16U; index < 80U; ++index)
             {
-                mixed = b ^ c ^ d;
-                constant = 0x6ED9EBA1U;
-            }
-            else if (index < 60U)
-            {
-                mixed = (b & c) | (b & d) | (c & d);
-                constant = 0x8F1BBCDCU;
-            }
-            else
-            {
-                mixed = b ^ c ^ d;
-                constant = 0xCA62C1D6U;
+                schedule[index] = MessageDigestHelpers::RotateLeft32(
+                    schedule[index - 3] ^ schedule[index - 8] ^ schedule[index - 14] ^ schedule[index - 16], 1U);
             }
 
-            const UInt32 temporary = MessageDigestHelpers::RotateLeft32(a, 5U) + mixed + e + constant + schedule[index];
-            e = d;
-            d = c;
-            c = MessageDigestHelpers::RotateLeft32(b, 30U);
-            b = a;
-            a = temporary;
-        }
+            UInt32 a = state[0];
+            UInt32 b = state[1];
+            UInt32 c = state[2];
+            UInt32 d = state[3];
+            UInt32 e = state[4];
 
-        state[0] += a;
-        state[1] += b;
-        state[2] += c;
-        state[3] += d;
-        state[4] += e;
-    }
+            for (Size index = 0; index < 80U; ++index)
+            {
+                UInt32 mixed = 0;
+                UInt32 constant = 0;
+                if (index < 20U)
+                {
+                    mixed = (b & c) | (~b & d);
+                    constant = 0x5A827999U;
+                }
+                else if (index < 40U)
+                {
+                    mixed = b ^ c ^ d;
+                    constant = 0x6ED9EBA1U;
+                }
+                else if (index < 60U)
+                {
+                    mixed = (b & c) | (b & d) | (c & d);
+                    constant = 0x8F1BBCDCU;
+                }
+                else
+                {
+                    mixed = b ^ c ^ d;
+                    constant = 0xCA62C1D6U;
+                }
+
+                const UInt32 temporary =
+                    MessageDigestHelpers::RotateLeft32(a, 5U) + mixed + e + constant + schedule[index];
+                e = d;
+                d = c;
+                c = MessageDigestHelpers::RotateLeft32(b, 30U);
+                b = a;
+                a = temporary;
+            }
+
+            state[0] += a;
+            state[1] += b;
+            state[2] += c;
+            state[3] += d;
+            state[4] += e;
+        });
 
     std::vector<Byte> digest;
     digest.reserve(20U);
@@ -192,55 +219,57 @@ std::vector<Byte> MessageDigest::Sha256(std::span<const Byte> data)
 
     std::array<UInt32, 8> state{0x6A09E667U, 0xBB67AE85U, 0x3C6EF372U, 0xA54FF53AU,
                                 0x510E527FU, 0x9B05688CU, 0x1F83D9ABU, 0x5BE0CD19U};
-    const auto padded = MessageDigestHelpers::PadTo512BitBlocks(data);
 
-    for (Size offset = 0; offset < padded.size(); offset += 64U)
-    {
-        std::array<UInt32, 64> schedule{};
-        for (Size index = 0; index < 16U; ++index)
+    MessageDigestHelpers::CompressMessage<64U, 8U>(
+        data,
+        [&state](const UInt8* block)
         {
-            schedule[index] = MessageDigestHelpers::ReadBigEndian32(padded.data() + offset + index * 4U);
-        }
-        for (Size index = 16U; index < 64U; ++index)
-        {
-            const UInt32 s0 = MessageDigestHelpers::RotateRight32(schedule[index - 15], 7U) ^
-                              MessageDigestHelpers::RotateRight32(schedule[index - 15], 18U) ^
-                              (schedule[index - 15] >> 3U);
-            const UInt32 s1 = MessageDigestHelpers::RotateRight32(schedule[index - 2], 17U) ^
-                              MessageDigestHelpers::RotateRight32(schedule[index - 2], 19U) ^
-                              (schedule[index - 2] >> 10U);
-            schedule[index] = schedule[index - 16] + s0 + schedule[index - 7] + s1;
-        }
+            std::array<UInt32, 64> schedule{};
+            for (Size index = 0; index < 16U; ++index)
+            {
+                schedule[index] = MessageDigestHelpers::ReadBigEndian32(block + index * 4U);
+            }
+            for (Size index = 16U; index < 64U; ++index)
+            {
+                const UInt32 s0 = MessageDigestHelpers::RotateRight32(schedule[index - 15], 7U) ^
+                                  MessageDigestHelpers::RotateRight32(schedule[index - 15], 18U) ^
+                                  (schedule[index - 15] >> 3U);
+                const UInt32 s1 = MessageDigestHelpers::RotateRight32(schedule[index - 2], 17U) ^
+                                  MessageDigestHelpers::RotateRight32(schedule[index - 2], 19U) ^
+                                  (schedule[index - 2] >> 10U);
+                schedule[index] = schedule[index - 16] + s0 + schedule[index - 7] + s1;
+            }
 
-        std::array<UInt32, 8> working = state;
-        for (Size index = 0; index < 64U; ++index)
-        {
-            const UInt32 s1 = MessageDigestHelpers::RotateRight32(working[4], 6U) ^
-                              MessageDigestHelpers::RotateRight32(working[4], 11U) ^
-                              MessageDigestHelpers::RotateRight32(working[4], 25U);
-            const UInt32 choice = (working[4] & working[5]) ^ (~working[4] & working[6]);
-            const UInt32 temporary1 = working[7] + s1 + choice + kConstants[index] + schedule[index];
-            const UInt32 s0 = MessageDigestHelpers::RotateRight32(working[0], 2U) ^
-                              MessageDigestHelpers::RotateRight32(working[0], 13U) ^
-                              MessageDigestHelpers::RotateRight32(working[0], 22U);
-            const UInt32 majority = (working[0] & working[1]) ^ (working[0] & working[2]) ^ (working[1] & working[2]);
-            const UInt32 temporary2 = s0 + majority;
+            std::array<UInt32, 8> working = state;
+            for (Size index = 0; index < 64U; ++index)
+            {
+                const UInt32 s1 = MessageDigestHelpers::RotateRight32(working[4], 6U) ^
+                                  MessageDigestHelpers::RotateRight32(working[4], 11U) ^
+                                  MessageDigestHelpers::RotateRight32(working[4], 25U);
+                const UInt32 choice = (working[4] & working[5]) ^ (~working[4] & working[6]);
+                const UInt32 temporary1 = working[7] + s1 + choice + kConstants[index] + schedule[index];
+                const UInt32 s0 = MessageDigestHelpers::RotateRight32(working[0], 2U) ^
+                                  MessageDigestHelpers::RotateRight32(working[0], 13U) ^
+                                  MessageDigestHelpers::RotateRight32(working[0], 22U);
+                const UInt32 majority =
+                    (working[0] & working[1]) ^ (working[0] & working[2]) ^ (working[1] & working[2]);
+                const UInt32 temporary2 = s0 + majority;
 
-            working[7] = working[6];
-            working[6] = working[5];
-            working[5] = working[4];
-            working[4] = working[3] + temporary1;
-            working[3] = working[2];
-            working[2] = working[1];
-            working[1] = working[0];
-            working[0] = temporary1 + temporary2;
-        }
+                working[7] = working[6];
+                working[6] = working[5];
+                working[5] = working[4];
+                working[4] = working[3] + temporary1;
+                working[3] = working[2];
+                working[2] = working[1];
+                working[1] = working[0];
+                working[0] = temporary1 + temporary2;
+            }
 
-        for (Size index = 0; index < 8U; ++index)
-        {
-            state[index] += working[index];
-        }
-    }
+            for (Size index = 0; index < 8U; ++index)
+            {
+                state[index] += working[index];
+            }
+        });
 
     std::vector<Byte> digest;
     digest.reserve(32U);
@@ -284,49 +313,52 @@ std::vector<Byte> MessageDigestHelpers::Sha512Family(std::span<const Byte> data,
                                     0xA54FF53A5F1D36F1ULL, 0x510E527FADE682D1ULL, 0x9B05688C2B3E6C1FULL,
                                     0x1F83D9ABFB41BD6BULL, 0x5BE0CD19137E2179ULL};
 
-    const auto padded = PadTo1024BitBlocks(data);
-
-    for (Size offset = 0; offset < padded.size(); offset += 128U)
-    {
-        std::array<UInt64, 80> schedule{};
-        for (Size index = 0; index < 16U; ++index)
+    CompressMessage<128U, 16U>(
+        data,
+        [&state](const UInt8* block)
         {
-            schedule[index] = ReadBigEndian64(padded.data() + offset + index * 8U);
-        }
-        for (Size index = 16U; index < 80U; ++index)
-        {
-            const UInt64 s0 = RotateRight64(schedule[index - 15], 1U) ^ RotateRight64(schedule[index - 15], 8U) ^
-                              (schedule[index - 15] >> 7U);
-            const UInt64 s1 = RotateRight64(schedule[index - 2], 19U) ^ RotateRight64(schedule[index - 2], 61U) ^
-                              (schedule[index - 2] >> 6U);
-            schedule[index] = schedule[index - 16] + s0 + schedule[index - 7] + s1;
-        }
+            std::array<UInt64, 80> schedule{};
+            for (Size index = 0; index < 16U; ++index)
+            {
+                schedule[index] = ReadBigEndian64(block + index * 8U);
+            }
+            for (Size index = 16U; index < 80U; ++index)
+            {
+                const UInt64 s0 = RotateRight64(schedule[index - 15], 1U) ^ RotateRight64(schedule[index - 15], 8U) ^
+                                  (schedule[index - 15] >> 7U);
+                const UInt64 s1 = RotateRight64(schedule[index - 2], 19U) ^ RotateRight64(schedule[index - 2], 61U) ^
+                                  (schedule[index - 2] >> 6U);
+                schedule[index] = schedule[index - 16] + s0 + schedule[index - 7] + s1;
+            }
 
-        std::array<UInt64, 8> working = state;
-        for (Size index = 0; index < 80U; ++index)
-        {
-            const UInt64 s1 = RotateRight64(working[4], 14U) ^ RotateRight64(working[4], 18U) ^ RotateRight64(working[4], 41U);
-            const UInt64 choice = (working[4] & working[5]) ^ (~working[4] & working[6]);
-            const UInt64 temporary1 = working[7] + s1 + choice + kConstants[index] + schedule[index];
-            const UInt64 s0 = RotateRight64(working[0], 28U) ^ RotateRight64(working[0], 34U) ^ RotateRight64(working[0], 39U);
-            const UInt64 majority = (working[0] & working[1]) ^ (working[0] & working[2]) ^ (working[1] & working[2]);
-            const UInt64 temporary2 = s0 + majority;
+            std::array<UInt64, 8> working = state;
+            for (Size index = 0; index < 80U; ++index)
+            {
+                const UInt64 s1 =
+                    RotateRight64(working[4], 14U) ^ RotateRight64(working[4], 18U) ^ RotateRight64(working[4], 41U);
+                const UInt64 choice = (working[4] & working[5]) ^ (~working[4] & working[6]);
+                const UInt64 temporary1 = working[7] + s1 + choice + kConstants[index] + schedule[index];
+                const UInt64 s0 =
+                    RotateRight64(working[0], 28U) ^ RotateRight64(working[0], 34U) ^ RotateRight64(working[0], 39U);
+                const UInt64 majority =
+                    (working[0] & working[1]) ^ (working[0] & working[2]) ^ (working[1] & working[2]);
+                const UInt64 temporary2 = s0 + majority;
 
-            working[7] = working[6];
-            working[6] = working[5];
-            working[5] = working[4];
-            working[4] = working[3] + temporary1;
-            working[3] = working[2];
-            working[2] = working[1];
-            working[1] = working[0];
-            working[0] = temporary1 + temporary2;
-        }
+                working[7] = working[6];
+                working[6] = working[5];
+                working[5] = working[4];
+                working[4] = working[3] + temporary1;
+                working[3] = working[2];
+                working[2] = working[1];
+                working[1] = working[0];
+                working[0] = temporary1 + temporary2;
+            }
 
-        for (Size index = 0; index < 8U; ++index)
-        {
-            state[index] += working[index];
-        }
-    }
+            for (Size index = 0; index < 8U; ++index)
+            {
+                state[index] += working[index];
+            }
+        });
 
     std::vector<Byte> digest;
     digest.reserve(64U);

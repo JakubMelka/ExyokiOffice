@@ -100,6 +100,53 @@ TEST_SUITE("Security message digests")
               MessageDigest::Sha256(data));
     }
 
+    TEST_CASE("Messages that end on a block boundary hash correctly [unit] [security] [digest]")
+    {
+        // The padding is built from the tail alone rather than from a padded
+        // copy of the whole message, so the interesting inputs are the ones
+        // where the tail decides how many extra blocks there are: 55 and 56
+        // bytes for a 64-byte block, 111 and 112 for a 128-byte one, and every
+        // exact multiple of the block size.
+        //
+        // The expected values are the published ones for a repeated 'a', which
+        // is what makes this a check of the implementation rather than of
+        // itself.
+        const auto repeat = [](ExyokiOffice::Size count)
+        {
+            return Bytes(std::string(count, 'a'));
+        };
+
+        CHECK(ToHex(MessageDigest::Sha256(repeat(55))) ==
+              "9f4390f8d30c2dd92ec9f095b65e2b9ae9b0a925a5258e241c9f1e910f734318");
+        CHECK(ToHex(MessageDigest::Sha256(repeat(56))) ==
+              "b35439a4ac6f0948b6d6f9e3c6af0f5f590ce20f1bde7090ef7970686ec6738a");
+        CHECK(ToHex(MessageDigest::Sha256(repeat(64))) ==
+              "ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb");
+        CHECK(ToHex(MessageDigest::Sha256(repeat(128))) ==
+              "6836cf13bac400e9105071cd6af47084dfacad4e5e302c94bfed24e013afb73e");
+
+        CHECK(ToHex(MessageDigest::Sha1(repeat(64))) == "0098ba824b5c16427bd7a1122a5a442a25ec644d");
+        CHECK(ToHex(MessageDigest::Sha512(repeat(111))) ==
+              "fa9121c7b32b9e01733d034cfc78cbf67f926c7ed83e82200ef86818196921760"
+              "b4beff48404df811b953828274461673c68d04e297b0eb7b2b4d60fc6b566a2");
+        CHECK(ToHex(MessageDigest::Sha512(repeat(112))) ==
+              "c01d080efd492776a1c43bd23dd99d0a2e626d481e16782e75d54c2503b5dc32"
+              "bd05f0f1ba33e568b88fd2d970929b719ecbb152f58f130a407c8830604b70ca");
+        CHECK(ToHex(MessageDigest::Sha512(repeat(128))) ==
+              "b73d1929aa615934e61a871596b3f3b33359f42b8175602e89f7e06e5f658a243"
+              "667807ed300314b95cacdd579f3e33abdfbe351909519a846d465c59582f321");
+        CHECK(ToHex(MessageDigest::Sha384(repeat(112))) ==
+              "187d4e07cb306103c69967bf544d0dfbe9042577599c73c330abc0cb64c61236"
+              "d5ed565ee19119d8c31779a38f791fcd");
+
+        // The whole point of building only the tail is that nothing else
+        // changes: a message one block long hashes the same as the same bytes
+        // hashed in one go by any other implementation, and both halves of the
+        // boundary agree with each other.
+        CHECK(MessageDigest::Sha512(repeat(128)) != MessageDigest::Sha512(repeat(127)));
+        CHECK(MessageDigest::Sha384(repeat(112)) != MessageDigest::Sha384(repeat(111)));
+    }
+
     TEST_CASE("DigestsEqual rejects mismatched and empty digests [unit] [security] [digest]")
     {
         const auto left = MessageDigest::Sha256(Bytes("abc"));

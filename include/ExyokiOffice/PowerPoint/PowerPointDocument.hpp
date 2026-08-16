@@ -2235,19 +2235,22 @@ public:
      * configured OpenSettings::PackageLimits, or is not a PresentationML package.
      */
     static Ptr Open(const std::filesystem::path& path, const Packaging::OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    Packaging::OpenError* error = nullptr);
     /**
      * @brief Opens a presentation package from a byte buffer.
      * @return The editor, or nullptr when the buffer is not a readable PresentationML package.
      */
     static Ptr Open(const std::vector<Byte>& bytes, const Packaging::OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    Packaging::OpenError* error = nullptr);
     /**
      * @brief Opens a presentation package from a contiguous byte range.
      * @return The editor, or nullptr when the range is not a readable PresentationML package.
      */
     static Ptr Open(std::span<const Byte> bytes, const Packaging::OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    Packaging::OpenError* error = nullptr);
 
     /** @brief Saves the package, atomically replacing an existing file by default. */
     bool SaveToFile(const std::filesystem::path& path, bool atomicSave = true,

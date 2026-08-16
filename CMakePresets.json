@@ -5,6 +5,7 @@
         {
             "name": "base",
             "hidden": true,
+            "description": "Developer configuration inherited by every preset: library, tool, examples and the full test suite. That is roughly 550 translation units and about 2 GB of RAM per compiler job - see README.md before choosing -j. Turn EXYOKIOFFICE_BUILD_UNIT_TESTS off for a library-only build.",
             "cacheVariables": {
                 "EXYOKIOFFICE_BUILD_EXAMPLE_WORD": "ON",
                 "EXYOKIOFFICE_BUILD_UNIT_TESTS": "ON",

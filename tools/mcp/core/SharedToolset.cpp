@@ -3055,6 +3055,9 @@ private:
                                                             Schema::Integer("Hidden-text runs deleted.")},
                                                            {"metadataFieldsCleared",
                                                             Schema::Integer("Identity fields cleared.")},
+                                                           {"partsRemoved",
+                                                            Schema::Integer("Whole parts detached, such as the "
+                                                                            "thumbnail or customXml.")},
                                                            {"outputPath",
                                                             Schema::String("File written, when working on paths.")}}),
                              false);
@@ -3156,6 +3159,7 @@ private:
         data["revisionsResolved"] = static_cast<UInt64>(result.RevisionsResolved);
         data["hiddenRunsRemoved"] = static_cast<UInt64>(result.HiddenRunsRemoved);
         data["metadataFieldsCleared"] = static_cast<UInt64>(result.MetadataFieldsCleared);
+        data["partsRemoved"] = static_cast<UInt64>(result.PartsRemoved);
         data["outputPath"] = std::move(outputPath);
         return data;
     }

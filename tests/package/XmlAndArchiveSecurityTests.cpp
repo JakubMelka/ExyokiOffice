@@ -396,6 +396,10 @@ TEST_SUITE("XmlAndArchiveSecurityTests")
         xml += "</w:body></w:document>";
 
         ExyokiOffice::OpenXmlPackage package;
+        // The point of this test is the walk, not the limits: packages default
+        // to Recommended(), whose depth ceiling would reject this document long
+        // before anything walked it.
+        package.SetPackageLimits(ExyokiOffice::OpenXmlPackageLimits::Unlimited());
         REQUIRE(package.LoadFromMemory(XmlAndArchiveSecurityTestHelper::BuildWordPackage(xml)));
         const auto part = package.GetPartByUri("/word/document.xml");
         REQUIRE(part != nullptr);
@@ -468,6 +472,10 @@ TEST_SUITE("XmlAndArchiveSecurityTests")
         xml += "</w:body></w:document>";
 
         ExyokiOffice::OpenXmlPackage package;
+        // The point of this test is the walk, not the limits: packages default
+        // to Recommended(), whose depth ceiling would reject this document long
+        // before anything walked it.
+        package.SetPackageLimits(ExyokiOffice::OpenXmlPackageLimits::Unlimited());
         REQUIRE(package.LoadFromMemory(XmlAndArchiveSecurityTestHelper::BuildWordPackage(xml)));
         const auto part = package.GetPartByUri("/word/document.xml");
         REQUIRE(part != nullptr);

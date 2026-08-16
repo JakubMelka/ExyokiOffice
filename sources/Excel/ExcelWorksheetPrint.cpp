@@ -8,8 +8,8 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
-#include <cstdlib>
 #include <limits>
 
 namespace ExyokiOffice::Excel
@@ -58,6 +58,21 @@ public:
     {
         value.erase(std::remove(value.begin(), value.end(), '$'), value.end());
         return value;
+    }
+
+    /// The whole of @p text as a row number, or nothing. std::strtoul would
+    /// accept `12abc`, accept a leading `-` as a huge unsigned, and read its
+    /// digits through the global C locale; from_chars does none of the three.
+    static std::optional<UInt32> ParseRowNumber(std::string_view text)
+    {
+        UInt32 parsed = 0;
+        const auto* const end = text.data() + text.size();
+        const auto result = std::from_chars(text.data(), end, parsed);
+        if (result.ec != std::errc{} || result.ptr != end)
+        {
+            return std::nullopt;
+        }
+        return parsed;
     }
 
     static std::optional<UInt32> SheetIndex(const ExcelDocument::Ptr& document,
@@ -430,8 +445,10 @@ PrintTitles Worksheet::GetPrintTitles() const
             {
                 const auto first = WorksheetPrintHelpers::StripAbsoluteMarkers(std::string(reference.substr(0, colon)));
                 const auto last = WorksheetPrintHelpers::StripAbsoluteMarkers(std::string(reference.substr(colon + 1)));
-                const auto firstRow = RowIndex::TryCreate(static_cast<UInt32>(std::strtoul(first.c_str(), nullptr, 10)));
-                const auto lastRow = RowIndex::TryCreate(static_cast<UInt32>(std::strtoul(last.c_str(), nullptr, 10)));
+                const auto firstNumber = WorksheetPrintHelpers::ParseRowNumber(first);
+                const auto lastNumber = WorksheetPrintHelpers::ParseRowNumber(last);
+                const auto firstRow = firstNumber ? RowIndex::TryCreate(*firstNumber) : std::nullopt;
+                const auto lastRow = lastNumber ? RowIndex::TryCreate(*lastNumber) : std::nullopt;
                 if (firstRow && lastRow)
                 {
                     result.Rows = {{firstRow->Value(), lastRow->Value()}};

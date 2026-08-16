@@ -26,6 +26,29 @@ and `Security`, and describe user-visible changes rather than commits.
   One binary means no cross-module attribution loss, so inline code in
   headers is counted wherever a test instantiated it.
 
+- Every `Open` overload of the three document families and their editors takes
+  an optional `Packaging::OpenError*` as its last argument. Passing one turns
+  "returned nullptr" into a reason: a missing file, a file that exists but
+  cannot be opened, an unreadable package (which is also what an encrypted
+  document looks like), an exceeded limit with the loader's diagnostics
+  attached, a strict-validation failure, a cancellation - including one that
+  arrives while the loader is already inside the package, which used to be
+  reported as a corrupt file - or a document of another family handed to the
+  wrong API. All three families answer the last one: a package with no main
+  document part is not a Word document and one with no workbook part is not an
+  Excel document, however readable the package is. Passing nothing behaves
+  exactly as before.
+- `Security::ICryptoProvider::VerifyDataWithChain` receives the whole
+  certificate chain embedded in a signature rather than the leaf alone, which is
+  what a provider building a path to its own trust anchors needs. It has a
+  default implementation that forwards the first certificate to `VerifyData`, so
+  existing providers keep working unchanged.
+- `Tools::ToFlatOpcOptions::Limits`, so `Tools::ConvertToFlatOpc` and
+  `exyoki flatopc` read an archive under the same ZIP ceilings as the rest of
+  the library instead of allocating whatever size the ZIP directory declares.
+- `Tools::RedactResult::PartsRemoved` counts whole parts detached for what they
+  carried, and `exyoki redact` and the MCP tool report it as `partsRemoved`.
+
 ### Security
 
 - Package signature verification no longer accepts a signature whose manifest
@@ -59,6 +82,46 @@ and `Security`, and describe user-visible changes rather than commits.
   ceiling at "no limit" had the check itself overflowed by the document it was
   meant to contain.
 
+- Packages start with the recommended ZIP/XML limits instead of no limits at
+  all. Every ceiling used to default to zero, meaning unlimited, so an
+  application that opened an upload without reading the documentation had no
+  defence against a decompression bomb or deeply nested XML. `Recommended()` is
+  wide enough that no ordinary Office document is rejected; a caller who wants
+  none says `OpenXmlPackageLimits::Unlimited()`, and one who knows its own
+  documents should tighten it further.
+- `Tools::ConvertToFlatOpc` enforces those limits too. It reads the archive
+  itself rather than through the OPC loader, so it used to allocate the declared
+  uncompressed size of every entry - the one entry point whose whole job is
+  reading a file the caller did not make, with the guard the rest of the library
+  applies missing.
+- `Tools::RedactDocument` scrubs what it always claimed to. Tracked changes are
+  accepted in every story part rather than in the body alone, so a deletion in a
+  header no longer survives publication; a deleted paragraph mark merges its
+  paragraph with the next instead of losing only the marker, which was a reject
+  dressed as an accept; deleted table rows go with their cells; the
+  `w:rPrChange` family of records of former formatting is dropped; hidden text
+  is recognized when a character style hides it and not only when the run does;
+  Excel's `xl/persons` registry and PowerPoint's legacy `ppt/comments/*` parts
+  are removed with the comments they belong to; and the metadata pass now clears
+  the descriptive properties, the last-printed time, the attached template name,
+  the `w:rsid*` editing-session identifiers, the `customXml` store, and
+  `docProps/thumbnail` - a rendering of the first page made before any of this
+  ran. Accepting a revision also drops the property-level markers that record
+  one without wrapping anything, such as `w:trPr/w:ins` on an inserted row, each
+  of which carries an author and a date; revisions inside comments that were
+  kept are accepted too. Hidden-text removal reads `w:vanish` and `w:specVanish`
+  as the on/off values they are, so a run that switches the hiding off with
+  `w:val="false"` is visible and stays - taking the element's presence for the
+  answer deleted text the document displays. The registries that name comment
+  authors are removed with the comments rather than with the metadata: deleting
+  them from under comments that were kept left every author reference dangling.
+  What it still does not reach is stated in the API and in
+  [docs/tools/exyoki.md](docs/tools/exyoki.md) rather than left to be assumed.
+- `PowerPointDocument::Open` applies the open settings the API documents.
+  `OpcValidationMode` and `MaxCharactersInPart` were read for Word and Excel and
+  silently ignored for PowerPoint, so a caller opening an untrusted `.pptx`
+  under strict validation and a size budget got neither.
+
 ### Changed
 
 - `EXYOKIOFFICE_WARNINGS_AS_ERRORS` now defaults to `OFF`. Every compiler
@@ -72,6 +135,32 @@ and `Security`, and describe user-visible changes rather than commits.
   CI job covers, is reported as untested at configure time. README.md now
   carries the platform table and a note on how much memory a full build wants
   per job.
+
+- A paragraph's text is one thing throughout the Word API. `Paragraph::Runs`,
+  `PlainText`, `Find`, `GetText`, `ReplaceText` and the regular-expression
+  overloads all read the runs of the paragraph in document order, including
+  those inside hyperlinks, tracked insertions, content controls, smart tags and
+  simple fields, with a `w:tab` counting as a tab and a `w:br` as a newline.
+  They used to disagree: `PlainText` walked descendants while the others saw
+  direct children only, so a search missed a word inside a hyperlink that
+  `PlainText` had just reported, and an offset from one addressed different
+  characters in the other. Text a reader does not see - tracked deletions, field
+  instructions, and the separate content of an anchored text box - is not part
+  of it, and a replacement is written back with tabs and breaks as elements
+  rather than as characters inside `w:t`. A replacement rewrites the range it
+  was given and nothing else: a page break or a non-breaking hyphen elsewhere in
+  the same run keeps its element rather than being flattened into a plain break
+  or a plain hyphen, so replacing a word no longer moves where the page ends.
+- Text written through the Word API carries `xml:space="preserve"` by default.
+  `AddParagraph("Hello ")` followed by `AddText("world")` produced `Helloworld`,
+  because without the attribute an XML consumer may collapse the whitespace.
+  Every text-taking overload defaults the same way; passing `false` still writes
+  the text without it.
+- `SignatureResult::IsValid()` is documented for what it is: the signature is
+  cryptographically consistent with the certificate the signature itself
+  carries. Establishing whether that certificate may be believed - chain
+  building, revocation, policy - belongs to the crypto provider and the
+  application, and the interface now says so where an implementer will read it.
 
 ### Fixed
 
@@ -96,6 +185,19 @@ and `Security`, and describe user-visible changes rather than commits.
   ignore text inside ranges instead of failing with `#VALUE!`.
 - `RANDBETWEEN` with bounds beyond 2^53 no longer casts them into an integer
   distribution (undefined behavior); such ranges draw in the real domain.
+- Numbers are read and written the same way whatever locale the hosting process
+  installed. `xsd:decimal`, the Excel number-format renderer behind `TEXT()` and
+  formatted cell text, the schematron numeric comparisons, and the JSON,
+  Markdown, workbook-model and MCP converters used the C conversions, which take
+  their decimal separator from the global C locale: under a German locale the
+  same workbook wrote `1,5` into `<v>` - text Excel refuses - and read `1.5`
+  back as 1, and `TEXT(1234.5,"#,##0.00")` produced `1,234,,50`. Everything now
+  goes through `std::from_chars`/`std::to_chars`, which are locale-independent
+  by definition, and the number-format renderer no longer truncates silently at
+  a fixed 64-byte buffer from about 1e63 upwards.
+- The built-in SHA implementation no longer copies the whole message to pad it,
+  which halves the peak memory of digesting a large part. Whole blocks are
+  compressed where they lie and only the final block or two is assembled.
 - The DLL copies placed next to the test, tool, and example executables are now
   files that depend on the library rather than POST_BUILD steps of the copying
   targets. Under Ninja, a library change that left the export surface alone did

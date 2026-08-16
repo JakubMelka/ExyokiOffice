@@ -200,6 +200,43 @@ std::vector<ExyokiOffice::Byte> BuildPackageWithDanglingRelationshipTarget()
     return FinishZip(archive);
 }
 
+/// A presentation whose slide master relationship points at nothing.
+///
+/// Hand-built rather than saved: the library does not produce a dangling
+/// relationship, and a package written and read back cannot be given one
+/// through the typed API.
+std::vector<ExyokiOffice::Byte> BuildPresentationWithDanglingRelationshipTarget()
+{
+    auto* archive = zip_stream_open(nullptr, 0, ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
+    REQUIRE(archive != nullptr);
+
+    AddZipEntry(archive,
+                "[Content_Types].xml",
+                R"(<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+</Types>)");
+    AddZipEntry(archive,
+                "_rels/.rels",
+                R"(<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+</Relationships>)");
+    AddZipEntry(archive,
+                "ppt/_rels/presentation.xml.rels",
+                R"(<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="missing/slideMaster1.xml"/>
+</Relationships>)");
+    AddZipEntry(archive,
+                "ppt/presentation.xml",
+                R"(<?xml version="1.0" encoding="UTF-8"?>
+<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>)");
+    return FinishZip(archive);
+}
+
 std::vector<ExyokiOffice::Byte> BuildPackageWithInvalidTargetMode()
 {
     auto* archive = zip_stream_open(nullptr, 0, ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
@@ -929,6 +966,52 @@ TEST_SUITE("OpcValidationTests")
         REQUIRE(sink.Issues.size() == 1);
         CHECK(sink.Issues.front().Severity == ExyokiOffice::ValidationSeverity::Error);
         CHECK(sink.Issues.front().Id == ExyokiOffice::ValidationErrorId::OpcDanglingRelationshipTarget);
+    }
+
+    TEST_CASE("the open policy reaches PowerPoint too [opc][validation][strict][powerpoint] [unit] [opc-validation]")
+    {
+        // PowerPoint's FinishOpen ran the markup compatibility pass and nothing
+        // else, so OpcValidationMode meant nothing for a .pptx however it was
+        // set - while OpenSettings promised the same behaviour for all three
+        // families.
+        const auto packageBytes = BuildPresentationWithDanglingRelationshipTarget();
+
+        SUBCASE("strict refuses the package")
+        {
+            ExyokiOffice::Packaging::OpenSettings settings;
+            settings.OpcValidation = ExyokiOffice::Packaging::OpcValidationMode::Strict;
+
+            ExyokiOffice::Packaging::OpenError error;
+            auto document = ExyokiOffice::Packaging::PowerPointDocument::Open(packageBytes, settings, nullptr, &error);
+            CHECK(document == nullptr);
+            CHECK(error.Code == ExyokiOffice::Packaging::OpenErrorCode::ValidationFailed);
+            CHECK_FALSE(error.Diagnostics.Issues().empty());
+        }
+
+        SUBCASE("tolerant opens it and keeps the issue as a warning")
+        {
+            ExyokiOffice::Packaging::OpenSettings settings;
+            settings.OpcValidation = ExyokiOffice::Packaging::OpcValidationMode::Tolerant;
+
+            auto document = ExyokiOffice::Packaging::PowerPointDocument::Open(packageBytes, settings);
+            REQUIRE(document != nullptr);
+            REQUIRE(document->LastValidationResult().Issues().size() == 1);
+            CHECK(document->LastValidationResult().Issues().front().Id ==
+                  ExyokiOffice::ValidationErrorId::OpcDanglingRelationshipTarget);
+            CHECK(document->LastValidationResult().Issues().front().Severity ==
+                  ExyokiOffice::ValidationSeverity::Warning);
+        }
+
+        SUBCASE("a part over the character budget fails the open")
+        {
+            ExyokiOffice::Packaging::OpenSettings settings;
+            settings.MaxCharactersInPart = 32;
+
+            ExyokiOffice::Packaging::OpenError error;
+            CHECK(ExyokiOffice::Packaging::PowerPointDocument::Open(packageBytes, settings, nullptr, &error) ==
+                  nullptr);
+            CHECK(error.Code == ExyokiOffice::Packaging::OpenErrorCode::PartTooLarge);
+        }
     }
 
     TEST_CASE("tolerant open policy keeps document and exposes warnings [opc][validation][tolerant][word] [unit] [opc-validation]")

@@ -4,6 +4,8 @@
 
 #include "ExyokiOffice/Packaging/WordprocessingDocument.hpp"
 
+#include "OpenErrorReporting.hpp"
+
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/ExtendedProperties.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Wordprocessing.hpp"
 #include "ExyokiOffice/OpenXmlPackagePart.hpp"
@@ -232,109 +234,138 @@ void WordDocument::SetCompany(std::string_view company)
 
 WordDocument::Ptr WordDocument::Open(const std::filesystem::path& path,
                                      const OpenSettings& settings,
-                                     const ICancellationToken* cancellationToken)
+                                     const ICancellationToken* cancellationToken,
+                                     OpenError* error)
 {
-    if (path.empty() || WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
+    using Detail::OpenErrorReporter;
+
+    if (path.empty())
     {
+        OpenErrorReporter::Report(error, OpenErrorCode::InvalidArgument, "No path was given to open.");
+        return nullptr;
+    }
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
+    {
+        OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
     auto document = std::make_shared<WordDocument>();
     document->SetPackageLimits(WordprocessingDocumentHelper::BuildPackageLimits(settings));
     document->SetPartByteRetention(settings.ByteRetention);
-    if (!document || !document->LoadFromFile(path, cancellationToken))
+    if (!document->LoadFromFile(path, cancellationToken))
     {
+        OpenErrorReporter::ReportFileLoadFailure(error, *document, path, cancellationToken);
         return nullptr;
     }
-    document->ApplyOpenSettings(settings);
-    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
-    {
-        return nullptr;
-    }
-    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
-    {
-        return nullptr;
-    }
-    document->UpdateDocumentTypeFromMainPart();
-    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
-    {
-        return nullptr;
-    }
-    return document;
+    return FinishOpen(std::move(document), settings, cancellationToken, error);
 }
 
 WordDocument::Ptr WordDocument::Open(std::iostream& stream,
                                      const OpenSettings& settings,
-                                     const ICancellationToken* cancellationToken)
+                                     const ICancellationToken* cancellationToken,
+                                     OpenError* error)
 {
     if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
     {
+        Detail::OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
-    auto buffer = ReadStreamFully(stream);
-    if (buffer.empty() || WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
-    {
-        return nullptr;
-    }
-    auto document = std::make_shared<WordDocument>();
-    document->SetPackageLimits(WordprocessingDocumentHelper::BuildPackageLimits(settings));
-    document->SetPartByteRetention(settings.ByteRetention);
-    if (!document || !document->LoadFromMemory(buffer, cancellationToken))
-    {
-        return nullptr;
-    }
-    document->ApplyOpenSettings(settings);
-    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
-    {
-        return nullptr;
-    }
-    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
-    {
-        return nullptr;
-    }
-    document->UpdateDocumentTypeFromMainPart();
-    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
-    {
-        return nullptr;
-    }
-    return document;
+    const auto buffer = ReadStreamFully(stream);
+    return Open(std::span<const Byte>(buffer.data(), buffer.size()), settings, cancellationToken, error);
 }
 
 WordDocument::Ptr WordDocument::Open(const std::vector<Byte>& packageBuffer,
                                      const OpenSettings& settings,
-                                     const ICancellationToken* cancellationToken)
+                                     const ICancellationToken* cancellationToken,
+                                     OpenError* error)
 {
     return Open(std::span<const Byte>(packageBuffer.data(), packageBuffer.size()),
                 settings,
-                cancellationToken);
+                cancellationToken,
+                error);
 }
 
 WordDocument::Ptr WordDocument::Open(std::span<const Byte> packageBuffer,
                                      const OpenSettings& settings,
-                                     const ICancellationToken* cancellationToken)
+                                     const ICancellationToken* cancellationToken,
+                                     OpenError* error)
 {
-    if (packageBuffer.empty() || WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
+    using Detail::OpenErrorReporter;
+
+    if (packageBuffer.empty())
     {
+        OpenErrorReporter::Report(error, OpenErrorCode::InvalidArgument, "The package buffer is empty.");
+        return nullptr;
+    }
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
+    {
+        OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
     auto document = std::make_shared<WordDocument>();
     document->SetPackageLimits(WordprocessingDocumentHelper::BuildPackageLimits(settings));
     document->SetPartByteRetention(settings.ByteRetention);
-    if (!document || !document->LoadFromMemory(packageBuffer, cancellationToken))
+    if (!document->LoadFromMemory(packageBuffer, cancellationToken))
     {
+        OpenErrorReporter::ReportLoadFailure(error, *document, {}, cancellationToken);
         return nullptr;
     }
+    return FinishOpen(std::move(document), settings, cancellationToken, error);
+}
+
+WordDocument::Ptr WordDocument::FinishOpen(Ptr document,
+                                           const OpenSettings& settings,
+                                           const ICancellationToken* cancellationToken,
+                                           OpenError* error)
+{
+    using Detail::OpenErrorReporter;
+
     document->ApplyOpenSettings(settings);
-    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
     {
+        OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
-    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
+    if (!document->ApplyOpcValidationPolicy(settings))
     {
+        OpenErrorReporter::Report(error, OpenErrorCode::ValidationFailed,
+                                  "The package failed strict OPC validation.", document.get());
+        return nullptr;
+    }
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
+    {
+        OpenErrorReporter::ReportCancelled(error);
+        return nullptr;
+    }
+    if (!document->ApplyMarkupCompatibilityPolicy(settings))
+    {
+        OpenErrorReporter::Report(error, OpenErrorCode::MarkupCompatibilityFailed,
+                                  "Markup compatibility processing failed for a part of the package.",
+                                  document.get());
         return nullptr;
     }
     document->UpdateDocumentTypeFromMainPart();
-    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
+    if (!document->GetMainDocumentPart())
     {
+        // The generic OPC loader reads any Open XML package, a .xlsx and a .pptx
+        // included, so reaching this point says nothing about the family. Without
+        // the main document part there is no document to edit, and returning an
+        // editor over one would move the failure to the first call that used it.
+        OpenErrorReporter::Report(error, OpenErrorCode::WrongDocumentType,
+                                  "The package has no main document part, so it is not a Word document.",
+                                  document.get());
+        return nullptr;
+    }
+    if (WordprocessingDocumentHelper::IsCancellationRequested(cancellationToken))
+    {
+        OpenErrorReporter::ReportCancelled(error);
+        return nullptr;
+    }
+    if (!document->EnforcePartCharacterBudget())
+    {
+        OpenErrorReporter::Report(error, OpenErrorCode::PartTooLarge,
+                                  "A part holds more characters than OpenSettings::MaxCharactersInPart allows.",
+                                  document.get());
         return nullptr;
     }
     return document;

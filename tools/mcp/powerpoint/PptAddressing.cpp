@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
-#include <cstdlib>
 #include <limits>
 
 namespace ExyokiOffice::Mcp
@@ -91,15 +90,18 @@ public:
         }
 
         const auto text = value.get<std::string>();
-        char* suffix = nullptr;
-        const Real amount = std::strtod(text.c_str(), &suffix);
-        if (suffix == text.c_str())
+        // from_chars, not strtod: the angle in `45deg` must not depend on which
+        // locale the process happens to run under.
+        Real amount = 0.0;
+        const auto* const textEnd = text.data() + text.size();
+        const auto parsed = std::from_chars(text.data(), textEnd, amount, std::chars_format::general);
+        if (parsed.ec != std::errc{})
         {
             return std::nullopt;
         }
 
         std::string unit;
-        for (const char* cursor = suffix; *cursor != '\0'; ++cursor)
+        for (const char* cursor = parsed.ptr; cursor != textEnd; ++cursor)
         {
             if (*cursor == ' ' || *cursor == '\t')
             {

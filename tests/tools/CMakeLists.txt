@@ -27,6 +27,7 @@ exyokioffice_add_test_executable(ExyokiOfficeToolsTests
         ToolsConvertPowerPointTests.cpp
         ToolsDocumentToolsTests.cpp
         ToolsDocumentAutomationTests.cpp
+        ToolsDocumentRedactorTests.cpp
         ToolsCorePropertiesNamespaceTests.cpp
         ToolsWordTextToolsTests.cpp
         ToolsWordDocumentToolsTests.cpp

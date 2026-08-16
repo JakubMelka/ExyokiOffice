@@ -6,8 +6,8 @@
 
 #include "AsciiText.hpp"
 
+#include <charconv>
 #include <cmath>
-#include <cstdlib>
 
 namespace ExyokiOffice::Mcp
 {
@@ -85,15 +85,18 @@ std::optional<MeasuringUnits> ParseLengthText(std::string_view text)
         return std::nullopt;
     }
 
-    const std::string buffer(trimmed);
-    char* suffix = nullptr;
-    const Real amount = std::strtod(buffer.c_str(), &suffix);
-    if (suffix == buffer.c_str())
+    // std::from_chars stops at the unit suffix the same way std::strtod did,
+    // and unlike strtod it reads `1.5in` as one and a half inches whatever
+    // locale the hosting process installed.
+    Real amount = 0.0;
+    const auto* const numberEnd = trimmed.data() + trimmed.size();
+    const auto parsed = std::from_chars(trimmed.data(), numberEnd, amount, std::chars_format::general);
+    if (parsed.ec != std::errc{})
     {
         return std::nullopt;
     }
 
-    const auto unitText = AsciiText::Trim(std::string_view(suffix));
+    const auto unitText = AsciiText::Trim(std::string_view(parsed.ptr, static_cast<Size>(numberEnd - parsed.ptr)));
     if (unitText.empty())
     {
         return MeasuringUnits(amount, MeasurementUnit::Point);

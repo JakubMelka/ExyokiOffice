@@ -5,6 +5,7 @@
 #pragma once
 
 #include "ExyokiOffice/Export.hpp"
+#include "ExyokiOffice/Tools/PackageLimits.hpp"
 #include "ExyokiOffice/Tools/PackageModel.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
@@ -21,6 +22,18 @@ namespace ExyokiOffice::Tools
 struct EXYOKIOFFICE_EXPORT ToFlatOpcOptions
 {
     bool PrettyPrint = true;
+    /**
+     * @brief ZIP safety limits applied to the package being converted.
+     *
+     * The conversion reads the archive itself instead of going through the OPC
+     * loader, so it needs its own copy of the guard: without one, a caller
+     * pointing `ConvertToFlatOpc` at an uploaded file would allocate whatever
+     * uncompressed size the ZIP directory declares. Entry sizes are checked
+     * before an entry is decompressed, exactly as the loader checks them.
+     *
+     * See Tools::DefaultPackageLimits for what the default is.
+     */
+    OpenXmlPackageLimits Limits = DefaultPackageLimits();
 };
 
 struct EXYOKIOFFICE_EXPORT ToFlatOpcResult

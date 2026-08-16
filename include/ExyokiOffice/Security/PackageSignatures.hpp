@@ -75,7 +75,14 @@ struct EXYOKIOFFICE_EXPORT SignatureResult
     std::optional<SignatureAlgorithm> Algorithm;
     /** @brief Digest algorithm of the SignedInfo references. */
     std::optional<DigestAlgorithm> Digest;
-    /** @brief Certificates carried by the signature, in DER encoding and left unparsed. */
+    /**
+     * @brief Certificates carried by the signature, in DER encoding and left unparsed.
+     *
+     * These come out of the signature part, which means out of the file: whoever
+     * produced the package chose them. The library never parses them and never
+     * decides whether they are trustworthy, so treat the first entry as a claim
+     * about who signed rather than as an answer.
+     */
     std::vector<std::vector<Byte>> Certificates;
     /** @brief Signing time claimed by the signature; it is not evidence of anything by itself. */
     std::optional<std::chrono::system_clock::time_point> SigningTime;
@@ -90,7 +97,19 @@ struct EXYOKIOFFICE_EXPORT SignatureResult
     /** @brief Problems that did not by themselves make the signature invalid. */
     std::vector<std::string> Warnings;
 
-    /** @brief True when both the content and the signature value were checked and are valid. */
+    /**
+     * @brief True when both the content and the signature value were checked and are valid.
+     *
+     * Read this as "cryptographically consistent", not as "signed by someone you
+     * trust". It says that nothing the signature covers has changed and that the
+     * signature value verifies against the certificate **the signature itself
+     * carries**. Whether that certificate belongs to who it claims to — chain
+     * building, revocation, time stamping, and policy — is the crypto provider's
+     * and the application's decision; the library neither parses certificates
+     * nor keeps a trust store. A package can therefore be forged with a
+     * self-issued certificate and still report IsValid(), exactly as a valid
+     * signature from an untrusted issuer does.
+     */
     [[nodiscard]] bool IsValid() const noexcept
     {
         return ContentIntegrity == SignatureCheck::Valid && SignatureValue == SignatureCheck::Valid;

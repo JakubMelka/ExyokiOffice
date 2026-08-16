@@ -82,7 +82,16 @@ enum class SignatureAlgorithm
  *
  * No crypto provider is needed for this; the hash functions are part of the
  * library. This is what makes it possible to check whether a signed document
- * has been modified even when no provider is available.
+ * has been modified even when no provider is available — and it is why
+ * `exyoki signatures`, which has no provider at all, can still report that a
+ * package no longer matches what was signed.
+ *
+ * The implementation is checked against the published FIPS 180-4 test vectors
+ * for SHA-1, SHA-256, SHA-384 and SHA-512 by the unit tests, including the
+ * multi-block and length-boundary cases. An application that would rather route
+ * hashing through the crypto stack it already links overrides
+ * ICryptoProvider::ComputeDigest; the signature layer then uses the provider's
+ * implementation and falls back to this one only when no provider was supplied.
  *
  * @param algorithm Digest algorithm to use.
  * @param data Bytes to hash.
@@ -175,6 +184,15 @@ public:
     /**
      * @brief Verifies a signature value against a certificate.
      *
+     * @warning @p certificateDer comes out of the signature being checked, which
+     * means out of the file: whoever wrote the package chose it. Returning true
+     * therefore states only that the signature value is consistent with that
+     * certificate. Deciding whether the certificate may be believed — chain
+     * building against your trust anchors, revocation, validity dates, key
+     * usage, and whatever policy the application has — belongs here, or the
+     * result means nothing more than "self-consistent". Implement
+     * VerifyDataWithChain instead when the intermediates matter for that.
+     *
      * @param algorithm Signature algorithm named by the signature.
      * @param data Canonicalized bytes that were signed.
      * @param signature Raw signature value taken from the signature.
@@ -188,10 +206,40 @@ public:
                                           std::span<const Byte> certificateDer) const = 0;
 
     /**
+     * @brief Verifies a signature value with the whole embedded certificate chain.
+     *
+     * This is the entry point the signature layer calls. The default
+     * implementation forwards the first entry to VerifyData, so a provider that
+     * only cares about the signing certificate needs nothing extra; override it
+     * when trust has to be established against the intermediates the signature
+     * carries, which is the only place they are available.
+     *
+     * The same warning as on VerifyData applies with more force: every
+     * certificate in @p certificateChain was supplied by the package. They are
+     * material for building a chain up to an anchor you already trust, never
+     * evidence of trust by themselves.
+     *
+     * @param algorithm Signature algorithm named by the signature.
+     * @param data Canonicalized bytes that were signed.
+     * @param signature Raw signature value taken from the signature.
+     * @param certificateChain Certificates from KeyInfo, signing certificate first.
+     * @return false for an invalid signature, an untrusted chain, an empty
+     *         chain, or any internal failure.
+     */
+    [[nodiscard]] virtual bool VerifyDataWithChain(SignatureAlgorithm algorithm,
+                                                   std::span<const Byte> data,
+                                                   std::span<const Byte> signature,
+                                                   std::span<const std::vector<Byte>> certificateChain) const;
+
+    /**
      * @brief Computes a digest; override only to use your own hash backend.
      *
      * The default implementation calls the library's built-in SHA code, so a
-     * provider normally does not need to implement this at all.
+     * provider normally does not need to implement this at all. Overriding it
+     * is the supported way to keep every hash in the process inside one
+     * validated crypto stack: the signature layer asks the provider first and
+     * uses the built-in code only when the provider has none — or when there is
+     * no provider, which is what lets content integrity be checked without one.
      *
      * @param algorithm Digest algorithm to use.
      * @param data Bytes to hash.

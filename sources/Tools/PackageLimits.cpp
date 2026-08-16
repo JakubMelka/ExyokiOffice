@@ -9,9 +9,9 @@ namespace ExyokiOffice::Tools
 
 OpenXmlPackageLimits DefaultPackageLimits()
 {
-    // ConfiguredDefaultPackageLimits, not DefaultPackageLimits: the latter
-    // reports Unlimited() both when the application chose it and when it never
-    // chose anything, and those two have to lead to different answers here.
+    // ConfiguredDefaultPackageLimits, not DefaultPackageLimits: only the former
+    // distinguishes a policy the application installed - including a deliberate
+    // Unlimited() - from the safe default substituted for a choice nobody made.
     if (auto configured = OpenXmlPackage::ConfiguredDefaultPackageLimits())
     {
         return *configured;

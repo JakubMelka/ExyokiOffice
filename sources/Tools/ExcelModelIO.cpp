@@ -10,7 +10,7 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include <algorithm>
-#include <cstdlib>
+#include <charconv>
 #include <map>
 
 namespace ExyokiOffice::Tools
@@ -71,15 +71,14 @@ public:
         return Excel::FormulaCachedValueKind::None;
     }
 
+    /// The whole of @p text as a number, in the invariant spelling a workbook
+    /// stores. std::strtod would read the decimal separator from the global C
+    /// locale, so `1.5` in the file would arrive as 1 under a de-DE host.
     static bool ParseNumber(const std::string& text, Real& value)
     {
-        if (text.empty())
-        {
-            return false;
-        }
-        char* end = nullptr;
-        value = std::strtod(text.c_str(), &end);
-        return end != nullptr && *end == '\0';
+        const auto* const end = text.data() + text.size();
+        const auto result = std::from_chars(text.data(), end, value, std::chars_format::general);
+        return result.ec == std::errc{} && result.ptr == end;
     }
 
     static void ReadSheet(const Excel::Worksheet::Ptr& worksheet, const Excel::SharedStringTableService& sharedStrings,

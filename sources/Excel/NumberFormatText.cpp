@@ -10,8 +10,10 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
-#include <cstdio>
+#include <string>
+#include <system_error>
 #include <vector>
 
 namespace ExyokiOffice::Excel
@@ -384,6 +386,39 @@ bool ParseSection(std::string_view code, FormatSection& section)
     return true;
 }
 
+/**
+ * @brief Renders @p value with exactly @p decimals decimal places, no locale.
+ *
+ * std::snprintf("%.*f") answered according to the global C locale, so under a
+ * de-DE locale a workbook rendered `1,234,50` where `1,234.50` was asked for -
+ * the grouping this function applies afterwards then landed on text that
+ * already had a comma in it. It also wrote into a fixed 64 byte buffer, which
+ * truncates silently from about 1e63 upwards. std::to_chars is locale
+ * independent by definition and reports that it needs more room instead of
+ * dropping digits.
+ */
+std::string FormatFixed(Real value, int decimals)
+{
+    std::string buffer(64, '\0');
+    while (true)
+    {
+        const auto result =
+            std::to_chars(buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::fixed, decimals);
+        if (result.ec == std::errc{})
+        {
+            buffer.resize(static_cast<Size>(result.ptr - buffer.data()));
+            return buffer;
+        }
+        // A double needs at most ~310 integer digits; the decimal count comes
+        // from the format string, so the ceiling is generous rather than tight.
+        if (result.ec != std::errc::value_too_large || buffer.size() >= 64u * 1024u)
+        {
+            return "0";
+        }
+        buffer.resize(buffer.size() * 4U);
+    }
+}
+
 std::string PadNumber(UInt64 value, int width)
 {
     std::string digits = std::to_string(value);
@@ -435,9 +470,7 @@ void RenderNumericTokens(const FormatSection& section, Real value, std::string& 
         negative = false;
     }
 
-    char buffer[64]{};
-    std::snprintf(buffer, sizeof(buffer), "%.*f", section.decimalPlaceholders, rounded);
-    std::string text(buffer);
+    const std::string text = FormatFixed(rounded, section.decimalPlaceholders);
     std::string integerPart = text;
     std::string decimalPart;
     if (const Size dot = text.find('.'); dot != std::string::npos)

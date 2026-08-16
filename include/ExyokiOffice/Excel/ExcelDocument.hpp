@@ -1441,33 +1441,42 @@ public:
      * @param path Source package path.
      * @param settings Open settings controlling limits and validation behavior.
      * @param cancellationToken Optional non-owning token used to cancel loading.
+     * @param error Optional out-parameter; when not null and the call fails, it
+     *        receives why. See Packaging::OpenError.
      * @return Editor for the loaded document, or nullptr on failure.
      */
     static Ptr Open(const std::filesystem::path& path,
                     const ExyokiOffice::Packaging::OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    ExyokiOffice::Packaging::OpenError* error = nullptr);
     /**
      * @brief Opens an Excel workbook from an owned byte buffer.
      *
      * @param packageBuffer Bytes containing an OPC SpreadsheetML package.
      * @param settings Open settings controlling limits and validation behavior.
      * @param cancellationToken Optional non-owning token used to cancel loading.
+     * @param error Optional out-parameter; when not null and the call fails, it
+     *        receives why. See Packaging::OpenError.
      * @return Editor for the loaded document, or nullptr on failure.
      */
     static Ptr Open(const std::vector<Byte>& packageBuffer,
                     const ExyokiOffice::Packaging::OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    ExyokiOffice::Packaging::OpenError* error = nullptr);
     /**
      * @brief Opens an Excel workbook from a contiguous byte range.
      *
      * @param packageBuffer Byte span containing an OPC SpreadsheetML package.
      * @param settings Open settings controlling limits and validation behavior.
      * @param cancellationToken Optional non-owning token used to cancel loading.
+     * @param error Optional out-parameter; when not null and the call fails, it
+     *        receives why. See Packaging::OpenError.
      * @return Editor for the loaded document, or nullptr on failure.
      */
     static Ptr Open(std::span<const Byte> packageBuffer,
                     const ExyokiOffice::Packaging::OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    ExyokiOffice::Packaging::OpenError* error = nullptr);
 
     /**
      * @brief Saves the current workbook to a file.

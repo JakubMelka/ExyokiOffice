@@ -128,53 +128,318 @@ public:
 class WordRunTextHelper
 {
 public:
+    /// One text-bearing child of a run, with the byte range it contributes to
+    /// the run's plain text.
+    struct RunTextPiece
+    {
+        std::shared_ptr<ExyokiOffice::OpenXMLElement> Element;
+        Size Start = 0;
+        Size Length = 0;
+        /// True for `w:t`, the only piece whose text can be trimmed rather than
+        /// removed whole.
+        bool IsPlainText = false;
+    };
+
+    /// The run's text children in document order, each with its byte range.
+    static std::vector<RunTextPiece> RunTextPieces(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        std::vector<RunTextPiece> pieces;
+        Size offset = 0;
+        for (const auto& child : element->ChildrenInContentModel())
+        {
+            if (!IsRunTextChild(child))
+            {
+                continue;
+            }
+
+            std::string storage;
+            RunTextPiece piece;
+            piece.Element = child;
+            piece.Start = offset;
+            piece.Length = RunChildText(child, storage).size();
+            piece.IsPlainText = openxmlelement_cast<W::Text>(child) != nullptr;
+            offset += piece.Length;
+            pieces.push_back(std::move(piece));
+        }
+        return pieces;
+    }
+
+    /// Writes @p value into a `w:t`, always asking Word to keep its spaces.
+    static void SetTextPiece(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element, const std::string& value)
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        if (auto text = openxmlelement_cast<W::Text>(element))
+        {
+            text->SetText(value);
+            text->SetSpace(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues>(
+                ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues::Preserve));
+        }
+    }
+
+    /// Creates a run child at the point the replacement occupies.
+    ///
+    /// @p anchor is the first surviving child after the replaced range, if there
+    /// is one; otherwise @p cursor is the last surviving child before it, and
+    /// each new child is chained after the previous one so the emitted sequence
+    /// keeps its order.
+    template <typename TElement>
+    static std::shared_ptr<TElement> EmitRunChild(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
+                                                  const std::shared_ptr<ExyokiOffice::OpenXMLElement>& anchor,
+                                                  std::shared_ptr<ExyokiOffice::OpenXMLElement>& cursor)
+    {
+        if (anchor)
+        {
+            return element->InsertChild<TElement>(anchor);
+        }
+        if (cursor)
+        {
+            auto created = element->InsertChildAfter<TElement>(cursor);
+            cursor = created;
+            return created;
+        }
+        return element->AppendChild<TElement>();
+    }
+
+    /**
+     * @brief Replaces the byte range [@p start, @p end) of what the run displays.
+     *
+     * Only the covered range is rewritten. That matters because a run is not a
+     * string: `w:br` is a line break in one document and a page break in the
+     * next, `w:noBreakHyphen` is a hyphen that must not be broken across lines,
+     * and both read as one character here. Rebuilding the whole run from its
+     * text would turn every one of them into its plain counterpart, so replacing
+     * one word would silently change where the page ends. Anything outside the
+     * range keeps its element, its type and its attributes; inside it, the
+     * characters are gone and so are the elements that stood for them.
+     *
+     * What is written back is the inverse of RunPlainText(): a tab becomes
+     * `w:tab` and a newline `w:br`, because writing those characters into `w:t`
+     * would leave Word whitespace it then collapses.
+     */
+    static void ReplaceRunTextRange(const std::shared_ptr<Run>& run, Size start, Size end,
+                                    std::string_view replacement)
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        auto element = run ? run->GetLowLevelApi() : nullptr;
+        if (!element || start > end)
+        {
+            return;
+        }
+
+        const auto pieces = RunTextPieces(element);
+
+        // The insertion point, expressed from both sides: `anchor` is the first
+        // surviving child after the range and `cursor` the last one before it.
+        // One of the two always exists unless the run had no text at all.
+        std::shared_ptr<ExyokiOffice::OpenXMLElement> anchor;
+        std::shared_ptr<ExyokiOffice::OpenXMLElement> cursor;
+        std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> removals;
+
+        for (const auto& piece : pieces)
+        {
+            const Size pieceEnd = piece.Start + piece.Length;
+            if (pieceEnd <= start)
+            {
+                cursor = piece.Element;
+                continue;
+            }
+            if (piece.Start >= end)
+            {
+                if (!anchor)
+                {
+                    anchor = piece.Element;
+                }
+                continue;
+            }
+
+            if (!piece.IsPlainText)
+            {
+                // A tab, a break or a non-breaking hyphen stands for exactly one
+                // character, so it is either inside the range or outside it.
+                removals.push_back(piece.Element);
+                continue;
+            }
+
+            std::string storage;
+            const std::string text(RunChildText(piece.Element, storage));
+            const Size localStart = start > piece.Start ? start - piece.Start : 0;
+            const Size localEnd = std::min(piece.Length, end - piece.Start);
+            const std::string keepPrefix = text.substr(0, localStart);
+            const std::string keepSuffix = text.substr(localEnd);
+
+            if (keepPrefix.empty() && keepSuffix.empty())
+            {
+                removals.push_back(piece.Element);
+                continue;
+            }
+
+            if (keepSuffix.empty())
+            {
+                SetTextPiece(piece.Element, keepPrefix);
+                cursor = piece.Element;
+                continue;
+            }
+
+            if (keepPrefix.empty())
+            {
+                SetTextPiece(piece.Element, keepSuffix);
+                if (!anchor)
+                {
+                    anchor = piece.Element;
+                }
+                continue;
+            }
+
+            // The range sits inside one `w:t`, so the text splits in two and the
+            // replacement goes between the halves.
+            SetTextPiece(piece.Element, keepPrefix);
+            auto suffix = element->InsertChildAfter<W::Text>(piece.Element);
+            SetTextPiece(suffix, keepSuffix);
+            cursor = piece.Element;
+            if (!anchor)
+            {
+                anchor = suffix;
+            }
+        }
+
+        Size position = 0;
+        while (position <= replacement.size() && !replacement.empty())
+        {
+            const auto separator = replacement.find_first_of("\t\n", position);
+            const auto text = replacement.substr(position, separator == std::string_view::npos
+                                                               ? std::string_view::npos
+                                                               : separator - position);
+            if (!text.empty())
+            {
+                SetTextPiece(EmitRunChild<W::Text>(element, anchor, cursor), std::string(text));
+            }
+
+            if (separator == std::string_view::npos)
+            {
+                break;
+            }
+
+            if (replacement[separator] == '\t')
+            {
+                EmitRunChild<W::TabChar>(element, anchor, cursor);
+            }
+            else
+            {
+                EmitRunChild<W::Break>(element, anchor, cursor);
+            }
+            position = separator + 1;
+        }
+
+        for (const auto& child : removals)
+        {
+            element->RemoveChild(child);
+        }
+    }
+
+    /**
+     * @brief Replaces everything the run displays with @p newText.
+     *
+     * The whole-run case of ReplaceRunTextRange(), and the inverse of
+     * RunPlainText(): text read out of a run and written back unchanged leaves
+     * the run displaying the same characters. Since the range covers the run,
+     * nothing survives it - a page break inside is a character of the text being
+     * replaced, and goes with it.
+     */
     static void SetRunPlainText(const std::shared_ptr<Run>& run, const std::string& newText)
     {
+        auto element = run ? run->GetLowLevelApi() : nullptr;
+        if (!element)
+        {
+            return;
+        }
+
+        Size length = 0;
+        for (const auto& piece : RunTextPieces(element))
+        {
+            length += piece.Length;
+        }
+        ReplaceRunTextRange(run, 0, length, newText);
+    }
+
+    /**
+     * @brief The text one run child contributes to the paragraph's text.
+     *
+     * A run is not a string. `w:tab`, `w:br` and `w:cr` are characters as far as
+     * a reader is concerned, and leaving them out made the same paragraph read
+     * as `NameValue` here and `Name<tab>Value` in Word - so a search for
+     * `Name\tValue` never matched and a replacement computed against one of the
+     * two spellings landed at the wrong offset in the other. Deleted text
+     * (`w:delText`) and field instructions (`w:instrText`) contribute nothing,
+     * because neither is text the document displays.
+     */
+    static std::string_view RunChildText(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& child,
+                                         std::string& storage)
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        if (!child)
+        {
+            return {};
+        }
+
+        // Asking the typed model what the element is, rather than comparing its
+        // local name: the cast answers for the element type, so a `w:t` in a
+        // document that binds the namespace to a different prefix - or a `t`
+        // belonging to some other vocabulary - is decided correctly without this
+        // code knowing anything about prefixes.
+        if (const auto text = openxmlelement_cast<W::Text>(child))
+        {
+            storage = std::string(text->GetText());
+            return storage;
+        }
+        if (openxmlelement_cast<W::TabChar>(child))
+        {
+            return "\t";
+        }
+        if (openxmlelement_cast<W::Break>(child) || openxmlelement_cast<W::CarriageReturn>(child))
+        {
+            return "\n";
+        }
+        if (openxmlelement_cast<W::NoBreakHyphen>(child))
+        {
+            return "-";
+        }
+        return {};
+    }
+
+    /// Concatenates what the run displays, in document order.
+    static std::string RunPlainText(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>& run)
+    {
+        std::string result;
         if (!run)
         {
-            return;
+            return result;
         }
-
-        auto texts = run->Texts();
-        if (texts.empty())
+        // ChildrenInContentModel, not Children: `w:tab` is a tab character in a
+        // run and a tab stop in paragraph properties, and only the parent's
+        // content model tells the two apart. Resolved by name alone, the tab
+        // inside this run would arrive as a tab stop and contribute nothing.
+        for (const auto& child : run->ChildrenInContentModel())
         {
-            if (!newText.empty())
-            {
-                if (auto text = run->AddText(newText))
-                {
-                    text->SetPreserveSpaces(true);
-                }
-            }
-            return;
+            std::string storage;
+            result.append(RunChildText(child, storage));
         }
+        return result;
+    }
 
-        if (newText.empty())
-        {
-            for (const auto& text : texts)
-            {
-                if (auto lowLevel = text->GetLowLevelApi())
-                {
-                    if (auto parent = lowLevel->Parent())
-                    {
-                        parent->RemoveChild(lowLevel);
-                    }
-                }
-            }
-            return;
-        }
+    /// True for the run children RunPlainText() reads, which are also the ones
+    /// SetRunPlainText() may replace.
+    static bool IsRunTextChild(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& child)
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
 
-        texts.front()->SetText(newText);
-        texts.front()->SetPreserveSpaces(true);
-        for (Size i = 1; i < texts.size(); ++i)
-        {
-            if (auto lowLevel = texts[i]->GetLowLevelApi())
-            {
-                if (auto parent = lowLevel->Parent())
-                {
-                    parent->RemoveChild(lowLevel);
-                }
-            }
-        }
+        return child && (openxmlelement_cast<W::Text>(child) || openxmlelement_cast<W::TabChar>(child) ||
+                         openxmlelement_cast<W::Break>(child) || openxmlelement_cast<W::CarriageReturn>(child) ||
+                         openxmlelement_cast<W::NoBreakHyphen>(child));
     }
 
     static std::string TrimAsciiWhitespace(std::string value)
@@ -203,42 +468,154 @@ public:
     }
 };
 
+/**
+ * @brief The one definition of "the text of a paragraph" the whole API works from.
+ *
+ * A paragraph's runs are not only its direct `w:r` children. A hyperlink, a
+ * tracked insertion, a content control, a smart tag and a simple field all wrap
+ * runs, and the text inside them is text the reader sees. Collecting only the
+ * direct children made Find(), GetText() and ReplaceText() blind to it while
+ * PlainText() - which used to walk descendants - saw it: a search would miss a
+ * word that happened to sit inside a hyperlink, and where both did find
+ * something their offsets did not agree.
+ *
+ * Two things are deliberately left out. Deleted text (`w:del`, `w:moveFrom`)
+ * is not displayed, so it is not part of the text and must not be reachable by
+ * a replacement. Text inside a text box is separate content that happens to be
+ * anchored here: its own paragraphs are what carry it, and pulling it into this
+ * paragraph would make one paragraph's offsets address another's characters.
+ */
+class WordParagraphTextHelper
+{
+public:
+    /// True for elements that wrap inline content belonging to this paragraph.
+    ///
+    /// Decided by element type rather than by comparing local names: the typed
+    /// model already knows which element each of these is, whatever prefix the
+    /// document bound the namespace to, and a name-based test would also match
+    /// an `ins` or a `dir` belonging to some other vocabulary.
+    static bool IsInlineRunContainer(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        if (openxmlelement_cast<W::Hyperlink>(element) || openxmlelement_cast<W::InsertedRun>(element) ||
+            openxmlelement_cast<W::MoveToRun>(element) || openxmlelement_cast<W::SdtRun>(element) ||
+            openxmlelement_cast<W::SdtContentRun>(element) || openxmlelement_cast<W::SimpleField>(element) ||
+            openxmlelement_cast<W::BidirectionalOverride>(element) ||
+            openxmlelement_cast<W::BidirectionalEmbedding>(element) ||
+            openxmlelement_cast<W::CustomXmlRun>(element))
+        {
+            return true;
+        }
+
+        // `w:smartTag` has no type in the generated model, so it arrives as a
+        // generic element and there is nothing to cast to. Its qualified name is
+        // still the element's own, namespace included, which is what makes this
+        // safe where a comparison against the tag name as written would not be.
+        static const ExyokiOffice::OpenXmlQualifiedName smartTag(kWordNamespace, "smartTag");
+        return element && element->QualifiedName() == smartTag;
+    }
+
+    /// True for wrappers whose content the document does not display.
+    static bool IsDeletedContainer(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        return openxmlelement_cast<W::DeletedRun>(element) || openxmlelement_cast<W::MoveFromRun>(element);
+    }
+
+    /// The runs of @p paragraph in document order, containers included.
+    static std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>> CollectRuns(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph)
+    {
+        std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>> runs;
+        if (paragraph)
+        {
+            CollectRunsInto(paragraph, runs);
+        }
+        return runs;
+    }
+
+private:
+    static void CollectRunsInto(
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
+        std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>>& runs)
+    {
+        // ChildrenInContentModel, not Children: several Word element names are
+        // declared by more than one class - `w:ins` is a run container in a
+        // paragraph and a property-level marker in `w:rPr` - and only the
+        // parent's content model says which one is here. The name-based
+        // resolution would hand back the other type, and the cast below would
+        // then quietly answer "not a container".
+        for (const auto& child : element->ChildrenInContentModel())
+        {
+            if (!child)
+            {
+                continue;
+            }
+            if (auto run = openxmlelement_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>(child))
+            {
+                runs.push_back(run);
+                continue;
+            }
+            if (IsDeletedContainer(child))
+            {
+                continue;
+            }
+            if (IsInlineRunContainer(child))
+            {
+                CollectRunsInto(child, runs);
+            }
+        }
+    }
+};
+
 /// Tracked-change markup: recognizing, unwrapping and stamping revisions.
 class WordRevisionHelper
 {
 public:
-    static bool IsRevisionName(const ExyokiOffice::OpenXmlQualifiedName& name)
+    /// True for an element that records a tracked change.
+    ///
+    /// Decided from the element's type rather than from its name: `w:ins` is a
+    /// run container in a paragraph and a marker in run properties, and both are
+    /// revisions, but only the typed model knows which of them this is - and
+    /// that an `ins` from another vocabulary is neither.
+    static bool IsRevisionElement(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
     {
-        if (name.namespaceUri() != kWordNamespace)
-        {
-            return false;
-        }
-        const auto local = name.localName();
-        return local == "ins" || local == "del" || local == "moveFrom" || local == "moveTo" ||
-               local == "pPrChange" || local == "rPrChange" || local == "tblPrChange" ||
-               local == "trPrChange" || local == "tcPrChange" || local == "sectPrChange";
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        return RevisionTypeOf(element) != RevisionType::Unknown ||
+               openxmlelement_cast<W::ParagraphPropertiesChange>(element) ||
+               openxmlelement_cast<W::RunPropertiesChange>(element) ||
+               openxmlelement_cast<W::ParagraphMarkRunPropertiesChange>(element) ||
+               openxmlelement_cast<W::TablePropertiesChange>(element) ||
+               openxmlelement_cast<W::TableRowPropertiesChange>(element) ||
+               openxmlelement_cast<W::TableCellPropertiesChange>(element) ||
+               openxmlelement_cast<W::SectionPropertiesChange>(element);
     }
 
-    static RevisionType RevisionTypeFromName(const ExyokiOffice::OpenXmlQualifiedName& name)
+    /// Which kind of tracked change @p element is, or Unknown.
+    ///
+    /// Both spellings of each kind count: the run container (`w:ins` in a
+    /// paragraph) and the property-level marker (`w:ins` in `w:trPr`) describe
+    /// the same change to a reader.
+    static RevisionType RevisionTypeOf(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
     {
-        if (name.namespaceUri() != kWordNamespace)
-        {
-            return RevisionType::Unknown;
-        }
-        const auto local = name.localName();
-        if (local == "ins")
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        if (openxmlelement_cast<W::InsertedRun>(element) || openxmlelement_cast<W::Inserted>(element))
         {
             return RevisionType::Insertion;
         }
-        if (local == "del")
+        if (openxmlelement_cast<W::DeletedRun>(element) || openxmlelement_cast<W::Deleted>(element))
         {
             return RevisionType::Deletion;
         }
-        if (local == "moveFrom")
+        if (openxmlelement_cast<W::MoveFromRun>(element) || openxmlelement_cast<W::MoveFrom>(element))
         {
             return RevisionType::MoveFrom;
         }
-        if (local == "moveTo")
+        if (openxmlelement_cast<W::MoveToRun>(element) || openxmlelement_cast<W::MoveTo>(element))
         {
             return RevisionType::MoveTo;
         }
@@ -252,13 +629,13 @@ public:
         {
             return;
         }
-        for (const auto& child : root->Children())
+        for (const auto& child : root->ChildrenInContentModel())
         {
             if (!child)
             {
                 continue;
             }
-            if (IsRevisionName(child->QualifiedName()))
+            if (IsRevisionElement(child))
             {
                 revisions.push_back(child);
             }
@@ -342,7 +719,12 @@ public:
         return true;
     }
 
-    static std::string NextRevisionId(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
+    /// The first `w:id` no revision in the document uses yet.
+    ///
+    /// Returned as a number rather than as text so that the callers that hand
+    /// out consecutive identifiers can count instead of parsing their own
+    /// output back with std::stoi - which throws on anything unexpected.
+    static int NextRevisionId(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
     {
         int maxId = -1;
         std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> revisions;
@@ -357,7 +739,7 @@ public:
                 maxId = std::max(maxId, id);
             }
         }
-        return std::to_string(maxId + 1);
+        return maxId + 1;
     }
 
     static void ApplyRevisionMetadata(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
@@ -5405,9 +5787,10 @@ WordDocumentEditor::Ptr WordDocumentEditor::CreateNew(WordprocessingDocumentType
 
 WordDocumentEditor::Ptr WordDocumentEditor::Open(const std::filesystem::path& path,
                                                  const ExyokiOffice::Packaging::OpenSettings& settings,
-                                                 const ICancellationToken* cancellationToken)
+                                                 const ICancellationToken* cancellationToken,
+                                                 Packaging::OpenError* error)
 {
-    auto document = WordDocument::Open(path, settings, cancellationToken);
+    auto document = WordDocument::Open(path, settings, cancellationToken, error);
     if (!document)
     {
         return nullptr;
@@ -5417,9 +5800,10 @@ WordDocumentEditor::Ptr WordDocumentEditor::Open(const std::filesystem::path& pa
 
 WordDocumentEditor::Ptr WordDocumentEditor::Open(const std::vector<Byte>& packageBuffer,
                                                  const ExyokiOffice::Packaging::OpenSettings& settings,
-                                                 const ICancellationToken* cancellationToken)
+                                                 const ICancellationToken* cancellationToken,
+                                                 Packaging::OpenError* error)
 {
-    auto document = WordDocument::Open(packageBuffer, settings, cancellationToken);
+    auto document = WordDocument::Open(packageBuffer, settings, cancellationToken, error);
     if (!document)
     {
         return nullptr;
@@ -5429,9 +5813,10 @@ WordDocumentEditor::Ptr WordDocumentEditor::Open(const std::vector<Byte>& packag
 
 WordDocumentEditor::Ptr WordDocumentEditor::Open(std::span<const Byte> packageBuffer,
                                                  const ExyokiOffice::Packaging::OpenSettings& settings,
-                                                 const ICancellationToken* cancellationToken)
+                                                 const ICancellationToken* cancellationToken,
+                                                 Packaging::OpenError* error)
 {
-    auto document = WordDocument::Open(packageBuffer, settings, cancellationToken);
+    auto document = WordDocument::Open(packageBuffer, settings, cancellationToken, error);
     if (!document)
     {
         return nullptr;
@@ -6188,7 +6573,7 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         auto deletion = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DeletedRun>();
         if (deletion)
         {
-            WordRevisionHelper::ApplyRevisionMetadata(deletion, author, nextId);
+            WordRevisionHelper::ApplyRevisionMetadata(deletion, author, std::to_string(nextId));
             auto run = deletion->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
             if (run)
             {
@@ -6204,11 +6589,11 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         auto insertion = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsertedRun>();
         if (insertion)
         {
-            WordRevisionHelper::ApplyRevisionMetadata(insertion, author, std::to_string(std::stoi(nextId) + 1));
+            WordRevisionHelper::ApplyRevisionMetadata(insertion, author, std::to_string(nextId + 1));
             WordFieldHelper::AppendRunWithText(insertion, revisedText, true);
             ++created;
         }
-        nextId = std::to_string(std::stoi(nextId) + 2);
+        nextId += 2;
     }
 
     for (Size i = common; i < originalParagraphs.size(); ++i)
@@ -6231,7 +6616,7 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         {
             continue;
         }
-        WordRevisionHelper::ApplyRevisionMetadata(deletion, author, nextId);
+        WordRevisionHelper::ApplyRevisionMetadata(deletion, author, std::to_string(nextId));
         auto run = deletion->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
         if (run)
         {
@@ -6241,7 +6626,7 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
                 text->SetText(originalText);
             }
         }
-        nextId = std::to_string(std::stoi(nextId) + 1);
+        ++nextId;
         ++created;
     }
 
@@ -6258,9 +6643,9 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         {
             continue;
         }
-        WordRevisionHelper::ApplyRevisionMetadata(insertion, author, nextId);
+        WordRevisionHelper::ApplyRevisionMetadata(insertion, author, std::to_string(nextId));
         WordFieldHelper::AppendRunWithText(insertion, revisedParagraphs[i]->PlainText(), true);
-        nextId = std::to_string(std::stoi(nextId) + 1);
+        ++nextId;
         ++created;
     }
     return created;
@@ -7668,17 +8053,9 @@ std::shared_ptr<Run> Paragraph::AddRun(std::string_view text,
 std::vector<std::shared_ptr<Run>> Paragraph::Runs() const
 {
     std::vector<std::shared_ptr<Run>> runs;
-    if (!m_paragraph)
+    for (const auto& run : WordParagraphTextHelper::CollectRuns(m_paragraph))
     {
-        return runs;
-    }
-
-    for (const auto& run : m_paragraph->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>())
-    {
-        if (run)
-        {
-            runs.push_back(std::make_shared<Run>(run));
-        }
+        runs.push_back(std::make_shared<Run>(run));
     }
     return runs;
 }
@@ -7686,16 +8063,14 @@ std::vector<std::shared_ptr<Run>> Paragraph::Runs() const
 std::vector<std::shared_ptr<Text>> Paragraph::Texts() const
 {
     std::vector<std::shared_ptr<Text>> texts;
-    if (!m_paragraph)
+    for (const auto& run : WordParagraphTextHelper::CollectRuns(m_paragraph))
     {
-        return texts;
-    }
-
-    for (const auto& text : m_paragraph->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Text>())
-    {
-        if (text)
+        for (const auto& text : run->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Text>())
         {
-            texts.push_back(std::make_shared<Text>(text));
+            if (text)
+            {
+                texts.push_back(std::make_shared<Text>(text));
+            }
         }
     }
     return texts;
@@ -7721,13 +8096,13 @@ std::vector<std::shared_ptr<Image>> Paragraph::Images() const
 
 std::string Paragraph::PlainText() const
 {
+    // The same runs Find(), GetText() and ReplaceText() work over, read the
+    // same way. When these two disagreed, an offset obtained from one of them
+    // addressed different text in the other.
     std::string result;
-    for (const auto& text : Texts())
+    for (const auto& run : WordParagraphTextHelper::CollectRuns(m_paragraph))
     {
-        if (text)
-        {
-            result += text->GetText();
-        }
+        result += WordRunTextHelper::RunPlainText(run);
     }
     return result;
 }
@@ -9046,31 +9421,41 @@ bool Paragraph::ReplaceText(const ContentRange& range, std::string_view replacem
         ++lastIndex;
     }
 
-    const Size firstLocalStart = range.Start - runStart[firstIndex];
-    const Size lastLocalEnd = range.End - runStart[lastIndex];
-
-    const std::string prefix =
-        runText[firstIndex].substr(0, std::min(firstLocalStart, runText[firstIndex].size()));
-    const std::string suffix =
-        runText[lastIndex].substr(std::min(lastLocalEnd, runText[lastIndex].size()));
+    const Size firstLocalStart = std::min(range.Start - runStart[firstIndex], runText[firstIndex].size());
+    const Size lastLocalEnd = std::min(range.End - runStart[lastIndex], runText[lastIndex].size());
 
     // Runs strictly between the boundary runs are fully covered by the range and are removed.
     for (Size i = firstIndex + 1; i < lastIndex; ++i)
     {
         if (runs[i])
         {
-            m_paragraph->RemoveChild(runs[i]->GetLowLevelApi());
+            // From its own parent, not from the paragraph: a run inside a
+            // hyperlink or a tracked insertion is not a child of the paragraph,
+            // and removing it there would silently do nothing while the text
+            // model reported the range as replaced.
+            if (auto element = runs[i]->GetLowLevelApi())
+            {
+                if (auto parent = element->Parent())
+                {
+                    parent->RemoveChild(element);
+                }
+            }
         }
     }
 
+    // Only the covered range is handed over: the text kept on either side of it
+    // stays in the elements that already carried it, so a page break or a
+    // non-breaking hyphen the replacement does not touch is not rewritten into
+    // its plain counterpart.
     if (firstIndex == lastIndex)
     {
-        WordRunTextHelper::SetRunPlainText(runs[firstIndex], prefix + std::string(replacement) + suffix);
+        WordRunTextHelper::ReplaceRunTextRange(runs[firstIndex], firstLocalStart, lastLocalEnd, replacement);
     }
     else
     {
-        WordRunTextHelper::SetRunPlainText(runs[firstIndex], prefix + std::string(replacement));
-        WordRunTextHelper::SetRunPlainText(runs[lastIndex], suffix);
+        WordRunTextHelper::ReplaceRunTextRange(runs[firstIndex], firstLocalStart, runText[firstIndex].size(),
+                                               replacement);
+        WordRunTextHelper::ReplaceRunTextRange(runs[lastIndex], 0, lastLocalEnd, {});
     }
 
     return true;
@@ -9257,15 +9642,7 @@ std::vector<std::shared_ptr<Image>> Run::Images() const
 
 std::string Run::PlainText() const
 {
-    std::string result;
-    for (const auto& text : Texts())
-    {
-        if (text)
-        {
-            result += text->GetText();
-        }
-    }
-    return result;
+    return WordRunTextHelper::RunPlainText(m_run);
 }
 
 Run& Run::SetBold(bool enabled)
@@ -10438,7 +10815,7 @@ std::shared_ptr<ExyokiOffice::OpenXMLElement> Revision::GetLowLevelApi() const
 
 RevisionType Revision::Type() const
 {
-    return m_element ? WordRevisionHelper::RevisionTypeFromName(m_element->QualifiedName()) : RevisionType::Unknown;
+    return WordRevisionHelper::RevisionTypeOf(m_element);
 }
 
 std::string Revision::GetId() const

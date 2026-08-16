@@ -752,8 +752,11 @@ private:
         }
         const std::vector<Byte> signedInfo(canonical->begin(), canonical->end());
 
+        // The whole chain, not just the leaf: a provider that builds a path to
+        // its own trust anchors needs the intermediates, and the signature is
+        // the only place they exist.
         const bool valid =
-            m_provider->VerifyData(*result.Algorithm, signedInfo, parsed.SignatureValue, result.Certificates.front());
+            m_provider->VerifyDataWithChain(*result.Algorithm, signedInfo, parsed.SignatureValue, result.Certificates);
         result.SignatureValue = valid ? SignatureCheck::Valid : SignatureCheck::Invalid;
         if (!valid)
         {

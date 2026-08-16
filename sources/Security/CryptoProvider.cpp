@@ -157,4 +157,19 @@ bool ICryptoProvider::ComputeDigest(DigestAlgorithm algorithm,
     return !digest.empty();
 }
 
+bool ICryptoProvider::VerifyDataWithChain(SignatureAlgorithm algorithm,
+                                          std::span<const Byte> data,
+                                          std::span<const Byte> signature,
+                                          std::span<const std::vector<Byte>> certificateChain) const
+{
+    // An empty chain is a refusal rather than a call with no certificate: a
+    // signature with nothing to verify against cannot be valid, and passing an
+    // empty span on would leave that decision to every provider separately.
+    if (certificateChain.empty())
+    {
+        return false;
+    }
+    return VerifyData(algorithm, data, signature, certificateChain.front());
+}
+
 } // namespace ExyokiOffice::Security

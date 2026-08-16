@@ -310,3 +310,53 @@ TEST_CASE("Flat OPC conversion reports invalid inputs [unit] [tools] [flat-opc]"
     CHECK_FALSE(malformedXml.Ok);
     CHECK(!malformedXml.Diagnostics.empty());
 }
+
+TEST_CASE("Flat OPC conversion enforces the ZIP limits it was given [unit] [tools] [flat-opc]")
+{
+    // The conversion reads the archive itself instead of going through the OPC
+    // loader, so without limits of its own `exyoki flatopc` on an uploaded file
+    // allocated whatever uncompressed size the ZIP directory declared - the one
+    // guard the rest of the library applies, missing in the one entry point
+    // whose whole job is reading a file the caller did not make.
+    auto editor = FlatOpcTestHelpers::Document();
+    const auto bytes = editor->SaveToMemory();
+    REQUIRE(!bytes.empty());
+
+    ToFlatOpcOptions permissive;
+    permissive.Limits = ExyokiOffice::OpenXmlPackageLimits::Unlimited();
+    const auto allowed = ConvertToFlatOpc(bytes, permissive);
+    REQUIRE(allowed.Ok);
+    REQUIRE(allowed.PartCount > 1);
+
+    SUBCASE("an entry over the part limit condemns the archive")
+    {
+        ToFlatOpcOptions options;
+        options.Limits = ExyokiOffice::OpenXmlPackageLimits::Unlimited();
+        options.Limits.MaxPartBytes = 8;
+        const auto result = ConvertToFlatOpc(bytes, options);
+        CHECK_FALSE(result.Ok);
+        CHECK(result.PartCount == 0);
+        CHECK(result.FlatOpcXml.empty());
+        CHECK(!result.Diagnostics.empty());
+    }
+
+    SUBCASE("the entry count is checked before anything is read")
+    {
+        ToFlatOpcOptions options;
+        options.Limits = ExyokiOffice::OpenXmlPackageLimits::Unlimited();
+        options.Limits.MaxEntries = 1;
+        const auto result = ConvertToFlatOpc(bytes, options);
+        CHECK_FALSE(result.Ok);
+        CHECK(!result.Diagnostics.empty());
+    }
+
+    SUBCASE("the accumulated total is checked as well")
+    {
+        ToFlatOpcOptions options;
+        options.Limits = ExyokiOffice::OpenXmlPackageLimits::Unlimited();
+        options.Limits.MaxUncompressedBytes = 16;
+        const auto result = ConvertToFlatOpc(bytes, options);
+        CHECK_FALSE(result.Ok);
+        CHECK(!result.Diagnostics.empty());
+    }
+}

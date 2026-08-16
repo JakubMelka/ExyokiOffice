@@ -75,17 +75,23 @@ than discovered.
 Four subsystems carry the security-relevant behavior. Each has a user manual
 chapter; what matters here is which side of the boundary a defect falls on.
 
-### ZIP and XML limits — off unless you set them
+### ZIP and XML limits — on by default
 
 `OpenXmlPackageLimits` bounds entry counts, compressed and uncompressed sizes,
-compression ratio, XML depth, node and attribute counts, and text length.
-**Every limit defaults to zero, which means unlimited.** They are the only
-mechanism bounding a decompression bomb or deeply nested XML, so a
-default-constructed configuration has no defence against either:
+compression ratio, XML depth, node and attribute counts, and text length. They
+are the only mechanism bounding a decompression bomb or deeply nested XML, so
+**a package starts at `Recommended()`** rather than at the all-zeros value that
+means "no limits": an application that never read this page is not defenceless
+against a hostile file.
+
+`Recommended()` is sized so that no ordinary Office document is rejected, which
+makes it much wider than what any particular application needs. A service
+accepting uploads should tighten it to what its own documents actually need:
 
 ```cpp
 Packaging::OpenSettings settings;
 settings.PackageLimits = OpenXmlPackageLimits::Recommended();
+settings.PackageLimits.MaxUncompressedBytes = 64ull * 1024 * 1024;
 auto editor = Word::WordDocumentEditor::Open("untrusted.docx", settings);
 ```
 
@@ -118,8 +124,8 @@ the MCP servers therefore runs bounded whether or not the front end remembered
 to say so.
 
 **`exyoki` and the three MCP servers** default to `--package-limits recommended`
-and install it process-wide; `--package-limits unlimited` restores the library
-default for the cases where the limits are what stands in the way.
+and install it process-wide; `--package-limits unlimited` lifts the limits for
+the cases where they are what stands in the way.
 
 Memory unsafety, or a limit that fails to stop the input it names, is a
 vulnerability. Memory or CPU exhaustion under

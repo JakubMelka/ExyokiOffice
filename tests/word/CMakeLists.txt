@@ -25,14 +25,16 @@ exyokioffice_add_test_executable(ExyokiOfficeWordTests
         WordRevisionTests.cpp
         WordCopyMergeTests.cpp
         WordTemplateMergeTests.cpp
-        WordProtectionTests.cpp)
+        WordProtectionTests.cpp
+        WordTextModelTests.cpp)
 
 # Areas follow the rows of the Word table in docs/Compatibility.md. Their tags
 # must stay disjoint: a case matched by two areas would run twice.
 exyokioffice_add_test_area(word NAME Word.Documents LABELS word-documents
     TAGS "[word-lifecycle]")
 exyokioffice_add_test_area(word NAME Word.Text LABELS word-text
-    TAGS "[word-body-cursor]" "[word-authoring]" "[word-formatting]" "[word-read-wrapper]")
+    TAGS "[word-body-cursor]" "[word-authoring]" "[word-formatting]" "[word-read-wrapper]"
+         "[word-text-model]")
 exyokioffice_add_test_area(word NAME Word.Styles LABELS word-styles
     TAGS "[word-style-manager]" "[word-numbering]")
 exyokioffice_add_test_area(word NAME Word.Tables LABELS word-tables

@@ -11,11 +11,9 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
-#include <cerrno>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
+#include <format>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -378,18 +376,17 @@ bool DecimalValueTraits::TryParse(std::string_view text, RealExtended& value) no
         return false;
     }
 
-    std::string buffer(text);
-    char* end = nullptr;
-    errno = 0;
-    const RealExtended parsed = std::strtold(buffer.c_str(), &end);
-
-    if (errno != 0 || end == nullptr)
-    {
-        value = 0.0L;
-        return false;
-    }
-
-    if (static_cast<Size>(end - buffer.c_str()) != buffer.size())
+    // std::from_chars rather than std::strtold: the C conversions read the
+    // decimal separator from the global C locale, so under de-DE the same
+    // document would parse "1.5" as 1 and write 1.5 back as "1,5" - text no
+    // conforming reader accepts. from_chars is defined to be locale
+    // independent, which is the only correct answer for a serialization format,
+    // and it is what every other numeric trait in this file already uses.
+    RealExtended parsed{};
+    const auto begin = text.data();
+    const auto end = begin + text.size();
+    const auto result = std::from_chars(begin, end, parsed, std::chars_format::general);
+    if (result.ec != std::errc{} || result.ptr != end)
     {
         value = 0.0L;
         return false;
@@ -402,14 +399,13 @@ bool DecimalValueTraits::TryParse(std::string_view text, RealExtended& value) no
 std::string DecimalValueTraits::Format(RealExtended value)
 {
     char buffer[128]{};
-    const int written = std::snprintf(buffer, sizeof(buffer), "%.17Lg", value);
-    if (written <= 0)
+    const auto result = std::to_chars(std::begin(buffer), std::end(buffer), value, std::chars_format::general);
+    if (result.ec != std::errc{})
     {
         return {};
     }
 
-    const Size count = static_cast<Size>(written);
-    return std::string(buffer, count);
+    return std::string(buffer, static_cast<Size>(result.ptr - buffer));
 }
 
 bool DateTimeValueTraits::TryParse(std::string_view text, value_type& value) noexcept
@@ -600,23 +596,16 @@ std::string DateTimeValueTraits::Format(const value_type& value)
     const unsigned minute = static_cast<unsigned>(daySeconds / 60);
     const unsigned second = static_cast<unsigned>(daySeconds % 60);
 
-    char buffer[64]{};
-    const int written = std::snprintf(buffer,
-                                      sizeof(buffer),
-                                      "%04d-%02u-%02uT%02u:%02u:%02u",
-                                      date.year,
-                                      date.month,
-                                      date.day,
-                                      hour,
-                                      minute,
-                                      second);
-
-    if (written <= 0)
-    {
-        return {};
-    }
-
-    std::string result(buffer, static_cast<Size>(written));
+    // std::format, not snprintf: the format string is checked at compile time
+    // against the argument types, and no part of the result depends on a locale
+    // the hosting application may have installed.
+    std::string result = std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
+                                     date.year,
+                                     date.month,
+                                     date.day,
+                                     hour,
+                                     minute,
+                                     second);
 
     if (nanos > 0)
     {
@@ -626,17 +615,14 @@ std::string DateTimeValueTraits::Format(const value_type& value)
         // twenty a 64-bit count would need.
         const auto nanosOfSecond = static_cast<unsigned>(nanos % OpenXmlSimpleTypesHelper::nanosecondsPerSecond);
 
-        char fractional[16]{};
-        std::snprintf(fractional, sizeof(fractional), "%09u", nanosOfSecond);
-
-        Size fractionalLength = 9;
-        while (fractionalLength > 0 && fractional[fractionalLength - 1] == '0')
+        std::string fractional = std::format("{:09}", nanosOfSecond);
+        while (!fractional.empty() && fractional.back() == '0')
         {
-            --fractionalLength;
+            fractional.pop_back();
         }
 
         result.push_back('.');
-        result.append(fractional, fractionalLength);
+        result.append(fractional);
     }
 
     result.push_back('Z');

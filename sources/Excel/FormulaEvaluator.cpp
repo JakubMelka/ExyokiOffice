@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
-#include <cstdio>
 #include <limits>
 #include <utility>
 
@@ -139,14 +138,13 @@ std::optional<Real> FormulaCoercion::ParseNumberText(std::string_view text, bool
 
 std::string FormulaCoercion::FormatNumber(Real value)
 {
+    // 64 bytes covers the longest shortest-round-trip form a double has, so the
+    // conversion cannot run out of room. There is deliberately no snprintf
+    // fallback: it would answer according to the global C locale and put a
+    // comma where the formula language requires a point.
     char buffer[64]{};
-    auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value);
-    if (ec == std::errc())
-    {
-        return std::string(buffer, ptr);
-    }
-    std::snprintf(buffer, sizeof(buffer), "%.17g", value);
-    return std::string(buffer);
+    const auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value);
+    return ec == std::errc() ? std::string(buffer, ptr) : std::string();
 }
 
 FormulaValue FormulaCoercion::ToNumber(const FormulaValue& value)

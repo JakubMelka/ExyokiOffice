@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstdio>
+#include <format>
 
 namespace ExyokiOffice
 {
@@ -156,9 +156,7 @@ std::string Color::ToHexString() const
         return "auto";
     }
 
-    char buffer[7] = {};
-    std::snprintf(buffer, sizeof(buffer), "%02X%02X%02X", m_red, m_green, m_blue);
-    return std::string(buffer);
+    return std::format("{:02X}{:02X}{:02X}", m_red, m_green, m_blue);
 }
 
 } // namespace ExyokiOffice

@@ -391,6 +391,24 @@ public:
         }
     }
 
+    /**
+     * @brief Marks a stored string so that its whitespace survives the round trip.
+     *
+     * `<t>` follows the XML default, which lets a consumer collapse leading and
+     * trailing whitespace, so ` Total ` written without this comes back as
+     * `Total` in Excel. The attribute is written unconditionally rather than
+     * only for strings that visibly need it: which strings those are depends on
+     * the reader, and Excel itself writes the attribute the same way.
+     */
+    static void PreserveSpaces(const std::shared_ptr<Spreadsheet::Text>& text)
+    {
+        if (text)
+        {
+            text->SetSpace(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues>(
+                ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues::Preserve));
+        }
+    }
+
     static bool WriteCellValue(const std::shared_ptr<Spreadsheet::Cell>& cell, const ExcelCellValue& value)
     {
         if (!cell)
@@ -415,6 +433,7 @@ public:
                     return false;
                 }
                 text->SetText(value.Text());
+                PreserveSpaces(text);
                 return true;
             }
             case CellValueKind::SharedString:
@@ -546,6 +565,7 @@ public:
             return nullptr;
         }
         textElement->SetText(text);
+        PreserveSpaces(textElement);
         return item;
     }
 
@@ -2223,9 +2243,10 @@ ExcelDocumentEditor::Ptr ExcelDocumentEditor::CreateNew(SpreadsheetDocumentType 
 
 ExcelDocumentEditor::Ptr ExcelDocumentEditor::Open(const std::filesystem::path& path,
                                                    const ExyokiOffice::Packaging::OpenSettings& settings,
-                                                   const ICancellationToken* cancellationToken)
+                                                   const ICancellationToken* cancellationToken,
+                                                   Packaging::OpenError* error)
 {
-    auto document = ExcelDocument::Open(path, settings, cancellationToken);
+    auto document = ExcelDocument::Open(path, settings, cancellationToken, error);
     if (!document)
     {
         return nullptr;
@@ -2235,9 +2256,10 @@ ExcelDocumentEditor::Ptr ExcelDocumentEditor::Open(const std::filesystem::path& 
 
 ExcelDocumentEditor::Ptr ExcelDocumentEditor::Open(const std::vector<Byte>& packageBuffer,
                                                    const ExyokiOffice::Packaging::OpenSettings& settings,
-                                                   const ICancellationToken* cancellationToken)
+                                                   const ICancellationToken* cancellationToken,
+                                                   Packaging::OpenError* error)
 {
-    auto document = ExcelDocument::Open(packageBuffer, settings, cancellationToken);
+    auto document = ExcelDocument::Open(packageBuffer, settings, cancellationToken, error);
     if (!document)
     {
         return nullptr;
@@ -2247,9 +2269,10 @@ ExcelDocumentEditor::Ptr ExcelDocumentEditor::Open(const std::vector<Byte>& pack
 
 ExcelDocumentEditor::Ptr ExcelDocumentEditor::Open(std::span<const Byte> packageBuffer,
                                                    const ExyokiOffice::Packaging::OpenSettings& settings,
-                                                   const ICancellationToken* cancellationToken)
+                                                   const ICancellationToken* cancellationToken,
+                                                   Packaging::OpenError* error)
 {
-    auto document = ExcelDocument::Open(packageBuffer, settings, cancellationToken);
+    auto document = ExcelDocument::Open(packageBuffer, settings, cancellationToken, error);
     if (!document)
     {
         return nullptr;

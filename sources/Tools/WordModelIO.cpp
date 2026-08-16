@@ -13,8 +13,8 @@
 
 #include "AsciiText.hpp"
 
+#include <charconv>
 #include <cmath>
-#include <cstdlib>
 #include <ctime>
 #include <map>
 #include <regex>
@@ -47,9 +47,23 @@ public:
         std::smatch match;
         if (std::regex_match(styleId, match, pattern))
         {
-            return std::stoi(match[1].str());
+            // The pattern already limited the capture to one digit, so this is
+            // arithmetic on a known character rather than a parse - and it
+            // cannot throw, which std::stoi can.
+            return match[1].str().front() - '0';
         }
         return 0;
+    }
+
+    /// A `w:id` attribute as a number, or 0 when it is not one. std::strtol
+    /// would answer 0 for rubbish as well but would also accept a numeric
+    /// prefix, and it reads its digits through the global C locale.
+    static int ParseCommentId(std::string_view text)
+    {
+        int parsed = 0;
+        const auto* const end = text.data() + text.size();
+        const auto result = std::from_chars(text.data(), end, parsed);
+        return (result.ec == std::errc{} && result.ptr == end) ? parsed : 0;
     }
 
     template <typename TEnum>
@@ -409,10 +423,7 @@ public:
                     flushText();
                     WordInline node;
                     node.Kind = WordInline::Type::CommentRef;
-                    node.NoteId = commentRef->GetId().IsDefined()
-                                      ? static_cast<int>(std::strtol(commentRef->GetId().ToString().c_str(),
-                                                                     nullptr, 10))
-                                      : 0;
+                    node.NoteId = commentRef->GetId().IsDefined() ? ParseCommentId(commentRef->GetId().ToString()) : 0;
                     out.push_back(std::move(node));
                     continue;
                 }

@@ -1027,10 +1027,14 @@ public:
                     }
                     else
                     {
-                        char* end = nullptr;
-                        const Real number = std::strtod(text.c_str(), &end);
-                        (void)number;
-                        if (end != nullptr && *end == '\0' && end != text.c_str())
+                        // Whether the cell is a number, not what the number is:
+                        // from_chars answers that without a locale and without
+                        // accepting a numeric prefix of something else.
+                        Real number = 0.0;
+                        const auto* const numberEnd = text.data() + text.size();
+                        const auto parsed =
+                            std::from_chars(text.data(), numberEnd, number, std::chars_format::general);
+                        if (parsed.ec == std::errc{} && parsed.ptr == numberEnd)
                         {
                             cell.Type = "number";
                             cell.Value = text;

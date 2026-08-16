@@ -128,11 +128,12 @@ struct EXYOKIOFFICE_EXPORT OpenSettings
      *
      * The initial value is the process-wide policy installed with
      * OpenXmlPackage::SetDefaultPackageLimits, read when the settings object is
-     * constructed. Without that, a default-constructed OpenSettings would be
-     * all zeros, and Open would silently widen an application's configured
-     * policy back to Unlimited() — which is what every caller that opens a
-     * document without passing settings would then get. Assigning the member
-     * still wins, including an explicit OpenXmlPackageLimits::Unlimited().
+     * constructed, and OpenXmlPackageLimits::Recommended() when none was
+     * installed. It is read here rather than left all zeros because otherwise a
+     * default-constructed OpenSettings would silently widen the policy back to
+     * "no limits" — which is what every caller that opens a document without
+     * passing settings would then get. Assigning the member still wins,
+     * including an explicit OpenXmlPackageLimits::Unlimited().
      */
     OpenXmlPackageLimits PackageLimits = OpenXmlPackage::DefaultPackageLimits();
     /**
@@ -175,6 +176,80 @@ struct EXYOKIOFFICE_EXPORT OpenSettings
      * this is widened as well.
      */
     Security::ExternalResourcePolicy ExternalResourcePolicy;
+};
+
+/**
+ * @brief Why an Open() call returned nullptr.
+ *
+ * The order is stable and new members are appended, because the value crosses
+ * the ABI boundary.
+ */
+enum class OpenErrorCode
+{
+    /** @brief Nothing failed; the document was opened. */
+    None,
+    /** @brief The path was empty, or the buffer contained no bytes. */
+    InvalidArgument,
+    /** @brief The cancellation token was signalled before opening finished. */
+    Cancelled,
+    /** @brief The file does not exist, or is a directory. */
+    FileNotFound,
+    /** @brief The file exists but could not be opened for reading - locked by
+     *         another program, or not readable by this process. */
+    FileUnreadable,
+    /** @brief The bytes are not a readable OPC package - not a ZIP, or malformed. */
+    NotAPackage,
+    /** @brief A ZIP or XML limit from OpenSettings::PackageLimits was exceeded. */
+    LimitExceeded,
+    /** @brief OpcValidationMode::Strict found errors in the relationship graph. */
+    ValidationFailed,
+    /** @brief Markup compatibility processing failed for a part. */
+    MarkupCompatibilityFailed,
+    /** @brief A part held more characters than OpenSettings::MaxCharactersInPart allows. */
+    PartTooLarge,
+    /** @brief The package is readable but is not a document of the expected
+     *         family: its main part is missing, as when a .xlsx is handed to
+     *         WordDocument::Open(). */
+    WrongDocumentType
+};
+
+/**
+ * @brief Optional explanation of an Open() failure.
+ *
+ * Every `Open` overload takes a pointer to one of these as its last argument.
+ * Pass nullptr - which is the default - and nothing is written; pass an object
+ * and it is filled in when the call returns nullptr. This exists because
+ * "returns nullptr" cannot distinguish a missing file from a zip bomb, an
+ * encrypted document, or a `.xlsx` handed to the Word API, and the package that
+ * knows the reason is destroyed on the way out, taking its
+ * OpenXmlPackage::LastValidationResult() with it.
+ *
+ * @code
+ * ExyokiOffice::Packaging::OpenError error;
+ * auto editor = Word::WordDocumentEditor::Open("upload.docx", settings, nullptr, &error);
+ * if (!editor)
+ * {
+ *     std::cerr << error.Message << '\n';
+ *     for (const auto& issue : error.Diagnostics.Issues()) { log(issue.Message); }
+ * }
+ * @endcode
+ */
+struct EXYOKIOFFICE_EXPORT OpenError
+{
+    /** @brief What went wrong, as a value a caller can branch on. */
+    OpenErrorCode Code = OpenErrorCode::None;
+    /** @brief One sentence in English describing the failure, for logs. */
+    std::string Message;
+    /**
+     * @brief Diagnostics the loader collected before it gave up.
+     *
+     * This is the package's LastValidationResult() copied out before the
+     * package is discarded, so it names the offending part and the limit.
+     */
+    ValidationResult Diagnostics;
+
+    /** @brief True when a failure was recorded. */
+    [[nodiscard]] explicit operator bool() const noexcept { return Code != OpenErrorCode::None; }
 };
 
 /**
@@ -360,7 +435,8 @@ public:
      */
     static Ptr Open(const std::filesystem::path& path,
                     const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    OpenError* error = nullptr);
 
     /**
      * @brief Opens a document that is stored inside a seekable stream.
@@ -380,7 +456,8 @@ public:
      */
     static Ptr Open(std::iostream& stream,
                     const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    OpenError* error = nullptr);
 
     /**
      * @brief Opens a package that lives entirely in a byte buffer.
@@ -398,7 +475,8 @@ public:
      */
     static Ptr Open(const std::vector<Byte>& packageBuffer,
                     const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    OpenError* error = nullptr);
 
     /**
      * @brief Opens a package from a contiguous byte range.
@@ -416,7 +494,8 @@ public:
      */
     static Ptr Open(std::span<const Byte> packageBuffer,
                     const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr,
+                    OpenError* error = nullptr);
 
     /**
      * @brief Generates a new document by cloning a template on disk.
@@ -507,6 +586,18 @@ protected:
 private:
     WordprocessingDocumentType m_documentType = WordprocessingDocumentType::Document;
     OpenSettings m_openSettings;
+
+    /**
+     * @brief The part of opening that follows loading, whatever the bytes came from.
+     *
+     * Kept in one place because every step of it can fail for a reason the
+     * caller has to be able to tell apart, and one copy per overload would drift
+     * apart one policy at a time.
+     */
+    static Ptr FinishOpen(Ptr document,
+                          const OpenSettings& settings,
+                          const ICancellationToken* cancellationToken,
+                          OpenError* error);
 
     /**
      * @brief Stores open settings on the instance.

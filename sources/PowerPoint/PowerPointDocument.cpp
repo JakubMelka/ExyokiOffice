@@ -7937,25 +7937,28 @@ PowerPointDocumentEditor::Ptr PowerPointDocumentEditor::CreateNew(PowerPointDocu
 
 PowerPointDocumentEditor::Ptr PowerPointDocumentEditor::Open(const std::filesystem::path& path,
                                                              const Packaging::OpenSettings& settings,
-                                                             const ICancellationToken* token)
+                                                             const ICancellationToken* token,
+                                                             Packaging::OpenError* error)
 {
-    auto document = PowerPointDocument::Open(path, settings, token);
+    auto document = PowerPointDocument::Open(path, settings, token, error);
     return document ? Create(document) : nullptr;
 }
 
 PowerPointDocumentEditor::Ptr PowerPointDocumentEditor::Open(const std::vector<Byte>& bytes,
                                                              const Packaging::OpenSettings& settings,
-                                                             const ICancellationToken* token)
+                                                             const ICancellationToken* token,
+                                                             Packaging::OpenError* error)
 {
-    auto document = PowerPointDocument::Open(bytes, settings, token);
+    auto document = PowerPointDocument::Open(bytes, settings, token, error);
     return document ? Create(document) : nullptr;
 }
 
 PowerPointDocumentEditor::Ptr PowerPointDocumentEditor::Open(std::span<const Byte> bytes,
                                                              const Packaging::OpenSettings& settings,
-                                                             const ICancellationToken* token)
+                                                             const ICancellationToken* token,
+                                                             Packaging::OpenError* error)
 {
-    auto document = PowerPointDocument::Open(bytes, settings, token);
+    auto document = PowerPointDocument::Open(bytes, settings, token, error);
     return document ? Create(document) : nullptr;
 }
 

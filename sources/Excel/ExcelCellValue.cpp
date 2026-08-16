@@ -6,7 +6,6 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include <charconv>
-#include <cstdio>
 
 namespace ExyokiOffice::Excel
 {
@@ -16,15 +15,13 @@ class ExcelCellValueHelper
 public:
     static std::string FormatDouble(Real value)
     {
+        // 64 bytes is past the 24 the shortest round-trip form of a double ever
+        // needs, so the conversion cannot report value_too_large; an empty
+        // string on a failure that cannot happen beats a locale-dependent
+        // fallback that would quietly write `1,5` into the file.
         char buffer[64]{};
-        auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value);
-        if (ec == std::errc())
-        {
-            return std::string(buffer, ptr);
-        }
-
-        std::snprintf(buffer, sizeof(buffer), "%.17g", value);
-        return std::string(buffer);
+        const auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value);
+        return ec == std::errc() ? std::string(buffer, ptr) : std::string();
     }
 
     static std::string StripFormulaPrefix(std::string formula)

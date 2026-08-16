@@ -4,6 +4,8 @@
 
 #include "ExyokiOffice/Packaging/SpreadsheetDocument.hpp"
 
+#include "OpenErrorReporting.hpp"
+
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/ExtendedProperties.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Spreadsheet.hpp"
 #include "ExyokiOffice/MarkupCompatibility.hpp"
@@ -132,82 +134,135 @@ DocumentProperties ExcelDocument::Properties()
 
 ExcelDocument::Ptr ExcelDocument::Open(const std::filesystem::path& path,
                                        const OpenSettings& settings,
-                                       const ICancellationToken* cancellationToken)
+                                       const ICancellationToken* cancellationToken,
+                                       OpenError* error)
 {
-    if (path.empty() || SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
+    using Detail::OpenErrorReporter;
+
+    if (path.empty())
     {
+        OpenErrorReporter::Report(error, OpenErrorCode::InvalidArgument, "No path was given to open.");
+        return nullptr;
+    }
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
+    {
+        OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
     auto document = std::make_shared<ExcelDocument>();
     document->SetPackageLimits(SpreadsheetDocumentHelper::BuildPackageLimits(settings));
     document->SetPartByteRetention(settings.ByteRetention);
-    if (!document || !document->LoadFromFile(path, cancellationToken))
+    if (!document->LoadFromFile(path, cancellationToken))
     {
+        OpenErrorReporter::ReportFileLoadFailure(error, *document, path, cancellationToken);
         return nullptr;
     }
-    document->ApplyOpenSettings(settings);
-    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
-    {
-        return nullptr;
-    }
-    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
-    {
-        return nullptr;
-    }
-    document->UpdateDocumentTypeFromWorkbookPart();
-    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
-    {
-        return nullptr;
-    }
-    return document;
+    return FinishOpen(std::move(document), settings, cancellationToken, error);
 }
 
 ExcelDocument::Ptr ExcelDocument::Open(std::iostream& stream,
                                        const OpenSettings& settings,
-                                       const ICancellationToken* cancellationToken)
+                                       const ICancellationToken* cancellationToken,
+                                       OpenError* error)
 {
     if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
     {
+        Detail::OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
-    auto buffer = ReadStreamFully(stream);
-    return Open(std::span<const Byte>(buffer.data(), buffer.size()), settings, cancellationToken);
+    const auto buffer = ReadStreamFully(stream);
+    return Open(std::span<const Byte>(buffer.data(), buffer.size()), settings, cancellationToken, error);
 }
 
 ExcelDocument::Ptr ExcelDocument::Open(const std::vector<Byte>& packageBuffer,
                                        const OpenSettings& settings,
-                                       const ICancellationToken* cancellationToken)
+                                       const ICancellationToken* cancellationToken,
+                                       OpenError* error)
 {
-    return Open(std::span<const Byte>(packageBuffer.data(), packageBuffer.size()), settings, cancellationToken);
+    return Open(std::span<const Byte>(packageBuffer.data(), packageBuffer.size()), settings, cancellationToken, error);
 }
 
 ExcelDocument::Ptr ExcelDocument::Open(std::span<const Byte> packageBuffer,
                                        const OpenSettings& settings,
-                                       const ICancellationToken* cancellationToken)
+                                       const ICancellationToken* cancellationToken,
+                                       OpenError* error)
 {
-    if (packageBuffer.empty() || SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
+    using Detail::OpenErrorReporter;
+
+    if (packageBuffer.empty())
     {
+        OpenErrorReporter::Report(error, OpenErrorCode::InvalidArgument, "The package buffer is empty.");
+        return nullptr;
+    }
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
+    {
+        OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
     auto document = std::make_shared<ExcelDocument>();
     document->SetPackageLimits(SpreadsheetDocumentHelper::BuildPackageLimits(settings));
     document->SetPartByteRetention(settings.ByteRetention);
-    if (!document || !document->LoadFromMemory(packageBuffer, cancellationToken))
+    if (!document->LoadFromMemory(packageBuffer, cancellationToken))
     {
+        OpenErrorReporter::ReportLoadFailure(error, *document, {}, cancellationToken);
         return nullptr;
     }
+    return FinishOpen(std::move(document), settings, cancellationToken, error);
+}
+
+ExcelDocument::Ptr ExcelDocument::FinishOpen(Ptr document,
+                                             const OpenSettings& settings,
+                                             const ICancellationToken* cancellationToken,
+                                             OpenError* error)
+{
+    using Detail::OpenErrorReporter;
+
     document->ApplyOpenSettings(settings);
-    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyOpcValidationPolicy(settings))
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
     {
+        OpenErrorReporter::ReportCancelled(error);
         return nullptr;
     }
-    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->ApplyMarkupCompatibilityPolicy(settings))
+    if (!document->ApplyOpcValidationPolicy(settings))
     {
+        OpenErrorReporter::Report(error, OpenErrorCode::ValidationFailed,
+                                  "The package failed strict OPC validation.", document.get());
+        return nullptr;
+    }
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
+    {
+        OpenErrorReporter::ReportCancelled(error);
+        return nullptr;
+    }
+    if (!document->ApplyMarkupCompatibilityPolicy(settings))
+    {
+        OpenErrorReporter::Report(error, OpenErrorCode::MarkupCompatibilityFailed,
+                                  "Markup compatibility processing failed for a part of the package.",
+                                  document.get());
         return nullptr;
     }
     document->UpdateDocumentTypeFromWorkbookPart();
-    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken) || !document->EnforcePartCharacterBudget())
+    if (!document->GetWorkbookPart())
     {
+        // The generic OPC loader reads any Open XML package, a .docx and a .pptx
+        // included, so reaching this point says nothing about the family. Without
+        // the workbook part there is no workbook to edit, and returning an editor
+        // over one would move the failure to the first call that used it.
+        OpenErrorReporter::Report(error, OpenErrorCode::WrongDocumentType,
+                                  "The package has no workbook part, so it is not an Excel document.",
+                                  document.get());
+        return nullptr;
+    }
+    if (SpreadsheetDocumentHelper::IsCancellationRequested(cancellationToken))
+    {
+        OpenErrorReporter::ReportCancelled(error);
+        return nullptr;
+    }
+    if (!document->EnforcePartCharacterBudget())
+    {
+        OpenErrorReporter::Report(error, OpenErrorCode::PartTooLarge,
+                                  "A part holds more characters than OpenSettings::MaxCharactersInPart allows.",
+                                  document.get());
         return nullptr;
     }
     return document;

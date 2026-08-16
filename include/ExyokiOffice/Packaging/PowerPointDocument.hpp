@@ -70,16 +70,16 @@ public:
 
     /** @brief Opens a PresentationML package from a filesystem path. */
     static Ptr Open(const std::filesystem::path& path, const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr, OpenError* error = nullptr);
     /** @brief Opens a PresentationML package from a seekable stream. */
     static Ptr Open(std::iostream& stream, const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr, OpenError* error = nullptr);
     /** @brief Opens a PresentationML package from an owned byte buffer. */
     static Ptr Open(const std::vector<Byte>& packageBuffer, const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr, OpenError* error = nullptr);
     /** @brief Opens a PresentationML package from a contiguous byte range. */
     static Ptr Open(std::span<const Byte> packageBuffer, const OpenSettings& settings = {},
-                    const ICancellationToken* cancellationToken = nullptr);
+                    const ICancellationToken* cancellationToken = nullptr, OpenError* error = nullptr);
 
     /**
      * @brief Changes the package flavor and main-part content type.
@@ -99,6 +99,16 @@ protected:
     void ApplyOpenSettings(const OpenSettings& settings);
 
     /**
+     * @brief Validates the package structure according to the open settings.
+     *
+     * Does nothing in None mode. In Tolerant mode every issue is downgraded to a
+     * warning and the document opens; in Strict mode an error fails the open.
+     * Either way the issues are kept as the package's last validation result, so
+     * a caller that passed an OpenError gets them back with it.
+     */
+    bool ApplyOpcValidationPolicy(const OpenSettings& settings);
+
+    /**
      * @brief Resolves markup compatibility markup according to the open settings.
      *
      * Does nothing in the default NoProcess mode. Returns false when a part declares
@@ -107,7 +117,27 @@ protected:
      */
     bool ApplyMarkupCompatibilityPolicy(const OpenSettings& settings);
 
+    /**
+     * @brief True when no XML part is larger than OpenSettings::MaxCharactersInPart.
+     *
+     * The package limits stop a part that is too large while it is still being
+     * read; this is the second half of the same promise, for a part that grew
+     * past the budget only once its markup compatibility markup was resolved.
+     */
+    [[nodiscard]] bool EnforcePartCharacterBudget() const;
+
 private:
+    /**
+     * @brief The part of opening that follows loading, whatever the bytes came from.
+     *
+     * Shared by the four overloads so that every way of opening a presentation
+     * reports the same reason for the same failure.
+     */
+    static Ptr FinishOpen(Ptr document,
+                          const OpenSettings& settings,
+                          const ICancellationToken* cancellationToken,
+                          OpenError* error);
+
     PowerPointDocumentType m_documentType = PowerPointDocumentType::Presentation;
     OpenSettings m_openSettings;
     void UpdateDocumentTypeFromPresentationPart();

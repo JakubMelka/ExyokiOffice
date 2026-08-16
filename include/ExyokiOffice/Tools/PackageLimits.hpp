@@ -14,14 +14,12 @@ namespace ExyokiOffice::Tools
 /**
  * @brief ZIP/XML safety limits the Tools entry points load packages under.
  *
- * The core library defaults to OpenXmlPackageLimits::Unlimited(), because a
- * caller reaching for `OpenXmlPackage` or an editor directly has the seam to
- * pass its own limits and may legitimately be opening a package it produced.
- * This module is used differently: `Stat`, `Diff`, `Detect`, `Redact`,
- * `Unpack` and their neighbours are pointed at files the caller did not make,
- * and most of them take no settings at all — there is nowhere to pass a limit
- * even if the caller wanted to. So the default here is Recommended(), and a
- * caller who wants no limits says so.
+ * This is the same policy the core library applies — packages start at
+ * OpenXmlPackageLimits::Recommended() — stated in its own function because
+ * this module must not inherit "no limits" even by accident: `Stat`, `Diff`,
+ * `Detect`, `Redact`, `Unpack` and their neighbours are pointed at files the
+ * caller did not make, and most of them take no settings at all, so there is
+ * nowhere to pass a limit even if the caller wanted to.
  *
  * An application that installed a process-wide policy with
  * OpenXmlPackage::SetDefaultPackageLimits gets that policy instead, including
@@ -39,13 +37,12 @@ EXYOKIOFFICE_EXPORT void ApplyDefaultPackageLimits(OpenXmlPackage& package);
 /**
  * @brief Open settings for a document this program did not produce.
  *
- * `Packaging::OpenSettings` starts at the core default, which is Unlimited()
- * unless the application installed a policy. That is the right starting point
- * for the library at large and the wrong one here, for the reasons
- * DefaultPackageLimits() gives: these entry points are pointed at files the
- * caller did not make. Every Tools function that opens an editor over a
- * caller-supplied path passes this; a default-constructed OpenSettings would
- * quietly widen the policy back to the core default on the way in.
+ * `Packaging::OpenSettings` already starts at the core default, so this is
+ * usually the same thing spelled explicitly. It stays a separate function
+ * because "these bytes are foreign" is a fact about the call site rather than
+ * about the process: every Tools function that opens an editor over a
+ * caller-supplied path passes this, and it keeps the policy from following a
+ * future change of the core default in the wrong direction.
  */
 [[nodiscard]] EXYOKIOFFICE_EXPORT Packaging::OpenSettings UntrustedOpenSettings();
 

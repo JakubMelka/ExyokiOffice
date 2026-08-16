@@ -25,15 +25,30 @@ namespace ExyokiOffice::Tools
 struct EXYOKIOFFICE_EXPORT RedactOptions
 {
     /// Remove comments: Word comment parts and in-text markers, Excel classic
-    /// and threaded comments, PowerPoint modern comments and their authors.
+    /// and threaded comments and their person registry, PowerPoint comments -
+    /// modern and legacy `ppt/comments/*` alike - and their authors.
     bool RemoveComments = true;
-    /// Word only: accept every tracked revision in the main body, so inserted
-    /// text stays, deleted text disappears, and no revision metadata remains.
+    /// Word only: accept every tracked revision in every story part - body,
+    /// headers, footers, footnotes, endnotes, comments - including deleted
+    /// paragraph marks, deleted table rows, and the records of former
+    /// formatting (`w:rPrChange` and its siblings).
     bool ResolveRevisions = true;
-    /// Word only: delete runs formatted as hidden text (`w:vanish`).
+    /// Word only: delete runs formatted as hidden text, whether the run says so
+    /// (`w:vanish`, `w:specVanish`) or its style does. Either element switched
+    /// off with `w:val="false"` means the run is visible and stays.
     bool RemoveHiddenText = true;
-    /// Clear identity properties (Creator, LastModifiedBy, Company) and remove
-    /// the custom-properties part when the package has one.
+    /// Clear identity and descriptive metadata (Creator, LastModifiedBy,
+    /// Company, Manager, Title, Subject, Description, Keywords, Category,
+    /// Revision, last printed, attached template) and remove the parts that
+    /// hold more of it: custom properties, `customXml`, and the `docProps`
+    /// thumbnail. In Word it also strips the `w:rsid*` editing-session
+    /// identifiers from the story parts.
+    ///
+    /// The registries that name comment authors - the workbook person registry,
+    /// the presentation comment authors, Word's `people.xml` - are not in that
+    /// list, because they are only removable together with the comments that
+    /// refer to them. With RemoveComments off they stay, and they still name
+    /// the people who wrote the comments that stayed with them.
     bool RemovePersonalMetadata = true;
 };
 
@@ -50,6 +65,9 @@ struct EXYOKIOFFICE_EXPORT RedactResult
     Size HiddenRunsRemoved = 0;
     /// Identity fields cleared plus one for a removed custom-properties part.
     Size MetadataFieldsCleared = 0;
+    /// Whole parts detached because of what they carried: the thumbnail,
+    /// `customXml`, person and author registries, legacy comment parts.
+    Size PartsRemoved = 0;
     /// True when the redacted document was written to disk.
     bool Saved = false;
     std::vector<ToolDiagnostic> Diagnostics;
@@ -69,7 +87,22 @@ struct EXYOKIOFFICE_EXPORT RedactResult
  * `w:commentRangeEnd`, and `w:commentReference` marker is stripped from the
  * body, headers, footers, footnotes, and endnotes. Revision handling accepts
  * (rather than rejects) changes, matching the usual "final version" publish
- * flow. Hidden-text removal deletes runs whose `w:rPr/w:vanish` is in effect.
+ * flow, and it runs over every one of those story parts rather than the body
+ * alone. Accepting a revision also drops the property-level records that stand
+ * for one - `w:trPr/w:ins` on an inserted row, `w:pPr/w:rPr/w:del` on a deleted
+ * paragraph mark - each of which carries an author and a date. Hidden-text
+ * removal deletes runs hidden by `w:vanish`, by `w:specVanish`, or by a
+ * character style that carries either.
+ *
+ * @warning This is not a guarantee that a package holds nothing else. It
+ * removes what is listed above and what RedactOptions describes, in the three
+ * formats named there; a scrub that must be complete for a legal or safety
+ * purpose has to be verified against the file, not against this list. Known
+ * gaps: embedded objects and their own packages are not opened, media is not
+ * inspected (an image can carry EXIF), VBA projects are left alone, and text a
+ * document merely stops displaying - a shape placed off the slide, a column of
+ * zero width, a run coloured like the page - is content rather than metadata
+ * and stays.
  *
  * The result is saved to @p outputPath, or back to @p path when
  * @p outputPath is empty. The input file is never modified when an output
