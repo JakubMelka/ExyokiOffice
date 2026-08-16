@@ -96,6 +96,48 @@ The certificates are handed over as raw DER (`SignatureResult::Certificates`);
 the library never parses them. Chain building, revocation checking and trust
 decisions belong to your provider and to the policy of your application.
 
+### What the signature does not cover
+
+A valid signature says the parts its manifest names have not changed. It says
+nothing about the parts it does not name, and nothing in the file announces
+which those are — a part added after signing simply is not mentioned, every
+digest still matches, and `IsValid()` is still true. The relationship transform
+makes that reachable in practice: a signature that selects relationships by
+`SourceId` keeps its digest when a relationship with a new identifier is added
+beside them, and the part that relationship points at comes along with it.
+
+`SignatureResult::UncoveredParts` is the list, sorted by URI, with the signature
+parts and their origin excluded because they cannot sign themselves:
+
+```cpp
+for (const auto& uri : signature.UncoveredParts)
+{
+    std::cerr << "not covered by the signature: " << uri << '
+';
+}
+```
+
+An entry is not by itself a defect — Office signs a subset on purpose. What it
+means is your application's decision: a new slide in a signed deck is a
+different matter from an unreferenced thumbnail.
+
+### SHA-1
+
+A signature commits to a digest, so a digest collisions can be constructed for
+is a digest two different documents share, however strong the key is. SHA-1
+collisions have been constructible since 2017 and chosen-prefix collisions since
+2020, so a SHA-1 reference or an RSA-SHA1 signature value is reported as
+`Invalid` rather than computed.
+
+Office still writes SHA-1 signatures in old compatibility modes and archives are
+full of them, so this is a policy rather than a format this library cannot read:
+
+```cpp
+ExyokiOffice::Security::VerifySignaturesOptions options;
+options.AllowSha1 = true;  // read the resulting Valid as "unmodified, assuming
+                           // nobody constructed a collision"
+```
+
 ### Original bytes
 
 A signature digests the bytes a part had in the file, and saving re-serializes

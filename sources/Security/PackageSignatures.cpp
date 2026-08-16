@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string_view>
 #include <utility>
@@ -300,6 +301,19 @@ public:
         return std::any_of(transforms.begin(), transforms.end(), [](const auto& transform)
                            { return transform.Algorithm == SignatureNames::RelationshipTransform; });
     }
+
+    /// True for the algorithms whose collision resistance is gone.
+    ///
+    /// A digest is what a signature actually commits to, so a broken digest
+    /// breaks the signature no matter how strong the key is: two documents with
+    /// the same SHA-1 have the same signature. SHA-1 collisions have been
+    /// constructible since 2017 and chosen-prefix collisions since 2020.
+    static bool IsWeakDigest(DigestAlgorithm algorithm) noexcept { return algorithm == DigestAlgorithm::Sha1; }
+
+    static bool IsWeakSignature(SignatureAlgorithm algorithm) noexcept
+    {
+        return algorithm == SignatureAlgorithm::RsaSha1;
+    }
 };
 
 /// Verifies the signatures of one package.
@@ -393,7 +407,55 @@ private:
 
         VerifyReferences(parsed, result, diagnostics);
         VerifySignatureValue(parsed, result, diagnostics);
+        CollectUncoveredParts(result);
         return result;
+    }
+
+    /**
+     * @brief Lists the package parts this signature says nothing about.
+     *
+     * Only references whose digest came out valid count as coverage. A
+     * reference that failed, or one this library could not check, is not
+     * evidence about the part it names, and listing it as covered would hide
+     * the same gap the list exists to show.
+     */
+    void CollectUncoveredParts(SignatureResult& result) const
+    {
+        std::set<std::string> covered;
+        for (const auto& reference : result.References)
+        {
+            if (!reference.IsRelationshipPart && reference.Digest == SignatureCheck::Valid &&
+                !reference.PartUri.empty())
+            {
+                covered.insert(reference.PartUri);
+            }
+        }
+
+        // The signature parts and their origin are excluded by definition: a
+        // signature cannot contain its own digest, and Office never lists them.
+        std::set<std::string> excluded;
+        if (const auto origin = SignatureLocator::FindOriginPart(m_package))
+        {
+            excluded.insert(origin->Uri());
+        }
+        for (const auto& part : SignatureLocator::FindSignatureParts(m_package))
+        {
+            excluded.insert(part->Uri());
+        }
+
+        for (const auto& part : m_package.Parts())
+        {
+            if (!part)
+            {
+                continue;
+            }
+            const auto& uri = part->Uri();
+            if (covered.count(uri) == 0 && excluded.count(uri) == 0)
+            {
+                result.UncoveredParts.push_back(uri);
+            }
+        }
+        std::sort(result.UncoveredParts.begin(), result.UncoveredParts.end());
     }
 
     /**
@@ -531,6 +593,23 @@ private:
             entry.Message = "Unsupported digest algorithm " + reference.DigestAlgorithmUri + ".";
             ReportIssue(diagnostics,
                         ValidationSeverity::Warning,
+                        ValidationErrorId::SignatureUnsupportedAlgorithm,
+                        entry.Message,
+                        result.PartUri);
+            return entry;
+        }
+
+        if (SignatureAlgorithmSupport::IsWeakDigest(*digestAlgorithm) && !m_options.AllowSha1)
+        {
+            // Invalid rather than NotChecked: the digest can be recomputed, and
+            // it probably matches. What it no longer establishes is that the
+            // bytes are the ones that were signed, and reporting "could not
+            // check" would invite a caller to try harder rather than to decide.
+            entry.Digest = SignatureCheck::Invalid;
+            entry.Message = "The reference uses SHA-1, which is no longer collision resistant. Set "
+                            "VerifySignaturesOptions::AllowSha1 to verify it anyway.";
+            ReportIssue(diagnostics,
+                        ValidationSeverity::Error,
                         ValidationErrorId::SignatureUnsupportedAlgorithm,
                         entry.Message,
                         result.PartUri);
@@ -718,6 +797,20 @@ private:
             result.Warnings.push_back("Unsupported signature algorithm " + parsed.SignatureAlgorithmUri + ".");
             ReportIssue(diagnostics,
                         ValidationSeverity::Warning,
+                        ValidationErrorId::SignatureUnsupportedAlgorithm,
+                        result.Warnings.back(),
+                        result.PartUri);
+            return;
+        }
+
+        if (SignatureAlgorithmSupport::IsWeakSignature(*result.Algorithm) && !m_options.AllowSha1)
+        {
+            result.SignatureValue = SignatureCheck::Invalid;
+            result.Warnings.push_back(
+                "The signature value uses RSA-SHA1, which is no longer collision resistant. Set "
+                "VerifySignaturesOptions::AllowSha1 to verify it anyway.");
+            ReportIssue(diagnostics,
+                        ValidationSeverity::Error,
                         ValidationErrorId::SignatureUnsupportedAlgorithm,
                         result.Warnings.back(),
                         result.PartUri);

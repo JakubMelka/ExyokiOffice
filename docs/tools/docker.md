@@ -163,11 +163,15 @@ unchanged. Mount the documents you want it to see at `/work`:
 IMAGE=ghcr.io/jakubmelka/exyokioffice:1.0.0
 docker run --rm --network none -v "$PWD:/work" "$IMAGE" exyoki --help
 docker run --rm --network none -v "$PWD:/work" "$IMAGE" exyoki validate report.docx
-docker run --rm --network none -v "$PWD:/work" "$IMAGE" \
+docker run --rm --network none --user "$(id -u):$(id -g)" -v "$PWD:/work" "$IMAGE" \
   exyoki convert report.docx report.md
 ```
 
-`/work` is the working directory, so relative paths mean what you expect.
+`/work` is the working directory, so relative paths mean what you expect. The
+two read-only commands need nothing else; the one that *writes* `report.md`
+carries `--user`, because without it the container writes as uid 65532 and a
+directory of your own with the usual `755` permissions refuses it. See
+[the workspace and file ownership](#the-workspace-and-file-ownership).
 `--network none` is explained under [Closing the
 network](#closing-the-network); nothing in the image ever reaches out, so it
 costs nothing and saves both a risk and a measurable part of the start-up.

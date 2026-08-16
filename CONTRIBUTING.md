@@ -24,6 +24,15 @@ Read these files before changing code:
 Search existing issues and pull requests before starting substantial work. Keep
 one pull request focused on one coherent change.
 
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Every push and pull request runs the `Smoke` workflow: one Linux GCC release
+build, the full test suite, and a check that the generator left nothing
+uncommitted. The broader matrix — Windows, Clang, the sanitizers, the MCP
+suites — is the manually started `CI` workflow; run it and link the result when
+a change touches packaging, a second compiler, or anything the smoke job does
+not exercise.
+
 ## Development setup
 
 ExyokiOffice requires C++20 and CMake 3.25 or newer. Use the checked-in CMake

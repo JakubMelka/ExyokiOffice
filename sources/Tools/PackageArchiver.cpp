@@ -9,6 +9,7 @@
 #include "XmlParseOptions.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 #include "AsciiText.hpp"
+#include "NativePath.hpp"
 
 #include <algorithm>
 #include <array>
@@ -281,7 +282,7 @@ UnpackResult Unpack(const std::filesystem::path& packagePath, const std::filesys
     }
 
     int error = 0;
-    auto* archive = zip_openwitherror(packagePath.string().c_str(), 0, 'r', &error);
+    auto* archive = zip_openwitherror(NativePath::ToUtf8(packagePath).c_str(), 0, 'r', &error);
     if (!archive)
     {
         PackageArchiverHelper::AddDiagnostic(result.Diagnostics, ToolSeverity::Error,
@@ -324,9 +325,11 @@ UnpackResult Unpack(const std::filesystem::path& packagePath, const std::filesys
             continue;
         }
 
+        // The name is checked first: an entry with no name is nothing this code
+        // can extract, and asking the archive whether it is a directory means
+        // asking about the last character of a name that has none.
         const std::string entryName = zip_entry_name(archive) ? zip_entry_name(archive) : "";
-        const bool isDir = zip_entry_isdir(archive) != 0;
-        if (isDir || entryName.empty())
+        if (entryName.empty() || zip_entry_isdir(archive) != 0)
         {
             zip_entry_close(archive);
             continue;
@@ -617,7 +620,7 @@ PackResult Pack(const std::filesystem::path& inDir, const std::filesystem::path&
 
     const int level = std::clamp(options.CompressionLevel, 0, 9);
     int error = 0;
-    auto* archive = zip_openwitherror(outPackage.string().c_str(), level, 'w', &error);
+    auto* archive = zip_openwitherror(NativePath::ToUtf8(outPackage).c_str(), level, 'w', &error);
     if (!archive)
     {
         PackageArchiverHelper::AddDiagnostic(result.Diagnostics, ToolSeverity::Error,

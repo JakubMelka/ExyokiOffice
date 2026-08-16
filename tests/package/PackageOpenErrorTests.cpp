@@ -209,6 +209,36 @@ TEST_SUITE("Package.OpenError")
         CHECK(error.Code == OpenErrorCode::Cancelled);
     }
 
+    TEST_CASE("A path outside ASCII opens on every platform [unit] [open-error]")
+    {
+        // The bundled ZIP layer decodes the file name it is given as UTF-8. On
+        // Windows, path::string() produces the *active code page* instead, so
+        // `Příloha.docx` reached _wfopen as mojibake and the package "did not
+        // exist" - on the machines of exactly the users whose language needs
+        // the characters.
+        const auto directory = ExyokiOfficeTests::MakeTemporaryPath("exyoki_open_unicode", "");
+        std::error_code created;
+        std::filesystem::create_directories(directory, created);
+        REQUIRE_FALSE(created);
+
+        // Czech, Japanese and an emoji: two- and three-byte sequences plus a
+        // surrogate pair, none of which any single-byte code page can spell.
+        const std::filesystem::path path = directory / std::filesystem::path(u8"Příloha 添付 📄.docx");
+
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor);
+        editor->AddParagraph("Accented path");
+        REQUIRE(editor->SaveToFile(path));
+        REQUIRE(std::filesystem::exists(path));
+
+        ExyokiOffice::Packaging::OpenError error;
+        auto reopened = WordDocumentEditor::Open(path, {}, nullptr, &error);
+        REQUIRE_MESSAGE(reopened != nullptr, error.Message);
+        CHECK(reopened->Paragraphs().front()->PlainText() == "Accented path");
+
+        std::filesystem::remove_all(directory, created);
+    }
+
     TEST_CASE("Passing no error object changes nothing [unit] [open-error]")
     {
         // The parameter is optional; a caller that does not want the reason must

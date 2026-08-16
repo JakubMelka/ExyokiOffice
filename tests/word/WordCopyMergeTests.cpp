@@ -465,7 +465,10 @@ TEST_SUITE("WordCopyMergeTests")
         CHECK(source->Styles().GetStyle("SharedStyle")->Name == "Source Shared Style");
         auto sourceAnchor = source->FindBookmark("Anchor1");
         REQUIRE(sourceAnchor != nullptr);
-        CHECK(source->Paragraphs().size() == 3);
+        // Two authored paragraphs, the one the image was placed in, and the one
+        // inside the content control - Paragraphs() reaches into a block-level
+        // structured document tag rather than stopping at it.
+        CHECK(source->Paragraphs().size() == 4);
     }
 
     TEST_CASE("BodyCursor::InsertDocument result survives a save/reopen round-trip [unit] [word] [word-copy-merge]")

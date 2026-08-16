@@ -505,6 +505,83 @@ TEST_SUITE("Package signatures")
         CHECK(HasIssue(verification.Diagnostics, ValidationErrorId::SignatureUnsupportedAlgorithm));
     }
 
+    TEST_CASE("SHA-1 is refused unless the caller asks for it [unit] [security] [signature]")
+    {
+        // A signature commits to a digest, so a digest that collisions can be
+        // constructed for is a signature two different documents share. Plenty
+        // of archived packages carry SHA-1 signatures, which is why this is a
+        // policy the caller sets rather than a format this library cannot read.
+        auto provider = std::make_shared<StubCryptoProvider>();
+        auto editor = CreateDocument();
+
+        SignPackageOptions options;
+        options.Digest = DigestAlgorithm::Sha1;
+        options.Signature = SignatureAlgorithm::RsaSha1;
+        REQUIRE(SignPackage(*editor->GetDocument(), provider, options).Succeeded());
+        const auto bytes = editor->SaveToMemory();
+
+        // A genuinely SHA-1 signed package: every digest matches, and the
+        // library still refuses to call that evidence.
+        auto refusedPackage = LoadPackage(bytes);
+        const auto refused = VerifySignatures(*refusedPackage, provider);
+        REQUIRE(refused.Signatures.size() == 1U);
+        CHECK(refused.Signatures.front().ContentIntegrity == SignatureCheck::Invalid);
+        CHECK(refused.Signatures.front().SignatureValue == SignatureCheck::Invalid);
+        CHECK_FALSE(refused.Signatures.front().IsValid());
+        CHECK(HasIssue(refused.Diagnostics, ValidationErrorId::SignatureUnsupportedAlgorithm));
+
+        ExyokiOffice::Security::VerifySignaturesOptions permissive;
+        permissive.AllowSha1 = true;
+        auto allowedPackage = LoadPackage(bytes);
+        const auto allowed = VerifySignatures(*allowedPackage, provider, permissive);
+        REQUIRE(allowed.Signatures.size() == 1U);
+        CHECK(allowed.Signatures.front().Digest == DigestAlgorithm::Sha1);
+        CHECK(allowed.Signatures.front().Algorithm == SignatureAlgorithm::RsaSha1);
+        CHECK(allowed.Signatures.front().IsValid());
+    }
+
+    TEST_CASE("A signature says which parts it does not cover [unit] [security] [signature]")
+    {
+        // Every digest can match and the signature still say nothing about a
+        // part it did not name: coverage is a list inside the manifest, and
+        // IsValid() reports only that what *is* listed has not changed. Nothing
+        // in the signature announces the gap, so the verifier has to.
+        auto provider = std::make_shared<StubCryptoProvider>();
+
+        {
+            auto editor = CreateDocument();
+            REQUIRE(SignPackage(*editor->GetDocument(), provider).Succeeded());
+            auto package = LoadPackage(editor->GetDocument()->SaveToMemory());
+
+            const auto verification = VerifySignatures(*package, provider);
+            REQUIRE(verification.Signatures.size() == 1U);
+            REQUIRE(verification.Signatures.front().IsValid());
+            // Signing everything leaves nothing over; the signature parts and
+            // their origin are excluded by definition, not counted as gaps.
+            CHECK(verification.Signatures.front().UncoveredParts.empty());
+        }
+
+        auto editor = CreateDocument();
+        SignPackageOptions options;
+        options.PartUris = {"/word/document.xml"};
+        REQUIRE(SignPackage(*editor->GetDocument(), provider, options).Succeeded());
+        auto package = LoadPackage(editor->GetDocument()->SaveToMemory());
+
+        const auto verification = VerifySignatures(*package, provider);
+        REQUIRE(verification.Signatures.size() == 1U);
+        const auto& signature = verification.Signatures.front();
+
+        // Nothing is wrong with the signature: it is valid, and it covers one part.
+        CHECK(signature.ContentIntegrity == SignatureCheck::Valid);
+        CHECK(signature.IsValid());
+        CHECK_FALSE(signature.UncoveredParts.empty());
+        CHECK(std::find(signature.UncoveredParts.begin(), signature.UncoveredParts.end(), "/word/document.xml") ==
+              signature.UncoveredParts.end());
+        CHECK(std::find(signature.UncoveredParts.begin(), signature.UncoveredParts.end(),
+                        "/docProps/core.xml") != signature.UncoveredParts.end());
+        CHECK(std::is_sorted(signature.UncoveredParts.begin(), signature.UncoveredParts.end()));
+    }
+
     TEST_CASE("Wrapping the signed object does not move the manifest out of reach [unit] [security] [signature]")
     {
         // Regression guard for a signature-wrapping bypass. Nesting the signed

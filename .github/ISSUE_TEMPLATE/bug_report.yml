@@ -1,0 +1,67 @@
+name: Bug report
+description: Something the library, the exyoki command line, or an MCP server gets wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check
+        [docs/Compatibility.md](https://github.com/JakubMelka/ExyokiOffice/blob/master/docs/Compatibility.md):
+        a construct listed as *preserved* rather than *edited* is a documented
+        limit, not a bug. If it should be supported, open a feature request
+        instead.
+
+        **Do not attach a document containing information you cannot publish.**
+        A minimal file that reproduces the problem is far more useful than a
+        real one, and `exyoki redact` can strip a real one down.
+
+        Security issues go to [SECURITY.md](https://github.com/JakubMelka/ExyokiOffice/blob/master/SECURITY.md),
+        not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        Opening a .docx written by Word 365 and calling Paragraph::ReplaceText
+        drops the page break that followed the replaced text.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: >
+        The smallest program, exyoki invocation, or MCP call that shows it. If a
+        document is needed, describe how to build one, or attach a minimal file.
+      render: cpp
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ExyokiOffice version
+      description: Release number, or the commit you built from.
+      placeholder: "1.0.0, or 19049cc"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and compiler
+      placeholder: "Windows 11, MSVC 19.44 / Ubuntu 24.04, GCC 13"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which part
+      multiple: true
+      options:
+        - C++ library
+        - exyoki command line
+        - MCP server
+        - Documentation
+        - Build or packaging
+    validations:
+      required: true

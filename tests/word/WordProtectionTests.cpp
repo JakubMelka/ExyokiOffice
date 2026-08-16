@@ -159,6 +159,36 @@ TEST_SUITE("WordProtectionTests")
         CHECK(SettingsXml(editor).find("<w:documentProtection") == std::string::npos);
     }
 
+    TEST_CASE("an absurd iteration count is refused rather than computed [unit] [word] [protection]")
+    {
+        // spinCount comes out of the document, and the work it asks for is one
+        // hash of the previous hash per iteration - nothing to parallelize and
+        // nothing to shortcut. A crafted count turned UnprotectDocument into
+        // minutes of SHA-512 for an element that only tells a consumer which
+        // password to accept.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor);
+        REQUIRE(editor->ProtectDocument({}, "letmein"));
+
+        const auto settingsPart = editor->GetDocument()->GetMainDocumentPart()->GetDocumentSettingsPart();
+        REQUIRE(settingsPart);
+        auto xml = settingsPart->GetXmlString();
+        const std::string original = "w:spinCount=\"100000\"";
+        const auto position = xml.find(original);
+        REQUIRE(position != std::string::npos);
+        xml.replace(position, original.size(), "w:spinCount=\"2000000000\"");
+        settingsPart->SetXmlString(xml);
+
+        auto reopened = WordDocumentEditor::Open(editor->SaveToMemory());
+        REQUIRE(reopened);
+
+        // Refused on the algorithm, not on the password: the call returns at
+        // once instead of hashing two billion times to reject it.
+        const auto result = reopened->UnprotectDocument("letmein");
+        CHECK_FALSE(result.Succeeded());
+        CHECK(result.Error == WordProtectionError::UnsupportedVerifier);
+    }
+
     TEST_CASE("a password verifier survives a package round trip [unit] [word] [protection]")
     {
         auto editor = WordDocumentEditor::CreateNew();

@@ -6,6 +6,7 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include <charconv>
+#include <cmath>
 
 namespace ExyokiOffice::Excel
 {
@@ -118,6 +119,15 @@ ExcelCellValue ExcelCellValue::NumberText(std::string text)
 
 ExcelCellValue ExcelCellValue::Number(Real value)
 {
+    if (!std::isfinite(value))
+    {
+        // std::to_chars would spell these `inf` and `nan`, which are not
+        // numbers in the SpreadsheetML grammar; Excel reports the workbook as
+        // needing repair and drops the sheet. #NUM! is what Excel produces for
+        // its own overflows, so the cell says the same thing the spreadsheet
+        // would have said.
+        return Error("#NUM!");
+    }
     return NumberText(ExcelCellValueHelper::FormatDouble(value));
 }
 

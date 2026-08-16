@@ -54,7 +54,17 @@ public:
     /// Salt length in bytes written by this library.
     static constexpr Size DefaultSaltSize = 16;
     /// Largest iteration count accepted when reading a foreign verifier.
-    static constexpr UInt32 MaximumSpinCount = 10000000;
+    ///
+    /// The `spinCount` attribute comes out of the document, so it is an input
+    /// under whoever supplied the file, and the work it asks for is linear in
+    /// its value: one hash of the previous hash per iteration, with nothing to
+    /// parallelize. Ten times what Word and PowerPoint write is generous for a
+    /// document that means it, and small enough that the worst case is a
+    /// noticeable pause rather than a stalled application. Anything above this
+    /// is refused instead of being computed, because a protection element only
+    /// tells a consumer which password to accept - burning a minute of SHA-512
+    /// to learn that is never what the caller asked for.
+    static constexpr UInt32 MaximumSpinCount = 1000000;
 
     /// Maps an OOXML algorithm name to a supported algorithm.
     /// \return std::nullopt for names this library cannot compute.

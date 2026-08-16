@@ -38,6 +38,84 @@ public:
         return text;
     }
 
+    /// The cells of a presentation table, row by row, tab separated.
+    static std::string JoinTableText(const PowerPoint::PresentationTableData& table)
+    {
+        std::string text;
+        for (const auto& row : table.Rows)
+        {
+            std::string line;
+            for (const auto& cell : row.Cells)
+            {
+                if (!line.empty())
+                {
+                    line += '\t';
+                }
+                line += cell.Text;
+            }
+            if (!line.empty())
+            {
+                text += line;
+                text += '\n';
+            }
+        }
+        while (!text.empty() && text.back() == '\n')
+        {
+            text.pop_back();
+        }
+        return text;
+    }
+
+    /**
+     * @brief Appends the text of @p shape and, for a group, of everything inside it.
+     *
+     * A `p:grpSp` holds no text of its own; grouping three labelled boxes used
+     * to make all three vanish from the extract, and grouping is what a deck
+     * author does to move them together. A table is a `p:graphicFrame` rather
+     * than a shape with a text frame, so its text is reached through the table
+     * data instead of through GetTextFrame().
+     *
+     * The label carries the path through the groups - `shape 3.1` - so a caller
+     * can tell nesting apart from a flat slide.
+     */
+    static void CollectShapeText(const PowerPoint::PresentationShape::Ptr& shape,
+                                 const std::string& slideLabel,
+                                 const std::string& shapeLabel,
+                                 ExtractedDocumentText& result)
+    {
+        if (!shape)
+        {
+            return;
+        }
+
+        if (shape->IsGroup())
+        {
+            Size childIndex = 1;
+            for (const auto& child : shape->Children())
+            {
+                CollectShapeText(child, slideLabel, shapeLabel + "." + std::to_string(childIndex), result);
+                ++childIndex;
+            }
+            return;
+        }
+
+        if (auto frame = shape->GetTextFrame())
+        {
+            if (auto text = JoinShapeText(*frame); !text.empty())
+            {
+                result.Blocks.push_back(ExtractedTextBlock{slideLabel + " shape " + shapeLabel, std::move(text)});
+            }
+        }
+
+        if (auto table = shape->GetTable())
+        {
+            if (auto text = JoinTableText(*table); !text.empty())
+            {
+                result.Blocks.push_back(ExtractedTextBlock{slideLabel + " table " + shapeLabel, std::move(text)});
+            }
+        }
+    }
+
     static ExtractedDocumentText ExtractPowerPoint(PowerPoint::PowerPointDocumentEditor& editor)
     {
         ExtractedDocumentText result;
@@ -46,28 +124,20 @@ public:
         Size slideIndex = 1;
         for (const auto& slide : editor.Slides())
         {
+            const std::string slideLabel = "slide " + std::to_string(slideIndex);
             Size shapeIndex = 1;
             if (auto tree = slide->ShapeTree())
             {
                 for (const auto& shape : tree->Shapes())
                 {
-                    if (auto frame = shape->GetTextFrame())
-                    {
-                        auto text = JoinShapeText(*frame);
-                        if (!text.empty())
-                        {
-                            result.Blocks.push_back(ExtractedTextBlock{
-                                "slide " + std::to_string(slideIndex) + " shape " + std::to_string(shapeIndex),
-                                std::move(text)});
-                        }
-                    }
+                    CollectShapeText(shape, slideLabel, std::to_string(shapeIndex), result);
                     ++shapeIndex;
                 }
             }
 
             if (auto notes = slide->NotesText(); !notes.empty())
             {
-                result.Blocks.push_back(ExtractedTextBlock{"slide " + std::to_string(slideIndex) + " notes", notes});
+                result.Blocks.push_back(ExtractedTextBlock{slideLabel + " notes", notes});
             }
             ++slideIndex;
         }

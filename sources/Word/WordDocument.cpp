@@ -16,6 +16,7 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include "AsciiText.hpp"
+#include "TextPatternCompiler.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -54,15 +55,16 @@ constexpr std::string_view kHyperlinkRelationshipType =
 class WordIdHelper
 {
 public:
-    static UInt32 NextDocPropertyId(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Document>& document)
+    /// Largest drawing identifier in one story, or 0 when the story has none.
+    static UInt32 HighestDrawingIdIn(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
     {
         UInt32 maxId = 0;
-        if (!document)
+        if (!root)
         {
-            return 1;
+            return maxId;
         }
 
-        for (const auto& docProps : document->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
+        for (const auto& docProps : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
         {
             if (!docProps)
             {
@@ -70,7 +72,7 @@ public:
             }
             maxId = std::max(maxId, static_cast<UInt32>(docProps->GetId().Value()));
         }
-        for (const auto& nvProps : document->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>())
+        for (const auto& nvProps : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>())
         {
             if (!nvProps)
             {
@@ -78,6 +80,47 @@ public:
             }
             maxId = std::max(maxId, static_cast<UInt32>(nvProps->GetId().Value()));
         }
+
+        return maxId;
+    }
+
+    /**
+     * @brief An unused `wp:docPr/@id`, across every story of the document.
+     *
+     * A drawing identifier is unique per *document*, not per part: Word walks
+     * headers, footers, notes and comments alongside the body, and reports a
+     * file that reuses one as needing repair. Scanning only `document.xml` -
+     * which is what this did - therefore handed out an identifier that was free
+     * in the body and taken in a header, and the collision only showed up when
+     * a user opened the result.
+     */
+    static UInt32 NextDocPropertyId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart)
+    {
+        if (!mainDocumentPart)
+        {
+            return 1;
+        }
+
+        UInt32 maxId = HighestDrawingIdIn(mainDocumentPart->GetTypedRootElement());
+        const auto consider = [&maxId](const auto& part)
+        {
+            if (part)
+            {
+                maxId = std::max(maxId, HighestDrawingIdIn(part->GetTypedRootElement()));
+            }
+        };
+
+        for (const auto& header : mainDocumentPart->GetHeaderParts())
+        {
+            consider(header);
+        }
+        for (const auto& footer : mainDocumentPart->GetFooterParts())
+        {
+            consider(footer);
+        }
+        consider(mainDocumentPart->GetFootnotesPart());
+        consider(mainDocumentPart->GetEndnotesPart());
+        consider(mainDocumentPart->GetWordprocessingCommentsPart());
 
         return maxId + 1;
     }
@@ -128,6 +171,22 @@ public:
 class WordRunTextHelper
 {
 public:
+    /// The plain text of @p runs joined end to end, which is the string the
+    /// paragraph-level search and replace API addresses with a ContentRange.
+    template <typename TRuns>
+    static std::string ConcatenatedRunText(const TRuns& runs)
+    {
+        std::string text;
+        for (const auto& run : runs)
+        {
+            if (run)
+            {
+                text += run->PlainText();
+            }
+        }
+        return text;
+    }
+
     /// One text-bearing child of a run, with the byte range it contributes to
     /// the run's plain text.
     struct RunTextPiece
@@ -2051,6 +2110,53 @@ public:
         return root ? root->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Body>() : nullptr;
     }
 
+    /**
+     * @brief Calls @p visit for every block of @p container, in document order.
+     *
+     * A block-level structured document tag - a cover page, a table of
+     * contents, a repeating section, a form - is a wrapper, not content: its
+     * paragraphs and tables sit one level down in `w:sdtContent`. Walking only
+     * the direct children of the body therefore skipped the whole of a cover
+     * page, and `exyoki extract` returned a document that appeared to start at
+     * the first heading. The tag itself is not reported, because a caller
+     * asking for paragraphs wants the paragraphs; BodyBlocks() is where the
+     * structure is visible.
+     *
+     * Tables are reported but not descended into: paragraphs inside a table
+     * belong to Table::Paragraphs(), which is the documented split.
+     */
+    template <typename TVisitor>
+    static void ForEachBlock(const std::shared_ptr<OpenXMLElement>& container, const TVisitor& visit)
+    {
+        if (!container)
+        {
+            return;
+        }
+
+        static const ExyokiOffice::OpenXmlQualifiedName kSdt(kWordNamespace, "sdt");
+        static const ExyokiOffice::OpenXmlQualifiedName kSdtContent(kWordNamespace, "sdtContent");
+
+        for (const auto& child : container->Children())
+        {
+            if (!child)
+            {
+                continue;
+            }
+            if (child->QualifiedName() == kSdt)
+            {
+                for (const auto& grandChild : child->Children())
+                {
+                    if (grandChild && grandChild->QualifiedName() == kSdtContent)
+                    {
+                        ForEachBlock(grandChild, visit);
+                    }
+                }
+                continue;
+            }
+            visit(child);
+        }
+    }
+
     static void CollectDescendantsByName(const std::shared_ptr<OpenXMLElement>& element,
                                          const ExyokiOffice::OpenXmlQualifiedName& name,
                                          std::vector<std::shared_ptr<OpenXMLElement>>& output)
@@ -3923,6 +4029,296 @@ public:
                (static_cast<UInt32>(data[offset + 3]) << 24);
     }
 
+    // -----------------------------------------------------------------------
+    // TIFF-structured metadata, shared by TIFF files and by the Exif segment of
+    // a JPEG - Exif *is* a TIFF header, which is why one reader serves both.
+    // -----------------------------------------------------------------------
+
+    static UInt16 ReadUInt16(std::span<const Byte> data, Size offset, bool bigEndian)
+    {
+        return bigEndian ? ReadBigEndian16(data, offset) : ReadLittleEndian16(data, offset);
+    }
+
+    static UInt32 ReadUInt32(std::span<const Byte> data, Size offset, bool bigEndian)
+    {
+        return bigEndian ? ReadBigEndian32(data, offset) : ReadLittleEndian32(data, offset);
+    }
+
+    /// One directory entry, already bounds-checked against the file.
+    struct TiffEntry
+    {
+        UInt16 Tag = 0;
+        UInt16 Type = 0;
+        UInt32 Count = 0;
+        /// Offset of the value, whether it was stored inline or out of line.
+        Size ValueOffset = 0;
+    };
+
+    /// Reads the first image file directory, or an empty list when the header
+    /// is not a TIFF one or the directory does not fit inside @p data.
+    static std::vector<TiffEntry> ReadTiffDirectory(std::span<const Byte> data, bool& bigEndian)
+    {
+        std::vector<TiffEntry> entries;
+        if (data.size() < 8)
+        {
+            return entries;
+        }
+        if (data[0] == 'I' && data[1] == 'I')
+        {
+            bigEndian = false;
+        }
+        else if (data[0] == 'M' && data[1] == 'M')
+        {
+            bigEndian = true;
+        }
+        else
+        {
+            return entries;
+        }
+        if (ReadUInt16(data, 2, bigEndian) != 42)
+        {
+            return entries;
+        }
+
+        const auto directory = static_cast<Size>(ReadUInt32(data, 4, bigEndian));
+        if (directory + 2 > data.size())
+        {
+            return entries;
+        }
+
+        const auto count = static_cast<Size>(ReadUInt16(data, directory, bigEndian));
+        // Every entry is twelve bytes; a count that claims more than the file
+        // holds is a truncated or hostile file, and reading none of it is the
+        // only answer that is not a guess.
+        if (directory + 2 + count * 12 > data.size())
+        {
+            return entries;
+        }
+
+        static constexpr Size kValueSize[] = {0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8};
+        entries.reserve(count);
+        for (Size index = 0; index < count; ++index)
+        {
+            const Size base = directory + 2 + index * 12;
+            TiffEntry entry;
+            entry.Tag = ReadUInt16(data, base, bigEndian);
+            entry.Type = ReadUInt16(data, base + 2, bigEndian);
+            entry.Count = ReadUInt32(data, base + 4, bigEndian);
+
+            const Size unit = entry.Type < std::size(kValueSize) ? kValueSize[entry.Type] : 0;
+            if (unit == 0)
+            {
+                continue;
+            }
+            const Size bytes = unit * static_cast<Size>(entry.Count);
+            // Four bytes or fewer live in the entry itself; anything larger is
+            // addressed by an offset stored there instead.
+            entry.ValueOffset = bytes <= 4 ? base + 8 : static_cast<Size>(ReadUInt32(data, base + 8, bigEndian));
+            if (entry.ValueOffset + bytes > data.size())
+            {
+                continue;
+            }
+            entries.push_back(entry);
+        }
+        return entries;
+    }
+
+    /// A SHORT or LONG tag as an unsigned value.
+    static std::optional<UInt32> TiffInteger(std::span<const Byte> data,
+                                             const std::vector<TiffEntry>& entries,
+                                             UInt16 tag,
+                                             bool bigEndian)
+    {
+        for (const auto& entry : entries)
+        {
+            if (entry.Tag != tag || entry.Count == 0)
+            {
+                continue;
+            }
+            if (entry.Type == 3)
+            {
+                return ReadUInt16(data, entry.ValueOffset, bigEndian);
+            }
+            if (entry.Type == 4)
+            {
+                return ReadUInt32(data, entry.ValueOffset, bigEndian);
+            }
+        }
+        return std::nullopt;
+    }
+
+    /// A RATIONAL tag as a value, rejecting a zero denominator.
+    static std::optional<Real> TiffRational(std::span<const Byte> data,
+                                            const std::vector<TiffEntry>& entries,
+                                            UInt16 tag,
+                                            bool bigEndian)
+    {
+        for (const auto& entry : entries)
+        {
+            if (entry.Tag != tag || entry.Type != 5 || entry.Count == 0)
+            {
+                continue;
+            }
+            const auto numerator = ReadUInt32(data, entry.ValueOffset, bigEndian);
+            const auto denominator = ReadUInt32(data, entry.ValueOffset + 4, bigEndian);
+            if (denominator == 0)
+            {
+                continue;
+            }
+            return static_cast<Real>(numerator) / static_cast<Real>(denominator);
+        }
+        return std::nullopt;
+    }
+
+    /// Fills the resolution of @p info from XResolution/YResolution/ResolutionUnit.
+    /// \return True when both axes were found.
+    static bool ReadTiffResolution(std::span<const Byte> data,
+                                   const std::vector<TiffEntry>& entries,
+                                   bool bigEndian,
+                                   ImageFormatInfo& info)
+    {
+        const auto horizontal = TiffRational(data, entries, 0x011A, bigEndian);
+        const auto vertical = TiffRational(data, entries, 0x011B, bigEndian);
+        if (!horizontal || !vertical || *horizontal <= 0.0 || *vertical <= 0.0)
+        {
+            return false;
+        }
+
+        // 1 means "no unit, ratio only", which says nothing about physical size.
+        const auto unit = TiffInteger(data, entries, 0x0128, bigEndian).value_or(2);
+        if (unit == 2)
+        {
+            info.HorizontalDpi = *horizontal;
+            info.VerticalDpi = *vertical;
+            return true;
+        }
+        if (unit == 3)
+        {
+            info.HorizontalDpi = *horizontal * 2.54;
+            info.VerticalDpi = *vertical * 2.54;
+            return true;
+        }
+        return false;
+    }
+
+    /// Reads the resolution out of the TIFF header an Exif segment carries.
+    static bool ReadExifResolution(std::span<const Byte> data, ImageFormatInfo& info)
+    {
+        bool bigEndian = false;
+        const auto entries = ReadTiffDirectory(data, bigEndian);
+        return !entries.empty() && ReadTiffResolution(data, entries, bigEndian, info);
+    }
+
+    static std::optional<ImageFormatInfo> DetectTiff(std::span<const Byte> data)
+    {
+        bool bigEndian = false;
+        const auto entries = ReadTiffDirectory(data, bigEndian);
+        if (entries.empty())
+        {
+            return std::nullopt;
+        }
+
+        const auto width = TiffInteger(data, entries, 0x0100, bigEndian);
+        const auto height = TiffInteger(data, entries, 0x0101, bigEndian);
+        if (!width || !height || *width == 0 || *height == 0)
+        {
+            return std::nullopt;
+        }
+
+        ImageFormatInfo info;
+        info.ContentType = "image/tiff";
+        info.Extension = ".tiff";
+        info.PixelWidth = *width;
+        info.PixelHeight = *height;
+        ReadTiffResolution(data, entries, bigEndian, info);
+        return info;
+    }
+
+    // -----------------------------------------------------------------------
+    // Metafiles. Both describe a drawing in physical units rather than pixels,
+    // so their size is converted to nominal 96 DPI pixels: the caller's
+    // pixels-over-DPI arithmetic then arrives back at the physical size the
+    // file asked for, and a metafile scales without loss anyway.
+    // -----------------------------------------------------------------------
+
+    static UInt32 PixelsAt96Dpi(Real inches)
+    {
+        if (!(inches > 0.0))
+        {
+            return 0;
+        }
+        return static_cast<UInt32>(std::lround(inches * 96.0));
+    }
+
+    static std::optional<ImageFormatInfo> DetectEmf(std::span<const Byte> data)
+    {
+        // EMR_HEADER, then the signature " EMF" at a fixed offset inside it.
+        static constexpr Size kMinimumHeader = 88;
+        if (data.size() < kMinimumHeader || ReadLittleEndian32(data, 0) != 1)
+        {
+            return std::nullopt;
+        }
+        if (data[40] != ' ' || data[41] != 'E' || data[42] != 'M' || data[43] != 'F')
+        {
+            return std::nullopt;
+        }
+
+        // rclFrame, the picture frame in hundredths of a millimetre.
+        const auto left = static_cast<Int32>(ReadLittleEndian32(data, 24));
+        const auto top = static_cast<Int32>(ReadLittleEndian32(data, 28));
+        const auto right = static_cast<Int32>(ReadLittleEndian32(data, 32));
+        const auto bottom = static_cast<Int32>(ReadLittleEndian32(data, 36));
+        if (right <= left || bottom <= top)
+        {
+            return std::nullopt;
+        }
+
+        ImageFormatInfo info;
+        info.ContentType = "image/x-emf";
+        info.Extension = ".emf";
+        info.PixelWidth = PixelsAt96Dpi(static_cast<Real>(right - left) / 2540.0);
+        info.PixelHeight = PixelsAt96Dpi(static_cast<Real>(bottom - top) / 2540.0);
+        if (info.PixelWidth == 0 || info.PixelHeight == 0)
+        {
+            return std::nullopt;
+        }
+        return info;
+    }
+
+    static std::optional<ImageFormatInfo> DetectWmf(std::span<const Byte> data)
+    {
+        // Only the placeable (Aldus) variant states its own size. A bare WMF
+        // has no bounding box at all, so there is nothing to lay it out from;
+        // it can still be added through the overload that takes an explicit
+        // content type and size.
+        static constexpr Size kPlaceableHeader = 22;
+        if (data.size() < kPlaceableHeader || ReadLittleEndian32(data, 0) != 0x9AC6CDD7)
+        {
+            return std::nullopt;
+        }
+
+        const auto left = static_cast<Int16>(ReadLittleEndian16(data, 6));
+        const auto top = static_cast<Int16>(ReadLittleEndian16(data, 8));
+        const auto right = static_cast<Int16>(ReadLittleEndian16(data, 10));
+        const auto bottom = static_cast<Int16>(ReadLittleEndian16(data, 12));
+        const auto unitsPerInch = ReadLittleEndian16(data, 14);
+        if (right <= left || bottom <= top || unitsPerInch == 0)
+        {
+            return std::nullopt;
+        }
+
+        ImageFormatInfo info;
+        info.ContentType = "image/x-wmf";
+        info.Extension = ".wmf";
+        info.PixelWidth = PixelsAt96Dpi(static_cast<Real>(right - left) / unitsPerInch);
+        info.PixelHeight = PixelsAt96Dpi(static_cast<Real>(bottom - top) / unitsPerInch);
+        if (info.PixelWidth == 0 || info.PixelHeight == 0)
+        {
+            return std::nullopt;
+        }
+        return info;
+    }
+
     static std::optional<ImageFormatInfo> DetectPng(std::span<const Byte> data)
     {
         static constexpr UInt8 kSignature[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
@@ -3984,6 +4380,7 @@ public:
         info.ContentType = "image/jpeg";
         info.Extension = ".jpg";
 
+        bool densityKnown = false;
         Size offset = 2;
         while (offset + 4 <= data.size())
         {
@@ -4014,7 +4411,7 @@ public:
                 break;
             }
 
-            if (marker == 0xE0 && segmentLength >= 14)
+            if (marker == 0xE0 && segmentLength >= 14 && !densityKnown)
             {
                 const Size base = offset + 4;
                 if (base + 9 <= data.size() && data[base] == 'J' && data[base + 1] == 'F' && data[base + 2] == 'I' &&
@@ -4027,11 +4424,33 @@ public:
                     {
                         info.HorizontalDpi = xDensity;
                         info.VerticalDpi = yDensity;
+                        densityKnown = true;
                     }
                     else if (units == 2 && xDensity > 0 && yDensity > 0)
                     {
                         info.HorizontalDpi = xDensity * 2.54;
                         info.VerticalDpi = yDensity * 2.54;
+                        densityKnown = true;
+                    }
+                }
+            }
+
+            // Cameras and phones write their resolution into Exif and leave the
+            // JFIF segment at the "no units" default, so reading only JFIF made
+            // every such photo 96 DPI - and a 4000 pixel wide picture 41 inches
+            // across. Exif wins when both are present and disagree, which is
+            // what image editors do.
+            if (marker == 0xE1 && segmentLength >= 8)
+            {
+                const Size base = offset + 4;
+                if (base + 6 <= data.size() && data[base] == 'E' && data[base + 1] == 'x' && data[base + 2] == 'i' &&
+                    data[base + 3] == 'f' && data[base + 4] == 0 && data[base + 5] == 0)
+                {
+                    const Size tiffStart = base + 6;
+                    const Size tiffEnd = std::min(data.size(), offset + 2 + segmentLength);
+                    if (ReadExifResolution(data.subspan(tiffStart, tiffEnd - tiffStart), info))
+                    {
+                        densityKnown = true;
                     }
                 }
             }
@@ -4503,7 +4922,7 @@ public:
                 }
             }
 
-            const auto newDocId = WordIdHelper::NextDocPropertyId(targetMainPart->GetTypedRootElement());
+            const auto newDocId = WordIdHelper::NextDocPropertyId(targetMainPart);
             for (auto& docProps :
                  drawing->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
             {
@@ -5524,7 +5943,7 @@ std::shared_ptr<Table> WordDocumentEditor::BodyCursor::InsertTable(Size rows, Si
         return nullptr;
     }
 
-    auto wrapper = std::make_shared<Table>(table);
+    auto wrapper = std::make_shared<Table>(table, WordStructureHelper::GetMainDocumentPart(m_document));
     if (!wrapper)
     {
         return nullptr;
@@ -6081,13 +6500,15 @@ std::vector<std::shared_ptr<Paragraph>> WordDocumentEditor::Paragraphs() const
     }
 
     auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
-    for (const auto& paragraph : body->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>())
-    {
-        if (paragraph)
-        {
-            paragraphs.push_back(std::make_shared<Paragraph>(paragraph, mainPart));
-        }
-    }
+    WordBodyHelper::ForEachBlock(body,
+                                 [&](const std::shared_ptr<OpenXMLElement>& block)
+                                 {
+                                     if (auto paragraph = openxmlelement_cast<
+                                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>(block))
+                                     {
+                                         paragraphs.push_back(std::make_shared<Paragraph>(paragraph, mainPart));
+                                     }
+                                 });
     return paragraphs;
 }
 
@@ -6100,13 +6521,16 @@ std::vector<std::shared_ptr<Table>> WordDocumentEditor::Tables() const
         return tables;
     }
 
-    for (const auto& table : body->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>())
-    {
-        if (table)
-        {
-            tables.push_back(std::make_shared<Table>(table));
-        }
-    }
+    const auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
+    WordBodyHelper::ForEachBlock(body,
+                                 [&](const std::shared_ptr<OpenXMLElement>& block)
+                                 {
+                                     if (auto table = openxmlelement_cast<
+                                             ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>(block))
+                                     {
+                                         tables.push_back(std::make_shared<Table>(table, mainPart));
+                                     }
+                                 });
     return tables;
 }
 
@@ -7003,6 +7427,43 @@ std::shared_ptr<Table> WordDocumentEditor::AddTable(Size rows, Size columns)
     return Body().InsertTable(rows, columns);
 }
 
+/// Page geometry the image helpers need, read back through the public API.
+class WordDocumentImageHelper
+{
+public:
+    WordDocumentImageHelper() = delete;
+
+    /**
+     * @brief Width available to body text in the last section, in EMU.
+     *
+     * The last section is the one a paragraph appended to the end of the
+     * document belongs to. Zero when the document states no page size, which is
+     * a document nothing can be laid out against rather than one with a default.
+     */
+    static Real TextWidthEmu(const WordDocumentEditor& editor)
+    {
+        const auto sections = editor.Sections();
+        if (sections.empty() || !sections.back())
+        {
+            return 0.0;
+        }
+
+        const auto pageSize = sections.back()->GetPageSize();
+        if (!pageSize)
+        {
+            return 0.0;
+        }
+
+        Real width = pageSize->Width.ToEmu().GetValue();
+        if (const auto margins = sections.back()->GetMargins())
+        {
+            width -= margins->Left.ToEmu().GetValue() + margins->Right.ToEmu().GetValue() +
+                     margins->Gutter.ToEmu().GetValue();
+        }
+        return width > 0.0 ? width : 0.0;
+    }
+};
+
 std::optional<ImageFormatInfo> DetectImageFormat(std::span<const Byte> data)
 {
     if (auto png = WordImageFormatHelper::DetectPng(data))
@@ -7020,6 +7481,22 @@ std::optional<ImageFormatInfo> DetectImageFormat(std::span<const Byte> data)
     if (auto bmp = WordImageFormatHelper::DetectBmp(data))
     {
         return bmp;
+    }
+    // The metafiles come after the raster formats because their signature tests
+    // are the weakest: EMF starts with a plain little-endian 1.
+    if (auto emf = WordImageFormatHelper::DetectEmf(data))
+    {
+        return emf;
+    }
+    if (auto wmf = WordImageFormatHelper::DetectWmf(data))
+    {
+        return wmf;
+    }
+    // Last: a TIFF header is only four bytes, and an Exif-bearing JPEG contains
+    // one, so anything with a stronger signature has to be ruled out first.
+    if (auto tiff = WordImageFormatHelper::DetectTiff(data))
+    {
+        return tiff;
     }
     return std::nullopt;
 }
@@ -7093,7 +7570,7 @@ std::shared_ptr<Image> WordDocumentEditor::AddImageFromData(std::vector<Byte> da
 
     const auto relId = imagePart->RelationshipId();
     auto drawing = run->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>();
-    const auto docId = WordIdHelper::NextDocPropertyId(mainPart->GetTypedRootElement());
+    const auto docId = WordIdHelper::NextDocPropertyId(mainPart);
     const auto pictureName = "Picture " + std::to_string(docId);
     if (!WordDrawingHelper::PopulateDrawingWithPicture(drawing,
                                                        relId,
@@ -7138,12 +7615,26 @@ std::shared_ptr<Image> WordDocumentEditor::AddImageFromData(std::vector<Byte> da
         return nullptr;
     }
 
-    const auto widthEmu = format->HorizontalDpi > 0.0
-                              ? (static_cast<Real>(format->PixelWidth) / format->HorizontalDpi) * 914400.0
-                              : 0.0;
-    const auto heightEmu = format->VerticalDpi > 0.0
-                               ? (static_cast<Real>(format->PixelHeight) / format->VerticalDpi) * 914400.0
-                               : 0.0;
+    auto widthEmu = format->HorizontalDpi > 0.0
+                        ? (static_cast<Real>(format->PixelWidth) / format->HorizontalDpi) * 914400.0
+                        : 0.0;
+    auto heightEmu = format->VerticalDpi > 0.0
+                         ? (static_cast<Real>(format->PixelHeight) / format->VerticalDpi) * 914400.0
+                         : 0.0;
+
+    // A phone photo is four thousand pixels wide and, at the 96 DPI a file
+    // without a resolution defaults to, forty-one inches across: Word accepts
+    // it, draws a fraction of it on the page, and the rest is off the paper.
+    // Scaling it down to the text width is what an editor does when a picture
+    // is pasted, and it is the only size at which the caller sees the picture
+    // they added. A caller who wants the native size states it explicitly
+    // through the overload that takes one.
+    if (const auto textWidth = WordDocumentImageHelper::TextWidthEmu(*this);
+        textWidth > 0.0 && widthEmu > textWidth && heightEmu > 0.0)
+    {
+        heightEmu *= textWidth / widthEmu;
+        widthEmu = textWidth;
+    }
 
     const ExyokiOffice::MeasuringUnits width(widthEmu, ExyokiOffice::MeasurementUnit::Emu);
     const ExyokiOffice::MeasuringUnits height(heightEmu, ExyokiOffice::MeasurementUnit::Emu);
@@ -7931,8 +8422,9 @@ std::string StyleManager::ImportStyle(const StyleManager& source,
 }
 
 Paragraph::Paragraph(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
-                     const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart)
-    : m_paragraph(paragraph), m_mainDocumentPart(mainDocumentPart)
+                     const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                     const std::shared_ptr<OpenXmlPackagePart>& owningPart)
+    : m_paragraph(paragraph), m_mainDocumentPart(mainDocumentPart), m_owningPart(owningPart)
 {
 }
 
@@ -7945,6 +8437,17 @@ Paragraph& Paragraph::AttachMainDocumentPart(const std::shared_ptr<Packaging::Ma
 {
     m_mainDocumentPart = mainDocumentPart;
     return *this;
+}
+
+Paragraph& Paragraph::AttachOwningPart(const std::shared_ptr<OpenXmlPackagePart>& owningPart)
+{
+    m_owningPart = owningPart;
+    return *this;
+}
+
+std::shared_ptr<OpenXmlPackagePart> Paragraph::OwningPart() const
+{
+    return m_owningPart ? m_owningPart : std::static_pointer_cast<OpenXmlPackagePart>(m_mainDocumentPart);
 }
 
 std::shared_ptr<Run> Paragraph::AddRun()
@@ -8718,13 +9221,23 @@ std::shared_ptr<Hyperlink> Paragraph::AddHyperlink(std::string_view text,
         return nullptr;
     }
 
+    // An external hyperlink is a relationship plus an element that names it. A
+    // paragraph with no part cannot store the relationship, and the element
+    // alone is a link to nowhere that no later call can repair - so nothing is
+    // written at all, and the caller learns it here rather than from a reader
+    // that silently drops the link.
+    if (!OwningPart())
+    {
+        return nullptr;
+    }
+
     auto element = m_paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Hyperlink>();
     if (!element)
     {
         return nullptr;
     }
 
-    auto hyperlink = std::make_shared<Hyperlink>(element, m_mainDocumentPart);
+    auto hyperlink = std::make_shared<Hyperlink>(element, m_mainDocumentPart, m_owningPart);
     hyperlink->SetUrl(url);
     if (!tooltip.empty())
     {
@@ -8756,7 +9269,7 @@ std::shared_ptr<Hyperlink> Paragraph::AddInternalHyperlink(std::string_view text
         return nullptr;
     }
 
-    auto hyperlink = std::make_shared<Hyperlink>(element, m_mainDocumentPart);
+    auto hyperlink = std::make_shared<Hyperlink>(element, m_mainDocumentPart, m_owningPart);
     hyperlink->SetAnchor(bookmarkName);
     if (!tooltip.empty())
     {
@@ -8793,7 +9306,7 @@ std::vector<std::shared_ptr<Hyperlink>> Paragraph::Hyperlinks() const
         {
             auto hyperlink =
                 std::static_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Hyperlink>(child);
-            hyperlinks.push_back(std::make_shared<Hyperlink>(hyperlink, m_mainDocumentPart));
+            hyperlinks.push_back(std::make_shared<Hyperlink>(hyperlink, m_mainDocumentPart, m_owningPart));
         }
     }
     return hyperlinks;
@@ -9482,7 +9995,7 @@ Size Paragraph::ReplaceAll(std::string_view needle, std::string_view replacement
     return replacements;
 }
 
-std::vector<ContentRange> Paragraph::FindAllRegex(const std::regex& pattern) const
+std::vector<ContentRange> Paragraph::FindAllRegex(const RegexPattern& pattern) const
 {
     std::vector<ContentRange> ranges;
     if (!m_paragraph)
@@ -9490,16 +10003,14 @@ std::vector<ContentRange> Paragraph::FindAllRegex(const std::regex& pattern) con
         return ranges;
     }
 
-    std::string text;
-    for (const auto& run : Runs())
+    const auto compiled = Detail::CompileRegex(pattern);
+    const std::string text = WordRunTextHelper::ConcatenatedRunText(Runs());
+    if (!compiled || !Detail::IsSearchableSubject(text))
     {
-        if (run)
-        {
-            text += run->PlainText();
-        }
+        return ranges;
     }
 
-    for (auto it = std::sregex_iterator(text.cbegin(), text.cend(), pattern); it != std::sregex_iterator(); ++it)
+    for (auto it = std::sregex_iterator(text.cbegin(), text.cend(), *compiled); it != std::sregex_iterator(); ++it)
     {
         const auto& match = *it;
         const auto start = static_cast<Size>(match.position(0));
@@ -9508,17 +10019,15 @@ std::vector<ContentRange> Paragraph::FindAllRegex(const std::regex& pattern) con
     return ranges;
 }
 
-Size Paragraph::ReplaceAllRegex(const std::regex& pattern, std::string_view replacementFormat)
+Size Paragraph::ReplaceAllRegex(const RegexPattern& pattern, std::string_view replacementFormat)
 {
     const std::string format(replacementFormat);
 
-    std::string text;
-    for (const auto& run : Runs())
+    const auto compiled = Detail::CompileRegex(pattern);
+    const std::string text = WordRunTextHelper::ConcatenatedRunText(Runs());
+    if (!compiled || !Detail::IsSearchableSubject(text))
     {
-        if (run)
-        {
-            text += run->PlainText();
-        }
+        return 0;
     }
 
     // Collect matches (and their formatted replacement text) against the original,
@@ -9527,7 +10036,7 @@ Size Paragraph::ReplaceAllRegex(const std::regex& pattern, std::string_view repl
     // re-derive that logic while mutating the DOM. Matches are then applied
     // back-to-front so earlier, not-yet-applied offsets stay valid.
     std::vector<std::pair<ContentRange, std::string>> pendingReplacements;
-    for (auto it = std::sregex_iterator(text.cbegin(), text.cend(), pattern); it != std::sregex_iterator(); ++it)
+    for (auto it = std::sregex_iterator(text.cbegin(), text.cend(), *compiled); it != std::sregex_iterator(); ++it)
     {
         const auto& match = *it;
         const auto start = static_cast<Size>(match.position(0));
@@ -10322,8 +10831,9 @@ Text& Text::SetPreserveSpaces(bool preserve)
 }
 
 Hyperlink::Hyperlink(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Hyperlink>& hyperlink,
-                     const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart)
-    : m_hyperlink(hyperlink), m_mainDocumentPart(mainDocumentPart)
+                     const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                     const std::shared_ptr<OpenXmlPackagePart>& owningPart)
+    : m_hyperlink(hyperlink), m_mainDocumentPart(mainDocumentPart), m_owningPart(owningPart)
 {
 }
 
@@ -10336,6 +10846,17 @@ Hyperlink& Hyperlink::AttachMainDocumentPart(const std::shared_ptr<Packaging::Ma
 {
     m_mainDocumentPart = mainDocumentPart;
     return *this;
+}
+
+Hyperlink& Hyperlink::AttachOwningPart(const std::shared_ptr<OpenXmlPackagePart>& owningPart)
+{
+    m_owningPart = owningPart;
+    return *this;
+}
+
+std::shared_ptr<OpenXmlPackagePart> Hyperlink::OwningPart() const
+{
+    return m_owningPart ? m_owningPart : std::static_pointer_cast<OpenXmlPackagePart>(m_mainDocumentPart);
 }
 
 std::shared_ptr<Run> Hyperlink::AddRun()
@@ -10405,26 +10926,32 @@ bool Hyperlink::IsInternal() const
 
 void Hyperlink::RemoveExistingRelationship()
 {
-    if (!m_hyperlink || !m_mainDocumentPart)
+    const auto part = OwningPart();
+    if (!m_hyperlink || !part)
     {
         return;
     }
     const auto existingId = m_hyperlink->GetId().ToString();
     if (!existingId.empty())
     {
-        m_mainDocumentPart->RemoveExternalRelationship(existingId);
+        part->RemoveExternalRelationship(existingId);
     }
 }
 
 Hyperlink& Hyperlink::SetUrl(std::string_view url)
 {
-    if (!m_hyperlink || !m_mainDocumentPart || url.empty())
+    // The owning part, not the main document part: `r:id` is resolved against
+    // the relationships of the part the reference is written in. A hyperlink in
+    // a header whose target went into document.xml.rels is a dangling reference
+    // there and a stolen identifier here.
+    const auto part = OwningPart();
+    if (!m_hyperlink || !part || url.empty())
     {
         return *this;
     }
 
     RemoveExistingRelationship();
-    const auto relationshipId = m_mainDocumentPart->AddExternalRelationship(kHyperlinkRelationshipType, std::string(url));
+    const auto relationshipId = part->AddExternalRelationship(kHyperlinkRelationshipType, std::string(url));
     if (relationshipId.empty())
     {
         return *this;
@@ -10437,7 +10964,8 @@ Hyperlink& Hyperlink::SetUrl(std::string_view url)
 
 std::string Hyperlink::GetUrl() const
 {
-    if (!m_hyperlink || !m_mainDocumentPart)
+    const auto part = OwningPart();
+    if (!m_hyperlink || !part)
     {
         return {};
     }
@@ -10450,7 +10978,7 @@ std::string Hyperlink::GetUrl() const
 
     // Hyperlinks are external relationships; RelationshipsByType() only returns internal
     // part-to-part relationships, so the full relationship list is searched here.
-    for (const auto& relationship : m_mainDocumentPart->Relationships())
+    for (const auto& relationship : part->Relationships())
     {
         if (relationship.IsExternal && relationship.Type == kHyperlinkRelationshipType &&
             relationship.Id == relationshipId)
@@ -10902,6 +11430,23 @@ Note::Note(NoteKind kind,
 {
 }
 
+std::shared_ptr<OpenXmlPackagePart> Note::OwningPart() const
+{
+    if (!m_mainDocumentPart)
+    {
+        return nullptr;
+    }
+    // The note lives in footnotes.xml or endnotes.xml, so that is where a
+    // hyperlink it contains has to record its target. Derived from the kind
+    // rather than stored, because a Note is only ever built from a part the
+    // main document part already owns.
+    if (m_kind == NoteKind::Footnote)
+    {
+        return m_mainDocumentPart->GetFootnotesPart();
+    }
+    return m_mainDocumentPart->GetEndnotesPart();
+}
+
 NoteKind Note::Kind() const noexcept
 {
     return m_kind;
@@ -10962,7 +11507,7 @@ std::vector<std::shared_ptr<Paragraph>> Note::Paragraphs() const
     {
         if (paragraph)
         {
-            result.push_back(std::make_shared<Paragraph>(paragraph, m_mainDocumentPart));
+            result.push_back(std::make_shared<Paragraph>(paragraph, m_mainDocumentPart, OwningPart()));
         }
     }
     return result;
@@ -10979,7 +11524,7 @@ std::shared_ptr<Paragraph> Note::AddParagraph(std::string_view text, bool preser
     {
         return nullptr;
     }
-    auto wrapper = std::make_shared<Paragraph>(paragraph, m_mainDocumentPart);
+    auto wrapper = std::make_shared<Paragraph>(paragraph, m_mainDocumentPart, OwningPart());
     if (!text.empty())
     {
         wrapper->AddText(text, preserveSpaces);
@@ -11100,6 +11645,13 @@ Comment::Comment(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wo
 {
 }
 
+std::shared_ptr<OpenXmlPackagePart> Comment::OwningPart() const
+{
+    // Comment bodies live in comments.xml; a link one of them contains belongs
+    // to that part's relationships, not to the document's.
+    return m_mainDocumentPart ? m_mainDocumentPart->GetWordprocessingCommentsPart() : nullptr;
+}
+
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Comment> Comment::GetLowLevelApi() const
 {
     return m_comment;
@@ -11178,7 +11730,7 @@ std::vector<std::shared_ptr<Paragraph>> Comment::Paragraphs() const
     {
         if (paragraph)
         {
-            result.push_back(std::make_shared<Paragraph>(paragraph, m_mainDocumentPart));
+            result.push_back(std::make_shared<Paragraph>(paragraph, m_mainDocumentPart, OwningPart()));
         }
     }
     return result;
@@ -11216,7 +11768,7 @@ std::shared_ptr<Paragraph> Comment::AddParagraph(std::string_view text, bool pre
         }
     }
 
-    auto wrapper = std::make_shared<Paragraph>(paragraph, m_mainDocumentPart);
+    auto wrapper = std::make_shared<Paragraph>(paragraph, m_mainDocumentPart, OwningPart());
     if (!text.empty())
     {
         wrapper->AddText(text, preserveSpaces);
@@ -11435,9 +11987,15 @@ void Comment::Remove()
 
 ContentControl::ContentControl(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& sdt,
                                ContentControlLevel level,
-                               const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart)
-    : m_sdt(sdt), m_level(level), m_mainDocumentPart(mainDocumentPart)
+                               const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                               const std::shared_ptr<OpenXmlPackagePart>& owningPart)
+    : m_sdt(sdt), m_level(level), m_mainDocumentPart(mainDocumentPart), m_owningPart(owningPart)
 {
+}
+
+std::shared_ptr<OpenXmlPackagePart> ContentControl::OwningPart() const
+{
+    return m_owningPart ? m_owningPart : std::static_pointer_cast<OpenXmlPackagePart>(m_mainDocumentPart);
 }
 
 std::shared_ptr<ExyokiOffice::OpenXMLElement> ContentControl::GetLowLevelApi() const
@@ -11703,7 +12261,7 @@ std::vector<std::shared_ptr<Paragraph>> ContentControl::Paragraphs() const
     {
         if (paragraph)
         {
-            result.push_back(std::make_shared<Paragraph>(paragraph, m_mainDocumentPart));
+            result.push_back(std::make_shared<Paragraph>(paragraph, m_mainDocumentPart, OwningPart()));
         }
     }
     return result;
@@ -11725,7 +12283,7 @@ std::shared_ptr<Paragraph> ContentControl::AddParagraph(std::string_view text, b
     {
         return nullptr;
     }
-    auto wrapper = std::make_shared<Paragraph>(paragraph, m_mainDocumentPart);
+    auto wrapper = std::make_shared<Paragraph>(paragraph, m_mainDocumentPart, OwningPart());
     if (!text.empty())
     {
         wrapper->AddText(text, preserveSpaces);
@@ -12891,9 +13449,16 @@ Image& Image::RemoveHyperlink()
     return *this;
 }
 
-Table::Table(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table)
-    : m_table(table)
+Table::Table(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>& table,
+             const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+             const std::shared_ptr<OpenXmlPackagePart>& owningPart)
+    : m_table(table), m_mainDocumentPart(mainDocumentPart), m_owningPart(owningPart)
 {
+}
+
+std::shared_ptr<OpenXmlPackagePart> Table::OwningPart() const
+{
+    return m_owningPart ? m_owningPart : std::static_pointer_cast<OpenXmlPackagePart>(m_mainDocumentPart);
 }
 
 std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table> Table::GetLowLevelApi() const
@@ -13041,7 +13606,7 @@ std::vector<std::shared_ptr<Paragraph>> Table::Paragraphs() const
     {
         if (paragraph)
         {
-            paragraphs.push_back(std::make_shared<Paragraph>(paragraph));
+            paragraphs.push_back(std::make_shared<Paragraph>(paragraph, m_mainDocumentPart, m_owningPart));
         }
     }
     return paragraphs;
@@ -13059,7 +13624,7 @@ std::vector<std::shared_ptr<Table>> Table::Tables() const
     {
         if (table && table != m_table)
         {
-            tables.push_back(std::make_shared<Table>(table));
+            tables.push_back(std::make_shared<Table>(table, m_mainDocumentPart, m_owningPart));
         }
     }
     return tables;
@@ -13707,7 +14272,7 @@ std::shared_ptr<Table> Table::AddNestedTable(Size row,
         return nullptr;
     }
 
-    auto wrapper = std::make_shared<Table>(nested);
+    auto wrapper = std::make_shared<Table>(nested, m_mainDocumentPart, m_owningPart);
     for (Size rowIndex = 0; rowIndex < rows; ++rowIndex)
     {
         wrapper->AddRow(columns);
@@ -13772,10 +14337,23 @@ HeaderFooterContent::FooterRoot() const
     return m_footerPart ? m_footerPart->GetFooter() : nullptr;
 }
 
+std::shared_ptr<OpenXmlPackagePart> HeaderFooterContent::OwningPart() const
+{
+    // A header or footer is its own part with its own relationships. A
+    // hyperlink or image added here and recorded against the main document
+    // part would be a reference Word cannot resolve from where it is written.
+    if (m_headerPart)
+    {
+        return m_headerPart;
+    }
+    return m_footerPart;
+}
+
 std::vector<std::shared_ptr<Paragraph>> HeaderFooterContent::Paragraphs() const
 {
     std::vector<std::shared_ptr<Paragraph>> paragraphs;
-    auto appendParagraphs = [&paragraphs](const auto& root)
+    const auto owningPart = OwningPart();
+    auto appendParagraphs = [&paragraphs, &owningPart](const auto& root)
     {
         if (!root)
         {
@@ -13786,7 +14364,7 @@ std::vector<std::shared_ptr<Paragraph>> HeaderFooterContent::Paragraphs() const
         {
             if (paragraph)
             {
-                paragraphs.push_back(std::make_shared<Paragraph>(paragraph));
+                paragraphs.push_back(std::make_shared<Paragraph>(paragraph, nullptr, owningPart));
             }
         }
     };
@@ -13813,7 +14391,7 @@ std::shared_ptr<Paragraph> HeaderFooterContent::AddParagraph(std::string_view te
         return nullptr;
     }
 
-    auto wrapper = std::make_shared<Paragraph>(paragraph);
+    auto wrapper = std::make_shared<Paragraph>(paragraph, nullptr, OwningPart());
     if (!text.empty())
     {
         wrapper->AddText(text, preserveSpaces);
@@ -14281,7 +14859,7 @@ BodyBlock::BodyBlock(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& lowLev
             m_lowLevel))
     {
         m_type = BodyBlockType::Table;
-        m_table = std::make_shared<Table>(table);
+        m_table = std::make_shared<Table>(table, mainDocumentPart);
         return;
     }
 

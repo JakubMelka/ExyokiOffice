@@ -6,7 +6,6 @@
 
 #include "ExyokiOffice/Word/WordDocument.hpp"
 
-#include <regex>
 #include <string>
 
 namespace
@@ -121,12 +120,15 @@ TEST_SUITE("WordHyperlinkBookmarkRangeTests")
         CHECK(link->GetUrl() == "https://example.com/again");
     }
 
-    TEST_CASE("Hyperlink::SetUrl without an attached main document part is a no-op [unit] [word] [word-hyperlink-bookmark-range]")
+    TEST_CASE("A link in a table cell is a link [unit] [word] [word-hyperlink-bookmark-range]")
     {
+        // Table::Paragraphs() used to hand out paragraphs with no part at all,
+        // so AddHyperlink returned a wrapper whose SetUrl had nowhere to record
+        // the target: a <w:hyperlink> with no r:id, which Word shows as plain
+        // text. The table now passes on the part it lives in.
         auto editor = WordDocumentEditor::CreateNew();
         REQUIRE(editor != nullptr);
 
-        // Table cell paragraphs are not attached to a main document part by this API.
         auto table = editor->AddTable(1, 1);
         REQUIRE(table != nullptr);
         auto cellParagraphs = table->Paragraphs();
@@ -134,14 +136,32 @@ TEST_SUITE("WordHyperlinkBookmarkRangeTests")
 
         auto link = cellParagraphs.front()->AddHyperlink("text", "https://example.com");
         REQUIRE(link != nullptr);
-        CHECK_FALSE(link->IsExternal());
-        CHECK(link->GetUrl().empty());
+        CHECK(link->IsExternal());
+        CHECK(link->GetUrl() == "https://example.com");
+    }
+
+    TEST_CASE("A paragraph with no part refuses an external link [unit] [word] [word-hyperlink-bookmark-range]")
+    {
+        // A hyperlink is a relationship plus an element naming it. With no part
+        // to hold the relationship, the element alone would be a dead link the
+        // caller was never told about, so nothing is added.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto attached = editor->AddParagraph("text");
+        REQUIRE(attached != nullptr);
+
+        Paragraph detached(attached->GetLowLevelApi());
+        CHECK(detached.OwningPart() == nullptr);
+        CHECK(detached.AddHyperlink("text", "https://example.com") == nullptr);
+
+        // An internal link is an anchor, not a relationship, so it needs no part.
+        CHECK(detached.AddInternalHyperlink("text", "Bookmark") != nullptr);
 
         auto mainPart = editor->GetDocument()->GetMainDocumentPart();
         REQUIRE(mainPart != nullptr);
-        link->AttachMainDocumentPart(mainPart);
-        link->SetUrl("https://example.com");
-        CHECK(link->IsExternal());
+        detached.AttachOwningPart(mainPart);
+        auto link = detached.AddHyperlink("text", "https://example.com");
+        REQUIRE(link != nullptr);
         CHECK(link->GetUrl() == "https://example.com");
     }
 
@@ -376,7 +396,7 @@ TEST_SUITE("WordHyperlinkBookmarkRangeTests")
         AddPlainRun(paragraph, "34 and 56");
         REQUIRE(paragraph->PlainText() == "Order 1234 and 56");
 
-        const std::regex pattern(R"(\d+)");
+        const ExyokiOffice::RegexPattern pattern{R"(\d+)"};
         auto matches = paragraph->FindAllRegex(pattern);
         REQUIRE(matches.size() == 2);
         CHECK(paragraph->GetText(matches[0]) == "1234");
@@ -395,7 +415,7 @@ TEST_SUITE("WordHyperlinkBookmarkRangeTests")
         REQUIRE(paragraph->PlainText() == "Hello John Doe");
 
         // Greedy \w+ \w+ matches the first two words ("Hello John"), leaving " Doe" untouched.
-        const std::regex pattern(R"((\w+) (\w+))");
+        const ExyokiOffice::RegexPattern pattern{R"((\w+) (\w+))"};
         const auto count = paragraph->ReplaceAllRegex(pattern, "$2, $1");
         CHECK(count == 1);
         CHECK(paragraph->PlainText() == "John, Hello Doe");
@@ -416,7 +436,7 @@ TEST_SUITE("WordHyperlinkBookmarkRangeTests")
         REQUIRE(paragraph != nullptr);
 
         // "x*" matches an empty string at every position when there is no 'x'.
-        const std::regex pattern("x*");
+        const ExyokiOffice::RegexPattern pattern{"x*"};
         const auto count = paragraph->ReplaceAllRegex(pattern, "-");
         CHECK(count == 4); // one empty match before each character plus one at the end
         CHECK(paragraph->PlainText() == "-a-b-c-");

@@ -1,0 +1,79 @@
+name: Smoke
+
+# The counterpart to ci.yml. That workflow builds every configuration on three
+# platforms and takes hours, which is why it is started by hand; this one runs
+# on every push and every pull request and answers the one question a reviewer
+# needs answered before reading a diff: does it build, and do the tests pass?
+#
+# One platform, one configuration, one job. Anything broader belongs in ci.yml,
+# and a change that touches packaging, sanitizers, or a second compiler should
+# have a manual CI run linked from the pull request.
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-gcc:
+    name: Linux GCC release
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++ ccache
+
+      # A full build compiles the whole generated OpenXML DOM, which is most of
+      # the wall-clock time and almost never changes between runs.
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: smoke-ccache-${{ github.sha }}
+          restore-keys: smoke-ccache-
+
+      - name: Configure
+        run: |
+          cmake --preset linux-ninja-release \
+            -DEXYOKIOFFICE_WARNINGS_AS_ERRORS=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build --preset linux-ninja-release
+
+      - name: Test
+        run: ctest --preset linux-ninja-release --output-on-failure
+
+      # The generator writes into the source tree. A pull request that changes
+      # gen/ or data/ without committing what they produce leaves the two out of
+      # step, and the next contributor's build is what discovers it.
+      - name: Check for uncommitted generated output
+        run: |
+          if ! git diff --quiet; then
+            echo "The build regenerated files that are not committed:"
+            git diff --stat
+            exit 1
+          fi

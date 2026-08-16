@@ -190,9 +190,26 @@ for (const auto& paragraph : editor->Paragraphs())
 `Find` returns a `ContentRange` (offset and length in the paragraph's plain
 text) that `GetText` and `ReplaceText` consume; `ReplaceAll` adjusts
 subsequent ranges as it rewrites, and replacements preserve the formatting of
-the run where each match starts. The regex variants take a `std::regex`, and
+the run where each match starts.
+
+The regex variants take a `RegexPattern` — the ECMAScript expression and
+whether to fold case — rather than a compiled `std::regex`, which keeps
+`<regex>` out of the public headers and out of this library's ABI:
+
+```cpp
+ExyokiOffice::RegexPattern pattern{R"((\d{4})-(\d{2})-(\d{2}))"};
+paragraph->ReplaceAllRegex(pattern, "$3/$2/$1");
+
+// A needle from a user or a document is not an expression; escape it.
+const auto literal = ExyokiOffice::RegexPattern::Literal("C++ (v2.0)", /*ignoreCase=*/true);
+```
+
 `ReplaceAllRegex` supports the usual `$1`-style capture references in the
-replacement format string.
+replacement format string. Matching is over bytes: UTF-8 passes through
+unharmed, but `.` matches one byte and `IgnoreCase` folds ASCII letters only.
+A paragraph longer than `RegexPattern::MaximumSubjectLength` (32 KiB) is not
+searched at all — backtracking engines recurse per character, and a stack
+overflow is not something a caller can catch.
 
 For MERGEFIELD-based templates and repeating regions, use
 `editor->MergeTemplate(data)` instead — see

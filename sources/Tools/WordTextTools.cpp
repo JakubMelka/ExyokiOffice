@@ -214,7 +214,7 @@ SearchResult Search(Word::WordDocumentEditor& editor, std::string_view needle, S
 {
     SearchResult result;
 
-    const auto pattern = TextPattern::BuildPattern(needle, useRegex, ignoreCase, result.Diagnostics);
+    const auto pattern = TextPattern::Describe(needle, useRegex, ignoreCase, result.Diagnostics);
     if ((useRegex || ignoreCase) && !pattern)
     {
         return result;
@@ -314,11 +314,17 @@ ReplaceResult Replace(Word::WordDocumentEditor& editor, std::string_view needle,
 {
     ReplaceResult result;
 
-    const auto pattern = TextPattern::BuildPattern(needle, useRegex, ignoreCase, result.Diagnostics);
+    const auto pattern = TextPattern::Describe(needle, useRegex, ignoreCase, result.Diagnostics);
     if ((useRegex || ignoreCase) && !pattern)
     {
         return result;
     }
+
+    // Only a caller that asked for a regular expression means `$1` in the
+    // replacement to expand. A case-insensitive plain search also goes through
+    // the regex path, and there the replacement is text the user typed.
+    const std::string format =
+        useRegex ? std::string(replacement) : TextPattern::EscapeFormatLiteral(replacement);
 
     Size count = 0;
     WordTextToolsHelper::ForEachParagraph(editor,
@@ -331,7 +337,7 @@ ReplaceResult Replace(Word::WordDocumentEditor& editor, std::string_view needle,
                                               }
                                               else
                                               {
-                                                  count += pattern ? paragraph->ReplaceAllRegex(*pattern, replacement)
+                                                  count += pattern ? paragraph->ReplaceAllRegex(*pattern, format)
                                                                    : paragraph->ReplaceAll(needle, replacement);
                                               }
                                           });

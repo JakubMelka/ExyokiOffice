@@ -1583,4 +1583,71 @@ TEST_SUITE("ExcelFormulaEngineTests")
         std::setlocale(LC_ALL, restore.c_str());
     }
 
+    TEST_CASE("A number turned into text is spelled the way Excel spells it [unit] [excel] [excel-formula]")
+    {
+        // Excel keeps fifteen significant decimal digits and shows exactly
+        // those. A shortest-round-trip conversion needs seventeen for a third,
+        // so `=1/3&""` came out two digits longer than any spreadsheet writes.
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Text(engine, "=1/3&\"\"") == "0.333333333333333");
+        CHECK(H::Text(engine, "=2/3&\"\"") == "0.666666666666667");
+
+        // Positional up to 1E+21, scientific from there, with an uppercase E
+        // and a signed two-digit exponent.
+        CHECK(H::Text(engine, "=1E+20&\"\"") == "100000000000000000000");
+        CHECK(H::Text(engine, "=1E+21&\"\"") == "1E+21");
+        CHECK(H::Text(engine, "=-1.5E+22&\"\"") == "-1.5E+22");
+        CHECK(H::Text(engine, "=0.0001&\"\"") == "0.0001");
+        CHECK(H::Text(engine, "=0.00001&\"\"") == "1E-05");
+
+        // The ordinary cases stay ordinary.
+        CHECK(H::Text(engine, "=0&\"\"") == "0");
+        CHECK(H::Text(engine, "=-42&\"\"") == "-42");
+        CHECK(H::Text(engine, "=1.25&\"\"") == "1.25");
+    }
+
+    TEST_CASE("Numbers compare at the precision Excel keeps [unit] [excel] [excel-formula]")
+    {
+        // The canonical floating-point surprise, which Excel does not have:
+        // 0.1 + 0.2 differs from 0.3 in the seventeenth significant digit, and
+        // Excel carries fifteen.
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Text(engine, "=IF(0.1+0.2=0.3,\"TRUE\",\"FALSE\")") == "TRUE");
+        CHECK(H::Text(engine, "=IF(1.1+2.2=3.3,\"TRUE\",\"FALSE\")") == "TRUE");
+
+        // Rounding to fifteen digits must not make different numbers equal.
+        CHECK(H::Text(engine, "=IF(0.3=0.30000001,\"TRUE\",\"FALSE\")") == "FALSE");
+        CHECK(H::Text(engine, "=IF(1=2,\"TRUE\",\"FALSE\")") == "FALSE");
+        CHECK(H::Text(engine, "=IF(1<2,\"TRUE\",\"FALSE\")") == "TRUE");
+    }
+
+    TEST_CASE("The 1900 date system keeps its imaginary leap day [unit] [excel] [excel-formula]")
+    {
+        // Serial 60 is 29 February 1900, a date that never happened; Lotus 1-2-3
+        // had it, and every spreadsheet since has kept it so that serial numbers
+        // agree. Deriving the date from the Gregorian calendar answered 28
+        // February for DAY(60) and shifted DATE(1900,2,29) to 61.
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Number(engine, "=DATE(1900,2,29)") == 60.0);
+        CHECK(H::Number(engine, "=DAY(60)") == 29.0);
+        CHECK(H::Number(engine, "=MONTH(60)") == 2.0);
+        CHECK(H::Number(engine, "=YEAR(60)") == 1900.0);
+
+        // The days on either side, which are real dates, are unchanged.
+        CHECK(H::Number(engine, "=DATE(1900,2,28)") == 59.0);
+        CHECK(H::Number(engine, "=DATE(1900,3,1)") == 61.0);
+        CHECK(H::Number(engine, "=DAY(59)") == 28.0);
+        CHECK(H::Number(engine, "=DAY(61)") == 1.0);
+
+        // Serial 0 is "0 January 1900", the day before the epoch, not 1899.
+        CHECK(H::Number(engine, "=YEAR(0)") == 1900.0);
+        CHECK(H::Number(engine, "=DAY(0)") == 0.0);
+    }
+
 } // TEST_SUITE

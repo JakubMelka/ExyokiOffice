@@ -222,7 +222,8 @@ std::string FormulaValue::ToDisplayText() const
         case FormulaValueKind::Blank:
             return {};
         case FormulaValueKind::Number:
-            return FormulaCoercion::FormatNumber(m_number);
+            // Display, not storage: the General spelling a spreadsheet shows.
+            return FormulaCoercion::FormatNumberAsText(m_number);
         case FormulaValueKind::Text:
             return m_text;
         case FormulaValueKind::Boolean:

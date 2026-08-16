@@ -8,6 +8,7 @@
 
 #include "ExyokiOffice/Security/PackageSignatures.hpp"
 
+#include "NativePath.hpp"
 #include "OpenXmlPackageInternal.hpp"
 #include "OpenXmlPackageUri.hpp"
 #include "Security/SignatureNames.hpp"
@@ -204,7 +205,7 @@ bool OpenXmlPackage::LoadFromFile(const std::filesystem::path& path, const ICanc
 
     Clear();
     int error = 0;
-    auto archive = zip_openwitherror(path.string().c_str(), 0, 'r', &error);
+    auto archive = zip_openwitherror(NativePath::ToUtf8(path).c_str(), 0, 'r', &error);
     if (!archive)
     {
         return false;
@@ -249,7 +250,8 @@ bool OpenXmlPackage::SaveToFile(const std::filesystem::path& path,
     }
 
     int error = 0;
-    auto archive = zip_openwitherror(outputPath.string().c_str(), ZIP_DEFAULT_COMPRESSION_LEVEL, 'w', &error);
+    auto archive =
+        zip_openwitherror(NativePath::ToUtf8(outputPath).c_str(), ZIP_DEFAULT_COMPRESSION_LEVEL, 'w', &error);
     if (!archive)
     {
         return false;

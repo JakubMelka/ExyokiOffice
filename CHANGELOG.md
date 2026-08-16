@@ -48,6 +48,29 @@ and `Security`, and describe user-visible changes rather than commits.
   the library instead of allocating whatever size the ZIP directory declares.
 - `Tools::RedactResult::PartsRemoved` counts whole parts detached for what they
   carried, and `exyoki redact` and the MCP tool report it as `partsRemoved`.
+- `Security::SignatureResult::UncoveredParts` lists the package parts a
+  signature says nothing about. An Open XML signature covers the parts its
+  manifest names and nothing announces the ones it does not, so a part added
+  after signing leaves every digest matching and `IsValid()` true. The
+  relationship transform makes that reachable in practice: a signature that
+  selects relationships by `SourceId` keeps its digest when a relationship with
+  a new identifier appears beside them.
+- `Security::VerifySignaturesOptions::AllowSha1`, defaulting to false. A SHA-1
+  digest or an RSA-SHA1 signature value is now reported as invalid with an
+  explanation instead of being computed, because a signature over a
+  collision-broken digest is a signature two different documents share. Archived
+  packages that carry one can still be verified by turning the option on.
+- `ExyokiOffice::RegexPattern`, an expression plus its options, which is what
+  the regular-expression API takes now.
+- Image detection covers TIFF, EMF, and placeable WMF, and reads a JPEG's
+  resolution from Exif as well as from JFIF.
+- `Word::Paragraph::AttachOwningPart` / `OwningPart`, and the same pair on
+  `Hyperlink`, `Table`, `ContentControl`, `Note`, `Comment`, and
+  `HeaderFooterContent`: the part a piece of content lives in, which is where
+  its relationships belong.
+- Community files a contributor looks for: `CODE_OF_CONDUCT.md`, issue and pull
+  request templates, and a `Smoke` workflow that builds and tests on every push
+  and pull request. The full matrix stays in the manually started `CI` workflow.
 
 ### Security
 
@@ -121,9 +144,37 @@ and `Security`, and describe user-visible changes rather than commits.
   `OpcValidationMode` and `MaxCharactersInPart` were read for Word and Excel and
   silently ignored for PowerPoint, so a caller opening an untrusted `.pptx`
   under strict validation and a size budget got neither.
+- A ZIP entry with an empty name no longer causes a one-byte heap under-read
+  while the archive is being listed. The bundled `zip_entry_isdir` read the last
+  character of a name that had none; the name is now checked first, and the
+  vendored function guards the length itself.
+- The largest `spinCount` accepted from a document dropped from ten million to
+  one million, ten times what Word and PowerPoint write. The value comes out of
+  the file and the work is linear in it, with nothing to parallelize, so a
+  crafted document could spend a minute of SHA-512 per `Unprotect` call for an
+  element that only tells a consumer which password to accept.
+- Regular expressions run over at most 32768 bytes of text
+  (`RegexPattern::MaximumSubjectLength`). Backtracking engines recurse per input
+  character, and the Microsoft implementation exhausts the stack on a long
+  enough subject - which is not an exception a caller can catch, and is the one
+  failure a library behind an MCP server must not be able to reach.
 
 ### Changed
 
+- `Word::Paragraph::FindAllRegex` and `ReplaceAllRegex` take an
+  `ExyokiOffice::RegexPattern` - the expression and its options - instead of a
+  compiled `std::regex`, and `<regex>` is gone from the public headers. A
+  compiled `std::regex` in a signature makes the standard library's regex
+  implementation part of this library's ABI, and it cost every translation unit
+  that included a Word header the whole of `<regex>` whether it searched
+  anything or not. `PowerPointDocument.hpp` no longer includes the 213 KB
+  `Presentation.hpp` for five types it only holds behind a `shared_ptr`.
+- `EXYOKIOFFICE_RUN_GENERATOR` defaults to on only for a developer build of this
+  repository - top-level project, writable source tree - and to off otherwise.
+  The generator writes into the *source* tree, so the previous unconditional
+  default failed a read-only checkout (Nix, distro packaging) and left
+  regenerated files in a clone the user only meant to compile. Setting the
+  option explicitly still wins.
 - `EXYOKIOFFICE_WARNINGS_AS_ERRORS` now defaults to `OFF`. Every compiler
   generation invents diagnostics, so the previous default turned an unseen
   warning on a newer toolchain into a failed build for anyone who merely wanted
@@ -164,6 +215,44 @@ and `Security`, and describe user-visible changes rather than commits.
 
 ### Fixed
 
+- A path outside ASCII opens on Windows. The bundled ZIP layer decodes the file
+  name it is handed as UTF-8, while `std::filesystem::path::string()` produces
+  the active code page, so `Příloha.docx` reached the file API as mojibake and
+  the package "did not exist" for exactly the users whose language needs the
+  characters.
+- `ExcelCellValue::Number` maps an infinity or a NaN to `#NUM!` instead of
+  writing `inf` or `nan` into `<v>`, which produced a workbook Excel offered to
+  repair by dropping the sheet.
+- A number converted to text is spelled the way a spreadsheet spells it:
+  fifteen significant digits, an uppercase `E` with a signed two-digit exponent,
+  and positional notation between 1E-04 and 1E+21. `=1/3&""` was two digits
+  longer than Excel writes, and `=1E+21&""` came out as `1e+21`. Numbers are
+  compared at the same precision, so `=0.1+0.2=0.3` is TRUE as it is in Excel.
+  The value stored in `<v>` is unchanged and still round-trips exactly.
+- The 1900 date system keeps its imaginary leap day. `DATE(1900,2,29)` is serial
+  60 rather than 61, `DAY(60)` is 29, and serial 0 is 0 January 1900 rather than
+  31 December 1899 - the convention every spreadsheet shares so that serial
+  numbers agree.
+- Relationships created by content outside the main document part are recorded
+  in that part. A hyperlink added to a header, a footer, a footnote, an endnote
+  or a comment wrote its target into `document.xml.rels`, where Word does not
+  look for it, and reading one back could answer with an unrelated URL. Table
+  cell paragraphs carried no part at all, so `AddHyperlink` returned a link with
+  nowhere to store its target and `AddComment` refused for a reason that had
+  nothing to do with the document. A paragraph with no part now returns nullptr
+  from `AddHyperlink` instead of adding a link that points nowhere.
+- `Paragraphs()` and `Tables()` reach into a block-level structured document tag,
+  so a cover page, a table of contents, or a form no longer disappears from
+  extraction, search, and replace.
+- PowerPoint text extraction descends into group shapes and reads tables.
+  Grouping three labelled boxes used to remove all three from the extract, and a
+  table is a graphic frame rather than a shape with a text frame.
+- A drawing identifier is allocated across every story of a Word document rather
+  than from `document.xml` alone, so an image added beside an existing one in a
+  header no longer collides with it.
+- A picture added without an explicit size is scaled to the text width. At the
+  96 DPI a file without a resolution defaults to, a four thousand pixel photo was
+  forty-one inches across and mostly off the page.
 - The `ROUND` family survives every extreme digit count. A digit count whose
   scale factor overflows (`=ROUNDDOWN(2.9,400)`), and equally one where only
   the scaled value overflows (`=ROUNDDOWN(2.9,308)`), returns the value

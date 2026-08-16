@@ -289,10 +289,89 @@ TEST_CASE("BMP detection guards the density fields and the header size [image-fo
     }
 }
 
+TEST_CASE("JPEG resolution comes from Exif when JFIF does not state one [image-format]")
+{
+    // Cameras and phones write their resolution into Exif and leave the JFIF
+    // segment claiming "no units". Reading only JFIF made every such photo
+    // nominally 96 DPI, and a 4000 pixel wide picture forty-one inches across.
+    const auto jpeg = ExyokiOfficeTests::BuildJpegWithExifDpi(4000, 3000, 300);
+    const auto info = DetectImageFormat(jpeg);
+    REQUIRE(info);
+    CHECK(info->ContentType == "image/jpeg");
+    CHECK(info->PixelWidth == 4000);
+    CHECK(info->PixelHeight == 3000);
+    CHECK(info->HorizontalDpi == doctest::Approx(300.0));
+    CHECK(info->VerticalDpi == doctest::Approx(300.0));
+
+    // JFIF still wins when it states a real unit: it comes first in the file
+    // and a reader that found one has no reason to look further.
+    const auto jfif = ExyokiOfficeTests::BuildJpeg(100, 50, 200);
+    const auto jfifInfo = DetectImageFormat(jfif);
+    REQUIRE(jfifInfo);
+    CHECK(jfifInfo->HorizontalDpi == doctest::Approx(200.0));
+}
+
+TEST_CASE("TIFF is detected with its dimensions and resolution [image-format]")
+{
+    const auto tiff = ExyokiOfficeTests::BuildTiff(640, 480, 150);
+    const auto info = DetectImageFormat(tiff);
+    REQUIRE(info);
+    CHECK(info->ContentType == "image/tiff");
+    CHECK(info->Extension == ".tiff");
+    CHECK(info->PixelWidth == 640);
+    CHECK(info->PixelHeight == 480);
+    CHECK(info->HorizontalDpi == doctest::Approx(150.0));
+
+    // A header that claims a directory the file does not contain is refused
+    // rather than read past the end of the buffer.
+    ImageBytes truncated;
+    truncated.Ascii("II").Le16(42).Le32(4096);
+    CHECK_FALSE(DetectImageFormat(truncated.Span()));
+}
+
+TEST_CASE("metafiles are detected from their own frame [image-format]")
+{
+    SUBCASE("EMF states its frame in hundredths of a millimetre")
+    {
+        // 2540 hundredths of a millimetre is exactly one inch, which is 96
+        // pixels at the nominal density metafiles are expressed in.
+        const auto emf = ExyokiOfficeTests::BuildEmf(2540, 5080);
+        const auto info = DetectImageFormat(emf);
+        REQUIRE(info);
+        CHECK(info->ContentType == "image/x-emf");
+        CHECK(info->Extension == ".emf");
+        CHECK(info->PixelWidth == 96);
+        CHECK(info->PixelHeight == 192);
+    }
+
+    SUBCASE("a placeable WMF states its bounding box in its own units")
+    {
+        const auto wmf = ExyokiOfficeTests::BuildPlaceableWmf(1440, 720, 1440);
+        const auto info = DetectImageFormat(wmf);
+        REQUIRE(info);
+        CHECK(info->ContentType == "image/x-wmf");
+        CHECK(info->Extension == ".wmf");
+        CHECK(info->PixelWidth == 96);
+        CHECK(info->PixelHeight == 48);
+    }
+
+    SUBCASE("a WMF without the placeable header states no size and is not detected")
+    {
+        // A bare WMF carries no bounding box, so there is nothing to lay it out
+        // from; it can still be added with an explicit content type and size.
+        ImageBytes bare;
+        bare.Le16(1).Le16(9).Le16(0x0300).Zeros(32);
+        CHECK_FALSE(DetectImageFormat(bare.Span()));
+    }
+}
+
 TEST_CASE("unrecognized payloads are rejected rather than guessed [image-format]")
 {
     CHECK_FALSE(DetectImageFormat({}));
 
+    // SVG is a vector format Word only renders with a raster fallback beside
+    // it, so it is deliberately not auto-detected: a caller who has both passes
+    // the content type explicitly.
     ImageBytes text;
     text.Ascii("<svg xmlns='http://www.w3.org/2000/svg'/>");
     CHECK_FALSE(DetectImageFormat(text.Span()));

@@ -178,6 +178,12 @@ public:
     static ExcelCellValue NumberText(std::string text);
     /**
      * @brief Creates a numeric cell from a double using a stable round-trip format.
+     *
+     * SpreadsheetML has no spelling for infinity or NaN, and Excel's number
+     * model has no such value either: an overflow or an undefined result is an
+     * error cell. Writing `inf` or `nan` into `<v>` produces a file Excel offers
+     * to repair, so a non-finite @p value becomes `#NUM!` - the error Excel
+     * itself yields for a calculation that leaves the representable range.
      */
     static ExcelCellValue Number(Real value);
     /**

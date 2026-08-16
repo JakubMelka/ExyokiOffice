@@ -1484,7 +1484,17 @@ int zip_entry_isdir(struct zip_t *zip) {
     return ZIP_EINVIDX;
   }
 
+  /* Local fix (ExyokiOffice): a ZIP may carry an entry with an empty name, and
+     reading name[entrylen - 1] for entrylen == 0 is a heap under-read. */
+  if (!zip->entry.name) {
+    return 0;
+  }
+
   entrylen = (mz_uint16)strlen(zip->entry.name);
+  if (entrylen == 0) {
+    return 0;
+  }
+
   return ISSLASH(zip->entry.name[entrylen - 1]);
 }
 

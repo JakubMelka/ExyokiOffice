@@ -105,3 +105,89 @@ TEST_CASE("Extract dispatches PowerPoint presentations to shapes and notes [unit
 
     std::filesystem::remove(path);
 }
+
+TEST_CASE("Grouped shapes and tables are extracted too [unit] [tools] [text-extract]")
+{
+    // A `p:grpSp` holds no text of its own, so walking only the direct children
+    // of the shape tree made every shape inside a group vanish - and grouping
+    // is what a deck author does to move a set of labels together. A table is a
+    // `p:graphicFrame`, not a shape with a text frame, and disappeared for a
+    // second reason.
+    using namespace ExyokiOffice::PowerPoint;
+
+    auto editor = PowerPointDocumentEditor::CreateNew();
+    REQUIRE(editor);
+    auto slide = editor->AddSlide();
+    REQUIRE(slide);
+    auto tree = slide->ShapeTree();
+    REQUIRE(tree);
+
+    const auto setText = [](const PresentationShape::Ptr& shape, std::string_view text)
+    {
+        PresentationTextFrame frame;
+        PresentationTextParagraph paragraph;
+        PresentationTextRun run;
+        run.Text = std::string(text);
+        paragraph.Runs.push_back(run);
+        frame.Paragraphs.push_back(paragraph);
+        REQUIRE(shape->SetTextFrame(frame));
+    };
+
+    auto first = tree->AddShape("Grouped 1");
+    REQUIRE(first);
+    setText(first, "Text inside a group");
+    auto second = tree->AddShape("Grouped 2");
+    REQUIRE(second);
+    setText(second, "Also inside the group");
+
+    const auto before = tree->Shapes().size();
+    REQUIRE(before >= 2);
+    auto group = tree->Group({before - 2, before - 1});
+    REQUIRE(group);
+    REQUIRE(group->IsGroup());
+
+    PresentationTableData table;
+    table.ColumnWidths = {ExyokiOffice::MeasuringUnits(3.0, ExyokiOffice::MeasurementUnit::Centimeter)};
+    PresentationTableRow row;
+    row.Height = ExyokiOffice::MeasuringUnits(1.0, ExyokiOffice::MeasurementUnit::Centimeter);
+    row.Cells.push_back(PresentationTableCell{"Text inside a table"});
+    table.Rows.push_back(row);
+    REQUIRE(tree->AddTable(table));
+
+    const auto path = MakeTemporaryPath("exyoki_extract_groups", ".pptx");
+    REQUIRE(editor->SaveToFile(path));
+
+    const auto result = Extract(path);
+    CHECK(result.Ok);
+    CHECK(AnyBlockContains(result, "Text inside a group"));
+    CHECK(AnyBlockContains(result, "Also inside the group"));
+    CHECK(AnyBlockContains(result, "Text inside a table"));
+
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("Word content inside a structured document tag is extracted [unit] [tools] [text-extract]")
+{
+    // A cover page, a table of contents and a form field are all block-level
+    // `w:sdt` wrappers. Enumerating only the direct children of the body made
+    // an extract that started at the first heading and looked complete.
+    using ExyokiOffice::Word::WordDocumentEditor;
+
+    auto editor = WordDocumentEditor::CreateNew();
+    REQUIRE(editor);
+    editor->AddParagraph("Ordinary body paragraph");
+
+    auto control = editor->Body().InsertContentControl("coverTag", "Cover Page");
+    REQUIRE(control);
+    control->SetText("Text inside a content control");
+
+    const auto path = MakeTemporaryPath("exyoki_extract_sdt", ".docx");
+    REQUIRE(editor->SaveToFile(path));
+
+    const auto result = Extract(path);
+    CHECK(result.Ok);
+    CHECK(AnyBlockContains(result, "Ordinary body paragraph"));
+    CHECK(AnyBlockContains(result, "Text inside a content control"));
+
+    std::filesystem::remove(path);
+}

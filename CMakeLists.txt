@@ -93,12 +93,49 @@ option(EXYOKIOFFICE_BUILD_FUZZERS "Build libFuzzer targets (needs Clang or MSVC 
 option(EXYOKIOFFICE_TEST_MONOLITH
     "Build ExyokiOfficeMonolithTests, the single-executable coverage target" OFF)
 # The generated sources are committed, so a build does not need the generator to
-# produce them - it reruns it to keep them in step with data/ and gen/. Two kinds
-# of build want the committed files taken as they are: a package build must not
-# write into the source tree it was handed, and a cross build cannot run a
-# generator it just compiled for the target architecture. Both turn this off.
+# produce them - it reruns it to keep them in step with data/ and gen/. That is
+# what someone working on this repository wants and what nobody else does: the
+# generator writes into the *source* tree, so a build that is not a developer
+# build would either fail on a read-only checkout (Nix, distro packaging) or
+# leave regenerated files in a clone the user only meant to compile.
+#
+# The default therefore has to be derived rather than fixed. It is on when this
+# is the top-level project and the source tree can be written to, which is
+# precisely the developer case; consuming ExyokiOffice through add_subdirectory
+# or FetchContent, packaging it, or cross compiling all land on off, and each of
+# those uses the committed files as they are. Setting the option explicitly
+# always wins.
+if(PROJECT_IS_TOP_LEVEL)
+    # Tested rather than assumed: a checkout can be read-only for reasons no
+    # path tells CMake about, and the answer decides whether the build works at
+    # all. The probe runs as a child process because file(WRITE) on a read-only
+    # tree is a fatal error - it would abort the configure this is trying to
+    # keep working.
+    set(_exyokioffice_write_probe "${CMAKE_CURRENT_SOURCE_DIR}/sources/DOM/.exyokioffice-write-probe")
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E touch "${_exyokioffice_write_probe}"
+        RESULT_VARIABLE _exyokioffice_write_probe_result
+        OUTPUT_QUIET
+        ERROR_QUIET)
+    if(_exyokioffice_write_probe_result EQUAL 0)
+        set(_exyokioffice_run_generator_default ON)
+        file(REMOVE "${_exyokioffice_write_probe}")
+    else()
+        set(_exyokioffice_run_generator_default OFF)
+        message(STATUS
+            "ExyokiOffice: the source tree is not writable, so the OpenXML generator will not run; "
+            "the committed generated sources are used as they are.")
+    endif()
+    unset(_exyokioffice_write_probe)
+    unset(_exyokioffice_write_probe_result)
+else()
+    set(_exyokioffice_run_generator_default OFF)
+endif()
+
 option(EXYOKIOFFICE_RUN_GENERATOR
-    "Run OpenXmlGenerator during the build and refresh the committed generated sources" ON)
+    "Run OpenXmlGenerator during the build and refresh the committed generated sources"
+    ${_exyokioffice_run_generator_default})
+unset(_exyokioffice_run_generator_default)
 
 include(cmake/CompilerWarnings.cmake)
 include(cmake/RuntimeLibraryCopy.cmake)
@@ -225,6 +262,7 @@ add_library(ExyokiOffice ${EXYOKIOFFICE_LIBRARY_KIND}
     include/ExyokiOffice/MeasuringAngle.hpp
     include/ExyokiOffice/MeasuringUnits.hpp
     include/ExyokiOffice/ImageFormat.hpp
+    include/ExyokiOffice/TextPattern.hpp
     include/ExyokiOffice/Packaging/PackageUtilities.hpp
     include/ExyokiOffice/Packaging/WordprocessingDocument.hpp
     include/ExyokiOffice/Packaging/SpreadsheetDocument.hpp
@@ -286,6 +324,7 @@ add_library(ExyokiOffice ${EXYOKIOFFICE_LIBRARY_KIND}
     sources/MeasuringAngle.cpp
     sources/MeasuringUnits.cpp
     sources/ImageFormat.cpp
+    sources/TextPattern.cpp
     sources/Packaging/PackageUtilities.cpp
     sources/Packaging/DocumentProperties.cpp
     sources/ThemeService.cpp

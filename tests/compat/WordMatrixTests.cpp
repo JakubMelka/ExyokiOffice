@@ -158,7 +158,7 @@ TEST_SUITE("WordMatrixTests")
         CHECK(target->ReplaceAll("{{CUSTOMER}}", "Contoso") == 1);
         CHECK(target->PlainText().find("Contoso") != std::string::npos);
 
-        const std::regex pattern("[Ff]ollows");
+        const ExyokiOffice::RegexPattern pattern{"[Ff]ollows"};
         CHECK(target->FindAllRegex(pattern).size() == 1);
         CHECK(target->ReplaceAllRegex(pattern, "trails") == 1);
 

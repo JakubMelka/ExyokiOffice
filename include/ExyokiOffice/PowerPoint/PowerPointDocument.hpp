@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Presentation.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Drawing.Enums.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Presentation.Enums.hpp"
 #include "ExyokiOffice/Color.hpp"
 #include "ExyokiOffice/DocumentEditTransaction.hpp"
 #include "ExyokiOffice/ImageFormat.hpp"
@@ -17,6 +18,21 @@
 
 #include <array>
 #include <optional>
+
+// Declared rather than included. Every use below is behind a shared_ptr, so an
+// incomplete type is enough, and pulling in Presentation.hpp for it would put
+// 213 KB of generated declarations - the whole PresentationML DOM - into every
+// translation unit that only wants to add a slide. The enums are values and do
+// have to be complete, which is what the .Enums.hpp above is for. The
+// Wordprocessing header is written the same way.
+namespace ExyokiOffice::DocumentFormat::OpenXml::Presentation
+{
+class PlaceholderShape;
+class Shape;
+class SlideId;
+class SlideLayoutId;
+class SlideMasterId;
+} // namespace ExyokiOffice::DocumentFormat::OpenXml::Presentation
 
 namespace ExyokiOffice::PowerPoint
 {

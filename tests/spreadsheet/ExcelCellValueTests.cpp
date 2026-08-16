@@ -6,6 +6,9 @@
 
 #include "ExyokiOffice/Excel/ExcelDocument.hpp"
 
+#include <limits>
+
+using ExyokiOffice::Real;
 using ExyokiOffice::Excel::CellAddress;
 using ExyokiOffice::Excel::CellValueKind;
 using ExyokiOffice::Excel::ExcelCellValue;
@@ -184,6 +187,23 @@ TEST_SUITE("ExcelCellValueTests")
         CHECK(formula.FormulaValue().Formula == "B3+B3");
         CHECK(formula.FormulaValue().CachedKind == FormulaCachedValueKind::Number);
         CHECK(formula.FormulaValue().CachedText == "85.000");
+    }
+
+    TEST_CASE("A number that is not a number becomes an error cell [unit] [excel] [excel-cell-value]")
+    {
+        // std::to_chars spells these `inf` and `nan`, which are not numbers in
+        // the SpreadsheetML grammar: Excel offers to repair the workbook and
+        // drops the sheet. #NUM! is what Excel itself yields for an overflow.
+        const auto infinity = std::numeric_limits<Real>::infinity();
+        CHECK(ExcelCellValue::Number(infinity).Kind() == CellValueKind::Error);
+        CHECK(ExcelCellValue::Number(infinity).Text() == "#NUM!");
+        CHECK(ExcelCellValue::Number(-infinity).Kind() == CellValueKind::Error);
+        CHECK(ExcelCellValue::Number(std::numeric_limits<Real>::quiet_NaN()).Kind() == CellValueKind::Error);
+
+        // Ordinary values, including the extremes that are still finite.
+        CHECK(ExcelCellValue::Number(0.0).Kind() == CellValueKind::Number);
+        CHECK(ExcelCellValue::Number(1.5).Text() == "1.5");
+        CHECK(ExcelCellValue::Number(std::numeric_limits<Real>::max()).Kind() == CellValueKind::Number);
     }
 
     TEST_CASE("Worksheet value writes reject invalid addresses and invalid wrappers [unit] [excel] [excel-cell-value]")

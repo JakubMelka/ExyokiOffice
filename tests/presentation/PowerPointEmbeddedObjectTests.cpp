@@ -7,6 +7,7 @@
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Drawing.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Drawing/Charts.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Drawing/Diagrams.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Presentation.hpp"
 #include "ExyokiOffice/PowerPoint/PowerPointDocument.hpp"
 
 using namespace ExyokiOffice;

@@ -17,10 +17,19 @@ other->AddInternalHyperlink("See chapter 1", "Chapter1");
 ```
 
 An external hyperlink stores its URL as a package relationship (URLs never
-appear in the document XML itself); the paragraph must be attached to the
-main document part for that to work, which is always the case for paragraphs
-obtained from the editor. An internal hyperlink stores the bookmark name as
-its anchor and needs no relationship.
+appear in the document XML itself), so the paragraph has to know which part it
+lives in. Relationships belong to the part that holds the reference, not to the
+document: a link in a header is resolved against `header1.xml.rels`, one in a
+footnote against `footnotes.xml.rels`. Every paragraph the API hands out —
+`editor->Paragraphs()`, `table->Paragraphs()`, `header->Paragraphs()`,
+`note->Paragraphs()`, `comment->Paragraphs()` — carries its own part, and
+`Paragraph::OwningPart()` says which. A `Paragraph` wrapped around a raw
+element by hand carries none, and `AddHyperlink` then returns `nullptr` rather
+than adding a link with nowhere to record its target; `AttachOwningPart` fixes
+that.
+
+An internal hyperlink stores the bookmark name as its anchor and needs no
+relationship, so it works on any paragraph.
 
 ## The Hyperlink wrapper
 

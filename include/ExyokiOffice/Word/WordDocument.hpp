@@ -9,6 +9,7 @@
 #include "ExyokiOffice/DocumentEditTransaction.hpp"
 #include "ExyokiOffice/ImageFormat.hpp"
 #include "ExyokiOffice/MeasuringUnits.hpp"
+#include "ExyokiOffice/TextPattern.hpp"
 #include "ExyokiOffice/ThemeService.hpp"
 #include "ExyokiOffice/Word/WordChart.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Wordprocessing.Enums.hpp"
@@ -21,7 +22,6 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
-#include <regex>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -1817,6 +1817,12 @@ public:
      * Table::Paragraphs on a table wrapper when you need paragraphs inside
      * tables.
      *
+     * Paragraphs wrapped in a block-level structured document tag - a cover
+     * page, a table of contents, a repeating section - are returned as though
+     * the tag were not there, because to a reader it is not: the tag is a
+     * container for the same body content. Use BodyBlocks() when the structure
+     * itself matters.
+     *
      * @return Paragraph wrappers in body order.
      */
     std::vector<std::shared_ptr<Paragraph>> Paragraphs() const;
@@ -2525,15 +2531,23 @@ public:
      * @brief Wraps an existing low-level paragraph element.
      *
      * @param paragraph Low-level `<w:p>` element to wrap.
-     * @param mainDocumentPart Optional owning main document part. Attach this when the
-     * paragraph should support relationship-backed features such as AddHyperlink() or a
-     * fully resolved Hyperlink::GetUrl(); it is not required for text, formatting, or
-     * internal (bookmark-anchored) hyperlinks. Paragraphs returned by
+     * @param mainDocumentPart Optional main document part, used for the document-wide
+     * services a paragraph reaches into: footnotes, endnotes, comments, and the
+     * identifier counters shared with the rest of the document. Paragraphs returned by
      * WordDocumentEditor::AddParagraph(), WordDocumentEditor::Paragraphs(), and
      * WordDocumentEditor::BodyCursor::InsertParagraph() already have this attached.
+     * @param owningPart Part this paragraph actually lives in, which is where its
+     * relationships belong. Leave it null for a paragraph in the main document; pass the
+     * header, footer, footnotes, endnotes, or comments part for a paragraph in one of
+     * those, or a hyperlink added here would write its relationship into
+     * `document.xml.rels` and resolve against a wholly unrelated set of targets.
+     * The wrappers that hand out paragraphs (HeaderFooterContent::Paragraphs(),
+     * Note::Paragraphs(), Comment::Paragraphs(), Table::Paragraphs()) pass their own
+     * part, so this matters only when wrapping an element by hand.
      */
     explicit Paragraph(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Paragraph>& paragraph,
-                       const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart = nullptr);
+                       const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart = nullptr,
+                       const std::shared_ptr<OpenXmlPackagePart>& owningPart = nullptr);
 
     /**
      * @brief Returns the underlying low-level paragraph element.
@@ -2545,12 +2559,36 @@ public:
     std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Paragraph> GetLowLevelApi() const;
 
     /**
-     * @brief Attaches (or replaces) the main document part used for relationship-backed features.
+     * @brief Attaches (or replaces) the main document part used for document-wide features.
      *
-     * @param mainDocumentPart Main document part that owns this paragraph's package.
+     * @param mainDocumentPart Main document part of this paragraph's package.
      * @return Reference to this paragraph for fluent chaining.
      */
     Paragraph& AttachMainDocumentPart(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart);
+
+    /**
+     * @brief Attaches (or replaces) the part this paragraph lives in.
+     *
+     * Relationships a paragraph creates - a hyperlink target, an image - are
+     * stored by the part that contains the reference, not by the document. A
+     * paragraph in `footnotes.xml` whose owning part is the main document part
+     * writes its hyperlink into `document.xml.rels`, where Word will not look
+     * for it, and reads back whatever relationship happens to share the
+     * identifier.
+     *
+     * @param owningPart Part that stores this paragraph; null means the main document part.
+     * @return Reference to this paragraph for fluent chaining.
+     */
+    Paragraph& AttachOwningPart(const std::shared_ptr<OpenXmlPackagePart>& owningPart);
+
+    /**
+     * @brief Part whose relationships this paragraph reads and writes.
+     *
+     * The owning part when one was attached, the main document part otherwise,
+     * and null when neither is - which is when AddHyperlink() cannot record a
+     * target and says so by returning nullptr.
+     */
+    [[nodiscard]] std::shared_ptr<OpenXmlPackagePart> OwningPart() const;
 
     /**
      * @brief Appends an empty run (`<w:r>`) to the paragraph.
@@ -2996,16 +3034,17 @@ public:
     /**
      * @brief Appends an external hyperlink run (`<w:hyperlink r:id="...">`) to the paragraph.
      *
-     * This creates an external relationship on the attached main document part and a
-     * `<w:hyperlink>` element wrapping a single run containing text. Requires a main
-     * document part attached through the constructor or AttachMainDocumentPart(); when
-     * none is attached, the hyperlink element is still created but carries no relationship.
+     * This creates an external relationship on the part that owns the paragraph (see
+     * OwningPart()) and a `<w:hyperlink>` element wrapping a single run containing text.
+     * A paragraph with no part cannot record the target, so nothing is added and the
+     * call returns nullptr rather than a hyperlink element that points nowhere.
      *
      * @param text Visible text for the hyperlink run. May be empty to add the link with no text.
      * @param url Target URL (e.g. "https://example.com"). Must be non-empty.
      * @param tooltip Optional screen-tip text shown when hovering the link.
      * @param newWindow When true, opens the target in a new browser window/tab.
-     * @return Hyperlink wrapper, or nullptr when the paragraph is invalid or url is empty.
+     * @return Hyperlink wrapper, or nullptr when the paragraph is invalid, url is empty,
+     * or the paragraph has no part to store the relationship in.
      *
      * @code
      * paragraph->AddHyperlink("ExyokiOffice on the web", "https://example.com/docs");
@@ -3293,32 +3332,33 @@ public:
      *
      * Uses the same text/offset model as FindAll() (see ContentRange): matches are
      * located in the concatenation of this paragraph's direct run text and never reach
-     * into nested elements such as hyperlinks. The pattern must already be compiled by
-     * the caller, so this method stays agnostic of regex syntax and flags (case
-     * sensitivity, etc. are the caller's choice when constructing @p pattern).
+     * into nested elements such as hyperlinks.
      *
-     * @param pattern Compiled ECMAScript regular expression to search for.
-     * @return Matching ranges in left-to-right order.
+     * @param pattern ECMAScript regular expression and its options; see RegexPattern
+     * for the syntax, the byte-wise character classes, and the length past which a
+     * paragraph is not searched at all.
+     * @return Matching ranges in left-to-right order. Empty when the expression does
+     * not compile - ask RegexPattern::IsValid() to tell that apart from no matches.
      */
-    std::vector<ContentRange> FindAllRegex(const std::regex& pattern) const;
+    std::vector<ContentRange> FindAllRegex(const RegexPattern& pattern) const;
 
     /**
      * @brief Replaces every non-overlapping regex match, substituting capture groups.
      *
-     * For each match, @p replacementFormat is expanded via
-     * std::match_results::format() using ECMAScript substitution syntax ($1, $2, ...,
-     * $&, $`, $', $$), and the resulting text is applied through ReplaceText(), so
-     * formatting is preserved exactly as it is for ReplaceAll().
+     * For each match, @p replacementFormat is expanded using ECMAScript substitution
+     * syntax ($1, $2, ..., $&, $`, $', $$), and the resulting text is applied through
+     * ReplaceText(), so formatting is preserved exactly as it is for ReplaceAll().
      *
-     * @param pattern Compiled ECMAScript regular expression to search for.
+     * @param pattern ECMAScript regular expression and its options.
      * @param replacementFormat Replacement template, may reference capture groups.
-     * @return Number of replacements performed.
+     * @return Number of replacements performed; zero when the expression does not compile.
      */
-    Size ReplaceAllRegex(const std::regex& pattern, std::string_view replacementFormat);
+    Size ReplaceAllRegex(const RegexPattern& pattern, std::string_view replacementFormat);
 
 private:
     std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Paragraph> m_paragraph;
     std::shared_ptr<Packaging::MainDocumentPart> m_mainDocumentPart;
+    std::shared_ptr<OpenXmlPackagePart> m_owningPart;
 };
 
 /**
@@ -4094,11 +4134,15 @@ public:
      * @brief Wraps an existing low-level hyperlink element.
      *
      * @param hyperlink Low-level `<w:hyperlink>` element to wrap.
-     * @param mainDocumentPart Optional owning main document part, required for SetUrl()/
-     * GetUrl() to create or resolve the external relationship.
+     * @param mainDocumentPart Optional main document part of the package.
+     * @param owningPart Part that stores this hyperlink's relationship; null means the
+     * main document part. A hyperlink in a header, footer, footnote, endnote, or comment
+     * belongs to that part, and resolving `r:id` against the main document's
+     * relationships would answer with an unrelated target.
      */
     explicit Hyperlink(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Hyperlink>& hyperlink,
-                       const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart = nullptr);
+                       const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart = nullptr,
+                       const std::shared_ptr<OpenXmlPackagePart>& owningPart = nullptr);
 
     /**
      * @brief Returns the underlying low-level hyperlink element.
@@ -4107,12 +4151,23 @@ public:
     std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Hyperlink> GetLowLevelApi() const;
 
     /**
-     * @brief Attaches (or replaces) the main document part used to resolve external links.
+     * @brief Attaches (or replaces) the main document part of this hyperlink's package.
      *
      * @param mainDocumentPart Main document part that owns this hyperlink's package.
      * @return Reference to this hyperlink for fluent chaining.
      */
     Hyperlink& AttachMainDocumentPart(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart);
+
+    /**
+     * @brief Attaches (or replaces) the part whose relationships hold this link's target.
+     *
+     * @param owningPart Part that stores this hyperlink; null means the main document part.
+     * @return Reference to this hyperlink for fluent chaining.
+     */
+    Hyperlink& AttachOwningPart(const std::shared_ptr<OpenXmlPackagePart>& owningPart);
+
+    /** @brief Part whose relationships this hyperlink reads and writes; see AttachOwningPart(). */
+    [[nodiscard]] std::shared_ptr<OpenXmlPackagePart> OwningPart() const;
 
     /**
      * @brief Appends an empty run (`<w:r>`) to the hyperlink.
@@ -4235,6 +4290,7 @@ private:
 
     std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Hyperlink> m_hyperlink;
     std::shared_ptr<Packaging::MainDocumentPart> m_mainDocumentPart;
+    std::shared_ptr<OpenXmlPackagePart> m_owningPart;
 };
 
 /**
@@ -4646,6 +4702,15 @@ public:
     std::vector<std::shared_ptr<Paragraph>> Paragraphs() const;
 
     /**
+     * @brief The footnotes or endnotes part this note lives in.
+     *
+     * Paragraphs handed out by this note carry it, so a hyperlink added inside
+     * a footnote records its target in `footnotes.xml.rels` where Word looks
+     * for it. Null when no main document part is attached.
+     */
+    [[nodiscard]] std::shared_ptr<OpenXmlPackagePart> OwningPart() const;
+
+    /**
      * @brief Appends an additional paragraph to this note's content.
      *
      * @param text Optional text content for the new paragraph.
@@ -4763,6 +4828,15 @@ public:
      * @return Comment ID, or -1 when this wrapper is invalid.
      */
     int GetId() const;
+
+    /**
+     * @brief The comments part this comment lives in.
+     *
+     * Paragraphs handed out by this comment carry it, so a hyperlink added
+     * inside a comment records its target in `comments.xml.rels`. Null when no
+     * main document part is attached, or when the document has no comments part.
+     */
+    [[nodiscard]] std::shared_ptr<OpenXmlPackagePart> OwningPart() const;
 
     /**
      * @brief Reads the comment author's display name.
@@ -4953,10 +5027,17 @@ public:
      * @param level Whether the wrapped element is block-level or inline.
      * @param mainDocumentPart Optional owning main document part, used for paragraph/run
      * wrappers returned by this content control and for document-wide ID allocation.
+     * @param owningPart Part the control lives in; null means the main document part.
+     * Content controls appear in headers, footers, and notes as well, and the paragraphs
+     * handed out here inherit this part for their relationships.
      */
     ContentControl(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& sdt,
                    ContentControlLevel level,
-                   const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart = nullptr);
+                   const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart = nullptr,
+                   const std::shared_ptr<OpenXmlPackagePart>& owningPart = nullptr);
+
+    /** @brief Part whose relationships the content of this control reads and writes. */
+    [[nodiscard]] std::shared_ptr<OpenXmlPackagePart> OwningPart() const;
 
     /**
      * @brief Returns the underlying low-level `w:sdt` element.
@@ -5125,6 +5206,7 @@ private:
     std::shared_ptr<ExyokiOffice::OpenXMLElement> m_sdt;
     ContentControlLevel m_level = ContentControlLevel::Block;
     std::shared_ptr<Packaging::MainDocumentPart> m_mainDocumentPart;
+    std::shared_ptr<OpenXmlPackagePart> m_owningPart;
 };
 
 /**
@@ -5607,8 +5689,18 @@ public:
      * @brief Wraps an existing low-level table element.
      *
      * @param table Low-level `<w:tbl>` element to wrap.
+     * @param mainDocumentPart Optional main document part, passed on to the paragraphs
+     * this table hands out so they reach footnotes, comments, and shared identifiers.
+     * @param owningPart Part the table lives in; null means the main document part.
+     * Without one, a hyperlink added to a paragraph inside a table cell has nowhere to
+     * record its target - which is what Paragraphs() used to hand back.
      */
-    explicit Table(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Table>& table);
+    explicit Table(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Table>& table,
+                   const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart = nullptr,
+                   const std::shared_ptr<OpenXmlPackagePart>& owningPart = nullptr);
+
+    /** @brief Part whose relationships the content of this table reads and writes. */
+    [[nodiscard]] std::shared_ptr<OpenXmlPackagePart> OwningPart() const;
 
     /**
      * @brief Returns the underlying low-level table element.
@@ -6021,6 +6113,8 @@ public:
 
 private:
     std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Table> m_table;
+    std::shared_ptr<Packaging::MainDocumentPart> m_mainDocumentPart;
+    std::shared_ptr<OpenXmlPackagePart> m_owningPart;
 };
 
 /**
@@ -6065,6 +6159,15 @@ public:
      * @brief Returns the relationship id used by section references.
      */
     std::string RelationshipId() const;
+
+    /**
+     * @brief The header or footer part itself, whichever this wrapper holds.
+     *
+     * Paragraphs handed out here carry it, so a hyperlink added to a header
+     * records its target in that header's relationships rather than in the main
+     * document's, where Word would not find it.
+     */
+    [[nodiscard]] std::shared_ptr<OpenXmlPackagePart> OwningPart() const;
 
     /**
      * @brief Enumerates direct paragraphs in this header or footer.

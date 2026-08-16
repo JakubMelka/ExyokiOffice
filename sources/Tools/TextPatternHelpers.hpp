@@ -4,7 +4,10 @@
 
 #pragma once
 
+#include "ExyokiOffice/TextPattern.hpp"
 #include "ExyokiOffice/Tools/PackageModel.hpp"
+
+#include "TextPatternCompiler.hpp"
 
 #include <optional>
 #include <regex>
@@ -21,88 +24,64 @@ namespace ExyokiOffice::Tools
  *
  * Both `DocumentTextTools` and `WordTextTools` expose the same needle: a plain
  * substring, or an ECMAScript regular expression, either of them optionally
- * case-insensitive. The two escaping rules that go with it are easy to mix up,
- * so they are named for the side they belong to rather than for the character
- * they touch.
+ * case-insensitive. The escaping rules and the compiler itself live in
+ * `TextPatternCompiler.hpp`, next to the public `RegexPattern` they implement;
+ * what is here is only the tools' convention for turning three arguments plus a
+ * diagnostics list into one of them.
  */
 class TextPattern
 {
 public:
     /// @brief Escapes ECMAScript metacharacters so a literal needle matches as itself.
-    static std::string EscapeRegexLiteral(std::string_view text)
-    {
-        static constexpr std::string_view special = "\\^$.|?*+()[]{}";
-        std::string escaped;
-        escaped.reserve(text.size());
-        for (const char character : text)
-        {
-            if (special.find(character) != std::string_view::npos)
-            {
-                escaped += '\\';
-            }
-            escaped += character;
-        }
-        return escaped;
-    }
+    static std::string EscapeRegexLiteral(std::string_view text) { return Detail::EscapeRegexLiteral(text); }
+
+    /// @brief Escapes `$` so a literal replacement survives format expansion.
+    static std::string EscapeFormatLiteral(std::string_view text) { return Detail::EscapeFormatLiteral(text); }
 
     /**
-     * @brief Escapes `$` so a literal replacement survives format expansion.
-     *
-     * `std::regex_replace` reads `$1`, `$&` and friends out of the replacement
-     * string, so a replacement the caller meant literally has to double every
-     * `$` before it gets there. This is the replacement side of the grammar,
-     * not the pattern side - @ref EscapeRegexLiteral is what the needle needs.
-     */
-    static std::string EscapeFormatLiteral(std::string_view text)
-    {
-        std::string escaped;
-        escaped.reserve(text.size());
-        for (const char character : text)
-        {
-            if (character == '$')
-            {
-                escaped += '$';
-            }
-            escaped += character;
-        }
-        return escaped;
-    }
-
-    /**
-     * @brief Compiles @p needle, or `std::nullopt` when no pattern is wanted.
+     * @brief Describes @p needle as a pattern, or std::nullopt when none is wanted.
      *
      * `std::nullopt` carries two different outcomes on purpose. With neither
-     * @p useRegex nor @p ignoreCase there is nothing to compile and the caller
+     * @p useRegex nor @p ignoreCase there is nothing to build and the caller
      * takes its plain substring path; with either of them it means the regular
      * expression did not compile, and a diagnostic has been appended. The call
      * site already knows which flags it passed, so it can tell them apart.
      */
-    static std::optional<std::regex> BuildPattern(std::string_view needle,
-                                                  bool useRegex,
-                                                  bool ignoreCase,
-                                                  std::vector<ToolDiagnostic>& diagnostics)
+    static std::optional<RegexPattern> Describe(std::string_view needle,
+                                                bool useRegex,
+                                                bool ignoreCase,
+                                                std::vector<ToolDiagnostic>& diagnostics)
     {
         if (!useRegex && !ignoreCase)
         {
             return std::nullopt;
         }
 
-        const std::string patternText = useRegex ? std::string(needle) : EscapeRegexLiteral(needle);
-        auto flags = std::regex::ECMAScript;
-        if (ignoreCase)
-        {
-            flags |= std::regex::icase;
-        }
+        RegexPattern pattern;
+        pattern.Expression = useRegex ? std::string(needle) : Detail::EscapeRegexLiteral(needle);
+        pattern.IgnoreCase = ignoreCase;
 
-        try
+        std::string error;
+        if (!pattern.IsValid(&error))
         {
-            return std::regex(patternText, flags);
-        }
-        catch (const std::regex_error& error)
-        {
-            diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, "Invalid regular expression", error.what()});
+            diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, "Invalid regular expression", std::move(error)});
             return std::nullopt;
         }
+        return pattern;
+    }
+
+    /// @brief As @ref Describe, compiled for a caller that matches text itself.
+    static std::optional<std::regex> BuildPattern(std::string_view needle,
+                                                  bool useRegex,
+                                                  bool ignoreCase,
+                                                  std::vector<ToolDiagnostic>& diagnostics)
+    {
+        const auto described = Describe(needle, useRegex, ignoreCase, diagnostics);
+        if (!described)
+        {
+            return std::nullopt;
+        }
+        return Detail::CompileRegex(*described);
     }
 };
 

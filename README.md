@@ -1,5 +1,9 @@
 # ExyokiOffice
 
+[![Smoke](https://github.com/JakubMelka/ExyokiOffice/actions/workflows/smoke.yml/badge.svg?branch=master)](https://github.com/JakubMelka/ExyokiOffice/actions/workflows/smoke.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](#build-and-install)
+
 ![ExyokiOffice logo](LOGO.png)
 
 **A native C++20 toolkit for creating and editing Word, Excel, and PowerPoint
@@ -218,9 +222,13 @@ command line, and all three servers:
 ```bash
 docker pull ghcr.io/jakubmelka/exyokioffice:1.0.0
 
-docker run --rm --network none -v "$PWD:/work" \
+docker run --rm --network none --user "$(id -u):$(id -g)" -v "$PWD:/work" \
   ghcr.io/jakubmelka/exyokioffice:1.0.0 exyoki convert report.docx report.md
 ```
+
+The image runs as an unprivileged uid of its own, so `--user` is what makes the
+converted file yours and writable in your own directory. The
+[container guide](docs/tools/docker.md) covers the rest.
 
 ## Build and install
 
@@ -270,11 +278,14 @@ find_package(ExyokiOffice 1.0 CONFIG REQUIRED)
 target_link_libraries(MyApplication PRIVATE ExyokiOffice::ExyokiOffice)
 ```
 
-The generated DOM sources are committed. Set
-`EXYOKIOFFICE_RUN_GENERATOR=OFF` for packaging and cross-compilation builds
-that must not execute a target-architecture generator or modify the source
-tree. Other build options are documented alongside their definitions in the
-root [CMakeLists.txt](CMakeLists.txt).
+The generated DOM sources are committed, so nothing has to run the generator to
+build the library. `EXYOKIOFFICE_RUN_GENERATOR` defaults on only for a developer
+build of this repository — top-level project, writable source tree — because the
+generator writes into the source tree; consuming ExyokiOffice through
+`add_subdirectory` or `FetchContent`, packaging it, or cross compiling all
+default to off and use the committed files as they are. Set it explicitly to
+override either way. Other build options are documented alongside their
+definitions in the root [CMakeLists.txt](CMakeLists.txt).
 
 ## Documentation and project status
 

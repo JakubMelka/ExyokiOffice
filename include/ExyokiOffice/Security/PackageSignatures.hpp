@@ -94,6 +94,29 @@ struct EXYOKIOFFICE_EXPORT SignatureResult
     SignatureCheck SignatureValue = SignatureCheck::NotChecked;
     /** @brief One entry per manifest and per SignedInfo reference. */
     std::vector<SignatureReferenceResult> References;
+    /**
+     * @brief Parts of the package this signature does not cover, sorted by URI.
+     *
+     * An Open XML package signature covers the parts its manifest names, and
+     * nothing tells the verifier that the manifest names all of them. A part
+     * added after signing is simply not mentioned: every digest still matches,
+     * the signature value still verifies, and IsValid() is still true - the
+     * signature says nothing at all about the new part, which is exactly the
+     * gap this list closes. The relationship transform makes it reachable in
+     * practice, because a signature that selects relationships by `SourceId`
+     * keeps its digest when a relationship with a new identifier is added
+     * beside them.
+     *
+     * The signature parts and the signature origin part are not listed; they
+     * cannot sign themselves. An empty list on a valid signature means the
+     * whole package is accounted for.
+     *
+     * This is not by itself a defect: Office signs a subset on purpose, most
+     * often to leave the signature parts and their origin out. Decide what an
+     * uncovered part means for your application - a new slide in a signed deck
+     * is a different matter from an unreferenced thumbnail.
+     */
+    std::vector<std::string> UncoveredParts;
     /** @brief Problems that did not by themselves make the signature invalid. */
     std::vector<std::string> Warnings;
 
@@ -123,6 +146,21 @@ struct EXYOKIOFFICE_EXPORT VerifySignaturesOptions
     PartByteSource ByteSource = PartByteSource::Original;
     /** @brief Stop after the first signature that turns out to be invalid. */
     bool StopOnFirstFailure = false;
+    /**
+     * @brief Accept SHA-1 digests and RSA-SHA1 signatures.
+     *
+     * SHA-1 is collision-broken in practice, and a signature over a SHA-1
+     * digest proves only that the signer saw *a* document with that digest.
+     * Office still writes SHA-1 signatures for old compatibility modes and
+     * plenty of archived packages carry them, so refusing outright would make
+     * them unreadable rather than safe; the choice is the application's.
+     *
+     * With the default, a SHA-1 signature is reported as Invalid with an
+     * explanation rather than being computed. Turn it on to verify such a
+     * signature anyway, and read the resulting Valid as "unmodified since
+     * signing, assuming nobody constructed a collision".
+     */
+    bool AllowSha1 = false;
 };
 
 /** @brief Result of verifying every signature in a package. */

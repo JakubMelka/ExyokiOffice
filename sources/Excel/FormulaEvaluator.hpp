@@ -109,14 +109,42 @@ public:
      * matching the VALUE worksheet function.
      */
     static std::optional<Real> ParseNumberText(std::string_view text, bool acceptRichForms = false);
-    /** @brief Formats a number exactly like @ref ExcelCellValue::Number. */
+    /**
+     * @brief Formats a number for storage, exactly like @ref ExcelCellValue::Number.
+     *
+     * This is the spelling that goes into `<v>`: the shortest text that reads
+     * back as the same double. It is deliberately not what a user sees - see
+     * @ref FormatNumberAsText for that.
+     */
     static std::string FormatNumber(Real value);
+    /**
+     * @brief Formats a number the way Excel's General format writes it as text.
+     *
+     * This is what `=A1&""`, `TEXT(x,"General")` and a General-formatted cell
+     * produce, and it is not the round-trip spelling. Excel carries 15
+     * significant decimal digits, so `=1/3&""` is `0.333333333333333` and not
+     * the seventeen digits a shortest-round-trip conversion needs; it writes an
+     * uppercase `E` with a signed two-digit exponent; and it spells everything
+     * between 1E-04 and 1E+21 positionally, so `=1E+20&""` is a one followed by
+     * twenty zeros while `=1E+21&""` stays `1E+21`.
+     */
+    static std::string FormatNumberAsText(Real value);
+    /**
+     * @brief Rounds @p value to the 15 significant decimal digits Excel keeps.
+     *
+     * Excel's numbers are IEEE doubles, but everything it shows and everything
+     * it compares goes through 15 significant digits first. That is why
+     * `=0.1+0.2=0.3` is TRUE there and FALSE in plain floating point: the two
+     * sides differ in the seventeenth digit, which Excel does not have.
+     */
+    static Real RoundToDisplayPrecision(Real value);
     /**
      * @brief Compares two scalar values with Excel ordering.
      *
      * Numbers sort before text and text before logical values; text
      * comparison is case-insensitive. Blank compares equal to 0, the empty
-     * string, and FALSE.
+     * string, and FALSE. Numbers are compared at Excel's 15 significant
+     * digits - see @ref RoundToDisplayPrecision.
      *
      * @return Negative, zero, or positive, or std::nullopt when either value
      * is an error.

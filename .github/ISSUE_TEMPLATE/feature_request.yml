@@ -1,0 +1,30 @@
+name: Feature request
+description: An Office construct or an API that ExyokiOffice should support
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The most useful feature requests name the *document* problem rather than
+        the API: which construct, in which application, and what a user of your
+        program is trying to do with it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The task, and where the library stops you.
+    validations:
+      required: true
+  - type: textarea
+    id: construct
+    attributes:
+      label: Which Office construct
+      description: >
+        The element or feature as Word, Excel, or PowerPoint names it, and the
+        OOXML element if you know it. Say whether reading, writing, or both.
+      placeholder: "Word: text boxes anchored in headers (w:txbxContent inside a header part). Reading is enough."
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: Including a low-level DOM workaround, if you found one.

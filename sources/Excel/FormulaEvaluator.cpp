@@ -147,6 +147,193 @@ std::string FormulaCoercion::FormatNumber(Real value)
     return ec == std::errc() ? std::string(buffer, ptr) : std::string();
 }
 
+namespace
+{
+
+/// Excel's General number-to-text conversion, spelled out.
+class ExcelGeneralFormat final
+{
+public:
+    ExcelGeneralFormat() = delete;
+
+    /// Significant decimal digits Excel keeps of a number.
+    static constexpr int SignificantDigits = 15;
+
+    /// The digits and decimal exponent of @p value at Excel's precision.
+    ///
+    /// `digits` holds the significant digits with no point and no trailing
+    /// zeros; `exponent` is the power of ten the first of them stands for, so
+    /// the value is `0.digits * 10^(exponent + 1)`. Zero comes back as an empty
+    /// digit string.
+    struct Decimal
+    {
+        bool Negative = false;
+        std::string Digits;
+        int Exponent = 0;
+    };
+
+    static Decimal Decompose(Real value)
+    {
+        Decimal decimal;
+        decimal.Negative = std::signbit(value);
+
+        // scientific with SignificantDigits-1 fraction digits is exactly the
+        // rounding Excel applies, and it hands back the exponent already
+        // separated instead of being recovered with log10 - which is off by one
+        // for the values that sit on a power of ten.
+        char buffer[64]{};
+        const auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), std::abs(value),
+                                             std::chars_format::scientific, SignificantDigits - 1);
+        if (ec != std::errc())
+        {
+            return decimal;
+        }
+
+        const std::string_view text(buffer, static_cast<Size>(ptr - buffer));
+        const auto exponentMark = text.find('e');
+        if (exponentMark == std::string_view::npos)
+        {
+            return decimal;
+        }
+
+        for (const char character : text.substr(0, exponentMark))
+        {
+            if (character != '.')
+            {
+                decimal.Digits.push_back(character);
+            }
+        }
+        while (!decimal.Digits.empty() && decimal.Digits.back() == '0')
+        {
+            decimal.Digits.pop_back();
+        }
+        if (decimal.Digits.empty() || decimal.Digits == "0")
+        {
+            return Decimal{};
+        }
+
+        const auto exponentText = text.substr(exponentMark + 1);
+        const auto* const end = exponentText.data() + exponentText.size();
+        // from_chars rejects the leading '+' std::to_chars writes.
+        const auto* const first = exponentText.front() == '+' ? exponentText.data() + 1 : exponentText.data();
+        if (std::from_chars(first, end, decimal.Exponent).ec != std::errc())
+        {
+            return Decimal{};
+        }
+        return decimal;
+    }
+
+    /// True when Excel spells the value in scientific notation rather than out.
+    ///
+    /// The positional range is [1E-04, 1E+21); a General cell writes 1E+20 as
+    /// twenty-one digits and 1E+21 as `1E+21`, and drops to scientific again
+    /// below a ten-thousandth.
+    static bool UsesScientific(const Decimal& decimal)
+    {
+        return decimal.Exponent >= 21 || decimal.Exponent <= -5;
+    }
+
+    static std::string Scientific(const Decimal& decimal)
+    {
+        std::string text;
+        if (decimal.Negative)
+        {
+            text.push_back('-');
+        }
+        text.push_back(decimal.Digits.front());
+        if (decimal.Digits.size() > 1)
+        {
+            text.push_back('.');
+            text.append(decimal.Digits, 1, std::string::npos);
+        }
+        text.push_back('E');
+        text.push_back(decimal.Exponent < 0 ? '-' : '+');
+
+        const auto magnitude = std::to_string(decimal.Exponent < 0 ? -decimal.Exponent : decimal.Exponent);
+        if (magnitude.size() < 2)
+        {
+            text.push_back('0');
+        }
+        text.append(magnitude);
+        return text;
+    }
+
+    static std::string Positional(const Decimal& decimal)
+    {
+        std::string text;
+        if (decimal.Negative)
+        {
+            text.push_back('-');
+        }
+
+        const auto digitCount = static_cast<int>(decimal.Digits.size());
+        if (decimal.Exponent < 0)
+        {
+            text.append("0.");
+            text.append(static_cast<Size>(-decimal.Exponent - 1), '0');
+            text.append(decimal.Digits);
+            return text;
+        }
+
+        const int integerDigits = decimal.Exponent + 1;
+        if (digitCount <= integerDigits)
+        {
+            text.append(decimal.Digits);
+            text.append(static_cast<Size>(integerDigits - digitCount), '0');
+            return text;
+        }
+
+        text.append(decimal.Digits, 0, static_cast<Size>(integerDigits));
+        text.push_back('.');
+        text.append(decimal.Digits, static_cast<Size>(integerDigits), std::string::npos);
+        return text;
+    }
+};
+
+} // namespace
+
+Real FormulaCoercion::RoundToDisplayPrecision(Real value)
+{
+    if (!std::isfinite(value) || value == 0.0)
+    {
+        return value;
+    }
+
+    char buffer[64]{};
+    const auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::scientific,
+                                         ExcelGeneralFormat::SignificantDigits - 1);
+    if (ec != std::errc())
+    {
+        return value;
+    }
+
+    Real rounded = value;
+    if (std::from_chars(buffer, ptr, rounded).ec != std::errc())
+    {
+        return value;
+    }
+    return rounded;
+}
+
+std::string FormulaCoercion::FormatNumberAsText(Real value)
+{
+    if (!std::isfinite(value))
+    {
+        // Nothing in a workbook produces one of these - a formula that leaves
+        // the representable range is #NUM! - but a caller can hand one in, and
+        // "inf" is not something Excel would ever have written.
+        return {};
+    }
+
+    const auto decimal = ExcelGeneralFormat::Decompose(value);
+    if (decimal.Digits.empty())
+    {
+        return "0";
+    }
+    return ExcelGeneralFormat::UsesScientific(decimal) ? ExcelGeneralFormat::Scientific(decimal)
+                                                       : ExcelGeneralFormat::Positional(decimal);
+}
+
 FormulaValue FormulaCoercion::ToNumber(const FormulaValue& value)
 {
     switch (value.Kind())
@@ -181,7 +368,7 @@ FormulaValue FormulaCoercion::ToText(const FormulaValue& value)
         case FormulaValueKind::Blank:
             return FormulaValue::Text({});
         case FormulaValueKind::Number:
-            return FormulaValue::Text(FormatNumber(*value.NumberValue()));
+            return FormulaValue::Text(FormatNumberAsText(*value.NumberValue()));
         case FormulaValueKind::Boolean:
             return FormulaValue::Text(*value.BooleanValue() ? "TRUE" : "FALSE");
         case FormulaValueKind::Text:
@@ -295,8 +482,11 @@ std::optional<int> FormulaCoercion::Compare(const FormulaValue& left, const Form
     {
         case FormulaValueKind::Number:
         {
-            const Real l = *effectiveLeft.NumberValue();
-            const Real r = *effectiveRight.NumberValue();
+            // At Excel's precision, so that `=0.1+0.2=0.3` answers TRUE the way
+            // it does in a spreadsheet. The two sides differ in the
+            // seventeenth significant digit, and Excel keeps fifteen.
+            const Real l = RoundToDisplayPrecision(*effectiveLeft.NumberValue());
+            const Real r = RoundToDisplayPrecision(*effectiveRight.NumberValue());
             if (l < r)
             {
                 return -1;
@@ -348,7 +538,15 @@ std::optional<Real> ExcelDateSerial::FromParts(Int32 year,
     Real serial;
     const Int64 relative = days - FormulaEvaluatorHelpers::EpochDays1899_12_31;
     const Int64 firstOfMarch1900 = FormulaEvaluatorHelpers::DaysFromCivil(1900, 3, 1);
-    if (days >= firstOfMarch1900)
+    if (normalizedYear == 1900 && normalizedMonth + 1 == 2 && day == 29)
+    {
+        // The 1900 date system has a 29 February 1900, and the Gregorian
+        // calendar does not. Serial 60 is that day; without this the request
+        // rolls over into 1 March and lands on 61, one ahead of every other
+        // spreadsheet for a date users do type in when reproducing the quirk.
+        serial = 60.0;
+    }
+    else if (days >= firstOfMarch1900)
     {
         serial = static_cast<Real>(relative + 1);
     }
@@ -385,21 +583,30 @@ std::optional<ExcelDateSerial::DateParts> ExcelDateSerial::ToParts(Real serial)
 
     DateParts parts;
     const auto days = static_cast<Int64>(dayPart);
-    Int64 civilDays;
-    if (days >= 61)
+    if (days == 60)
     {
-        civilDays = FormulaEvaluatorHelpers::EpochDays1899_12_30 + days;
+        // The fictitious 29 February 1900. No civil date corresponds to it, so
+        // the parts are stated rather than computed; DAY(60) is 29 in every
+        // spreadsheet, and deriving it from 28 February would answer 28.
+        parts.year = 1900;
+        parts.month = 2;
+        parts.day = 29;
     }
-    else if (days == 60)
+    else if (days == 0)
     {
-        // The fictitious 1900-02-29 of the 1900 date system.
-        civilDays = FormulaEvaluatorHelpers::DaysFromCivil(1900, 2, 28);
+        // Serial 0 is "the day before 1 January 1900", which the 1900 system
+        // spells 0 January 1900 rather than 31 December 1899. YEAR/MONTH/DAY
+        // answer 1900, 1, 0 there.
+        parts.year = 1900;
+        parts.month = 1;
+        parts.day = 0;
     }
     else
     {
-        civilDays = FormulaEvaluatorHelpers::EpochDays1899_12_31 + days;
+        const Int64 civilDays = days > 60 ? FormulaEvaluatorHelpers::EpochDays1899_12_30 + days
+                                          : FormulaEvaluatorHelpers::EpochDays1899_12_31 + days;
+        FormulaEvaluatorHelpers::CivilFromDays(civilDays, parts.year, parts.month, parts.day);
     }
-    FormulaEvaluatorHelpers::CivilFromDays(civilDays, parts.year, parts.month, parts.day);
 
     parts.hour = static_cast<UInt32>(secondsOfDay / 3600.0);
     secondsOfDay -= parts.hour * 3600.0;

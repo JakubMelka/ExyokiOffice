@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <cstddef>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -411,7 +412,7 @@ std::string FormatFixed(Real value, int decimals)
         }
         // A double needs at most ~310 integer digits; the decimal count comes
         // from the format string, so the ceiling is generous rather than tight.
-        if (result.ec != std::errc::value_too_large || buffer.size() >= 64u * 1024u)
+        if (result.ec != std::errc::value_too_large || buffer.size() >= std::size_t{64} * 1024)
         {
             return "0";
         }
@@ -798,7 +799,7 @@ std::optional<std::string> NumberFormatText::FormatNumber(Real value, std::strin
     }
     if (section.isGeneral)
     {
-        return FormulaCoercion::FormatNumber(value);
+        return FormulaCoercion::FormatNumberAsText(value);
     }
     if (section.hasTextPlaceholder)
     {

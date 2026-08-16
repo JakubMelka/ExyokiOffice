@@ -24,10 +24,21 @@ editor->AddImageFromData(bytes, "image/png",
 
 Both calls exist in two flavors. The convenient overloads call
 `DetectImageFormat` on the bytes to determine the content type and the
-intrinsic size (from pixel dimensions and DPI); they recognize PNG, JPEG,
-GIF, and BMP. For EMF, WMF, TIFF, or any other format the detector does not
-sniff, use the explicit overloads that take a content type and size — the
-payload is embedded as-is either way.
+intrinsic size (from pixel dimensions and DPI); they recognize PNG, JPEG, GIF,
+BMP, TIFF, EMF, and placeable WMF. For anything else — a bare WMF, which states
+no bounding box, or SVG, which Word only renders with a raster fallback beside
+it — use the explicit overloads that take a content type and size. The payload
+is embedded as-is either way.
+
+A JPEG's resolution is read from Exif as well as from JFIF, which is what
+matters for photographs: cameras and phones write it into Exif and leave the
+JFIF segment claiming "no units". A file that states no resolution at all is
+taken as 96 DPI.
+
+An image added without an explicit size is scaled down to the section's text
+width if it would not otherwise fit — a four thousand pixel photograph at 96 DPI
+is forty-one inches across, and Word would place it mostly off the page. Pass a
+size explicitly to get the native one.
 
 The returned `Image` wrapper edits the picture in place; `AddImageFromFile`
 and `AddImageFromData` bind it to the main document part automatically, which
@@ -95,8 +106,10 @@ the main document part, and `RemoveHyperlink` deletes it.
 
 ## Limitations
 
-- `DetectImageFormat` does not sniff EMF/WMF/TIFF payloads; supply an
-  explicit content type and size for those.
+- `DetectImageFormat` does not sniff SVG or a WMF without a placeable header;
+  supply an explicit content type and size for those. An SVG that Word will
+  render also needs a raster fallback picture beside it, which this API does not
+  build for you.
 - `AddImageFromFile`/`AddImageFromData` append the image at the end of the
   body; there is no cursor-relative image insertion yet. A floating layout
   with a page- or margin-relative position covers most placement needs;

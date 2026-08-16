@@ -467,8 +467,11 @@ TEST_SUITE("WordNotesCommentsContentControlTests")
         CHECK(reopenedParagraphs.front()->PlainText() == "Commented text.");
     }
 
-    TEST_CASE("Paragraph::AddComment fails gracefully without a main document part or empty runs [unit] [word] [word-notes-comments-content-control]")
+    TEST_CASE("A paragraph in a table cell can be commented on [unit] [word] [word-notes-comments-content-control]")
     {
+        // Table::Paragraphs() used to drop the part on the way out, so a
+        // comment on a table cell was refused for a reason that had nothing to
+        // do with the document.
         auto editor = WordDocumentEditor::CreateNew();
         REQUIRE(editor != nullptr);
 
@@ -478,14 +481,25 @@ TEST_SUITE("WordNotesCommentsContentControlTests")
         REQUIRE(cellParagraphs.size() == 1);
         AddPlainRun(cellParagraphs.front(), "Cell text");
 
-        // Table-cell paragraphs are not attached to a main document part by this API.
-        auto comment = cellParagraphs.front()->AddCommentOnParagraph("Should fail.");
-        CHECK(comment == nullptr);
+        auto comment = cellParagraphs.front()->AddCommentOnParagraph("Looks right.");
+        REQUIRE(comment != nullptr);
+        CHECK(comment->PlainText() == "Looks right.");
+    }
 
-        auto paragraph = editor->AddParagraph();
-        REQUIRE(paragraph != nullptr);
+    TEST_CASE("Paragraph::AddComment fails gracefully without a part or with empty runs [unit] [word] [word-notes-comments-content-control]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+
+        auto attached = editor->AddParagraph("Body text.");
+        REQUIRE(attached != nullptr);
+
+        // Wrapped by hand, so there is no document to add a comments part to.
+        Paragraph detached(attached->GetLowLevelApi());
+        CHECK(detached.AddCommentOnParagraph("Should fail.") == nullptr);
+
         std::vector<std::shared_ptr<Run>> empty;
-        CHECK(paragraph->AddComment(empty, "Should also fail.") == nullptr);
+        CHECK(attached->AddComment(empty, "Should also fail.") == nullptr);
     }
 
     // ---------------------------------------------------------------------------

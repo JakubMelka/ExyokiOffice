@@ -138,4 +138,27 @@ std::vector<ExyokiOffice::Byte> BuildBmp(ExyokiOffice::Int32 width,
                                          ExyokiOffice::Int32 pixelsPerMeterX = 0,
                                          ExyokiOffice::Int32 pixelsPerMeterY = 0);
 
+/**
+ * Complete minimal JPEG payload whose resolution is stated by an Exif APP1
+ * segment rather than by JFIF - which is how every camera and phone writes it.
+ * The JFIF segment is present and says "no units", exactly as those files do.
+ */
+std::vector<ExyokiOffice::Byte> BuildJpegWithExifDpi(ExyokiOffice::UInt16 width,
+                                                     ExyokiOffice::UInt16 height,
+                                                     ExyokiOffice::UInt32 dpi);
+
+/** Minimal little-endian TIFF: header, one IFD with dimensions and resolution. */
+std::vector<ExyokiOffice::Byte> BuildTiff(ExyokiOffice::UInt32 width,
+                                          ExyokiOffice::UInt32 height,
+                                          ExyokiOffice::UInt32 dpi = 0);
+
+/** Minimal EMR_HEADER; the frame is given in hundredths of a millimetre. */
+std::vector<ExyokiOffice::Byte> BuildEmf(ExyokiOffice::Int32 frameWidth001mm,
+                                         ExyokiOffice::Int32 frameHeight001mm);
+
+/** Placeable (Aldus) WMF header; the bounding box is in @p unitsPerInch units. */
+std::vector<ExyokiOffice::Byte> BuildPlaceableWmf(ExyokiOffice::Int32 width,
+                                                  ExyokiOffice::Int32 height,
+                                                  ExyokiOffice::UInt16 unitsPerInch);
+
 } // namespace ExyokiOfficeTests

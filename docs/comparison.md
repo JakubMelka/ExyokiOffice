@@ -122,8 +122,11 @@ The three reasons to reach for ExyokiOffice instead:
   SmartArt, or vendor extensions — the question stops being "can I write
   this" and becomes "what did I lose". ExyokiOffice answers that question in
   a table, per feature area.
-- **Throughput.** A native library processing thousands of packages in a
-  batch is a different order of performance from an interpreted one.
+- **No interpreter in the loop.** A batch of thousands of packages runs as
+  native code with no per-document interpreter overhead and no GIL to work
+  around when the batch is parallelized. No benchmark is published here
+  because none has been run that would be fair to compare: measure your own
+  documents before treating throughput as the deciding factor.
 - **One model for all three formats.** Packages, parts, relationships,
   content types, and validation work identically whether the file is a
   `.docx`, an `.xlsx`, or a `.pptx`.
