@@ -9,6 +9,9 @@
 #include "ExyokiOffice/Tools/Report.hpp"
 
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 using exyoki::ExitCode;
 using ExyokiOffice::Tools::RenderJson;
@@ -469,6 +472,47 @@ TEST_CASE("search honours --regex and --ignore-case [cli] [cli-inspect]")
     regex.Commands().Search.Needle = "Al[a-z]+a";
     regex.Commands().Search.Regex = true;
     CHECK(regex.Commands().Search.Run(regex.Context()).Code == ExitCode::Ok);
+}
+
+TEST_CASE("search accepts ECMAScript patterns and reports syntax errors [cli] [cli-inspect]")
+{
+    const auto document = Fixture::WordDocument("Alpha aa 123 ]");
+    const std::vector<std::pair<std::string, ExitCode>> validPatterns = {
+        {"^Alpha", ExitCode::Ok},
+        {R"(\d+)", ExitCode::Ok},
+        {R"([a\]])", ExitCode::Ok},
+        {"(aa)+", ExitCode::Ok},
+        {"a{2,4}", ExitCode::Ok},
+        {"Alpha|Beta", ExitCode::Ok},
+        {"(a+)+$", ExitCode::Ok},
+        {"(a|aa)+$", ExitCode::Ok},
+        {"a*a*a*b", ExitCode::Ok},
+        {R"((a)\1)", ExitCode::Ok},
+        {"(?=Alpha)Alpha", ExitCode::Ok},
+        {std::string(4097, 'z'), ExitCode::SearchNoMatch},
+    };
+
+    for (const auto& [pattern, expectedCode] : validPatterns)
+    {
+        CAPTURE(pattern.size());
+        ParserFixture fixture;
+        fixture.Commands().Search.Package = document.string();
+        fixture.Commands().Search.Needle = pattern;
+        fixture.Commands().Search.Regex = true;
+        CHECK(fixture.Commands().Search.Run(fixture.Context()).Code == expectedCode);
+    }
+
+    for (const std::string_view pattern : {"(", "\\", "[a", "a{"})
+    {
+        CAPTURE(pattern);
+        ParserFixture fixture;
+        fixture.Commands().Search.Package = document.string();
+        fixture.Commands().Search.Needle = pattern;
+        fixture.Commands().Search.Regex = true;
+        const auto outcome = fixture.Commands().Search.Run(fixture.Context());
+        CHECK(outcome.Code == ExitCode::OperationFailed);
+        CHECK(RenderJson(outcome.Document).find("Invalid regular expression") != std::string::npos);
+    }
 }
 
 TEST_CASE("query separates no match from failure [cli] [cli-inspect]")

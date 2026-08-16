@@ -125,6 +125,15 @@ Memory unsafety, or a limit that fails to stop the input it names, is a
 vulnerability. Memory or CPU exhaustion under
 `OpenXmlPackageLimits::Unlimited()` is a configuration choice, not one.
 
+DTD declarations are inert independently of those limits. The XML parser does
+not load external DTDs, resolve general or parameter entities, process
+XInclude, fetch schemas, or apply stylesheets. A document may contain markup
+that names any of them, but parsing never dereferences the target and entity
+declarations never become replacement text. This prevents XXE file disclosure
+and SSRF as well as exponential (Billion Laughs) and quadratic entity-expansion
+attacks; the ZIP and structural XML limits above cover the resource-exhaustion
+attacks that do not depend on entities.
+
 ### External resources — off by default, twice
 
 A document can point outside itself: a linked image, an attached template, an
