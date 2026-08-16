@@ -23,6 +23,39 @@ message(STATUS "Build type - CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 project(ExyokiOffice VERSION ${ExyokiOfficeVersion} LANGUAGES CXX)
 
+# Fail here, with the version that is needed, rather than several hundred
+# translation units later with a page of errors from <format> or <charconv>.
+# The numbers are the oldest toolchains the library is actually built and
+# tested with; README.md states the same set.
+set(ExyokiOfficeMinimumCompiler "")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(ExyokiOfficeMinimumCompiler "13")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(ExyokiOfficeMinimumCompiler "17")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    # 19.30 is Visual Studio 2022 17.0.
+    set(ExyokiOfficeMinimumCompiler "19.30")
+endif()
+
+if(ExyokiOfficeMinimumCompiler AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS ExyokiOfficeMinimumCompiler)
+    message(FATAL_ERROR
+        "ExyokiOffice needs ${CMAKE_CXX_COMPILER_ID} ${ExyokiOfficeMinimumCompiler} or newer for its C++20 "
+        "library features (<format>, floating-point <charconv>); this is "
+        "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}. See the platform table in README.md.")
+endif()
+
+if(APPLE)
+    # No macOS build is exercised by CI or by the presets. The known obstacle is
+    # libc++: floating-point std::from_chars arrived in LLVM 20, so an older
+    # Apple toolchain fails to compile sources/OpenXmlSimpleTypes.cpp. Reported
+    # as a warning rather than an error because a recent enough libc++, or
+    # libstdc++ from Homebrew GCC, does compile it.
+    message(WARNING
+        "macOS is not a tested platform for ExyokiOffice. Building needs a libc++ with "
+        "floating-point std::from_chars (LLVM 20 or newer) or Homebrew GCC 13+. "
+        "Please report what you find.")
+endif()
+
 # Only patch releases promise an unchanged ABI (docs/ABI.md), so the ABI
 # identity is exactly MAJOR.MINOR. It is derived rather than maintained by hand:
 # a separate number could only ever drift from the policy it encodes.

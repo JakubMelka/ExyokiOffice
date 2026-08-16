@@ -51,8 +51,6 @@ struct ParsedSignature
     std::string SignatureAlgorithmUri;
     /// References that cover the Object elements of this signature.
     std::vector<SignatureReferenceInfo> SignedInfoReferences;
-    /// References that cover package parts, taken from the Manifest.
-    std::vector<SignatureReferenceInfo> ManifestReferences;
     std::vector<Byte> SignatureValue;
     std::vector<std::vector<Byte>> Certificates;
     std::string SigningTimeText;
@@ -95,6 +93,20 @@ public:
     static Pugi::xml_node FindDescendant(const Pugi::xml_node& parent,
                                          std::string_view namespaceUri,
                                          std::string_view localName);
+
+    /// \brief Reads the Reference elements of every Manifest inside \p element.
+    ///
+    /// The manifest of a package signature is what names the parts, so this is
+    /// the list a verifier has to enforce. It is deliberately asked for one
+    /// element at a time rather than collected from the whole signature: the
+    /// caller passes an element whose digest has already been verified, so the
+    /// manifest that comes back is one the signature actually vouches for.
+    /// Collecting manifests from anywhere under the Signature would let a
+    /// package carry a signed Object that no longer holds the manifest - and a
+    /// signature covering no part at all would then verify.
+    ///
+    /// \p element itself is included when it is a Manifest.
+    static std::vector<SignatureReferenceInfo> ReadManifestReferences(const Pugi::xml_node& element);
 
     /// Concatenates the text children of \p node.
     static std::string TextOf(const Pugi::xml_node& node);

@@ -8,13 +8,18 @@
 #include "ExyokiOffice/Security/PackageSignatures.hpp"
 #include "ExyokiOffice/Word/WordDocument.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "Security/SignatureNames.hpp"
+#include "Security/SignatureXml.hpp"
 #include "Security/XmlCanonicalization.hpp"
+
+#include "pugixml/pugixml.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -133,6 +138,110 @@ bool HasIssue(const ExyokiOffice::ValidationResult& result, ValidationErrorId id
     const auto& issues = result.Issues();
     return std::any_of(issues.begin(), issues.end(), [id](const auto& issue)
                        { return issue.Id == id; });
+}
+
+bool HasIssueContaining(const ExyokiOffice::ValidationResult& result, std::string_view fragment)
+{
+    const auto& issues = result.Issues();
+    return std::any_of(issues.begin(), issues.end(), [fragment](const auto& issue)
+                       { return issue.Message.find(fragment) != std::string::npos; });
+}
+
+using ExyokiOffice::Security::SignatureNames;
+using ExyokiOffice::Security::SignatureXml;
+using ExyokiOffice::Security::XmlCanonicalization;
+namespace Pugi = ExyokiOffice::Pugi;
+
+std::vector<ExyokiOffice::Byte> AsBytes(std::string_view text)
+{
+    return std::vector<ExyokiOffice::Byte>(text.begin(), text.end());
+}
+
+/// Finds the element carrying \p id anywhere under \p root.
+Pugi::xml_node FindElementById(const Pugi::xml_node& root, std::string_view id)
+{
+    // Context-relative, and in document order: with a repeated Id the first one
+    // wins here, which is what the signature writer would have digested.
+    for (const auto& node : root.select_nodes(".//*[@Id]"))
+    {
+        if (node.node().attribute("Id").as_string() == id)
+        {
+            return node.node();
+        }
+    }
+    return {};
+}
+
+/// Rewrites the signature XML and then makes it self-consistent again.
+///
+/// Every same-document reference digest is recomputed over the element it names
+/// and the signature value is recomputed over SignedInfo, so what the verifier
+/// reads is a forgery of the quality an attacker would actually produce rather
+/// than something that fails for the incidental reason that a digest no longer
+/// matches. A test that skipped this step could not tell "the verifier rejected
+/// the forged structure" apart from "the verifier noticed a stale digest".
+///
+/// This works only because StubCryptoProvider "signs" by digesting: no private
+/// key is involved anywhere in this file.
+std::string ForgeSignatureXml(std::string xml, const std::function<void(Pugi::xml_node&)>& mutate)
+{
+    Pugi::xml_document document;
+    REQUIRE(document.load_buffer(xml.data(), xml.size(), XmlCanonicalization::ParseOptions));
+
+    auto signature = SignatureXml::FindChild(document, SignatureNames::DsigNamespace, "Signature");
+    REQUIRE(signature);
+    mutate(signature);
+
+    auto signedInfo = SignatureXml::FindChild(signature, SignatureNames::DsigNamespace, "SignedInfo");
+    REQUIRE(signedInfo);
+
+    for (auto reference : SignatureXml::FindChildren(signedInfo, SignatureNames::DsigNamespace, "Reference"))
+    {
+        const std::string uri = reference.attribute("URI").as_string();
+        if (uri.empty() || uri.front() != '#')
+        {
+            continue;
+        }
+
+        const auto target = FindElementById(signature, std::string_view(uri).substr(1));
+        REQUIRE(target);
+        const auto canonical = XmlCanonicalization::CanonicalizeSubtree(target);
+        REQUIRE(canonical.has_value());
+
+        const auto digest = ExyokiOffice::Security::ComputeDigest(DigestAlgorithm::Sha256, AsBytes(*canonical));
+        auto digestValue = SignatureXml::FindChild(reference, SignatureNames::DsigNamespace, "DigestValue");
+        REQUIRE(digestValue);
+        digestValue.text().set(SignatureXml::EncodeBase64(digest).c_str());
+    }
+
+    const auto canonicalSignedInfo = XmlCanonicalization::CanonicalizeSubtree(signedInfo);
+    REQUIRE(canonicalSignedInfo.has_value());
+    const auto signatureValue =
+        ExyokiOffice::Security::ComputeDigest(DigestAlgorithm::Sha256, AsBytes(*canonicalSignedInfo));
+    auto signatureValueNode = SignatureXml::FindChild(signature, SignatureNames::DsigNamespace, "SignatureValue");
+    REQUIRE(signatureValueNode);
+    signatureValueNode.text().set(SignatureXml::EncodeBase64(signatureValue).c_str());
+
+    // format_raw so that what is stored parses back into the very tree the
+    // digests were taken over; any added indentation would be part of the
+    // canonical form and would break them.
+    std::ostringstream out;
+    document.save(out, "", Pugi::format_raw);
+    return out.str();
+}
+
+/// Replaces the text of the first paragraph, so a part the signature covers
+/// differs from what was signed.
+void TamperWithDocumentText(OpenXmlPackage& package)
+{
+    auto document = package.GetPartByUri("/word/document.xml");
+    REQUIRE(document);
+    auto xml = document->GetXmlString();
+    const std::string original = "Signed content";
+    const auto position = xml.find(original);
+    REQUIRE(position != std::string::npos);
+    xml.replace(position, original.size(), "Forged content");
+    document->SetXmlString(xml);
 }
 } // namespace
 
@@ -389,6 +498,166 @@ TEST_SUITE("Package signatures")
         REQUIRE(verification.Signatures.size() == 1U);
         CHECK(verification.Signatures.front().ContentIntegrity == SignatureCheck::NotChecked);
         CHECK(HasIssue(verification.Diagnostics, ValidationErrorId::SignatureUnsupportedAlgorithm));
+    }
+
+    TEST_CASE("Wrapping the signed object does not move the manifest out of reach [unit] [security] [signature]")
+    {
+        // Regression guard for a signature-wrapping bypass. Nesting the signed
+        // Object inside a second Object leaves both the same-document digest and
+        // the signature value intact - the inner element canonicalizes to the
+        // same bytes it always did - while moving the Manifest out of the place
+        // a verifier looks if it collects manifests from the Signature's own
+        // Object children. Such a verifier then enforces no part digest at all,
+        // and reports an edited package as intact content.
+        auto provider = std::make_shared<StubCryptoProvider>();
+        const auto bytes = CreateSignedPackage(provider);
+
+        const auto wrapped = RepackageWithSignatureXml(
+            bytes,
+            [](std::string xml)
+            {
+                return ForgeSignatureXml(
+                    std::move(xml),
+                    [](Pugi::xml_node& signature)
+                    {
+                        auto packageObject = FindElementById(signature, "idPackageObject");
+                        REQUIRE(packageObject);
+
+                        auto wrapper = signature.insert_child_before(Pugi::node_element, packageObject);
+                        // Same qualified name, so the wrapper is a dsig:Object too.
+                        wrapper.set_name(packageObject.name());
+                        wrapper.append_attribute("Id").set_value("wrapperObject");
+                        wrapper.append_move(packageObject);
+                    });
+            });
+
+        ExyokiOffice::Security::VerifySignaturesOptions options;
+        options.ByteSource = ExyokiOffice::Security::PartByteSource::Current;
+
+        // The manifest still has to be found and enforced: the wrapped signature
+        // is self-consistent, so anything else would be rejecting it for the
+        // wrong reason and would say nothing about part coverage.
+        {
+            auto package = LoadPackage(wrapped);
+            const auto verification = VerifySignatures(*package, provider, options);
+            REQUIRE(verification.Signatures.size() == 1U);
+
+            const auto& signature = verification.Signatures.front();
+            CHECK(signature.ContentIntegrity == SignatureCheck::Valid);
+            CHECK(signature.IsValid());
+
+            const auto& references = signature.References;
+            CHECK(std::any_of(references.begin(), references.end(), [](const auto& reference)
+                              { return reference.PartUri == "/word/document.xml"; }));
+        }
+
+        // ... and with the document edited, the same manifest is what catches it.
+        {
+            auto package = LoadPackage(wrapped);
+            TamperWithDocumentText(*package);
+
+            const auto verification = VerifySignatures(*package, provider, options);
+            REQUIRE(verification.Signatures.size() == 1U);
+
+            const auto& signature = verification.Signatures.front();
+            CHECK(signature.ContentIntegrity == SignatureCheck::Invalid);
+            CHECK_FALSE(signature.IsValid());
+            CHECK_FALSE(verification.AllValid());
+            CHECK(HasIssue(verification.Diagnostics, ValidationErrorId::SignatureDigestMismatch));
+        }
+    }
+
+    TEST_CASE("A signature covering no package part is not content evidence [unit] [security] [signature]")
+    {
+        // The Object holding the Manifest is removed along with the SignedInfo
+        // reference that named it, and the signature is then made consistent
+        // again: every digest matches, the signature value verifies, and the
+        // whole thing says nothing whatsoever about the package. "Nothing to
+        // check" must not come out the same as "checked and intact".
+        auto provider = std::make_shared<StubCryptoProvider>();
+        const auto bytes = CreateSignedPackage(provider);
+
+        const auto forged = RepackageWithSignatureXml(
+            bytes,
+            [](std::string xml)
+            {
+                return ForgeSignatureXml(
+                    std::move(xml),
+                    [](Pugi::xml_node& signature)
+                    {
+                        auto signedInfo =
+                            SignatureXml::FindChild(signature, SignatureNames::DsigNamespace, "SignedInfo");
+                        REQUIRE(signedInfo);
+
+                        for (auto reference : SignatureXml::FindChildren(
+                                 signedInfo, SignatureNames::DsigNamespace, "Reference"))
+                        {
+                            if (std::string_view(reference.attribute("URI").as_string()) == "#idPackageObject")
+                            {
+                                signedInfo.remove_child(reference);
+                                break;
+                            }
+                        }
+
+                        auto packageObject = FindElementById(signature, "idPackageObject");
+                        REQUIRE(packageObject);
+                        signature.remove_child(packageObject);
+                    });
+            });
+
+        auto package = LoadPackage(forged);
+        TamperWithDocumentText(*package);
+
+        ExyokiOffice::Security::VerifySignaturesOptions options;
+        options.ByteSource = ExyokiOffice::Security::PartByteSource::Current;
+        const auto verification = VerifySignatures(*package, provider, options);
+        REQUIRE(verification.Signatures.size() == 1U);
+
+        const auto& signature = verification.Signatures.front();
+        // The forgery is internally sound - which is exactly why the verdict
+        // has to come from coverage rather than from a broken digest.
+        CHECK(signature.SignatureValue == SignatureCheck::Valid);
+        CHECK(signature.ContentIntegrity == SignatureCheck::Invalid);
+        CHECK_FALSE(signature.IsValid());
+        CHECK_FALSE(verification.AllValid());
+        CHECK(HasIssueContaining(verification.Diagnostics, "covers no package part"));
+    }
+
+    TEST_CASE("A repeated element id fails the signature [unit] [security] [signature]")
+    {
+        // With two elements carrying the same Id, which one `#idPackageObject`
+        // resolves to is up to the verifier: this one could check the real
+        // manifest while Word checks the decoy, or the other way round. Nothing
+        // in the document decides it, so the signature is refused instead.
+        auto provider = std::make_shared<StubCryptoProvider>();
+        const auto bytes = CreateSignedPackage(provider);
+
+        const auto forged = RepackageWithSignatureXml(
+            bytes,
+            [](std::string xml)
+            {
+                return ForgeSignatureXml(
+                    std::move(xml),
+                    [](Pugi::xml_node& signature)
+                    {
+                        auto packageObject = FindElementById(signature, "idPackageObject");
+                        REQUIRE(packageObject);
+
+                        auto decoy = signature.append_child(Pugi::node_element);
+                        decoy.set_name(packageObject.name());
+                        decoy.append_attribute("Id").set_value("idPackageObject");
+                    });
+            });
+
+        auto package = LoadPackage(forged);
+        const auto verification = VerifySignatures(*package, provider);
+        REQUIRE(verification.Signatures.size() == 1U);
+
+        const auto& signature = verification.Signatures.front();
+        CHECK(signature.ContentIntegrity == SignatureCheck::Invalid);
+        CHECK_FALSE(signature.IsValid());
+        CHECK(HasIssue(verification.Diagnostics, ValidationErrorId::SignatureMalformed));
+        CHECK(HasIssueContaining(verification.Diagnostics, "same Id"));
     }
 
     TEST_CASE("A tampered signature value does not verify [unit] [security] [signature]")

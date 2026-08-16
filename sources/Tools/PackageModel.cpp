@@ -228,6 +228,8 @@ std::string_view ToString(ValidationErrorId id) noexcept
             return "ExternalResourceUnavailable";
         case ValidationErrorId::ContentModelCrossCheckMismatch:
             return "ContentModelCrossCheckMismatch";
+        case ValidationErrorId::NestingTooDeep:
+            return "NestingTooDeep";
     }
     return "Unknown";
 }

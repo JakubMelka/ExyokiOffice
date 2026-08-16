@@ -184,18 +184,40 @@ public:
         return true;
     }
 
+    /**
+     * @brief Pushes the children of @p node so that a stack pops them in order.
+     *
+     * Both walks below keep their own stack instead of recursing per level:
+     * the part being queried comes from a package the caller did not
+     * necessarily write, and one frame per nesting level would turn a deeply
+     * nested document into a stack overflow rather than a query result.
+     */
+    static void PushChildrenInReverse(const xml_node& node, std::vector<xml_node>& stack)
+    {
+        for (xml_node child = node.last_child(); child; child = child.previous_sibling())
+        {
+            stack.push_back(child);
+        }
+    }
+
     static void CollectText(const xml_node& node, std::string& out)
     {
-        for (xml_node child = node.first_child(); child; child = child.next_sibling())
+        std::vector<xml_node> stack;
+        PushChildrenInReverse(node, stack);
+
+        while (!stack.empty())
         {
-            const auto type = child.type();
+            const xml_node current = stack.back();
+            stack.pop_back();
+
+            const auto type = current.type();
             if (type == xml_node_type::node_pcdata || type == xml_node_type::node_cdata)
             {
-                out += child.value();
+                out += current.value();
             }
             else if (type == xml_node_type::node_element)
             {
-                CollectText(child, out);
+                PushChildrenInReverse(current, stack);
             }
         }
     }
@@ -203,13 +225,21 @@ public:
     template <typename Fn>
     static void ForEachDescendantElement(const xml_node& node, const Fn& fn)
     {
-        for (xml_node child = node.first_child(); child; child = child.next_sibling())
+        std::vector<xml_node> stack;
+        PushChildrenInReverse(node, stack);
+
+        while (!stack.empty())
         {
-            if (child.type() == xml_node_type::node_element)
+            const xml_node current = stack.back();
+            stack.pop_back();
+
+            if (current.type() != xml_node_type::node_element)
             {
-                fn(child);
-                ForEachDescendantElement(child, fn);
+                continue;
             }
+
+            fn(current);
+            PushChildrenInReverse(current, stack);
         }
     }
 };

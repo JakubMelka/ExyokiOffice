@@ -1465,4 +1465,93 @@ TEST_SUITE("ExcelFormulaEngineTests")
         CHECK(H::Number(engine, "=_PRIVATE()") == doctest::Approx(1.0));
     }
 
+    // ---------------------------------------------------------------------------
+    // Group N: hostile formula text
+    // ---------------------------------------------------------------------------
+
+    TEST_CASE("Deeply nested formula text is refused, not crashed on [unit] [security] [excel] "
+              "[excel-formula-engine] [security-regression]")
+    {
+        // Formula text is attacker-supplied as soon as a workbook is: every `f`
+        // element of a loaded .xlsx reaches this parser, as does anything an agent
+        // sends through the MCP servers. The parser is recursive descent, so
+        // without a bound each nesting level costs a stack frame and a formula of
+        // a couple of thousand characters takes the process down - not an error a
+        // caller can catch, a crash.
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+        REQUIRE(engine.IsValid());
+
+        const auto repeat = [](std::string_view unit, int count)
+        {
+            std::string text;
+            text.reserve(unit.size() * static_cast<std::size_t>(count));
+            for (int index = 0; index < count; ++index)
+            {
+                text += unit;
+            }
+            return text;
+        };
+
+        SUBCASE("nested parentheses")
+        {
+            const std::string formula = "=" + repeat("(", 5'000) + "1" + repeat(")", 5'000);
+            const auto result = engine.ValidateFormula(formula);
+            CHECK_FALSE(result);
+            REQUIRE(!result.Diagnostics.empty());
+            CHECK(result.Diagnostics.front().Message.find("too deeply") != std::string::npos);
+        }
+
+        SUBCASE("nested function calls")
+        {
+            const std::string formula = "=" + repeat("SUM(", 5'000) + "1" + repeat(")", 5'000);
+            CHECK_FALSE(engine.ValidateFormula(formula));
+        }
+
+        SUBCASE("a chain of unary operators")
+        {
+            const std::string formula = "=" + repeat("-", 5'000) + "1";
+            CHECK_FALSE(engine.ValidateFormula(formula));
+        }
+
+        SUBCASE("nesting Excel itself allows is still accepted")
+        {
+            // Excel stops at 64 nested function levels, so anything it can store
+            // has to keep working; a bound that rejected real formulas would be a
+            // worse bug than the one it fixes.
+            const std::string formula = "=" + repeat("SUM(", 64) + "1" + repeat(")", 64);
+            CHECK(engine.ValidateFormula(formula));
+            CHECK(H::Number(engine, formula) == doctest::Approx(1.0));
+        }
+    }
+
+    TEST_CASE("A very long operator chain neither overflows nor is rejected [unit] [security] [excel] "
+              "[excel-formula-engine] [security-regression]")
+    {
+        // `1+1+1+...` is built by a loop rather than by recursion, so the nesting
+        // bound never sees it - yet the tree it produces is as deep as the formula
+        // is long. Everything that later walks or releases that tree has to be
+        // iterative: parsing it and then simply letting it go used to be enough to
+        // overflow the stack in the destructor.
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+        REQUIRE(engine.IsValid());
+
+        std::string formula = "=1";
+        for (int term = 0; term < 20'000; ++term)
+        {
+            formula += "+1";
+        }
+
+        // Accepted, because Excel accepts it: only its own 8192-character formula
+        // limit stands between this and a real workbook.
+        CHECK(engine.ValidateFormula(formula));
+
+        // Evaluation is a separate matter and unchanged by this: it descends the
+        // left spine of the tree and gives up at MaxEvaluationDepth, so a chain
+        // this long answers `#VALUE!` rather than 20001. Pinned here because the
+        // documented parser limit is easy to confuse with this one.
+        CHECK(H::Error(engine, formula) == FormulaErrorCode::Value);
+    }
+
 } // TEST_SUITE

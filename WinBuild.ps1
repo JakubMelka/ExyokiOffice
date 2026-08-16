@@ -114,10 +114,13 @@ try {
         }
     }
 
+    # Warnings are errors here and in CI, but not for someone who merely builds
+    # the library: see the comment on the option in cmake/CompilerWarnings.cmake.
     Invoke-CheckedCommand -FilePath $cmakeExe -ArgumentList @(
         '--preset',
         $configurePreset,
-        "-DEXYOKIOFFICE_BUILD_JOBS=$Jobs"
+        "-DEXYOKIOFFICE_BUILD_JOBS=$Jobs",
+        '-DEXYOKIOFFICE_WARNINGS_AS_ERRORS=ON'
     )
     Invoke-CheckedCommand -FilePath $cmakeExe -ArgumentList @(
         '--build',

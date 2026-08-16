@@ -228,12 +228,16 @@ public:
     /// an Object: Office signs its XAdES SignedProperties as `#idSignedProperties`,
     /// which names an element nested two levels inside an Object.
     ///
-    /// The first element wins. A document that repeats an id is not valid, and
-    /// preferring the one nearest the root keeps the outcome from depending on
-    /// traversal order rather than on the document.
-    static void Build(const Pugi::xml_node& node, std::map<std::string, Pugi::xml_node>& elements)
+    /// \return False when an id occurs more than once. Which of the two a
+    ///         verifier picks would then decide what is checked, and nothing in
+    ///         the document says which one another implementation would pick, so
+    ///         a repeated id fails the signature instead of resolving to one of
+    ///         them.
+    static bool Build(const Pugi::xml_node& node, std::map<std::string, Pugi::xml_node>& elements)
     {
-        Descend(node, elements, 0);
+        bool unique = true;
+        Descend(node, elements, 0, unique);
+        return unique;
     }
 
 private:
@@ -244,7 +248,8 @@ private:
     /// which makes a reference into them unresolvable rather than fatal.
     static void Descend(const Pugi::xml_node& node,
                         std::map<std::string, Pugi::xml_node>& elements,
-                        unsigned int depth)
+                        unsigned int depth,
+                        bool& unique)
     {
         if (depth >= XmlCanonicalization::MaximumDepth)
         {
@@ -257,11 +262,11 @@ private:
                 continue;
             }
             const std::string id = child.attribute(SignatureXmlNames::IdAttribute).as_string();
-            if (!id.empty())
+            if (!id.empty() && !elements.emplace(id, child).second)
             {
-                elements.emplace(id, child);
+                unique = false;
             }
-            Descend(child, elements, depth + 1);
+            Descend(child, elements, depth + 1, unique);
         }
     }
 };
@@ -326,20 +331,15 @@ bool SignatureXml::Parse(const Pugi::xml_node& signatureNode, ParsedSignature& p
         }
     }
 
-    SignatureElementIndex::Build(signatureNode, parsed.ElementsById);
+    if (!SignatureElementIndex::Build(signatureNode, parsed.ElementsById))
+    {
+        error = "The signature contains more than one element with the same Id.";
+        return false;
+    }
 
     for (const auto& object :
          FindChildren(signatureNode, SignatureNames::DsigNamespace, SignatureXmlNames::ObjectElement))
     {
-        for (const auto& manifest :
-             FindChildren(object, SignatureNames::DsigNamespace, SignatureXmlNames::ManifestElement))
-        {
-            auto references = SignatureReferenceReader::ReadReferences(manifest);
-            parsed.ManifestReferences.insert(parsed.ManifestReferences.end(),
-                                             std::make_move_iterator(references.begin()),
-                                             std::make_move_iterator(references.end()));
-        }
-
         if (parsed.SigningTimeText.empty())
         {
             const auto signatureTime =
@@ -356,6 +356,62 @@ bool SignatureXml::Parse(const Pugi::xml_node& signatureNode, ParsedSignature& p
     }
 
     return true;
+}
+
+std::vector<SignatureReferenceInfo> SignatureXml::ReadManifestReferences(const Pugi::xml_node& element)
+{
+    std::vector<SignatureReferenceInfo> references;
+    if (!element)
+    {
+        return references;
+    }
+
+    const auto append = [&references](const Pugi::xml_node& manifest)
+    {
+        auto read = SignatureReferenceReader::ReadReferences(manifest);
+        references.insert(references.end(),
+                          std::make_move_iterator(read.begin()),
+                          std::make_move_iterator(read.end()));
+    };
+
+    if (IsElement(element, SignatureNames::DsigNamespace, SignatureXmlNames::ManifestElement))
+    {
+        append(element);
+        return references;
+    }
+
+    // Depth-bounded and iterative for the same reason the id index is: this runs
+    // on a signature part supplied with the package, ahead of any depth limit.
+    std::vector<std::pair<Pugi::xml_node, unsigned int>> pending;
+    for (auto child = element.last_child(); child; child = child.previous_sibling())
+    {
+        pending.emplace_back(child, 1U);
+    }
+
+    while (!pending.empty())
+    {
+        const auto [node, depth] = pending.back();
+        pending.pop_back();
+
+        if (node.type() != Pugi::node_element || depth >= XmlCanonicalization::MaximumDepth)
+        {
+            continue;
+        }
+
+        if (IsElement(node, SignatureNames::DsigNamespace, SignatureXmlNames::ManifestElement))
+        {
+            // A Manifest holds References, not further Manifests.
+            append(node);
+            continue;
+        }
+
+        for (auto child = node.last_child(); child; child = child.previous_sibling())
+        {
+            pending.emplace_back(child, depth + 1);
+        }
+    }
+
+    return references;
 }
 
 } // namespace ExyokiOffice::Security

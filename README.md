@@ -228,6 +228,24 @@ ExyokiOffice requires a C++20 compiler and CMake 3.25 or newer. The repository's
 [CMake presets](CMakePresets.json) provide known-good MSVC, Clang, GCC,
 sanitizer, and fuzzing configurations.
 
+The library uses `<format>` and floating-point `<charconv>`, which is what sets
+the floor:
+
+| Platform | Toolchain | Status |
+| --- | --- | --- |
+| Windows | MSVC 19.30 (Visual Studio 2022 17.0) or newer, clang-cl | Built and tested |
+| Linux | GCC 13+, Clang 17+ with libstdc++ | Built and tested |
+| macOS | AppleClang, Homebrew Clang/GCC | Not tested; needs a libc++ with floating-point `std::from_chars` (LLVM 20+) or Homebrew GCC 13+ |
+
+The build stops with a plain message when the compiler is older than that.
+Warnings are not errors by default; developers and CI switch that on with
+`-DEXYOKIOFFICE_WARNINGS_AS_ERRORS=ON`.
+
+A full build compiles the generated DOM, every test layer, the examples and the
+tools - roughly 550 translation units, some of them megabytes of generated code.
+Budget around 2 GB of RAM per compiler job and pass `-j` accordingly; the memory
+ceiling, not the core count, is what to size the job count against.
+
 On Windows, the build script locates Visual Studio, enters its developer
 environment, and drives the presets:
 

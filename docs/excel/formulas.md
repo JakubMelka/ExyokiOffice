@@ -218,6 +218,14 @@ silently misformatting.
   ASCII-only; non-ASCII characters pass through unchanged.
 - Dates before 1900-03-01 may differ from Excel by one day around the
   fictitious 1900-02-29; serial 60 maps to 1900-02-28.
+- Expressions nested deeper than 128 levels are rejected with "The formula is
+  nested too deeply". Parsing descends per nested parenthesis, function call
+  and unary operator, and formula text arrives from whatever workbook was
+  opened, so the depth is bounded rather than left to the call stack. Excel
+  itself stops at 64 nested function levels, so this does not reach anything
+  Excel can store. Chained operators (`A1+A2+...`) do not nest and are parsed
+  whatever their length; evaluating one deeper than 128 operators answers
+  `#VALUE!`, which is the separate evaluation-depth limit.
 
 ## Testing
 

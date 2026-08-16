@@ -4,9 +4,16 @@
 
 include_guard(GLOBAL)
 
+# Off by default, and deliberately so. A warning that is an error is a useful
+# rule for the people who develop this library and a trap for everyone who only
+# wants to build it: every new compiler generation invents diagnostics, so a
+# default of ON means a toolchain newer than the ones CI covers turns a warning
+# nobody has seen yet into a failed build half an hour in. CI (.github/workflows
+# /ci.yml) and WinBuild.ps1 pass ON explicitly, so the strictness stays where it
+# belongs - on the builds that are meant to police it.
 option(EXYOKIOFFICE_WARNINGS_AS_ERRORS
     "Treat compiler warnings in ExyokiOffice handwritten code as errors"
-    ON)
+    OFF)
 
 function(exyokioffice_enable_strict_warnings target)
     set(msvc_warnings

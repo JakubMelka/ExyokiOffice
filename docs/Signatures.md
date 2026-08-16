@@ -73,6 +73,25 @@ Verification has two independent halves:
 `NotChecked`, so a signature is never reported as valid on the strength of
 unchanged content alone — "unchanged" is not "signed by someone".
 
+`ContentIntegrity` answers that question only about the parts the signature
+demonstrably covers, and which parts those are is decided the strict way. The
+list of covered parts is read from the `Manifest` inside a `dsig:Object` whose
+own digest has just verified, never from any `Manifest` that happens to sit
+somewhere in the signature part. The difference matters: the same-document
+digest and the signature value survive rearranging the `Object` elements
+around the signed one, so a verifier that looked for the manifest by position
+could be shown a signature whose manifest had been moved out of view — it
+would then check no part at all and call the package intact. Two related
+refusals follow from the same rule:
+
+- A signature whose signed objects contain no `Manifest` covers no package
+  part. It is reported as `Invalid` with `SignatureMalformed`, never as valid
+  content, because it is evidence about itself and about nothing else.
+- A signature part that gives two elements the same `Id` is refused outright.
+  Which of them a `#fragment` reference resolves to would otherwise be up to
+  the implementation, and this library and Word could disagree about what was
+  checked.
+
 The certificates are handed over as raw DER (`SignatureResult::Certificates`);
 the library never parses them. Chain building, revocation checking and trust
 decisions belong to your provider and to the policy of your application.

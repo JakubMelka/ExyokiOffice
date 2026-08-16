@@ -610,6 +610,61 @@ private:
     static constexpr int PowerPrecedence = 50;
     static constexpr int IntersectionPrecedence = 80;
 
+    /**
+     * @brief Largest nesting the parser accepts.
+     *
+     * Descent costs stack for every nested parenthesis, function call, array
+     * constant, and unary operator, and formula text is attacker-supplied
+     * whenever a workbook is: an `f` element holding `((((...1...))))` a few
+     * thousand levels deep would otherwise overflow the stack of whichever
+     * thread opened the file. Precedence climbing inside one level does not
+     * count against this, because it can only descend once per distinct
+     * precedence.
+     *
+     * Excel stops at 64 nested function levels, so twice that accepts every
+     * formula Excel itself can store while keeping the deepest accepted
+     * formula well inside the smallest stack the library runs on.
+     */
+    static constexpr int MaximumNestingDepth = 128;
+
+    /** @brief Holds one nesting level for as long as it is alive. */
+    class DepthGuard final
+    {
+    public:
+        explicit DepthGuard(Parser& parser) noexcept
+            : m_parser(parser)
+        {
+            ++m_parser.m_depth;
+        }
+
+        ~DepthGuard()
+        {
+            --m_parser.m_depth;
+        }
+
+        DepthGuard(const DepthGuard&) = delete;
+        DepthGuard& operator=(const DepthGuard&) = delete;
+
+    private:
+        Parser& m_parser;
+    };
+
+    /**
+     * @brief Reports and refuses a level that would nest past the limit.
+     *
+     * @return True when the caller may descend, false when it must return a
+     *         parse failure to its caller.
+     */
+    bool CanNest(const Token& token)
+    {
+        if (m_depth >= MaximumNestingDepth)
+        {
+            ReportError(token, "The formula is nested too deeply.");
+            return false;
+        }
+        return true;
+    }
+
     void Advance()
     {
         m_current = m_lexer.Next();
@@ -763,6 +818,11 @@ private:
         if (m_current.kind == TokenKind::Plus || m_current.kind == TokenKind::Minus)
         {
             const Token operatorToken = m_current;
+            if (!CanNest(operatorToken))
+            {
+                return nullptr;
+            }
+            const DepthGuard guard(*this);
             Advance();
             NodePtr operand = ParseUnary();
             if (HasError())
@@ -1026,6 +1086,12 @@ private:
 
     NodePtr ParseFunctionCall(const Token& nameToken)
     {
+        if (!CanNest(nameToken))
+        {
+            return nullptr;
+        }
+        const DepthGuard guard(*this);
+
         auto node = MakeNode(FormulaExpressionKind::FunctionCall, nameToken.offset, nameToken.length);
         std::string name = nameToken.text;
         static constexpr std::string_view xlfnPrefix = "_xlfn.";
@@ -1082,6 +1148,12 @@ private:
     NodePtr ParseParenthesized()
     {
         const Token openToken = m_current;
+        if (!CanNest(openToken))
+        {
+            return nullptr;
+        }
+        const DepthGuard guard(*this);
+
         Advance(); // '('
         NodePtr first = ParseExpression(0);
         if (HasError())
@@ -1245,9 +1317,39 @@ private:
     Lexer m_lexer;
     Token m_current;
     std::vector<FormulaDiagnostic> m_diagnostics;
+    int m_depth = 0;
 };
 
 } // namespace FormulaParserHelpers
+
+FormulaExpression::~FormulaExpression()
+{
+    // Collect the subtree into one flat list and release it from there, so
+    // that teardown costs a loop iteration per node instead of a stack frame.
+    // Nodes are detached before they are destroyed, so each one arrives here
+    // childless and this destructor does not re-enter itself.
+    std::vector<std::unique_ptr<FormulaExpression>> pending = std::move(children);
+    children.clear();
+
+    while (!pending.empty())
+    {
+        std::unique_ptr<FormulaExpression> node = std::move(pending.back());
+        pending.pop_back();
+        if (!node)
+        {
+            continue;
+        }
+
+        for (auto& child : node->children)
+        {
+            if (child)
+            {
+                pending.push_back(std::move(child));
+            }
+        }
+        node->children.clear();
+    }
+}
 
 FormulaParseResult FormulaParser::Parse(std::string_view formula)
 {

@@ -389,8 +389,17 @@ struct PrecedentContext
 /** (lower-case scope sheet or empty, lower-case name) to parsed definition. */
 using NameAstMap = std::map<std::pair<std::string, std::string>, const FormulaExpression*>;
 
+/**
+ * @brief Largest chain of defined names that is expanded.
+ *
+ * Name expansion is the one axis here that recurses, and a workbook can chain
+ * as many names as it likes (`n1` refers to `n2` refers to `n3`...). The cycle
+ * guard stops a loop but not a long chain, so the depth is capped as well.
+ */
+constexpr Size MaxNameExpansionDepth = 64;
+
 /** Collects the statically known precedent areas of an expression tree. */
-void CollectPrecedents(const FormulaExpression& node,
+void CollectPrecedents(const FormulaExpression& root,
                        const PrecedentContext& context,
                        const FormulaFunctionRegistry& registry,
                        const NameAstMap& names,
@@ -398,76 +407,102 @@ void CollectPrecedents(const FormulaExpression& node,
                        std::vector<ResolvedReferenceArea>& areas,
                        bool& dynamic)
 {
-    switch (node.kind)
+    // Walk the tree with an explicit stack. Tree depth is not bounded by the
+    // parser's nesting limit: chained operators such as `A1+A2+...+A400` build
+    // a tree as deep as the formula is long, and recursing per node would put
+    // the call stack at the mercy of the workbook. Children are pushed in
+    // reverse so that areas are still collected in document order.
+    std::vector<const FormulaExpression*> pending;
+    pending.push_back(&root);
+
+    while (!pending.empty())
     {
-        case FormulaExpressionKind::Reference:
+        const FormulaExpression& node = *pending.back();
+        pending.pop_back();
+
+        switch (node.kind)
         {
-            if (node.area.external)
+            case FormulaExpressionKind::Reference:
             {
+                if (node.area.external)
+                {
+                    break;
+                }
+                const auto firstRow = OffsetCoordinate(node.area.firstRow, context.rowOffset, MaxRowIndex);
+                const auto lastRow = OffsetCoordinate(node.area.lastRow, context.rowOffset, MaxRowIndex);
+                const auto firstColumn =
+                    OffsetCoordinate(node.area.firstColumn, context.columnOffset, MaxColumnIndex);
+                const auto lastColumn =
+                    OffsetCoordinate(node.area.lastColumn, context.columnOffset, MaxColumnIndex);
+                if (!firstRow || !lastRow || !firstColumn || !lastColumn)
+                {
+                    break;
+                }
+                ResolvedReferenceArea area;
+                area.sheet = node.area.hasSheet ? node.area.sheet : context.sheetDisplay;
+                area.firstRow = std::min(*firstRow, *lastRow);
+                area.lastRow = std::max(*firstRow, *lastRow);
+                area.firstColumn = std::min(*firstColumn, *lastColumn);
+                area.lastColumn = std::max(*firstColumn, *lastColumn);
+                areas.push_back(std::move(area));
                 break;
             }
-            const auto firstRow = OffsetCoordinate(node.area.firstRow, context.rowOffset, MaxRowIndex);
-            const auto lastRow = OffsetCoordinate(node.area.lastRow, context.rowOffset, MaxRowIndex);
-            const auto firstColumn =
-                OffsetCoordinate(node.area.firstColumn, context.columnOffset, MaxColumnIndex);
-            const auto lastColumn =
-                OffsetCoordinate(node.area.lastColumn, context.columnOffset, MaxColumnIndex);
-            if (!firstRow || !lastRow || !firstColumn || !lastColumn)
+            case FormulaExpressionKind::NameReference:
             {
+                // Expand the name's definition so dependencies flow through
+                // defined names. The stack guards against name-to-name cycles.
+                const std::string nameLower = AsciiText::ToLower(node.text);
+                const std::string scopeLower =
+                    AsciiText::ToLower(node.area.hasSheet ? std::string_view(node.area.sheet)
+                                                          : std::string_view(context.sheetDisplay));
+                auto it = names.find({scopeLower, nameLower});
+                if (it == names.end())
+                {
+                    it = names.find({std::string(), nameLower});
+                }
+                if (nameStack.size() >= MaxNameExpansionDepth)
+                {
+                    // The chain is longer than anything a workbook needs. Stop
+                    // expanding, and report the formula as dynamic so that it is
+                    // recalculated rather than trusted to a truncated precedent set.
+                    dynamic = true;
+                    break;
+                }
+                if (it != names.end() && it->second != nullptr &&
+                    std::find(nameStack.begin(), nameStack.end(), nameLower) == nameStack.end())
+                {
+                    nameStack.push_back(nameLower);
+                    // Name definitions are self-contained; shared offsets reset.
+                    PrecedentContext nameContext{context.sheetDisplay, 0, 0};
+                    CollectPrecedents(*it->second, nameContext, registry, names, nameStack, areas, dynamic);
+                    nameStack.pop_back();
+                }
                 break;
             }
-            ResolvedReferenceArea area;
-            area.sheet = node.area.hasSheet ? node.area.sheet : context.sheetDisplay;
-            area.firstRow = std::min(*firstRow, *lastRow);
-            area.lastRow = std::max(*firstRow, *lastRow);
-            area.firstColumn = std::min(*firstColumn, *lastColumn);
-            area.lastColumn = std::max(*firstColumn, *lastColumn);
-            areas.push_back(std::move(area));
-            break;
+            case FormulaExpressionKind::FunctionCall:
+            {
+                const RegisteredFormulaFunction* function = registry.Find(node.text);
+                if (function && function->spec.IsVolatile)
+                {
+                    dynamic = true;
+                }
+                if (node.text == "INDIRECT" || node.text == "OFFSET")
+                {
+                    dynamic = true;
+                }
+                break;
+            }
+            default:
+                break;
         }
-        case FormulaExpressionKind::NameReference:
+
+        for (auto child = node.children.rbegin(); child != node.children.rend(); ++child)
         {
-            // Expand the name's definition so dependencies flow through
-            // defined names. The stack guards against name-to-name cycles.
-            const std::string nameLower = AsciiText::ToLower(node.text);
-            const std::string scopeLower =
-                AsciiText::ToLower(node.area.hasSheet ? std::string_view(node.area.sheet)
-                                                      : std::string_view(context.sheetDisplay));
-            auto it = names.find({scopeLower, nameLower});
-            if (it == names.end())
+            if (*child)
             {
-                it = names.find({std::string(), nameLower});
+                pending.push_back(child->get());
             }
-            if (it != names.end() && it->second != nullptr &&
-                std::find(nameStack.begin(), nameStack.end(), nameLower) == nameStack.end())
-            {
-                nameStack.push_back(nameLower);
-                // Name definitions are self-contained; shared offsets reset.
-                PrecedentContext nameContext{context.sheetDisplay, 0, 0};
-                CollectPrecedents(*it->second, nameContext, registry, names, nameStack, areas, dynamic);
-                nameStack.pop_back();
-            }
-            break;
         }
-        case FormulaExpressionKind::FunctionCall:
-        {
-            const RegisteredFormulaFunction* function = registry.Find(node.text);
-            if (function && function->spec.IsVolatile)
-            {
-                dynamic = true;
-            }
-            if (node.text == "INDIRECT" || node.text == "OFFSET")
-            {
-                dynamic = true;
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    for (const auto& child : node.children)
-    {
-        CollectPrecedents(*child, context, registry, names, nameStack, areas, dynamic);
     }
 }
 
@@ -541,9 +576,11 @@ FormulaValidationResult FormulaEngine::ValidateFormula(std::string_view formula)
             }
         }
 
-        // Validate function names, argument counts, and defined names.
-        const auto validate = [this, &result, &knownNames](const FormulaExpression& node,
-                                                           const auto& self) -> void
+        // Validate function names, argument counts, and defined names. The walk
+        // uses an explicit stack because a chain of operators makes the tree as
+        // deep as the formula is long; children are pushed in reverse so that
+        // diagnostics still come out in document order.
+        const auto validate = [this, &result, &knownNames](const FormulaExpression& node)
         {
             if (node.kind == FormulaExpressionKind::FunctionCall)
             {
@@ -568,12 +605,23 @@ FormulaValidationResult FormulaEngine::ValidateFormula(std::string_view formula)
                 result.Diagnostics.push_back(
                     {node.offset, node.length, "Unknown name '" + node.text + "'."});
             }
-            for (const auto& child : node.children)
-            {
-                self(*child, self);
-            }
         };
-        validate(*parsed.root, validate);
+
+        std::vector<const FormulaExpression*> pending;
+        pending.push_back(parsed.root.get());
+        while (!pending.empty())
+        {
+            const FormulaExpression& node = *pending.back();
+            pending.pop_back();
+            validate(node);
+            for (auto child = node.children.rbegin(); child != node.children.rend(); ++child)
+            {
+                if (*child)
+                {
+                    pending.push_back(child->get());
+                }
+            }
+        }
     }
 
     if (!result.Diagnostics.empty())

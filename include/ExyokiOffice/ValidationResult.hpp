@@ -130,7 +130,15 @@ enum class ValidationErrorId
      * Only ever reported when `OpenXmlDomValidationSettings::CrossCheckContentModel`
      * asked for both verdicts.
      */
-    ContentModelCrossCheckMismatch
+    ContentModelCrossCheckMismatch,
+    /**
+     * Element nesting exceeded the depth a processing pass is willing to
+     * descend, so the content below that point was left unprocessed. Markup
+     * compatibility rewrites the tree as it walks it and therefore carries its
+     * own depth bound; a document this deeply nested is malformed or hostile
+     * rather than something Office produced.
+     */
+    NestingTooDeep
 };
 
 /**

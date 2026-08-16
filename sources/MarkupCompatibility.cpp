@@ -409,9 +409,53 @@ public:
     }
 
 private:
+    /**
+     * @brief Largest element nesting this walk descends into.
+     *
+     * Every path down the tree - plain descent, promoted alternate-content
+     * branches, and content promoted out of an ignorable element - passes
+     * through here, so one bound covers them all. Unlike the read-only walks
+     * elsewhere in the library, this one rewrites the tree as it goes, which is
+     * why it carries a depth bound instead of an explicit stack: turning it
+     * inside out would change the order in which it rewrites. The document it
+     * walks comes from whoever supplied the package, and real markup - even
+     * pathologically nested tables - stays two orders of magnitude below this.
+     */
+    static constexpr int MaximumDepth = 512;
+
+    /** @brief Holds one nesting level for as long as it is alive. */
+    class DepthGuard final
+    {
+    public:
+        explicit DepthGuard(MarkupCompatibilityWalker& walker) noexcept
+            : walker_(walker)
+        {
+            ++walker_.depth_;
+        }
+
+        ~DepthGuard()
+        {
+            --walker_.depth_;
+        }
+
+        DepthGuard(const DepthGuard&) = delete;
+        DepthGuard& operator=(const DepthGuard&) = delete;
+
+    private:
+        MarkupCompatibilityWalker& walker_;
+    };
+
     /** Handles one child: alternate content, ignorable content, or plain recursion. */
     bool ProcessChild(const std::shared_ptr<OpenXMLElement>& child, const MarkupCompatibilityScopeHelper::MarkupCompatibilityScope& scope)
     {
+        if (depth_ >= MaximumDepth)
+        {
+            Report(*child, ValidationErrorId::NestingTooDeep,
+                   "Element nesting is too deep for markup compatibility processing.");
+            return false;
+        }
+        const DepthGuard guard(*this);
+
         if (auto alternate = openxmlelement_cast<AlternateContent>(child))
         {
             return ResolveAlternateContent(alternate, scope);
@@ -711,6 +755,7 @@ private:
 
     const MarkupCompatibilityProcessor& processor_;
     DiagnosticSink* diagnostics_;
+    int depth_ = 0;
 
     // Stable storage for the strings the scope's qualified names refer to.
     // OpenXmlQualifiedName holds views, and the scope outlives the attribute values

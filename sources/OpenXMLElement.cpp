@@ -125,39 +125,52 @@ public:
     // work out which declarations a copy has to carry with it).
     static void CollectNamespaceUsage(const ExyokiOffice::Pugi::xml_node& node, NamespaceUsage& usage, bool recurse)
     {
-        if (!node || node.type() != Pugi::node_element)
-        {
-            return;
-        }
+        // An explicit stack rather than a call per level: the subtree being
+        // copied can be as deeply nested as the document it came from, and the
+        // result only accumulates into a set, so visiting order does not matter.
+        std::vector<ExyokiOffice::Pugi::xml_node> pending;
+        pending.push_back(node);
 
-        const auto elementPrefix = SplitName(node.name() ? std::string_view(node.name()) : std::string_view{}).prefix;
-        if (elementPrefix.empty())
+        while (!pending.empty())
         {
-            usage.UsesDefaultNamespace = true;
-        }
-        else
-        {
-            usage.Prefixes.emplace(elementPrefix);
-        }
+            const ExyokiOffice::Pugi::xml_node current = pending.back();
+            pending.pop_back();
 
-        for (const auto& attribute : node.attributes())
-        {
-            const auto attributePrefix =
-                SplitName(attribute.name() ? std::string_view(attribute.name()) : std::string_view{}).prefix;
-            if (!attributePrefix.empty() && attributePrefix != "xmlns")
+            if (!current || current.type() != Pugi::node_element)
             {
-                usage.Prefixes.emplace(attributePrefix);
+                continue;
             }
-        }
 
-        if (!recurse)
-        {
-            return;
-        }
+            const auto elementPrefix =
+                SplitName(current.name() ? std::string_view(current.name()) : std::string_view{}).prefix;
+            if (elementPrefix.empty())
+            {
+                usage.UsesDefaultNamespace = true;
+            }
+            else
+            {
+                usage.Prefixes.emplace(elementPrefix);
+            }
 
-        for (auto child : node.children())
-        {
-            CollectNamespaceUsage(child, usage, recurse);
+            for (const auto& attribute : current.attributes())
+            {
+                const auto attributePrefix =
+                    SplitName(attribute.name() ? std::string_view(attribute.name()) : std::string_view{}).prefix;
+                if (!attributePrefix.empty() && attributePrefix != "xmlns")
+                {
+                    usage.Prefixes.emplace(attributePrefix);
+                }
+            }
+
+            if (!recurse)
+            {
+                continue;
+            }
+
+            for (auto child : current.children())
+            {
+                pending.push_back(child);
+            }
         }
     }
 

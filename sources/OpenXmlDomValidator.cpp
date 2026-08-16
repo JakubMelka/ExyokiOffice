@@ -414,18 +414,44 @@ public:
         return message;
     }
 
+    /**
+     * @brief Validates @p element and everything below it, in document order.
+     *
+     * The walk keeps its own stack rather than recursing per level. Nesting
+     * depth here is whatever the part being validated contains, and a part can
+     * come from a package the caller did not write: descending one call frame
+     * per level would let a document nested a few thousand elements deep
+     * overflow the stack instead of producing diagnostics. Children are pushed
+     * in reverse so that diagnostics still arrive in document order.
+     */
     static void ValidateTree(const OpenXMLElement& element,
                              const OpenXmlDomValidationSettings& settings,
                              OpenXmlDomValidationRun& run,
                              DiagnosticSink& sink)
     {
+        std::vector<std::shared_ptr<OpenXMLElement>> pending;
         ValidateOne(element, settings, run, sink);
-        for (const auto& child : element.ChildrenInContentModel())
+
+        const auto pushChildren = [&pending](const OpenXMLElement& parent)
         {
-            if (child)
+            const auto children = parent.ChildrenInContentModel();
+            for (auto child = children.rbegin(); child != children.rend(); ++child)
             {
-                ValidateTree(*child, settings, run, sink);
+                if (*child)
+                {
+                    pending.push_back(*child);
+                }
             }
+        };
+
+        pushChildren(element);
+        while (!pending.empty())
+        {
+            const std::shared_ptr<OpenXMLElement> current = std::move(pending.back());
+            pending.pop_back();
+
+            ValidateOne(*current, settings, run, sink);
+            pushChildren(*current);
         }
     }
 };

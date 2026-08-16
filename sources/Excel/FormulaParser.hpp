@@ -134,6 +134,23 @@ struct FormulaExpression
 
     Size offset = 0;
     Size length = 0;
+
+    FormulaExpression() = default;
+
+    /**
+     * @brief Releases the subtree without recursing once per level.
+     *
+     * The compiler-written destructor would descend one stack frame per tree
+     * level. Nesting depth is capped while parsing, but tree depth is not the
+     * same thing: a left-associative chain such as `1+1+1+...` is built by a
+     * loop and is as deep as the formula is long. Tearing such a tree down
+     * recursively exhausts the stack on formula text the parser accepted, so
+     * the nodes are collected into an explicit stack instead.
+     */
+    ~FormulaExpression();
+
+    FormulaExpression(const FormulaExpression&) = delete;
+    FormulaExpression& operator=(const FormulaExpression&) = delete;
 };
 
 /** @brief Result of parsing formula text into an expression tree. */

@@ -396,12 +396,27 @@ private:
         return result;
     }
 
+    /**
+     * @brief Verifies everything the signature claims to cover.
+     *
+     * The order matters, and it is the whole point of how this is written.
+     * SignedInfo is verified first, and only an Object whose digest came out
+     * valid is then searched for the Manifest that names the package parts.
+     * Trusting any Manifest found under the Signature instead would mean a
+     * signature that covers no part at all still reports valid content: an
+     * attacker can wrap the signed Object in an outer Object, which leaves the
+     * same-document digest and the signature value untouched while moving the
+     * Manifest out of the place the verifier looked - and then edit the
+     * document. Deriving the part list from what SignedInfo verifiably covers
+     * closes that off, because the Manifest is inside the digested bytes.
+     */
     void VerifyReferences(const ParsedSignature& parsed, SignatureResult& result, ValidationResult& diagnostics)
     {
         bool anyInvalid = false;
         bool anyUnchecked = false;
 
-        const auto process = [&](const SignatureReferenceInfo& reference)
+        const auto process = [&](const SignatureReferenceInfo& reference,
+                                 std::vector<SignatureReferenceResult>& entries)
         {
             auto entry = VerifyReference(parsed, reference, result, diagnostics);
             switch (entry.Digest)
@@ -415,21 +430,60 @@ private:
                 case SignatureCheck::Valid:
                     break;
             }
-            result.References.push_back(std::move(entry));
+            entries.push_back(std::move(entry));
         };
 
-        for (const auto& reference : parsed.ManifestReferences)
-        {
-            process(reference);
-        }
+        std::vector<SignatureReferenceResult> signedInfoEntries;
+        std::vector<Pugi::xml_node> coveredElements;
+
         for (const auto& reference : parsed.SignedInfoReferences)
         {
-            process(reference);
+            const Size before = signedInfoEntries.size();
+            process(reference, signedInfoEntries);
             if (!result.Digest.has_value())
             {
                 result.Digest = ParseDigestAlgorithmUri(reference.DigestAlgorithmUri);
             }
+
+            if (signedInfoEntries.size() <= before ||
+                signedInfoEntries.back().Digest != SignatureCheck::Valid)
+            {
+                continue;
+            }
+
+            const auto target = ReferenceTarget::Parse(reference.Uri);
+            if (!target.IsSameDocument)
+            {
+                continue;
+            }
+            const auto element = parsed.ElementsById.find(target.FragmentId);
+            if (element != parsed.ElementsById.end())
+            {
+                coveredElements.push_back(element->second);
+            }
         }
+
+        std::vector<SignatureReferenceInfo> manifestReferences;
+        for (const auto& element : coveredElements)
+        {
+            auto references = SignatureXml::ReadManifestReferences(element);
+            manifestReferences.insert(manifestReferences.end(),
+                                      std::make_move_iterator(references.begin()),
+                                      std::make_move_iterator(references.end()));
+        }
+
+        std::vector<SignatureReferenceResult> manifestEntries;
+        for (const auto& reference : manifestReferences)
+        {
+            process(reference, manifestEntries);
+        }
+
+        // Reported manifest-first, the order the references appear in when
+        // reading the signature from the outside in.
+        result.References = std::move(manifestEntries);
+        result.References.insert(result.References.end(),
+                                 std::make_move_iterator(signedInfoEntries.begin()),
+                                 std::make_move_iterator(signedInfoEntries.end()));
 
         if (anyInvalid)
         {
@@ -437,7 +491,25 @@ private:
         }
         else if (anyUnchecked || result.References.empty())
         {
+            // Something could not be checked at all - an algorithm or a
+            // transform this library does not apply. That is not the same as a
+            // mismatch, and it is also why this comes before the manifest test
+            // below: an Object that could not be verified is an Object whose
+            // Manifest was never looked at.
             result.ContentIntegrity = SignatureCheck::NotChecked;
+        }
+        else if (manifestReferences.empty())
+        {
+            // Everything the signature named checked out, and none of it was a
+            // package part. A package signature that vouches only for its own
+            // Objects is evidence about itself and nothing else, so it must not
+            // be reported as intact content.
+            result.ContentIntegrity = SignatureCheck::Invalid;
+            ReportIssue(diagnostics,
+                        ValidationSeverity::Error,
+                        ValidationErrorId::SignatureMalformed,
+                        "The signature covers no package part: no signed Object contains a Manifest.",
+                        result.PartUri);
         }
         else
         {

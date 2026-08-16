@@ -6,8 +6,12 @@
 
 #include "TestSupport.hpp"
 
+#include "ExyokiOffice/MarkupCompatibility.hpp"
+#include "ExyokiOffice/OpenXMLElement.hpp"
+#include "ExyokiOffice/OpenXmlDomValidator.hpp"
 #include "ExyokiOffice/OpenXmlPackage.hpp"
 #include "ExyokiOffice/Tools/PackageArchiver.hpp"
+#include "ExyokiOffice/Xml/XmlQuery.hpp"
 #include "zip/zip.h"
 
 #include <algorithm>
@@ -359,6 +363,149 @@ TEST_SUITE("XmlAndArchiveSecurityTests")
         CHECK_FALSE(unpacked.Ok);
         CHECK(XmlAndArchiveSecurityTestHelper::HasDiagnostic(unpacked.Diagnostics, "compression ratio"));
         CHECK_FALSE(std::filesystem::exists(outputPath / "word" / "document.xml"));
+    }
+
+    TEST_CASE("deeply nested XML does not exhaust the stack [security-regression]")
+    {
+        // A document nested tens of thousands of elements deep is cheap to write
+        // and pugixml parses it iteratively, so it arrives in memory intact. Every
+        // walk over it afterwards therefore has to be iterative or depth-bounded
+        // too: one call frame per level is a stack overflow, which is a crash of
+        // the calling process rather than an error anybody can handle.
+        //
+        // Limits are left off deliberately. They are what a caller *may* switch on;
+        // these walks must hold up without them, because the library's own default
+        // does not set them and every one of these entry points is public.
+        // The depth has to beat the stack a recursive walk would use, and the
+        // frames here are small: at 20k levels an optimized build still survives
+        // one call per level, so a test at that depth would pass against the very
+        // implementation it is meant to reject.
+        constexpr int kDepth = 100'000;
+
+        std::string xml = "<?xml version=\"1.0\"?><w:document xmlns:w=\"" + std::string(kWordNamespace) +
+                          "\"><w:body>";
+        for (int level = 0; level < kDepth; ++level)
+        {
+            xml += "<n>";
+        }
+        xml += "text";
+        for (int level = 0; level < kDepth; ++level)
+        {
+            xml += "</n>";
+        }
+        xml += "</w:body></w:document>";
+
+        ExyokiOffice::OpenXmlPackage package;
+        REQUIRE(package.LoadFromMemory(XmlAndArchiveSecurityTestHelper::BuildWordPackage(xml)));
+        const auto part = package.GetPartByUri("/word/document.xml");
+        REQUIRE(part != nullptr);
+        const auto root = part->GetRootElement();
+        REQUIRE(root != nullptr);
+
+        SUBCASE("text collection walks the whole tree")
+        {
+            // Two different walks: InnerText concatenates character data, and
+            // ExtractAllText visits every descendant element. The second is the
+            // one XmlQuery::SelectDescendants and XmlHelpers::FindByAttribute are
+            // built on, so this covers those as well - and far more cheaply, as
+            // FindByAttribute materializes a typed wrapper per element.
+            CHECK(ExyokiOffice::Xml::InnerText(root) == "text");
+            CHECK(ExyokiOffice::Xml::XmlHelpers::ExtractAllText(root).size() == 1U);
+        }
+
+        SUBCASE("a deep clone carries its namespaces without recursing")
+        {
+            // Copying works out which namespace declarations the copy has to take
+            // with it by walking the subtree, which is another walk over the same
+            // depth.
+            ExyokiOffice::OpenXmlPackage target;
+            REQUIRE(target.LoadFromMemory(XmlAndArchiveSecurityTestHelper::BuildWordPackage(
+                "<?xml version=\"1.0\"?><w:document xmlns:w=\"" + std::string(kWordNamespace) +
+                "\"><w:body/></w:document>")));
+            const auto targetPart = target.GetPartByUri("/word/document.xml");
+            REQUIRE(targetPart != nullptr);
+            const auto targetRoot = targetPart->GetRootElement();
+            REQUIRE(targetRoot != nullptr);
+
+            const auto body = root->Children().front();
+            REQUIRE(body != nullptr);
+            CHECK(body->CopyInto(targetRoot, nullptr, ExyokiOffice::OpenXmlCloneDepth::Deep) != nullptr);
+        }
+
+        SUBCASE("markup compatibility refuses the depth instead of crashing")
+        {
+            ExyokiOffice::ValidationResult diagnostics;
+            ExyokiOffice::MarkupCompatibilityProcessSettings settings;
+            settings.ProcessMode = ExyokiOffice::MarkupCompatibilityProcessMode::ProcessAllParts;
+
+            ExyokiOffice::MarkupCompatibilityProcessor processor(settings, &diagnostics);
+            CHECK_FALSE(processor.Process(root));
+            CHECK(XmlAndArchiveSecurityTestHelper::HasValidationIssue(
+                diagnostics, ExyokiOffice::ValidationErrorId::NestingTooDeep));
+        }
+    }
+
+    TEST_CASE("deeply nested XML does not exhaust the stack while validating [security-regression]")
+    {
+        // Split from the walks above because validation costs far more than linear
+        // time per level - each element resolves its content model and its path -
+        // so the depth is the smallest one at which a call per level still
+        // overruns a default stack rather than the largest one the test budget
+        // allows. Validation frames are correspondingly larger, which is what
+        // makes the smaller depth sufficient here.
+        constexpr int kDepth = 20'000;
+
+        std::string xml = "<?xml version=\"1.0\"?><w:document xmlns:w=\"" + std::string(kWordNamespace) +
+                          "\"><w:body>";
+        for (int level = 0; level < kDepth; ++level)
+        {
+            xml += "<n>";
+        }
+        for (int level = 0; level < kDepth; ++level)
+        {
+            xml += "</n>";
+        }
+        xml += "</w:body></w:document>";
+
+        ExyokiOffice::OpenXmlPackage package;
+        REQUIRE(package.LoadFromMemory(XmlAndArchiveSecurityTestHelper::BuildWordPackage(xml)));
+        const auto part = package.GetPartByUri("/word/document.xml");
+        REQUIRE(part != nullptr);
+        const auto root = part->GetRootElement();
+        REQUIRE(root != nullptr);
+
+        // The verdict is beside the point - `n` is not Wordprocessing markup, so
+        // there will be diagnostics. Returning at all is the assertion.
+        const ExyokiOffice::OpenXmlDomValidator validator{{}};
+        const auto result = validator.Validate(*root);
+        CHECK(result.Issues().size() > 0U);
+    }
+
+    TEST_CASE("the XML limit check itself survives what it is meant to bound [security-regression]")
+    {
+        // A caller that sets a node ceiling but no depth ceiling used to get the
+        // worst of both: the walk that counts the nodes descended one frame per
+        // level, so the check written to contain a hostile document was the thing
+        // the document overflowed.
+        std::string xml = "<?xml version=\"1.0\"?><w:document xmlns:w=\"" + std::string(kWordNamespace) +
+                          "\"><w:body>";
+        for (int level = 0; level < 100'000; ++level)
+        {
+            xml += "<n>";
+        }
+        for (int level = 0; level < 100'000; ++level)
+        {
+            xml += "</n>";
+        }
+        xml += "</w:body></w:document>";
+
+        auto limits = ExyokiOffice::OpenXmlPackageLimits::Unlimited();
+        limits.MaxXmlNodes = 1'000'000;
+        limits.MaxXmlDepth = 0; // "no limit", which is also the library default
+
+        ExyokiOffice::OpenXmlPackage package;
+        package.SetPackageLimits(limits);
+        CHECK(package.LoadFromMemory(XmlAndArchiveSecurityTestHelper::BuildWordPackage(xml)));
     }
 
     TEST_CASE("archive extraction rejects Zip Slip traversal entries [security-regression]")

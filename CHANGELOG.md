@@ -26,6 +26,53 @@ and `Security`, and describe user-visible changes rather than commits.
   One binary means no cross-module attribution loss, so inline code in
   headers is counted wherever a test instantiated it.
 
+### Security
+
+- Package signature verification no longer accepts a signature whose manifest
+  has been moved out of the object it was signed in. The parts a signature
+  covers are now read from the `Manifest` inside a `dsig:Object` whose digest
+  has verified, rather than from any object of the signature part. Wrapping the
+  signed object in another one leaves both the same-document digest and the
+  signature value intact, so a package edited after that treatment used to
+  verify as unchanged content. Two rules follow the same principle: a signature
+  whose signed objects hold no manifest covers no package part and is reported
+  `Invalid` with `SignatureMalformed` instead of valid, and a signature part
+  that repeats an element `Id` is refused, because which element a `#fragment`
+  resolves to would otherwise decide what was checked. See
+  [docs/Signatures.md](docs/Signatures.md).
+- Formula text is bounded: expressions nested deeper than 128 levels are
+  rejected with a diagnostic rather than descending one stack frame per level.
+  Every `f` element of a loaded workbook reaches the parser, so a couple of
+  kilobytes of `((((...))))` used to end the process in a stack overflow.
+  Excel's own limit is 64 nested function levels, so nothing it can store is
+  affected. The parsed expression tree is also released iteratively, since a
+  chain such as `A1+A2+...` is as deep as the formula is long while nesting
+  nothing, and both walks over it in the formula engine - validation and
+  precedent collection - use an explicit stack for the same reason.
+- Deeply nested XML no longer reaches the stack through a walk over a document
+  tree. DOM validation, `Xml::InnerText`, `XmlQuery` descendant walks, the
+  namespace collection behind a deep copy, and the package limit check itself
+  all keep their own stack; markup compatibility processing, which rewrites the
+  tree as it descends and cannot become a loop, refuses to descend past 512
+  levels and reports the new `ValidationErrorId::NestingTooDeep`. The limit
+  check mattered most: a caller that set a node ceiling but left the depth
+  ceiling at "no limit" had the check itself overflowed by the document it was
+  meant to contain.
+
+### Changed
+
+- `EXYOKIOFFICE_WARNINGS_AS_ERRORS` now defaults to `OFF`. Every compiler
+  generation invents diagnostics, so the previous default turned an unseen
+  warning on a newer toolchain into a failed build for anyone who merely wanted
+  to build the library. CI and `WinBuild.ps1` pass `ON` explicitly, so the
+  builds that police warnings still do.
+- Configuring stops with a plain message when the compiler is older than
+  GCC 13, Clang 17, or MSVC 19.30, instead of failing hundreds of translation
+  units later inside `<format>` or `<charconv>`. macOS, which no preset and no
+  CI job covers, is reported as untested at configure time. README.md now
+  carries the platform table and a note on how much memory a full build wants
+  per job.
+
 ### Fixed
 
 - The `ROUND` family survives every extreme digit count. A digit count whose
