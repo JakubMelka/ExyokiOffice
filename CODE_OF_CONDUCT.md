@@ -43,9 +43,8 @@ individual is officially representing the project in public spaces.
 ## Enforcement
 
 Report abusive, harassing, or otherwise unacceptable behavior to the project
-maintainer at <mgr.jakub.melka@gmail.com>. All complaints will be reviewed and
-investigated promptly and fairly, and the privacy and security of the reporter
-will be respected.
+maintainer. All complaints will be reviewed and investigated promptly and
+fairly, and the privacy and security of the reporter will be respected.
 
 Maintainers who do not follow or enforce this Code of Conduct in good faith may
 face temporary or permanent repercussions as determined by the project's

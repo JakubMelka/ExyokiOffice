@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <iterator>
 #include <functional>
 #include <memory>
 #include <sstream>
@@ -703,6 +704,134 @@ TEST_SUITE("Package signatures")
         CHECK_FALSE(signature.IsValid());
         CHECK_FALSE(verification.AllValid());
         CHECK(HasIssueContaining(verification.Diagnostics, "covers no package part"));
+    }
+
+    TEST_CASE("A manifest naming only its own signature is not coverage [unit] [security] [signature]")
+    {
+        // A subtler form of the previous forgery: the Manifest stays, so a check
+        // for "is there a manifest, and does it have entries" is satisfied. Its
+        // one entry is a bare-name reference into the signature XML, though, so
+        // it digests an element of the signature itself and names no part and no
+        // relationship set. Everything verifies and nothing about the package is
+        // established.
+        auto provider = std::make_shared<StubCryptoProvider>();
+        const auto bytes = CreateSignedPackage(provider);
+
+        const auto forged = RepackageWithSignatureXml(
+            bytes,
+            [](std::string xml)
+            {
+                return ForgeSignatureXml(
+                    std::move(xml),
+                    [](Pugi::xml_node& signature)
+                    {
+                        auto packageObject = FindElementById(signature, "idPackageObject");
+                        REQUIRE(packageObject);
+                        auto manifest =
+                            SignatureXml::FindChild(packageObject, SignatureNames::DsigNamespace, "Manifest");
+                        REQUIRE(manifest);
+
+                        // The element the surviving entry will point at. Nothing
+                        // rewrites it afterwards, so its digest stays correct.
+                        auto decoy = signature.append_child(Pugi::node_element);
+                        decoy.set_name(packageObject.name());
+                        decoy.append_attribute("Id").set_value("idDecoyObject");
+                        decoy.text().set("nothing to see here");
+
+                        // Keep one entry, so the manifest is neither empty nor
+                        // structurally odd, and repoint it at the decoy.
+                        auto references = SignatureXml::FindChildren(manifest, SignatureNames::DsigNamespace,
+                                                                     "Reference");
+                        REQUIRE_FALSE(references.empty());
+                        for (auto it = std::next(references.begin()); it != references.end(); ++it)
+                        {
+                            manifest.remove_child(*it);
+                        }
+
+                        auto kept = references.front();
+                        kept.attribute("URI").set_value("#idDecoyObject");
+                        // The relationship transform would not apply to an
+                        // element inside the signature.
+                        if (auto transforms =
+                                SignatureXml::FindChild(kept, SignatureNames::DsigNamespace, "Transforms"))
+                        {
+                            kept.remove_child(transforms);
+                        }
+
+                        const auto canonical = XmlCanonicalization::CanonicalizeSubtree(decoy);
+                        REQUIRE(canonical.has_value());
+                        const auto digest =
+                            ExyokiOffice::Security::ComputeDigest(DigestAlgorithm::Sha256, AsBytes(*canonical));
+                        auto digestValue =
+                            SignatureXml::FindChild(kept, SignatureNames::DsigNamespace, "DigestValue");
+                        REQUIRE(digestValue);
+                        digestValue.text().set(SignatureXml::EncodeBase64(digest).c_str());
+                    });
+            });
+
+        auto package = LoadPackage(forged);
+        TamperWithDocumentText(*package);
+
+        ExyokiOffice::Security::VerifySignaturesOptions options;
+        options.ByteSource = ExyokiOffice::Security::PartByteSource::Current;
+        const auto verification = VerifySignatures(*package, provider, options);
+        REQUIRE(verification.Signatures.size() == 1U);
+
+        const auto& signature = verification.Signatures.front();
+        CHECK(signature.SignatureValue == SignatureCheck::Valid);
+        // Every digest in the forgery matches, including the manifest entry.
+        const auto& references = signature.References;
+        CHECK(std::all_of(references.begin(), references.end(),
+                          [](const auto& reference)
+                          { return reference.Digest == SignatureCheck::Valid; }));
+        CHECK(std::none_of(references.begin(), references.end(),
+                           [](const auto& reference)
+                           { return !reference.PartUri.empty(); }));
+
+        CHECK(signature.ContentIntegrity == SignatureCheck::Invalid);
+        CHECK_FALSE(signature.IsValid());
+        CHECK_FALSE(verification.AllValid());
+        CHECK(HasIssueContaining(verification.Diagnostics, "covers no package part"));
+    }
+
+    TEST_CASE("An id repeated from the Signature element fails the signature [unit] [security] [signature]")
+    {
+        // The root Signature carries an Id like any other element, so a nested
+        // element repeating it is the same ambiguity as two nested elements
+        // sharing one: this library resolves the bare name to one of them, and
+        // another verifier may resolve it to the root.
+        auto provider = std::make_shared<StubCryptoProvider>();
+        const auto bytes = CreateSignedPackage(provider);
+
+        const auto forged = RepackageWithSignatureXml(
+            bytes,
+            [](std::string xml)
+            {
+                return ForgeSignatureXml(
+                    std::move(xml),
+                    [](Pugi::xml_node& signature)
+                    {
+                        const std::string signatureId = signature.attribute("Id").as_string();
+                        REQUIRE_FALSE(signatureId.empty());
+
+                        auto packageObject = FindElementById(signature, "idPackageObject");
+                        REQUIRE(packageObject);
+
+                        auto decoy = signature.append_child(Pugi::node_element);
+                        decoy.set_name(packageObject.name());
+                        decoy.append_attribute("Id").set_value(signatureId.c_str());
+                    });
+            });
+
+        auto package = LoadPackage(forged);
+        const auto verification = VerifySignatures(*package, provider);
+        REQUIRE(verification.Signatures.size() == 1U);
+
+        const auto& signature = verification.Signatures.front();
+        CHECK(signature.ContentIntegrity == SignatureCheck::Invalid);
+        CHECK_FALSE(signature.IsValid());
+        CHECK(HasIssue(verification.Diagnostics, ValidationErrorId::SignatureMalformed));
+        CHECK(HasIssueContaining(verification.Diagnostics, "same Id"));
     }
 
     TEST_CASE("A repeated element id fails the signature [unit] [security] [signature]")

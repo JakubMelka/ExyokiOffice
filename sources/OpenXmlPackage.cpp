@@ -960,19 +960,17 @@ bool OpenXmlPackageImpl::CheckXmlLimits(const Pugi::xml_document& doc,
     UInt64 attributes = 0;
     UInt64 textCharacters = 0;
 
-    // The walk keeps its own stack. Recursing per level would mean the check
-    // that exists to bound a hostile document could itself be overflowed by
-    // one - a caller that sets a node or attribute limit but leaves the depth
-    // limit at "no limit" would have no protection at all while walking.
-    struct PendingNode
-    {
-        Pugi::xml_node Node;
-        UInt64 Depth = 0;
-    };
-
-    std::vector<PendingNode> pending;
-
-    const auto visit = [&](Pugi::xml_node node, UInt64 depth) -> bool
+    // The walk is iterative. Recursing per level would mean the check that
+    // exists to bound a hostile document could itself be overflowed by one - a
+    // caller that sets a node or attribute limit but leaves the depth limit at
+    // "no limit" would have no protection at all while walking.
+    //
+    // It also keeps no queue of nodes still to visit, and follows pugixml's
+    // parent and sibling links instead. A queue would have to hold every child
+    // of an element before a single one of them is counted, so an element with
+    // millions of children would force that allocation even where MaxXmlNodes
+    // is a hundred - the input would be rejected only after paying for it.
+    const auto visit = [&](const Pugi::xml_node& node, UInt64 depth) -> bool
     {
         if (OpenXmlPackageHelper::IsCancellationRequested(cancellationToken))
         {
@@ -1021,27 +1019,36 @@ bool OpenXmlPackageImpl::CheckXmlLimits(const Pugi::xml_document& doc,
                 return false;
             }
         }
-        for (auto child = node.last_child(); child; child = child.previous_sibling())
-        {
-            pending.push_back({child, depth + 1});
-        }
         return true;
     };
 
-    for (auto child = doc.last_child(); child; child = child.previous_sibling())
+    Pugi::xml_node current = doc.first_child();
+    UInt64 depth = 1;
+    while (current)
     {
-        pending.push_back({child, 1});
-    }
-
-    while (!pending.empty())
-    {
-        const PendingNode current = pending.back();
-        pending.pop_back();
-
-        if (!visit(current.Node, current.Depth))
+        if (!visit(current, depth))
         {
             return false;
         }
+
+        if (const auto child = current.first_child())
+        {
+            current = child;
+            ++depth;
+            continue;
+        }
+
+        // A leaf: climb to the nearest ancestor that still has a sibling left.
+        // Reaching depth zero means the document node, and with it the end.
+        while (!current.next_sibling())
+        {
+            current = current.parent();
+            if (--depth == 0)
+            {
+                return true;
+            }
+        }
+        current = current.next_sibling();
     }
     return true;
 }

@@ -84,12 +84,17 @@ could be shown a signature whose manifest had been moved out of view — it
 would then check no part at all and call the package intact. Two related
 refusals follow from the same rule:
 
-- A signature whose signed objects contain no `Manifest` covers no package
-  part. It is reported as `Invalid` with `SignatureMalformed`, never as valid
-  content, because it is evidence about itself and about nothing else.
-- A signature part that gives two elements the same `Id` is refused outright.
-  Which of them a `#fragment` reference resolves to would otherwise be up to
-  the implementation, and this library and Word could disagree about what was
+- A signature none of whose verified references names a package part or a
+  relationship set covers no content. It is reported as `Invalid` with
+  `SignatureMalformed`, never as valid content, because it is evidence about
+  itself and about nothing else. The test is on what the references resolve
+  to, not on whether a `Manifest` was there: a manifest whose entries are all
+  bare-name `#id` references digests elements of the signature XML, so it is
+  neither empty nor covering.
+- A signature part that gives two elements the same `Id` is refused outright,
+  and the root `Signature` element counts as one of them. Which element a
+  `#fragment` reference resolves to would otherwise be up to the
+  implementation, and this library and Word could disagree about what was
   checked.
 
 The certificates are handed over as raw DER (`SignatureResult::Certificates`);

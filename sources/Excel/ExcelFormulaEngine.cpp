@@ -396,6 +396,19 @@ using NameAstMap = std::map<std::pair<std::string, std::string>, const FormulaEx
  * Name expansion is the one axis here that recurses, and a workbook can chain
  * as many names as it likes (`n1` refers to `n2` refers to `n3`...). The cycle
  * guard stops a loop but not a long chain, so the depth is capped as well.
+ *
+ * The cap is not only about stack depth. Expansion is a tree walk, not a walk
+ * over distinct names: a definition that mentions the next name twice doubles
+ * the work per level, so `n1 = n2+n2`, `n2 = n3+n3`, ... costs 2^depth without
+ * a bound. Raising the cap therefore needs memoized expansion, not a larger
+ * number.
+ *
+ * Truncating loses precedents rather than inventing them, and the formula is
+ * marked dynamic so it is evaluated again after the rest of the sheet. That
+ * recovers one generation of staleness, not an arbitrary number of them, and a
+ * dependency cycle running through a chain this long is not reported. Both are
+ * accepted: sixty-four chained definitions is already far past what a workbook
+ * a person wrote can contain.
  */
 constexpr Size MaxNameExpansionDepth = 64;
 
@@ -464,8 +477,9 @@ void CollectPrecedents(const FormulaExpression& root,
                 if (nameStack.size() >= MaxNameExpansionDepth)
                 {
                     // The chain is longer than anything a workbook needs. Stop
-                    // expanding, and report the formula as dynamic so that it is
-                    // recalculated rather than trusted to a truncated precedent set.
+                    // expanding, and mark the formula dynamic so that it is not
+                    // ordered by a precedent set known to be incomplete. See
+                    // MaxNameExpansionDepth for what that does and does not buy.
                     dynamic = true;
                     break;
                 }

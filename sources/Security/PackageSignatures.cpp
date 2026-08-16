@@ -476,6 +476,7 @@ private:
     {
         bool anyInvalid = false;
         bool anyUnchecked = false;
+        bool coversPackageContent = false;
 
         const auto process = [&](const SignatureReferenceInfo& reference,
                                  std::vector<SignatureReferenceResult>& entries)
@@ -490,6 +491,11 @@ private:
                     anyUnchecked = true;
                     break;
                 case SignatureCheck::Valid:
+                    // A non-empty PartUri is what separates a reference to
+                    // package content - a part or a relationship set - from a
+                    // bare-name reference into the signature XML itself. Only
+                    // the former is a statement about the document.
+                    coversPackageContent = coversPackageContent || !entry.PartUri.empty();
                     break;
             }
             entries.push_back(std::move(entry));
@@ -560,17 +566,22 @@ private:
             // Manifest was never looked at.
             result.ContentIntegrity = SignatureCheck::NotChecked;
         }
-        else if (manifestReferences.empty())
+        else if (!coversPackageContent)
         {
             // Everything the signature named checked out, and none of it was a
             // package part. A package signature that vouches only for its own
             // Objects is evidence about itself and nothing else, so it must not
             // be reported as intact content.
+            //
+            // The test is on what the references resolved to, not on whether a
+            // Manifest was present: a Manifest whose entries are all bare-name
+            // references into the signature XML is not empty and its digests can
+            // all be valid, yet it names no part and no relationship set.
             result.ContentIntegrity = SignatureCheck::Invalid;
             ReportIssue(diagnostics,
                         ValidationSeverity::Error,
                         ValidationErrorId::SignatureMalformed,
-                        "The signature covers no package part: no signed Object contains a Manifest.",
+                        "The signature covers no package part: nothing it signs names a part of this package.",
                         result.PartUri);
         }
         else

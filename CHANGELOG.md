@@ -80,12 +80,15 @@ and `Security`, and describe user-visible changes rather than commits.
   has verified, rather than from any object of the signature part. Wrapping the
   signed object in another one leaves both the same-document digest and the
   signature value intact, so a package edited after that treatment used to
-  verify as unchanged content. Two rules follow the same principle: a signature
-  whose signed objects hold no manifest covers no package part and is reported
-  `Invalid` with `SignatureMalformed` instead of valid, and a signature part
-  that repeats an element `Id` is refused, because which element a `#fragment`
-  resolves to would otherwise decide what was checked. See
-  [docs/Signatures.md](docs/Signatures.md).
+  verify as unchanged content. Two rules follow the same principle. A signature
+  whose verified references name no part and no relationship set of the package
+  covers no content and is reported `Invalid` with `SignatureMalformed` instead
+  of valid - whether because no manifest was reached at all, or because the
+  manifest's entries are bare-name references that digest elements of the
+  signature XML itself. And a signature part that repeats an element `Id`,
+  including one repeated from the root `Signature` element, is refused, because
+  which element a `#fragment` resolves to would otherwise decide what was
+  checked. See [docs/Signatures.md](docs/Signatures.md).
 - Formula text is bounded: expressions nested deeper than 128 levels are
   rejected with a diagnostic rather than descending one stack frame per level.
   Every `f` element of a loaded workbook reaches the parser, so a couple of
@@ -103,7 +106,10 @@ and `Security`, and describe user-visible changes rather than commits.
   levels and reports the new `ValidationErrorId::NestingTooDeep`. The limit
   check mattered most: a caller that set a node ceiling but left the depth
   ceiling at "no limit" had the check itself overflowed by the document it was
-  meant to contain.
+  meant to contain. That check now also walks the document through its parent
+  and sibling links rather than queueing the children it has yet to visit, so
+  an element with millions of children no longer costs an allocation per child
+  before the node ceiling rejects the document.
 
 - Packages start with the recommended ZIP/XML limits instead of no limits at
   all. Every ceiling used to default to zero, meaning unlimited, so an

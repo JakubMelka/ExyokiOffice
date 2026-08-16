@@ -222,11 +222,18 @@ class SignatureElementIndex final
 public:
     SignatureElementIndex() = delete;
 
-    /// Records every descendant element that carries an Id.
+    /// Records the given element and every descendant that carries an Id.
     ///
     /// A bare-name reference points at whatever element carries the id, not at
     /// an Object: Office signs its XAdES SignedProperties as `#idSignedProperties`,
     /// which names an element nested two levels inside an Object.
+    ///
+    /// The root Signature element is indexed together with its descendants. Its
+    /// Id is an id like any other, so leaving it out would let `<Signature
+    /// Id="x">` coexist with a nested `<Object Id="x">`: this library would
+    /// silently resolve `#x` to the Object while another verifier could resolve
+    /// it to the root, which is exactly the ambiguity the uniqueness check
+    /// exists to reject.
     ///
     /// \return False when an id occurs more than once. Which of the two a
     ///         verifier picks would then decide what is checked, and nothing in
@@ -236,6 +243,11 @@ public:
     static bool Build(const Pugi::xml_node& node, std::map<std::string, Pugi::xml_node>& elements)
     {
         bool unique = true;
+        const std::string id = node.attribute(SignatureXmlNames::IdAttribute).as_string();
+        if (!id.empty() && !elements.emplace(id, node).second)
+        {
+            unique = false;
+        }
         Descend(node, elements, 0, unique);
         return unique;
     }
