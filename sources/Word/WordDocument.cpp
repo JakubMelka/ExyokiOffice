@@ -17,6 +17,7 @@
 
 #include "AsciiText.hpp"
 #include "TextPatternCompiler.hpp"
+#include "Word/WordParagraphSearch.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -4276,8 +4277,12 @@ public:
         ImageFormatInfo info;
         info.ContentType = "image/x-emf";
         info.Extension = ".emf";
-        info.PixelWidth = PixelsAt96Dpi(static_cast<Real>(right - left) / 2540.0);
-        info.PixelHeight = PixelsAt96Dpi(static_cast<Real>(bottom - top) / 2540.0);
+        // Widened before subtracting, not after. These are four untrusted 32-bit
+        // fields, and `right > left` says nothing about the difference fitting:
+        // INT32_MIN to INT32_MAX passes the check and overflows signed
+        // arithmetic, which is undefined rather than merely wrong.
+        info.PixelWidth = PixelsAt96Dpi(static_cast<Real>(static_cast<Int64>(right) - left) / 2540.0);
+        info.PixelHeight = PixelsAt96Dpi(static_cast<Real>(static_cast<Int64>(bottom) - top) / 2540.0);
         if (info.PixelWidth == 0 || info.PixelHeight == 0)
         {
             return std::nullopt;
@@ -9771,7 +9776,7 @@ std::shared_ptr<ContentControl> Paragraph::AddInlineContentControl(std::string_v
     {
         return nullptr;
     }
-    auto control = std::make_shared<ContentControl>(sdt, ContentControlLevel::Inline, m_mainDocumentPart);
+    auto control = std::make_shared<ContentControl>(sdt, ContentControlLevel::Inline, m_mainDocumentPart, m_owningPart);
     control->EnsureId();
     if (!tag.empty())
     {
@@ -9796,8 +9801,8 @@ std::vector<std::shared_ptr<ContentControl>> Paragraph::ContentControls() const
     {
         if (child && child->QualifiedName() == sdtName)
         {
-            result.push_back(
-                std::make_shared<ContentControl>(child, ContentControlLevel::Inline, m_mainDocumentPart));
+            result.push_back(std::make_shared<ContentControl>(child, ContentControlLevel::Inline, m_mainDocumentPart,
+                                                              m_owningPart));
         }
     }
     return result;
@@ -9997,62 +10002,22 @@ Size Paragraph::ReplaceAll(std::string_view needle, std::string_view replacement
 
 std::vector<ContentRange> Paragraph::FindAllRegex(const RegexPattern& pattern) const
 {
-    std::vector<ContentRange> ranges;
-    if (!m_paragraph)
-    {
-        return ranges;
-    }
-
     const auto compiled = Detail::CompileRegex(pattern);
-    const std::string text = WordRunTextHelper::ConcatenatedRunText(Runs());
-    if (!compiled || !Detail::IsSearchableSubject(text))
+    if (!compiled)
     {
-        return ranges;
+        return {};
     }
-
-    for (auto it = std::sregex_iterator(text.cbegin(), text.cend(), *compiled); it != std::sregex_iterator(); ++it)
-    {
-        const auto& match = *it;
-        const auto start = static_cast<Size>(match.position(0));
-        ranges.push_back(ContentRange{start, start + static_cast<Size>(match.length(0))});
-    }
-    return ranges;
+    return Detail::FindAllRegexCompiled(*this, *compiled);
 }
 
 Size Paragraph::ReplaceAllRegex(const RegexPattern& pattern, std::string_view replacementFormat)
 {
-    const std::string format(replacementFormat);
-
     const auto compiled = Detail::CompileRegex(pattern);
-    const std::string text = WordRunTextHelper::ConcatenatedRunText(Runs());
-    if (!compiled || !Detail::IsSearchableSubject(text))
+    if (!compiled)
     {
         return 0;
     }
-
-    // Collect matches (and their formatted replacement text) against the original,
-    // unmodified paragraph text first: std::sregex_iterator already guarantees
-    // forward progress across zero-length matches, so there is no need to
-    // re-derive that logic while mutating the DOM. Matches are then applied
-    // back-to-front so earlier, not-yet-applied offsets stay valid.
-    std::vector<std::pair<ContentRange, std::string>> pendingReplacements;
-    for (auto it = std::sregex_iterator(text.cbegin(), text.cend(), *compiled); it != std::sregex_iterator(); ++it)
-    {
-        const auto& match = *it;
-        const auto start = static_cast<Size>(match.position(0));
-        const auto end = start + static_cast<Size>(match.length(0));
-        pendingReplacements.emplace_back(ContentRange{start, end}, match.format(format));
-    }
-
-    Size replacements = 0;
-    for (auto it = pendingReplacements.rbegin(); it != pendingReplacements.rend(); ++it)
-    {
-        if (ReplaceText(it->first, it->second))
-        {
-            ++replacements;
-        }
-    }
-    return replacements;
+    return Detail::ReplaceAllRegexCompiled(*this, *compiled, replacementFormat);
 }
 
 Run::Run(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>& run)
@@ -14908,3 +14873,70 @@ std::shared_ptr<ContentControl> BodyBlock::AsContentControl() const
 }
 
 } // namespace ExyokiOffice::Word
+
+namespace ExyokiOffice::Detail
+{
+
+std::vector<Word::ContentRange> FindAllRegexCompiled(const Word::Paragraph& paragraph, const std::regex& expression)
+{
+    std::vector<Word::ContentRange> ranges;
+    if (!paragraph.GetLowLevelApi())
+    {
+        return ranges;
+    }
+
+    const std::string text = Word::WordRunTextHelper::ConcatenatedRunText(paragraph.Runs());
+    if (!IsSearchableSubject(text))
+    {
+        return ranges;
+    }
+
+    for (auto it = std::sregex_iterator(text.cbegin(), text.cend(), expression); it != std::sregex_iterator(); ++it)
+    {
+        const auto& match = *it;
+        const auto start = static_cast<Size>(match.position(0));
+        ranges.push_back(Word::ContentRange{start, start + static_cast<Size>(match.length(0))});
+    }
+    return ranges;
+}
+
+Size ReplaceAllRegexCompiled(Word::Paragraph& paragraph, const std::regex& expression, std::string_view replacementFormat)
+{
+    if (!paragraph.GetLowLevelApi())
+    {
+        return 0;
+    }
+
+    const std::string format(replacementFormat);
+    const std::string text = Word::WordRunTextHelper::ConcatenatedRunText(paragraph.Runs());
+    if (!IsSearchableSubject(text))
+    {
+        return 0;
+    }
+
+    // Collect matches (and their formatted replacement text) against the original,
+    // unmodified paragraph text first: std::sregex_iterator already guarantees
+    // forward progress across zero-length matches, so there is no need to
+    // re-derive that logic while mutating the DOM. Matches are then applied
+    // back-to-front so earlier, not-yet-applied offsets stay valid.
+    std::vector<std::pair<Word::ContentRange, std::string>> pendingReplacements;
+    for (auto it = std::sregex_iterator(text.cbegin(), text.cend(), expression); it != std::sregex_iterator(); ++it)
+    {
+        const auto& match = *it;
+        const auto start = static_cast<Size>(match.position(0));
+        const auto end = start + static_cast<Size>(match.length(0));
+        pendingReplacements.emplace_back(Word::ContentRange{start, end}, match.format(format));
+    }
+
+    Size replacements = 0;
+    for (auto it = pendingReplacements.rbegin(); it != pendingReplacements.rend(); ++it)
+    {
+        if (paragraph.ReplaceText(it->first, it->second))
+        {
+            ++replacements;
+        }
+    }
+    return replacements;
+}
+
+} // namespace ExyokiOffice::Detail

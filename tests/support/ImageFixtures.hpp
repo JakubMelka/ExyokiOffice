@@ -152,6 +152,16 @@ std::vector<ExyokiOffice::Byte> BuildTiff(ExyokiOffice::UInt32 width,
                                           ExyokiOffice::UInt32 height,
                                           ExyokiOffice::UInt32 dpi = 0);
 
+/**
+ * Minimal EMR_HEADER with every rclFrame edge stated, in hundredths of a
+ * millimetre. The edges come straight out of the file in a real metafile, so
+ * this is what the boundary cases need.
+ */
+std::vector<ExyokiOffice::Byte> BuildEmfFrame(ExyokiOffice::Int32 left,
+                                              ExyokiOffice::Int32 top,
+                                              ExyokiOffice::Int32 right,
+                                              ExyokiOffice::Int32 bottom);
+
 /** Minimal EMR_HEADER; the frame is given in hundredths of a millimetre. */
 std::vector<ExyokiOffice::Byte> BuildEmf(ExyokiOffice::Int32 frameWidth001mm,
                                          ExyokiOffice::Int32 frameHeight001mm);

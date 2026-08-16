@@ -22,10 +22,12 @@
 #include "ExyokiOffice/Tools/SpreadsheetTools.hpp"
 #include "ExyokiOffice/Tools/TextExtractor.hpp"
 #include "ExyokiOffice/Tools/WordAutomationTools.hpp"
+#include "ExyokiOffice/TextPattern.hpp"
 #include "ExyokiOffice/Word/WordDocument.hpp"
 
 #include <algorithm>
 #include <fstream>
+#include <string>
 
 using namespace ExyokiOffice::Tools;
 using ExyokiOffice::Excel::ExcelDocumentEditor;
@@ -202,6 +204,42 @@ TEST_CASE("SearchDocumentText reports an invalid regex instead of matching [unit
                       [](const ToolDiagnostic& diagnostic)
                       { return diagnostic.Severity == ToolSeverity::Error; }));
     std::filesystem::remove(path);
+}
+
+TEST_CASE("A cell past the regex subject limit is not searched [unit] [tools] [security]")
+{
+    // A backtracking regex engine recurses per input character, and the
+    // Microsoft implementation exhausts the thread stack on a long enough
+    // subject. That is not an exception a caller can catch - the process is
+    // gone - so `RegexPattern::MaximumSubjectLength` promises such text is never
+    // handed to the engine. The promise was kept by the Word paragraph API and
+    // by nothing else, which left every Excel cell, PowerPoint shape, table cell
+    // and notes page open to it: a hostile document only had to pick the other
+    // frontend.
+    auto editor = ExcelDocumentEditor::CreateNew();
+    REQUIRE(editor);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet);
+
+    const auto limit = ExyokiOffice::RegexPattern::MaximumSubjectLength;
+    sheet->SetCellText(1, 1, "needle " + std::string(limit, 'x'));
+    sheet->SetCellText(2, 1, "needle in a cell of ordinary length");
+
+    const auto matched = SearchDocumentText(*editor, "needle", 10, true);
+    CHECK(matched.Ok);
+    // The short cell matches; the over-long one is skipped rather than searched.
+    REQUIRE(matched.Matches.size() == 1U);
+    CHECK(AnyMatchLabel(matched, "!A2"));
+
+    // Exactly at the limit is still searched - the bound is inclusive.
+    sheet->SetCellText(1, 1, "needle" + std::string(limit - 6, 'x'));
+    const auto atLimit = SearchDocumentText(*editor, "needle", 10, true);
+    CHECK(atLimit.Matches.size() == 2U);
+
+    // A plain substring search does not go through the engine and is unaffected.
+    sheet->SetCellText(1, 1, "needle " + std::string(limit, 'x'));
+    const auto plain = SearchDocumentText(*editor, "needle");
+    CHECK(plain.Matches.size() == 2U);
 }
 
 TEST_CASE("SearchDocumentText rejects an empty needle [unit] [tools]")

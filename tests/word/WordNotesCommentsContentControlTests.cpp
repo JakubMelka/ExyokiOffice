@@ -1127,4 +1127,67 @@ TEST_SUITE("WordNotesCommentsContentControlTests")
         CHECK(editor->FindContentControl(control->GetId()) != nullptr);
     }
 
+    TEST_CASE("An inline content control lives in the part its paragraph does [unit] [word] [word-notes-comments-content-control]")
+    {
+        // The owning part is where a piece of content's relationships belong, so
+        // a control that reports the wrong one writes a hyperlink relationship
+        // into the wrong `.rels` and resolves it against unrelated targets. A
+        // paragraph knows its part; the control it makes was handed only the
+        // main document part, which is wrong in a comment and null in a header -
+        // where a paragraph has no main document part to inherit either.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+
+        auto body = editor->AddParagraph("Body text");
+        REQUIRE(body != nullptr);
+        auto mainPart = editor->GetDocument()->GetMainDocumentPart();
+        REQUIRE(mainPart != nullptr);
+
+        SUBCASE("in the main document it is the main document part")
+        {
+            auto control = body->AddInlineContentControl("body");
+            REQUIRE(control != nullptr);
+            CHECK(control->OwningPart() == mainPart);
+            REQUIRE(body->ContentControls().size() == 1);
+            CHECK(body->ContentControls().front()->OwningPart() == mainPart);
+        }
+
+        SUBCASE("in a comment it is the comments part")
+        {
+            CommentAuthor author;
+            author.Name = "Reviewer";
+            auto comment = body->AddCommentOnParagraph("Needs a citation.", author);
+            REQUIRE(comment != nullptr);
+            const auto commentPart = comment->OwningPart();
+            REQUIRE(commentPart != nullptr);
+            CHECK(commentPart != mainPart);
+
+            auto paragraphs = comment->Paragraphs();
+            REQUIRE_FALSE(paragraphs.empty());
+            auto control = paragraphs.front()->AddInlineContentControl("commented");
+            REQUIRE(control != nullptr);
+            CHECK(control->OwningPart() == commentPart);
+            REQUIRE(paragraphs.front()->ContentControls().size() == 1);
+            CHECK(paragraphs.front()->ContentControls().front()->OwningPart() == commentPart);
+        }
+
+        SUBCASE("in a header it is the header part, not nothing at all")
+        {
+            auto section = editor->EnsureFinalSection();
+            REQUIRE(section != nullptr);
+            auto header = section->EnsureHeader();
+            REQUIRE(header != nullptr);
+            const auto headerPart = header->OwningPart();
+            REQUIRE(headerPart != nullptr);
+
+            auto paragraph = header->AddParagraph("Header text");
+            REQUIRE(paragraph != nullptr);
+            auto control = paragraph->AddInlineContentControl("in-header");
+            REQUIRE(control != nullptr);
+            CHECK(control->OwningPart() == headerPart);
+            REQUIRE(paragraph->ContentControls().size() == 1);
+            CHECK(paragraph->ContentControls().front()->OwningPart() == headerPart);
+        }
+    }
+
 } // TEST_SUITE("WordNotesCommentsContentControlTests")

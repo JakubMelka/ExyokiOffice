@@ -71,7 +71,10 @@ Verification has two independent halves:
 
 `IsValid()` requires both. Without a provider `SignatureValue` stays
 `NotChecked`, so a signature is never reported as valid on the strength of
-unchanged content alone — "unchanged" is not "signed by someone".
+unchanged content alone — "unchanged" is not "signed by someone". It can still
+say *no* without one: refusing a signature for its algorithm reads that
+algorithm out of the document and needs no key at all, so an RSA-SHA1 signature
+value comes back `Invalid` even from `exyoki signatures`, which has no provider.
 
 `ContentIntegrity` answers that question only about the parts the signature
 demonstrably covers, and which parts those are is decided the strict way. The

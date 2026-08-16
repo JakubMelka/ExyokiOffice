@@ -44,16 +44,26 @@ public:
         std::string text;
         for (const auto& row : table.Rows)
         {
+            // The separator goes before every cell but the first, counted by
+            // position rather than by what has been written so far. Deciding it
+            // on "is the line still empty" drops the tabs of leading empty
+            // cells, and {"", "Q2"} then extracts as `Q2`, indistinguishable
+            // from a one-column table - the column a value sits in is exactly
+            // what a tab-separated extract is for.
             std::string line;
-            for (const auto& cell : row.Cells)
+            bool anyText = false;
+            for (Size index = 0; index < row.Cells.size(); ++index)
             {
-                if (!line.empty())
+                if (index != 0)
                 {
                     line += '\t';
                 }
-                line += cell.Text;
+                line += row.Cells[index].Text;
+                anyText = anyText || !row.Cells[index].Text.empty();
             }
-            if (!line.empty())
+            // A row of nothing but empty cells is still skipped; it carries no
+            // text, and its tabs would only be noise in the extract.
+            if (anyText)
             {
                 text += line;
                 text += '\n';

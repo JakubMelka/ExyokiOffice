@@ -197,20 +197,29 @@ std::vector<ExyokiOffice::Byte> BuildTiff(ExyokiOffice::UInt32 width,
     return BuildTiffBlock(width, height, dpi);
 }
 
+std::vector<ExyokiOffice::Byte> BuildEmfFrame(ExyokiOffice::Int32 left,
+                                              ExyokiOffice::Int32 top,
+                                              ExyokiOffice::Int32 right,
+                                              ExyokiOffice::Int32 bottom)
+{
+    ImageBytes emf;
+    emf.Le32(1);                               // iType: EMR_HEADER
+    emf.Le32(88);                              // nSize
+    emf.Le32(0).Le32(0).Le32(1000).Le32(1000); // rclBounds, device units
+    emf.Le32(static_cast<ExyokiOffice::UInt32>(left));
+    emf.Le32(static_cast<ExyokiOffice::UInt32>(top));
+    emf.Le32(static_cast<ExyokiOffice::UInt32>(right));
+    emf.Le32(static_cast<ExyokiOffice::UInt32>(bottom));
+    emf.Ascii(" EMF");    // dSignature, at offset 40
+    emf.Le32(0x00010000); // nVersion
+    emf.Zeros(88 - 48);
+    return emf.Bytes();
+}
+
 std::vector<ExyokiOffice::Byte> BuildEmf(ExyokiOffice::Int32 frameWidth001mm,
                                          ExyokiOffice::Int32 frameHeight001mm)
 {
-    ImageBytes emf;
-    emf.Le32(1);                                                   // iType: EMR_HEADER
-    emf.Le32(88);                                                  // nSize
-    emf.Le32(0).Le32(0).Le32(1000).Le32(1000);                     // rclBounds, device units
-    emf.Le32(0).Le32(0);                                           // rclFrame left, top
-    emf.Le32(static_cast<ExyokiOffice::UInt32>(frameWidth001mm));  // rclFrame right
-    emf.Le32(static_cast<ExyokiOffice::UInt32>(frameHeight001mm)); // rclFrame bottom
-    emf.Ascii(" EMF");                                             // dSignature, at offset 40
-    emf.Le32(0x00010000);                                          // nVersion
-    emf.Zeros(88 - 48);
-    return emf.Bytes();
+    return BuildEmfFrame(0, 0, frameWidth001mm, frameHeight001mm);
 }
 
 std::vector<ExyokiOffice::Byte> BuildPlaceableWmf(ExyokiOffice::Int32 width,

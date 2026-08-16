@@ -791,17 +791,6 @@ private:
             return;
         }
 
-        if (!m_provider)
-        {
-            result.SignatureValue = SignatureCheck::NotChecked;
-            ReportIssue(diagnostics,
-                        ValidationSeverity::Warning,
-                        ValidationErrorId::SignatureNotVerified,
-                        "The signature value was not checked because no crypto provider was supplied.",
-                        result.PartUri);
-            return;
-        }
-
         if (!result.Algorithm)
         {
             result.SignatureValue = SignatureCheck::NotChecked;
@@ -814,6 +803,13 @@ private:
             return;
         }
 
+        // Ahead of the provider check on purpose. Refusing RSA-SHA1 is a policy
+        // decision about what the signature says it is, and it needs no
+        // cryptography to reach: the name of the algorithm is in the document.
+        // Behind the provider check it would never fire for the callers that
+        // most need it - `exyoki signatures` and the MCP servers verify content
+        // integrity with no provider at all, and would have reported a
+        // collision-broken signature as merely unchecked.
         if (SignatureAlgorithmSupport::IsWeakSignature(*result.Algorithm) && !m_options.AllowSha1)
         {
             result.SignatureValue = SignatureCheck::Invalid;
@@ -824,6 +820,17 @@ private:
                         ValidationSeverity::Error,
                         ValidationErrorId::SignatureUnsupportedAlgorithm,
                         result.Warnings.back(),
+                        result.PartUri);
+            return;
+        }
+
+        if (!m_provider)
+        {
+            result.SignatureValue = SignatureCheck::NotChecked;
+            ReportIssue(diagnostics,
+                        ValidationSeverity::Warning,
+                        ValidationErrorId::SignatureNotVerified,
+                        "The signature value was not checked because no crypto provider was supplied.",
                         result.PartUri);
             return;
         }

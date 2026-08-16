@@ -13,6 +13,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <string>
+#include <vector>
 
 using namespace ExyokiOffice::Tools;
 
@@ -162,6 +164,54 @@ TEST_CASE("Grouped shapes and tables are extracted too [unit] [tools] [text-extr
     CHECK(AnyBlockContains(result, "Text inside a group"));
     CHECK(AnyBlockContains(result, "Also inside the group"));
     CHECK(AnyBlockContains(result, "Text inside a table"));
+
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("An empty table cell keeps its column in the extract [unit] [tools] [text-extract]")
+{
+    // The tabs of a row were emitted only once something had been written, so
+    // every leading empty cell lost its separator: {"", "Q2"} extracted as `Q2`,
+    // which is what a one-column table looks like. Which column a value sits in
+    // is the whole point of a tab-separated extract.
+    using namespace ExyokiOffice::PowerPoint;
+
+    auto editor = PowerPointDocumentEditor::CreateNew();
+    REQUIRE(editor);
+    auto slide = editor->AddSlide();
+    REQUIRE(slide);
+    auto tree = slide->ShapeTree();
+    REQUIRE(tree);
+
+    const auto centimeters = [](double value)
+    { return ExyokiOffice::MeasuringUnits(value, ExyokiOffice::MeasurementUnit::Centimeter); };
+
+    PresentationTableData table;
+    table.ColumnWidths = {centimeters(3.0), centimeters(3.0), centimeters(3.0)};
+
+    // Empty first, empty middle and empty last cell, one per row.
+    const std::vector<std::vector<std::string>> rows = {
+        {"", "Leading", "Gap"}, {"Middle", "", "Gap"}, {"Trailing", "Gap", ""}};
+    for (const auto& cells : rows)
+    {
+        PresentationTableRow row;
+        row.Height = centimeters(1.0);
+        for (const auto& cell : cells)
+        {
+            row.Cells.push_back(PresentationTableCell{cell});
+        }
+        table.Rows.push_back(row);
+    }
+    REQUIRE(tree->AddTable(table));
+
+    const auto path = MakeTemporaryPath("exyoki_extract_empty_cells", ".pptx");
+    REQUIRE(editor->SaveToFile(path));
+
+    const auto result = Extract(path);
+    CHECK(result.Ok);
+    CHECK(AnyBlockContains(result, "\tLeading\tGap"));
+    CHECK(AnyBlockContains(result, "Middle\t\tGap"));
+    CHECK(AnyBlockContains(result, "Trailing\tGap\t"));
 
     std::filesystem::remove(path);
 }

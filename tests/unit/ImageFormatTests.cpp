@@ -19,6 +19,7 @@
 
 #include <doctest/doctest.h>
 
+#include <limits>
 #include <string_view>
 
 using namespace ExyokiOffice;
@@ -342,6 +343,27 @@ TEST_CASE("metafiles are detected from their own frame [image-format]")
         CHECK(info->Extension == ".emf");
         CHECK(info->PixelWidth == 96);
         CHECK(info->PixelHeight == 192);
+    }
+
+    SUBCASE("an EMF frame spanning the whole Int32 range is measured without overflowing")
+    {
+        // rclFrame is four untrusted 32-bit fields. `right > left` says nothing
+        // about the difference fitting in an Int32, and INT32_MIN to INT32_MAX
+        // passes it: subtracting there is undefined behavior, and where it
+        // wrapped it produced -1, which PixelsAt96Dpi turned into a zero width
+        // and the detector then rejected. Widened first, the frame is simply
+        // enormous.
+        const auto emf = ExyokiOfficeTests::BuildEmfFrame(std::numeric_limits<Int32>::min(),
+                                                          std::numeric_limits<Int32>::min(),
+                                                          std::numeric_limits<Int32>::max(),
+                                                          std::numeric_limits<Int32>::max());
+        const auto info = DetectImageFormat(emf);
+        REQUIRE(info);
+        // About 1.69 million inches across. Nothing here bounds an image's
+        // dimensions - a PNG is believed about its IHDR too - so what this pins
+        // is that the arithmetic is defined, not that the number is sensible.
+        CHECK(info->PixelWidth > 100000000U);
+        CHECK(info->PixelWidth == info->PixelHeight);
     }
 
     SUBCASE("a placeable WMF states its bounding box in its own units")

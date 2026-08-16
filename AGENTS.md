@@ -330,10 +330,13 @@ At minimum, build affected targets and run relevant unit tests via
 reproduction and verify that the resulting package still opens. Do not commit
 build products, generated example documents, or IDE-local files.
 
-CI is manual only: every workflow in `.github/workflows` is `workflow_dispatch`,
-so nothing runs on push or pull request. `ci.yml` builds and tests on MSVC, GCC,
-Clang, and ASan/UBSan; see `docs/ci.md`. Do not add automatic triggers, because
-a full run regenerates and compiles the whole DOM.
+CI is manual apart from one job. `smoke.yml` — a single Linux GCC release build
+and the test suite — runs on push to `master` and on pull requests; every other
+workflow in `.github/workflows` is `workflow_dispatch` and has to be started by
+hand. `ci.yml` builds and tests on MSVC, GCC, Clang, and ASan/UBSan; see
+`docs/ci.md`. Do not give any of the others an automatic trigger: a full run
+regenerates and compiles the whole DOM on three platforms, which is precisely
+what the one smoke job exists to keep off every push.
 
 ## Linting and fuzzing
 

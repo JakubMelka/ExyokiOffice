@@ -532,28 +532,23 @@ std::optional<Real> ExcelDateSerial::FromParts(Int32 year,
         --normalizedYear;
     }
 
-    const Int64 days =
-        FormulaEvaluatorHelpers::DaysFromCivil(normalizedYear, normalizedMonth + 1, 1) + (day - 1);
-
-    Real serial;
-    const Int64 relative = days - FormulaEvaluatorHelpers::EpochDays1899_12_31;
+    // Only the month is resolved on the calendar; the day is then counted in
+    // serial space rather than in days. The 1900 date system has a 29 February
+    // 1900 that the Gregorian calendar does not, and DATE() reaches it by
+    // whichever spelling normalizes onto it: Excel answers serial 60 to
+    // DATE(1900,2,29), to DATE(1900,1,60) and to DATE(1900,3,0) alike.
+    // Resolving the whole triple on the calendar first would step over the
+    // phantom day and answer one too high for every one of them - which is what
+    // a special case for the literal (1900, 2, 29) could not fix, because the
+    // other two spellings never mention February.
+    const Int64 firstOfMonth = FormulaEvaluatorHelpers::DaysFromCivil(normalizedYear, normalizedMonth + 1, 1);
     const Int64 firstOfMarch1900 = FormulaEvaluatorHelpers::DaysFromCivil(1900, 3, 1);
-    if (normalizedYear == 1900 && normalizedMonth + 1 == 2 && day == 29)
-    {
-        // The 1900 date system has a 29 February 1900, and the Gregorian
-        // calendar does not. Serial 60 is that day; without this the request
-        // rolls over into 1 March and lands on 61, one ahead of every other
-        // spreadsheet for a date users do type in when reproducing the quirk.
-        serial = 60.0;
-    }
-    else if (days >= firstOfMarch1900)
-    {
-        serial = static_cast<Real>(relative + 1);
-    }
-    else
-    {
-        serial = static_cast<Real>(relative);
-    }
+    const Int64 relative = firstOfMonth - FormulaEvaluatorHelpers::EpochDays1899_12_31;
+    // Serial 60 is the phantom day, so every date from 1 March 1900 on sits one
+    // serial past its Gregorian distance from the epoch.
+    const Int64 firstOfMonthSerial = firstOfMonth >= firstOfMarch1900 ? relative + 1 : relative;
+
+    Real serial = static_cast<Real>(firstOfMonthSerial + (day - 1));
 
     serial += hours / 24.0 + minutes / 1440.0 + seconds / 86400.0;
     if (serial < 0.0)

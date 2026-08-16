@@ -105,7 +105,10 @@ option(EXYOKIOFFICE_TEST_MONOLITH
 # or FetchContent, packaging it, or cross compiling all land on off, and each of
 # those uses the committed files as they are. Setting the option explicitly
 # always wins.
-if(PROJECT_IS_TOP_LEVEL)
+#
+# Cross compiling is off for a second reason: the generator is built for the
+# target, and a build that runs it would be running a target binary on the host.
+if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_CROSSCOMPILING)
     # Tested rather than assumed: a checkout can be read-only for reasons no
     # path tells CMake about, and the answer decides whether the build works at
     # all. The probe runs as a child process because file(WRITE) on a read-only

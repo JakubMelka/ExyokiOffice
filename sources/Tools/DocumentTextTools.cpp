@@ -44,6 +44,17 @@ public:
         std::vector<LocatedMatch> matches;
         if (pattern)
         {
+            if (!Detail::IsSearchableSubject(text))
+            {
+                // The one place these tools hand text to the regex engine, and
+                // therefore the one place the subject limit has to hold. Every
+                // Excel cell, PowerPoint shape, table cell and notes page
+                // arrives here, and a limit the Word API enforces but the tools
+                // do not is a limit an attacker picks the other frontend to
+                // avoid. See RegexPattern::MaximumSubjectLength.
+                return matches;
+            }
+
             const std::string format = useRegex ? std::string(replacement) : TextPattern::EscapeFormatLiteral(replacement);
             for (auto it = std::sregex_iterator(text.begin(), text.end(), *pattern); it != std::sregex_iterator(); ++it)
             {

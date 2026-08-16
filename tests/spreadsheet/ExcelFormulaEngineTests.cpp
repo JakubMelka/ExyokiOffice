@@ -1650,4 +1650,31 @@ TEST_SUITE("ExcelFormulaEngineTests")
         CHECK(H::Number(engine, "=DAY(0)") == 0.0);
     }
 
+    TEST_CASE("Every spelling of the imaginary leap day lands on it [unit] [excel] [excel-formula]")
+    {
+        // DATE() normalizes a day outside its month, and Excel does that by
+        // counting serials rather than calendar days. With a phantom 29 February
+        // 1900 in the way, the 60th day of January and the day before 1 March
+        // are that same phantom - a special case for the literal triple
+        // (1900, 2, 29) could not see either, because neither mentions February.
+        auto editor = ExcelDocumentEditor::CreateNew();
+        FormulaEngine engine(editor->GetDocument());
+
+        CHECK(H::Number(engine, "=DATE(1900,2,29)") == 60.0);
+        CHECK(H::Number(engine, "=DATE(1900,1,60)") == 60.0);
+        CHECK(H::Number(engine, "=DATE(1900,3,0)") == 60.0);
+
+        // Its neighbours, reached by overflowing from either side.
+        CHECK(H::Number(engine, "=DATE(1900,1,59)") == 59.0);
+        CHECK(H::Number(engine, "=DATE(1900,1,61)") == 61.0);
+        CHECK(H::Number(engine, "=DATE(1900,3,-1)") == 59.0);
+        CHECK(H::Number(engine, "=DATE(1900,2,30)") == 61.0);
+
+        // Away from 1900 there is no phantom day, and overflow is ordinary
+        // calendar arithmetic: 2024 is a real leap year, 2023 is not.
+        CHECK(H::Number(engine, "=DATE(2024,1,32)") == H::Number(engine, "=DATE(2024,2,1)"));
+        CHECK(H::Number(engine, "=DATE(2024,3,0)") == H::Number(engine, "=DATE(2024,2,29)"));
+        CHECK(H::Number(engine, "=DATE(2023,3,0)") == H::Number(engine, "=DATE(2023,2,28)"));
+    }
+
 } // TEST_SUITE

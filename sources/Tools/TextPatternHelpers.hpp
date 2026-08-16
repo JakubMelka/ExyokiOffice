@@ -39,18 +39,24 @@ public:
     static std::string EscapeFormatLiteral(std::string_view text) { return Detail::EscapeFormatLiteral(text); }
 
     /**
-     * @brief Describes @p needle as a pattern, or std::nullopt when none is wanted.
+     * @brief Compiles @p needle into a pattern, or std::nullopt when none is wanted.
      *
      * `std::nullopt` carries two different outcomes on purpose. With neither
      * @p useRegex nor @p ignoreCase there is nothing to build and the caller
      * takes its plain substring path; with either of them it means the regular
      * expression did not compile, and a diagnostic has been appended. The call
      * site already knows which flags it passed, so it can tell them apart.
+     *
+     * The expression is compiled here once and matched against every text unit
+     * of the document, which is why the tools hold a compiled expression rather
+     * than a `RegexPattern`: building the automaton is the expensive half of a
+     * short match, and doing it per paragraph or per cell would scale the cost
+     * of a search with the size of the document rather than with its text.
      */
-    static std::optional<RegexPattern> Describe(std::string_view needle,
-                                                bool useRegex,
-                                                bool ignoreCase,
-                                                std::vector<ToolDiagnostic>& diagnostics)
+    static std::optional<std::regex> BuildPattern(std::string_view needle,
+                                                  bool useRegex,
+                                                  bool ignoreCase,
+                                                  std::vector<ToolDiagnostic>& diagnostics)
     {
         if (!useRegex && !ignoreCase)
         {
@@ -62,26 +68,12 @@ public:
         pattern.IgnoreCase = ignoreCase;
 
         std::string error;
-        if (!pattern.IsValid(&error))
+        auto compiled = Detail::CompileRegex(pattern, &error);
+        if (!compiled)
         {
             diagnostics.push_back(ToolDiagnostic{ToolSeverity::Error, "Invalid regular expression", std::move(error)});
-            return std::nullopt;
         }
-        return pattern;
-    }
-
-    /// @brief As @ref Describe, compiled for a caller that matches text itself.
-    static std::optional<std::regex> BuildPattern(std::string_view needle,
-                                                  bool useRegex,
-                                                  bool ignoreCase,
-                                                  std::vector<ToolDiagnostic>& diagnostics)
-    {
-        const auto described = Describe(needle, useRegex, ignoreCase, diagnostics);
-        if (!described)
-        {
-            return std::nullopt;
-        }
-        return Detail::CompileRegex(*described);
+        return compiled;
     }
 };
 

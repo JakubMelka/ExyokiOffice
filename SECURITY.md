@@ -199,8 +199,10 @@ than a ZIP package) and cannot be opened at all;
   `.github/dependabot.yml` explains. An outdated vendored copy is a maintenance
   issue unless a concrete exploitable path through the API comes with it.
 - **The build and CI infrastructure.** Every workflow is manual
-  (`workflow_dispatch`) and builds nothing on its own; see
-  [docs/ci.md](docs/ci.md).
+  (`workflow_dispatch`) except `smoke.yml`, which builds and tests on push and
+  on pull requests. It uses `pull_request` rather than `pull_request_target`,
+  so a fork's code never runs with this repository's secrets or a writable
+  token; see [docs/ci.md](docs/ci.md).
 - **Generated documents.** Producing a document that some other application
   mishandles is an interoperability bug — report it as a normal issue.
 

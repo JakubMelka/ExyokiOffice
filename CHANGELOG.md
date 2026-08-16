@@ -74,6 +74,22 @@ and `Security`, and describe user-visible changes rather than commits.
 
 ### Security
 
+- The regular-expression subject limit is enforced in the document text tools as
+  well, not only in the Word paragraph API. `Tools::SearchDocumentText` and
+  `ReplaceDocumentText` handed Excel cells and PowerPoint shapes, table cells and
+  notes pages straight to the regex engine, so a document that could not crash
+  the process through one frontend could still crash it through the other. Both
+  now go through the single matcher that applies
+  `RegexPattern::MaximumSubjectLength`.
+- An RSA-SHA1 signature value is refused with no crypto provider present. The
+  refusal was decided after the provider check, so the callers that verify
+  without one - `exyoki signatures`, the MCP servers - reported a
+  collision-broken signature as merely unchecked. Which algorithm a signature
+  claims is written in the document and needs no key to read.
+- Parsing an EMF picture frame no longer subtracts two untrusted `Int32` fields
+  into an `Int32`. `right > left` does not make the difference representable, so
+  a metafile stating the extremes of the range reached signed overflow -
+  undefined behavior - before any dimension was computed.
 - Package signature verification no longer accepts a signature whose manifest
   has been moved out of the object it was signed in. The parts a signature
   covers are now read from the `Manifest` inside a `dsig:Object` whose digest
@@ -165,6 +181,24 @@ and `Security`, and describe user-visible changes rather than commits.
   enough subject - which is not an exception a caller can catch, and is the one
   failure a library behind an MCP server must not be able to reach.
 
+### Removed
+
+- **Source-incompatible with 1.0.0.** The `std::regex` overloads of
+  `Word::Paragraph::FindAllRegex` and `ReplaceAllRegex` are gone; the
+  `RegexPattern` overloads below replace them. Code written against 1.0.0 has to
+  change `paragraph->FindAllRegex(std::regex(text, std::regex::icase))` into
+  `paragraph->FindAllRegex(RegexPattern{text, true})`, or
+  `RegexPattern::Literal(text)` where the needle is not an expression.
+
+  [docs/ABI.md](docs/ABI.md) reserves a source break for a major release or for
+  a security fix that cannot be made otherwise, and this is the latter: the
+  subject-length limit that keeps a crafted document from exhausting the stack
+  belongs to the pattern, and a signature taking an already compiled
+  `std::regex` both bypasses it and puts the standard library's regex
+  implementation back into this library's ABI. Keeping the old overloads as
+  deprecated adapters would mean keeping `<regex>` in the public headers, which
+  is the thing being removed. **The next release therefore has to be 2.0.0.**
+
 ### Changed
 
 - `Word::Paragraph::FindAllRegex` and `ReplaceAllRegex` take an
@@ -221,6 +255,26 @@ and `Security`, and describe user-visible changes rather than commits.
 
 ### Fixed
 
+- `DATE()` reaches the 1900 date system's imaginary 29 February however it is
+  spelled. The day is now counted in serials rather than on the calendar, so
+  `DATE(1900,1,60)` and `DATE(1900,3,0)` answer 60 like `DATE(1900,2,29)`; both
+  used to step over the phantom day and answer 61 and 59. Dates away from 1900
+  are unchanged.
+- Searching a Word document compiles the expression once instead of once per
+  paragraph. `Tools::WordTextTools` held the pattern rather than a compiled
+  expression, so a document with N paragraphs built the same automaton N+1
+  times - and building it is the expensive half of a short match.
+- A leading empty cell keeps its column when a PowerPoint table is extracted.
+  The tab separator was emitted only once something had been written, so the row
+  `{"", "Q2"}` came out as `Q2`, indistinguishable from a one-column table.
+- An inline content control inherits the part its paragraph lives in. One added
+  to a comment reported the main document part as its owner and one in a header
+  reported nothing at all, which is where a hyperlink added inside it would have
+  written its relationship.
+- `EXYOKIOFFICE_RUN_GENERATOR` defaults to off when cross compiling, which its
+  documentation already claimed. The condition tested only for a top-level
+  project and a writable source tree, so an ordinary cross build built the
+  generator for the target and then tried to run it on the host.
 - A path outside ASCII opens on Windows. The bundled ZIP layer decodes the file
   name it is handed as UTF-8, while `std::filesystem::path::string()` produces
   the active code page, so `Příloha.docx` reached the file API as mojibake and

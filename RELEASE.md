@@ -173,8 +173,9 @@ dependency is not vendored until it is installed here and listed in
 
 ## 6. Run the CI workflows
 
-Every workflow is manual (`workflow_dispatch`) — nothing runs on push. Trigger
-them from the Actions tab or with `gh`:
+Every workflow that matters for a release is manual (`workflow_dispatch`) — only
+the one-job `smoke.yml` runs on push, and it builds nothing a release ships.
+Trigger the rest from the Actions tab or with `gh`:
 
 ```powershell
 gh workflow run ci.yml -f build_type=RelWithDebInfo

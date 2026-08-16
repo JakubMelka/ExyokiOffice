@@ -11,6 +11,7 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include "Tools/TextPatternHelpers.hpp"
+#include "Word/WordParagraphSearch.hpp"
 
 #include <functional>
 #include <optional>
@@ -214,7 +215,7 @@ SearchResult Search(Word::WordDocumentEditor& editor, std::string_view needle, S
 {
     SearchResult result;
 
-    const auto pattern = TextPattern::Describe(needle, useRegex, ignoreCase, result.Diagnostics);
+    const auto pattern = TextPattern::BuildPattern(needle, useRegex, ignoreCase, result.Diagnostics);
     if ((useRegex || ignoreCase) && !pattern)
     {
         return result;
@@ -224,7 +225,9 @@ SearchResult Search(Word::WordDocumentEditor& editor, std::string_view needle, S
                                           [&](TextScope scope, std::string label, const std::shared_ptr<Paragraph>& paragraph)
                                           {
                                               const auto text = paragraph->PlainText();
-                                              const auto ranges = pattern ? paragraph->FindAllRegex(*pattern) : paragraph->FindAll(needle);
+                                              const auto ranges = pattern
+                                                                      ? Detail::FindAllRegexCompiled(*paragraph, *pattern)
+                                                                      : paragraph->FindAll(needle);
                                               for (const auto& range : ranges)
                                               {
                                                   SearchMatch match;
@@ -314,7 +317,7 @@ ReplaceResult Replace(Word::WordDocumentEditor& editor, std::string_view needle,
 {
     ReplaceResult result;
 
-    const auto pattern = TextPattern::Describe(needle, useRegex, ignoreCase, result.Diagnostics);
+    const auto pattern = TextPattern::BuildPattern(needle, useRegex, ignoreCase, result.Diagnostics);
     if ((useRegex || ignoreCase) && !pattern)
     {
         return result;
@@ -332,12 +335,14 @@ ReplaceResult Replace(Word::WordDocumentEditor& editor, std::string_view needle,
                                           {
                                               if (dryRun)
                                               {
-                                                  count += pattern ? paragraph->FindAllRegex(*pattern).size()
-                                                                   : paragraph->FindAll(needle).size();
+                                                  count += pattern
+                                                               ? Detail::FindAllRegexCompiled(*paragraph, *pattern).size()
+                                                               : paragraph->FindAll(needle).size();
                                               }
                                               else
                                               {
-                                                  count += pattern ? paragraph->ReplaceAllRegex(*pattern, format)
+                                                  count += pattern ? Detail::ReplaceAllRegexCompiled(*paragraph, *pattern,
+                                                                                                     format)
                                                                    : paragraph->ReplaceAll(needle, replacement);
                                               }
                                           });

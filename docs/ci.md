@@ -1,12 +1,16 @@
 # Continuous integration
 
-ExyokiOffice CI is **manual only**. A full run regenerates and compiles the
-whole OpenXML DOM (thousands of translation units), so nothing is wired to
-`push` or `pull_request`; every workflow in `.github/workflows` uses
-`workflow_dispatch` exclusively.
+ExyokiOffice CI is **manual apart from one smoke job**. A full run regenerates
+and compiles the whole OpenXML DOM (thousands of translation units) on three
+platforms, so nothing that broad is wired to `push` or `pull_request`: every
+workflow in `.github/workflows` uses `workflow_dispatch` exclusively, with the
+single exception of `smoke.yml` below. That one answers the question a reviewer
+has before reading a diff — does it build, do the tests pass — from a single
+Linux job, and skips runs whose changes are only documentation.
 
 | Workflow | File | Purpose |
 |---|---|---|
+| `Smoke` | `.github/workflows/smoke.yml` | One Linux GCC release build and the whole CTest suite, with warnings as errors and a check that the generator left nothing uncommitted. **The only workflow with automatic triggers**: push to `master` and every pull request, minus paths that are documentation only. Cancels a superseded run of the same ref. |
 | `CI` | `.github/workflows/ci.yml` | Build + the whole CTest suite on MSVC, GCC and Clang, plus sanitizer builds. The test presets carry no label filter, so every registered test runs — including the `mcp` layer and the compatibility matrix. |
 | `clang-format` | `.github/workflows/clang-format.yml` | Formats hand-written sources and opens a PR with the fixes. |
 | `docs-pdf` | `.github/workflows/docs-pdf.yml` | Renders `docs/` into a single hyperlinked PDF manual with pandoc and uploads it as the `ExyokiOffice-manual-<version>` artifact. Chapter order and link preprocessing live in `docs/_pdf/`. |

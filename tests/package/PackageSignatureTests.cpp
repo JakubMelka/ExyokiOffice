@@ -541,6 +541,46 @@ TEST_SUITE("Package signatures")
         CHECK(allowed.Signatures.front().IsValid());
     }
 
+    TEST_CASE("RSA-SHA1 is refused with no crypto provider at all [unit] [security] [signature]")
+    {
+        // Refusing a signature for its algorithm reads that algorithm out of the
+        // document: no key, no certificate and no provider are involved. Behind
+        // the provider check it never fired for the callers that need it most -
+        // `exyoki signatures` and the MCP servers verify content integrity with
+        // no provider, and a collision-broken signature came back as merely not
+        // checked.
+        auto provider = std::make_shared<StubCryptoProvider>();
+        auto editor = CreateDocument();
+
+        // SHA-256 references, so the signature method is the only weak thing
+        // about this package and the content digests all verify.
+        SignPackageOptions options;
+        options.Digest = DigestAlgorithm::Sha256;
+        options.Signature = SignatureAlgorithm::RsaSha1;
+        REQUIRE(SignPackage(*editor->GetDocument(), provider, options).Succeeded());
+        const auto bytes = editor->SaveToMemory();
+
+        auto package = LoadPackage(bytes);
+        const auto verification = VerifySignatures(*package);
+        REQUIRE(verification.Signatures.size() == 1U);
+        const auto& signature = verification.Signatures.front();
+
+        CHECK(signature.ContentIntegrity == SignatureCheck::Valid);
+        CHECK(signature.SignatureValue == SignatureCheck::Invalid);
+        CHECK_FALSE(signature.IsValid());
+        CHECK(HasIssue(verification.Diagnostics, ValidationErrorId::SignatureUnsupportedAlgorithm));
+
+        // With AllowSha1 the refusal is gone and the missing provider is once
+        // more the reason nothing was checked - the two answers stay distinct.
+        ExyokiOffice::Security::VerifySignaturesOptions permissive;
+        permissive.AllowSha1 = true;
+        auto permissivePackage = LoadPackage(bytes);
+        const auto allowed = VerifySignatures(*permissivePackage, nullptr, permissive);
+        REQUIRE(allowed.Signatures.size() == 1U);
+        CHECK(allowed.Signatures.front().SignatureValue == SignatureCheck::NotChecked);
+        CHECK(HasIssue(allowed.Diagnostics, ValidationErrorId::SignatureNotVerified));
+    }
+
     TEST_CASE("A signature says which parts it does not cover [unit] [security] [signature]")
     {
         // Every digest can match and the signature still say nothing about a
