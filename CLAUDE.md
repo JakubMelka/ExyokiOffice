@@ -45,6 +45,27 @@ detection with `MSB4018`, `FileTracker`, and `E_ACCESSDENIED`. The compiler is
 present; rerun the same script with sandbox escalation rather than switching
 generators or overriding `CMAKE_CXX_COMPILER`.
 
+## Writing the changelog
+
+`CONTRIBUTING.md` says to record user-visible changes under `## [Unreleased]`
+in `CHANGELOG.md`. Keep those entries short, plain, and to the point — **one
+sentence per entry**, two at the very most. State *what* changed and name the
+API, option, error identifier, or preset involved, so the entry can be found by
+searching for it.
+
+Leave out the reasoning: why the old behaviour was wrong, how the bug was
+reachable, what an attacker or a user would have observed, and how the fix
+works. That belongs in the commit message, in the code comment, and in
+`docs/`. A changelog entry that runs to a paragraph is a design note in the
+wrong file.
+
+- Link to the `docs/` chapter instead of summarizing it.
+- Group several small related fixes under one entry with sub-bullets rather
+  than listing each as its own paragraph.
+- Do not restate the same change in two entries under different headings.
+- A migration step the reader has to perform is the one thing worth spelling
+  out, because it is an instruction rather than an explanation.
+
 ## Before reporting a change as done
 
 - Build the affected targets and run the relevant CTest layer; report failures
