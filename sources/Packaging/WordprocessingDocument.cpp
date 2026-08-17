@@ -473,10 +473,19 @@ void WordDocument::ApplyOpenSettings(const OpenSettings& settings)
 
 bool WordDocument::ApplyOpcValidationPolicy(const OpenSettings& settings)
 {
+    // What the loader recorded while it read the package, taken before anything
+    // replaces it. It is not a validation finding and is not produced again by
+    // validating: `OpcEntryUnreadable` names a part that is missing from the
+    // document about to be handed back, and clearing the collection here left
+    // that visible only to a caller who had used OpenXmlPackage directly - which
+    // is not the caller who opens a document through an editor.
+    ValidationResult carried = LastValidationResult();
     ClearValidationResult();
 
     if (settings.OpcValidation == OpcValidationMode::None)
     {
+        WordprocessingDocumentHelper::ReportDiagnostics(carried, settings.ValidationDiagnostics);
+        SetLastValidationResult(std::move(carried));
         return true;
     }
 
@@ -484,14 +493,19 @@ bool WordDocument::ApplyOpcValidationPolicy(const OpenSettings& settings)
     if (settings.OpcValidation == OpcValidationMode::Tolerant)
     {
         auto warnings = WordprocessingDocumentHelper::CopyWithSeverity(validation, ValidationSeverity::Warning);
-        WordprocessingDocumentHelper::ReportDiagnostics(warnings, settings.ValidationDiagnostics);
-        SetLastValidationResult(std::move(warnings));
+        carried.Merge(warnings);
+        WordprocessingDocumentHelper::ReportDiagnostics(carried, settings.ValidationDiagnostics);
+        SetLastValidationResult(std::move(carried));
         return true;
     }
 
-    WordprocessingDocumentHelper::ReportDiagnostics(validation, settings.ValidationDiagnostics);
-    SetLastValidationResult(validation);
-    return !validation.HasErrors();
+    // The verdict is the validator's alone. What the loader carried in is a
+    // warning about a part that is gone, not a reason to refuse the rest.
+    const bool valid = !validation.HasErrors();
+    carried.Merge(validation);
+    WordprocessingDocumentHelper::ReportDiagnostics(carried, settings.ValidationDiagnostics);
+    SetLastValidationResult(std::move(carried));
+    return valid;
 }
 
 void WordDocument::UpdateDocumentTypeFromMainPart()

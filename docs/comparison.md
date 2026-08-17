@@ -44,7 +44,7 @@ suites embedded as a dependency.
 ## Against Open XML SDK
 
 Microsoft's [Open XML SDK](https://github.com/dotnet/Open-XML-SDK) is the
-closest architectural relative, and the honest disclosure is that
+closest architectural relative, and the disclosure that matters is that
 ExyokiOffice reads the same schema metadata: the JSON under `data/` is
 imported from that repository and drives the code generator. No source code
 is shared — the C++ implementation is written from scratch — and both

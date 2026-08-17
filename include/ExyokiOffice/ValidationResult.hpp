@@ -138,7 +138,16 @@ enum class ValidationErrorId
      * own depth bound; a document this deeply nested is malformed or hostile
      * rather than something Office produced.
      */
-    NestingTooDeep
+    NestingTooDeep,
+    /**
+     * An archive entry could not be read, so whatever it held is absent from the
+     * loaded package. The load still succeeds - one damaged part is not a reason
+     * to refuse a document that is otherwise intact - but the difference between
+     * "this package has no such part" and "this package has a part nothing could
+     * read" is exactly the difference a redactor or an inspector reports on, and
+     * it has to be visible rather than inferred from a part that is not there.
+     */
+    OpcEntryUnreadable
 };
 
 /**

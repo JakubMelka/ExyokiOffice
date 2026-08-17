@@ -7,6 +7,7 @@
 #include "ToolContext.hpp"
 
 #include <algorithm>
+#include <string_view>
 #include <utility>
 
 namespace ExyokiOffice::Mcp
@@ -21,6 +22,63 @@ namespace ExyokiOffice::Mcp
 static std::optional<nlohmann::json> Answer(nlohmann::json message)
 {
     return std::optional<nlohmann::json>(std::in_place, std::move(message));
+}
+
+/// True when @p line nests arrays or objects deeper than @p limit.
+///
+/// Deliberately a scan of the text rather than a check on the parsed value:
+/// once the value exists the damage is done, because freeing it is what
+/// recurses. Brackets inside a string literal are text, so the scan has to know
+/// where strings start and end - the one piece of JSON syntax it cannot ignore.
+/// Everything else, valid or not, is left to the parser to reject.
+static bool NestsTooDeeply(std::string_view line, Size limit)
+{
+    Size depth = 0;
+    bool inString = false;
+    bool escaped = false;
+    for (const char character : line)
+    {
+        if (inString)
+        {
+            if (escaped)
+            {
+                escaped = false;
+            }
+            else if (character == '\\')
+            {
+                escaped = true;
+            }
+            else if (character == '"')
+            {
+                inString = false;
+            }
+            continue;
+        }
+
+        switch (character)
+        {
+            case '"':
+                inString = true;
+                break;
+            case '[':
+            case '{':
+                if (++depth > limit)
+                {
+                    return true;
+                }
+                break;
+            case ']':
+            case '}':
+                if (depth > 0)
+                {
+                    --depth;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+    return false;
 }
 
 McpServer::McpServer(ServerInfo info, const ToolRegistry& registry, ToolContext& context)
@@ -54,6 +112,18 @@ std::optional<std::string> McpServer::HandleMessage(const std::string& line)
     if (line.find_first_not_of(" \t\r\n") == std::string::npos)
     {
         return std::nullopt;
+    }
+
+    if (NestsTooDeeply(line, MaximumMessageDepth))
+    {
+        // Refused before the parser builds the tree, because the tree is what
+        // costs: freeing a value nested a million deep recurses a million times
+        // and takes the process with it. A parse error is also the honest
+        // answer - this is a message the server will not read, and there is no
+        // id to answer under until it has been read.
+        Log::Warn("Discarding a JSON-RPC line nested past the depth limit.");
+        return SerializeJson(MakeJsonRpcError(nullptr, JsonRpcErrorCode::ParseError,
+                                              "The message nests arrays or objects too deeply."));
     }
 
     const auto message = nlohmann::json::parse(line, nullptr, false);

@@ -7,6 +7,8 @@
 #include "JsonRpc.hpp"
 #include "ToolRegistry.hpp"
 
+#include "ExyokiOffice/StandardTypes.hpp"
+
 #include <optional>
 #include <string>
 #include <string_view>
@@ -45,6 +47,20 @@ class McpServer
 {
 public:
     McpServer(ServerInfo info, const ToolRegistry& registry, ToolContext& context);
+
+    /**
+     * @brief Deepest array and object nesting a message may carry.
+     *
+     * Checked on the raw line, before the parser is given it. nlohmann's parser
+     * is iterative, but the value it produces is a tree, and destroying that
+     * tree recurses once per level - so a line of nothing but `[` costs stack in
+     * proportion to its length and takes the process down where it is freed
+     * rather than where it is read. MaximumLineBytes bounds the length at 16
+     * MiB, which is several million levels; nothing this protocol carries is
+     * deeper than a handful, and the limit is generous by two orders of
+     * magnitude against the deepest tool argument schema.
+     */
+    static constexpr Size MaximumMessageDepth = 128;
 
     /**
      * @brief Handles one JSON-RPC message line.

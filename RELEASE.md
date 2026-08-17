@@ -25,9 +25,13 @@ Semantic versioning, as described in [docs/ABI.md](docs/ABI.md):
 | Backward-compatible functionality | minor |
 | Backward-compatible fixes only | patch |
 
-While in the `0.x` series a minor release may still break compatibility. Read
-the `## [Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) to see what
-actually accumulated — that, not a calendar, decides the number.
+The `0.x` series is over: from 1.0.0 on, a minor release keeps source and a
+patch release keeps ABI, and the one exception is the security or correctness
+fix that cannot be made compatibly, which [docs/ABI.md](docs/ABI.md) allows
+only when the break is spelled out in the changelog. Read the
+`## [Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) to see what actually
+accumulated — that, not a calendar, decides the number. A `### Removed`
+section there means the answer is a major release.
 
 ## 2. Edit the version
 

@@ -146,6 +146,18 @@ struct OpenXmlPackageImpl
                              std::string message,
                              std::string_view entryName,
                              std::string_view partUri);
+    /**
+     * @brief Records that an archive entry was skipped, and why.
+     *
+     * A warning rather than an error: the load carries on, because one entry a
+     * damaged archive cannot produce is not a reason to refuse the parts that
+     * are intact. What it must not be is silent - a caller that asks what is in
+     * a package would otherwise be told the entry never existed.
+     *
+     * @param entryName Name of the entry, or an empty view when even that could
+     *                  not be read, in which case the index identifies it.
+     */
+    void ReportEntryUnreadable(std::string_view entryName, Size entryIndex, std::string reason);
 
     bool ReadContentTypes(zip_t* archive, const ICancellationToken* cancellationToken);
     bool WriteContentTypes(const OpenXmlPackage& self,

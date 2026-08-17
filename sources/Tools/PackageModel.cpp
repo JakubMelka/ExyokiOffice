@@ -230,6 +230,8 @@ std::string_view ToString(ValidationErrorId id) noexcept
             return "ContentModelCrossCheckMismatch";
         case ValidationErrorId::NestingTooDeep:
             return "NestingTooDeep";
+        case ValidationErrorId::OpcEntryUnreadable:
+            return "OpcEntryUnreadable";
     }
     return "Unknown";
 }

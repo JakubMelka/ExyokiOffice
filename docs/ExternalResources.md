@@ -134,6 +134,22 @@ Every refusal is also recorded in `OpenXmlPackage::LastValidationResult()` as a
 warning in `ValidationDomain::Security`, with the source part, relationship id,
 relationship type, and target filled in.
 
+### What the allowlist does not decide
+
+`AllowedHosts` is a list of names, and names are all that is compared. Two
+consequences are worth stating plainly rather than leaving to be discovered:
+
+- **There is no "any public host" entry.** A policy that should accept an open
+  set of hosts cannot be expressed here; it has to be expressed in the resolver,
+  which is the component that knows what the network looks like. The omission is
+  deliberate — a wildcard is the one entry a reviewer cannot check.
+- **The library has no idea where a name resolves.** `localhost`,
+  `internal.corp`, and a name pointing at `169.254.169.254` or `10.0.0.0/8` are
+  ordinary host entries: allowed when listed, denied when not. If a request that
+  leaves your process could reach a private network or a cloud metadata service,
+  the resolver is where that has to be refused — after DNS resolution and again
+  after each redirect, because only the resolver sees the address.
+
 ## Reading a resource
 
 ```cpp

@@ -108,9 +108,9 @@ struct EXYOKIOFFICE_EXPORT RedactResult
  * @p outputPath is empty. The input file is never modified when an output
  * path is given.
  */
-EXYOKIOFFICE_EXPORT RedactResult RedactDocument(const std::filesystem::path& path,
-                                                const std::filesystem::path& outputPath = {},
-                                                const RedactOptions& options = {});
+[[nodiscard]] EXYOKIOFFICE_EXPORT RedactResult RedactDocument(const std::filesystem::path& path,
+                                                              const std::filesystem::path& outputPath = {},
+                                                              const RedactOptions& options = {});
 
 /**
  * @brief Redacts a document that is already open, in place.
@@ -122,11 +122,11 @@ EXYOKIOFFICE_EXPORT RedactResult RedactDocument(const std::filesystem::path& pat
  * as well. Saved is therefore always false; Ok still reports whether the
  * redaction itself succeeded.
  */
-EXYOKIOFFICE_EXPORT RedactResult RedactDocument(Word::WordDocumentEditor& editor,
-                                                const RedactOptions& options = {});
-EXYOKIOFFICE_EXPORT RedactResult RedactDocument(Excel::ExcelDocumentEditor& editor,
-                                                const RedactOptions& options = {});
-EXYOKIOFFICE_EXPORT RedactResult RedactDocument(PowerPoint::PowerPointDocumentEditor& editor,
-                                                const RedactOptions& options = {});
+[[nodiscard]] EXYOKIOFFICE_EXPORT RedactResult RedactDocument(Word::WordDocumentEditor& editor,
+                                                              const RedactOptions& options = {});
+[[nodiscard]] EXYOKIOFFICE_EXPORT RedactResult RedactDocument(Excel::ExcelDocumentEditor& editor,
+                                                              const RedactOptions& options = {});
+[[nodiscard]] EXYOKIOFFICE_EXPORT RedactResult RedactDocument(PowerPoint::PowerPointDocumentEditor& editor,
+                                                              const RedactOptions& options = {});
 
 } // namespace ExyokiOffice::Tools

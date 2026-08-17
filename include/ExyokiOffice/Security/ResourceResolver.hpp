@@ -231,6 +231,15 @@ struct EXYOKIOFFICE_EXPORT ExternalResourcePolicy
      * An entry starting with a dot matches that domain and its subdomains
      * (".example.com" matches "example.com" and "cdn.example.com"); any other
      * entry must match the host exactly. Comparison is case insensitive.
+     *
+     * There is deliberately no wildcard for "any host": a policy is a list of
+     * names someone wrote down, and a document cannot widen it. The other half
+     * of that decision is that the list is the *only* thing checked. The
+     * library does not know which names resolve to loopback, to a private
+     * range, or to a cloud instance metadata address, so an entry that resolves
+     * there is allowed exactly as written. A resolver reaching a network where
+     * that distinction matters has to make it itself - the names are checked
+     * here, the addresses they resolve to are not.
      */
     std::vector<std::string> AllowedHosts;
     /** @brief Allowed ports; empty means only the default port of the scheme. */

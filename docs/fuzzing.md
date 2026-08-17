@@ -43,12 +43,22 @@ The library already ships the structure-aware bridge that fuzzing a
 checksum-protected format normally requires, and in a documented Microsoft
 format rather than an ad-hoc one.
 
+That leaves the `packageload` target, which does feed raw bytes to
+`LoadFromMemory` and would be stopped by the same CRC. A fuzz build therefore
+compiles the library with `MINIZ_DISABLE_ZIP_READER_CRC32_CHECKS`, set in the
+top-level `CMakeLists.txt` under `EXYOKIOFFICE_BUILD_FUZZERS` and nowhere else.
+The define does not weaken what the fuzzer proves: the bytes that now reach the
+loader are bytes a well-formed archive could have carried, and an archive is
+free to declare a correct CRC over anything at all. It only removes the step
+that would have rejected them before the code under test ran. A shipped build
+keeps the check, which is how it tells damage from data.
+
 ## Targets
 
 | Target | Entry point | Notes |
 |---|---|---|
 | `flatopc` | `ConvertFromFlatOpc` then `LoadFromMemory` | The main one. Covers pugixml, the hand-written base64 decoder, part naming, the zip writer, content types, relationships and DOM construction. |
-| `packageload` | `LoadFromMemory` on raw bytes | Small and secondary. Aimed at the wrapper code around miniz - `ValidateZipMetadata`, `CheckCurrentEntryLimits`, entry names, truncated archives. |
+| `packageload` | `LoadFromMemory` on raw bytes | Small and secondary. Aimed at the wrapper code around miniz - `ValidateZipMetadata`, `CheckCurrentEntryLimits`, entry names, truncated archives. Reaches past the entry CRC because a fuzz build disables it. |
 | `xmlpart` | `SetXmlString`, `XmlQuery::Select` | Raw XML into a part without the OPC wrapper, plus the XPath grammar. |
 | `simpletypes` | `OpenXmlSimpleValueConvertor` | First byte selects the type, the rest is the text. |
 | `formula` | `ValidateFormula`, `CellAddress`/`CellRange`/`SheetCellRange`, `FormulaReferenceRewriter` | |

@@ -238,6 +238,73 @@ TEST_CASE("an unparsable line is a parse error, an empty line is ignored [mcp-pr
     CHECK_FALSE(server->Server().HandleMessage("   ").has_value());
 }
 
+TEST_CASE("a line nested past the depth limit is refused before it is parsed [mcp-protocol]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    SUBCASE("a million open brackets is a parse error and not a crash")
+    {
+        // The parser itself is iterative; the value it would build is a tree,
+        // and freeing that tree recurses once per level. A line this deep is
+        // therefore a stack overflow at the point the value goes out of scope -
+        // uncatchable, and it takes every other session in the process with it.
+        // MaximumLineBytes allows sixteen mebibytes of them.
+        std::string line(1000000, '[');
+
+        const auto response = server->Server().HandleMessage(line);
+        REQUIRE(response.has_value());
+        const auto parsed = nlohmann::json::parse(*response);
+        CHECK(parsed["error"]["code"] == -32700);
+        CHECK(parsed["id"].is_null());
+    }
+
+    SUBCASE("closed brackets do not buy more depth")
+    {
+        // Depth is what is bounded, not the count: a balanced value can be
+        // arbitrarily long and stay shallow, and this one is short and deep.
+        std::string line(McpServer::MaximumMessageDepth + 1, '[');
+        line.append(McpServer::MaximumMessageDepth + 1, ']');
+
+        const auto response = server->Server().HandleMessage(line);
+        REQUIRE(response.has_value());
+        CHECK(nlohmann::json::parse(*response)["error"]["code"] == -32700);
+    }
+
+    SUBCASE("a message at the limit is handled normally")
+    {
+        // The bound is inclusive, and the check has to leave the protocol
+        // working: a request is an object, so every real message spends at
+        // least one level before its arguments start.
+        std::string line = R"({"jsonrpc":"2.0","id":1,"method":"ping","params":{"unused":)";
+        line.append(McpServer::MaximumMessageDepth - 2, '[');
+        line.append(McpServer::MaximumMessageDepth - 2, ']');
+        line += "}}";
+
+        const auto response = server->Server().HandleMessage(line);
+        REQUIRE(response.has_value());
+        const auto parsed = nlohmann::json::parse(*response);
+        CHECK_FALSE(parsed.contains("error"));
+    }
+
+    SUBCASE("brackets inside a string are text")
+    {
+        // The scan reads raw characters, so it has to know where string
+        // literals begin and end. Counting brackets inside one would refuse an
+        // ordinary document whose text happens to be full of them - and an
+        // escaped quote must not end the string early either.
+        nlohmann::json message;
+        message["jsonrpc"] = "2.0";
+        message["id"] = 7;
+        message["method"] = "ping";
+        message["params"]["unused"] = std::string(McpServer::MaximumMessageDepth * 4, '[') + "\\\"[[[";
+
+        const auto response = server->Server().HandleMessage(message.dump());
+        REQUIRE(response.has_value());
+        CHECK_FALSE(nlohmann::json::parse(*response).contains("error"));
+    }
+}
+
 TEST_CASE("ping answers with an empty result [mcp-protocol]")
 {
     auto server = MakeWordServer();

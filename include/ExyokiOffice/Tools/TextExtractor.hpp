@@ -42,13 +42,13 @@ struct EXYOKIOFFICE_EXPORT ExtractedDocumentText
  * ExcelDocumentEditor, labeled "SheetName!A1", resolving shared strings
  * through SharedStringTableService.
  */
-EXYOKIOFFICE_EXPORT ExtractedDocumentText Extract(const std::filesystem::path& path);
+[[nodiscard]] EXYOKIOFFICE_EXPORT ExtractedDocumentText Extract(const std::filesystem::path& path);
 
 // The same extraction over a document that is already open; the overload above
 // detects the family and then does exactly this.
 
-EXYOKIOFFICE_EXPORT ExtractedDocumentText Extract(Word::WordDocumentEditor& editor);
-EXYOKIOFFICE_EXPORT ExtractedDocumentText Extract(Excel::ExcelDocumentEditor& editor);
-EXYOKIOFFICE_EXPORT ExtractedDocumentText Extract(PowerPoint::PowerPointDocumentEditor& editor);
+[[nodiscard]] EXYOKIOFFICE_EXPORT ExtractedDocumentText Extract(Word::WordDocumentEditor& editor);
+[[nodiscard]] EXYOKIOFFICE_EXPORT ExtractedDocumentText Extract(Excel::ExcelDocumentEditor& editor);
+[[nodiscard]] EXYOKIOFFICE_EXPORT ExtractedDocumentText Extract(PowerPoint::PowerPointDocumentEditor& editor);
 
 } // namespace ExyokiOffice::Tools

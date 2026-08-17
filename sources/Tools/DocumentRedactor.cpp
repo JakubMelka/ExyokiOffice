@@ -46,6 +46,41 @@ public:
         diagnostics.push_back(ToolDiagnostic{ToolSeverity::Info, std::move(message), std::move(context)});
     }
 
+    static void AddWarning(std::vector<ToolDiagnostic>& diagnostics, std::string message, std::string context = {})
+    {
+        diagnostics.push_back(ToolDiagnostic{ToolSeverity::Warning, std::move(message), std::move(context)});
+    }
+
+    /**
+     * @brief Repeats what the loader said about content it could not read.
+     *
+     * A redaction reports on the document it was given, and these two say that
+     * the document is not all of the file: a part the archive would not give up,
+     * or relationships that were not XML. Redacting the rest then succeeds
+     * without having been able to look at what is missing, and a caller reading
+     * only `RedactResult` would take "Ok" for "nothing carrying that content is
+     * left". Everything else the validator has to say is a statement about the
+     * markup and belongs to validation, not here.
+     */
+    static void CarryLoadDiagnostics(RedactResult& result, const OpenXmlPackage* package)
+    {
+        if (package == nullptr)
+        {
+            return;
+        }
+
+        for (const auto& issue : package->LastValidationResult().Issues())
+        {
+            if (issue.Id != ValidationErrorId::OpcEntryUnreadable &&
+                issue.Id != ValidationErrorId::OpcMalformedPartXml)
+            {
+                continue;
+            }
+            AddWarning(result.Diagnostics, "Part of the document could not be read and was not redacted",
+                       issue.Message);
+        }
+    }
+
     /// Word content types whose XML carries comment markers, revisions and
     /// hidden runs.
     ///
@@ -968,6 +1003,11 @@ public:
     static RedactResult SaveRedacted(RedactResult result, OpenXmlPackage* package, const std::filesystem::path& destination,
                                      const char* failureMessage)
     {
+        // Here because all three families reach it with the package in hand, and
+        // ahead of the Ok check because a redaction that failed still has to say
+        // what it never saw.
+        CarryLoadDiagnostics(result, package);
+
         if (!result.Ok)
         {
             return result;
@@ -1046,19 +1086,28 @@ RedactResult RedactDocument(const std::filesystem::path& path, const std::filesy
     return result;
 }
 
+// The overloads over an already open document do not save, so they do not pass
+// through SaveRedacted and carry the loader's diagnostics themselves.
+
 RedactResult RedactDocument(Word::WordDocumentEditor& editor, const RedactOptions& options)
 {
-    return DocumentRedactorHelper::RedactWord(editor, options);
+    auto result = DocumentRedactorHelper::RedactWord(editor, options);
+    DocumentRedactorHelper::CarryLoadDiagnostics(result, editor.GetDocument().get());
+    return result;
 }
 
 RedactResult RedactDocument(Excel::ExcelDocumentEditor& editor, const RedactOptions& options)
 {
-    return DocumentRedactorHelper::RedactExcel(editor, options);
+    auto result = DocumentRedactorHelper::RedactExcel(editor, options);
+    DocumentRedactorHelper::CarryLoadDiagnostics(result, editor.GetDocument().get());
+    return result;
 }
 
 RedactResult RedactDocument(PowerPoint::PowerPointDocumentEditor& editor, const RedactOptions& options)
 {
-    return DocumentRedactorHelper::RedactPowerPoint(editor, options);
+    auto result = DocumentRedactorHelper::RedactPowerPoint(editor, options);
+    DocumentRedactorHelper::CarryLoadDiagnostics(result, editor.GetDocument().get());
+    return result;
 }
 
 } // namespace ExyokiOffice::Tools

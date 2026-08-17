@@ -417,9 +417,15 @@ void ExcelDocument::ApplyOpenSettings(const OpenSettings& settings)
 
 bool ExcelDocument::ApplyOpcValidationPolicy(const OpenSettings& settings)
 {
+    // Carried across rather than cleared, for the reason spelled out in
+    // WordDocument::ApplyOpcValidationPolicy: what the loader recorded is not a
+    // validation finding and validating does not produce it again.
+    ValidationResult carried = LastValidationResult();
     ClearValidationResult();
     if (settings.OpcValidation == OpcValidationMode::None)
     {
+        SpreadsheetDocumentHelper::ReportDiagnostics(carried, settings.ValidationDiagnostics);
+        SetLastValidationResult(std::move(carried));
         return true;
     }
 
@@ -427,14 +433,17 @@ bool ExcelDocument::ApplyOpcValidationPolicy(const OpenSettings& settings)
     if (settings.OpcValidation == OpcValidationMode::Tolerant)
     {
         auto warnings = SpreadsheetDocumentHelper::CopyWithSeverity(validation, ValidationSeverity::Warning);
-        SpreadsheetDocumentHelper::ReportDiagnostics(warnings, settings.ValidationDiagnostics);
-        SetLastValidationResult(std::move(warnings));
+        carried.Merge(warnings);
+        SpreadsheetDocumentHelper::ReportDiagnostics(carried, settings.ValidationDiagnostics);
+        SetLastValidationResult(std::move(carried));
         return true;
     }
 
-    SpreadsheetDocumentHelper::ReportDiagnostics(validation, settings.ValidationDiagnostics);
-    SetLastValidationResult(validation);
-    return !validation.HasErrors();
+    const bool valid = !validation.HasErrors();
+    carried.Merge(validation);
+    SpreadsheetDocumentHelper::ReportDiagnostics(carried, settings.ValidationDiagnostics);
+    SetLastValidationResult(std::move(carried));
+    return valid;
 }
 
 void ExcelDocument::UpdateDocumentTypeFromWorkbookPart()

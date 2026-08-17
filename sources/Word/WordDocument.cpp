@@ -52,17 +52,83 @@ constexpr std::string_view kOfficeRelationshipsNamespace =
 constexpr std::string_view kHyperlinkRelationshipType =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 
+/**
+ * @brief Hands out identifiers of one kind that the document does not already use.
+ *
+ * Constructed from every identifier of that kind found in the document; each
+ * call to Next() returns one that is not among them and that it has not returned
+ * before. Counting up from the highest is what it does normally, so an ordinary
+ * document gets the same identifiers it always got - the difference only appears
+ * where counting up cannot continue.
+ *
+ * The whole set is kept rather than only its maximum because the maximum is not
+ * enough to answer with. A document is free to carry the largest identifier its
+ * type can hold, and `maximum + 1` is then undefined for the signed kinds and a
+ * duplicate for all of them - a duplicate `w:id` being a document Word offers to
+ * repair, which makes a hostile file's single 2147483647 into a corrupted output
+ * for everyone downstream. Below that maximum there is always somewhere to go:
+ * identifiers occupy bytes, so a document holds finitely many of them, and among
+ * any n + 1 candidate values at least one of n used ones is missing. Next() walks
+ * to it, which is why there is no failure to report and no caller that has to
+ * handle one.
+ */
+template <typename T>
+class WordIdAllocator
+{
+public:
+    /// @param used Identifiers already in the document, in any order.
+    /// @param first Lowest identifier this kind may be given.
+    explicit WordIdAllocator(std::vector<T> used, T first = T{1})
+        : m_used(std::move(used)), m_next(first)
+    {
+        std::sort(m_used.begin(), m_used.end());
+        m_used.erase(std::unique(m_used.begin(), m_used.end()), m_used.end());
+
+        // Counting starts above the highest, which is where it has always
+        // started and what keeps identifiers in a document readable in the order
+        // they were added. The search below only does anything once that is no
+        // longer a place the type can reach.
+        if (!m_used.empty() && m_used.back() < (std::numeric_limits<T>::max)())
+        {
+            m_next = (std::max)(m_next, static_cast<T>(m_used.back() + 1));
+        }
+    }
+
+    [[nodiscard]] T Next()
+    {
+        while (m_next != (std::numeric_limits<T>::max)() &&
+               std::binary_search(m_used.begin(), m_used.end(), m_next))
+        {
+            ++m_next;
+        }
+
+        const T allocated = m_next;
+        if (m_next != (std::numeric_limits<T>::max)())
+        {
+            ++m_next;
+        }
+        // Reaching the maximum takes a document carrying every identifier below
+        // it, which no file this library can open is large enough to be. Stopping
+        // there keeps the arithmetic defined for the case that cannot happen.
+        return allocated;
+    }
+
+private:
+    std::vector<T> m_used;
+    T m_next;
+};
+
 /// Document-wide identifier allocation: the next free id of each kind.
 class WordIdHelper
 {
 public:
-    /// Largest drawing identifier in one story, or 0 when the story has none.
-    static UInt32 HighestDrawingIdIn(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
+    /// Appends every drawing identifier in one story to @p used.
+    static void CollectDrawingIdsIn(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root,
+                                    std::vector<UInt32>& used)
     {
-        UInt32 maxId = 0;
         if (!root)
         {
-            return maxId;
+            return;
         }
 
         for (const auto& docProps : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>())
@@ -71,7 +137,7 @@ public:
             {
                 continue;
             }
-            maxId = std::max(maxId, static_cast<UInt32>(docProps->GetId().Value()));
+            used.push_back(static_cast<UInt32>(docProps->GetId().Value()));
         }
         for (const auto& nvProps : root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Pictures::NonVisualDrawingProperties>())
         {
@@ -79,10 +145,8 @@ public:
             {
                 continue;
             }
-            maxId = std::max(maxId, static_cast<UInt32>(nvProps->GetId().Value()));
+            used.push_back(static_cast<UInt32>(nvProps->GetId().Value()));
         }
-
-        return maxId;
     }
 
     /**
@@ -95,19 +159,21 @@ public:
      * in the body and taken in a header, and the collision only showed up when
      * a user opened the result.
      */
-    static UInt32 NextDocPropertyId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart)
+    static WordIdAllocator<UInt32> DocPropertyIds(
+        const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart)
     {
+        std::vector<UInt32> used;
         if (!mainDocumentPart)
         {
-            return 1;
+            return WordIdAllocator<UInt32>(std::move(used));
         }
 
-        UInt32 maxId = HighestDrawingIdIn(mainDocumentPart->GetTypedRootElement());
-        const auto consider = [&maxId](const auto& part)
+        CollectDrawingIdsIn(mainDocumentPart->GetTypedRootElement(), used);
+        const auto consider = [&used](const auto& part)
         {
             if (part)
             {
-                maxId = std::max(maxId, HighestDrawingIdIn(part->GetTypedRootElement()));
+                CollectDrawingIdsIn(part->GetTypedRootElement(), used);
             }
         };
 
@@ -123,14 +189,19 @@ public:
         consider(mainDocumentPart->GetEndnotesPart());
         consider(mainDocumentPart->GetWordprocessingCommentsPart());
 
-        return maxId + 1;
+        return WordIdAllocator<UInt32>(std::move(used));
     }
 
-    static int NextBookmarkId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
-                              const std::shared_ptr<ExyokiOffice::OpenXMLElement>& fallbackScope)
+    static UInt32 NextDocPropertyId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart)
     {
-        int maxId = -1;
-        auto scan = [&maxId](const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
+        return DocPropertyIds(mainDocumentPart).Next();
+    }
+
+    static WordIdAllocator<int> BookmarkIds(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                                            const std::shared_ptr<ExyokiOffice::OpenXMLElement>& fallbackScope)
+    {
+        std::vector<int> used;
+        auto scan = [&used](const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
         {
             if (!root)
             {
@@ -148,7 +219,7 @@ public:
                 const auto result = std::from_chars(idText.data(), idText.data() + idText.size(), id);
                 if (result.ec == std::errc())
                 {
-                    maxId = std::max(maxId, id);
+                    used.push_back(id);
                 }
             }
         };
@@ -161,7 +232,15 @@ public:
         {
             scan(fallbackScope);
         }
-        return maxId + 1;
+        // Bookmark identifiers start at zero, which is what Word writes for the
+        // first one in a document it created.
+        return WordIdAllocator<int>(std::move(used), 0);
+    }
+
+    static int NextBookmarkId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                              const std::shared_ptr<ExyokiOffice::OpenXMLElement>& fallbackScope)
+    {
+        return BookmarkIds(mainDocumentPart, fallbackScope).Next();
     }
 
     // Rewrites a run's combined text content in place, preserving the run's own formatting
@@ -779,14 +858,15 @@ public:
         return true;
     }
 
-    /// The first `w:id` no revision in the document uses yet.
+    /// The `w:id` values no revision in the document uses yet.
     ///
-    /// Returned as a number rather than as text so that the callers that hand
-    /// out consecutive identifiers can count instead of parsing their own
-    /// output back with std::stoi - which throws on anything unexpected.
-    static int NextRevisionId(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
+    /// An allocator rather than a number, because the callers that hand out
+    /// several identifiers need each of them to be free - counting on from the
+    /// first only works while counting cannot leave the type or land on a value
+    /// the document already carries.
+    static WordIdAllocator<int> RevisionIds(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
     {
-        int maxId = -1;
+        std::vector<int> used;
         std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> revisions;
         CollectRevisionElements(root, revisions);
         for (const auto& revision : revisions)
@@ -796,10 +876,15 @@ public:
             const auto parse = std::from_chars(idText.data(), idText.data() + idText.size(), id);
             if (parse.ec == std::errc() && parse.ptr == idText.data() + idText.size())
             {
-                maxId = std::max(maxId, id);
+                used.push_back(id);
             }
         }
-        return maxId + 1;
+        return WordIdAllocator<int>(std::move(used), 0);
+    }
+
+    static int NextRevisionId(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
+    {
+        return RevisionIds(root).Next();
     }
 
     static void ApplyRevisionMetadata(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element,
@@ -1375,11 +1460,11 @@ public:
         parent->RemoveChild(marker);
     }
 
-    static int NextSdtId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
-                         const std::shared_ptr<OpenXMLElement>& fallbackScope)
+    static WordIdAllocator<int> SdtIds(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                                       const std::shared_ptr<OpenXMLElement>& fallbackScope)
     {
-        int maxId = 0;
-        auto scan = [&maxId](const std::shared_ptr<OpenXMLElement>& root)
+        std::vector<int> used;
+        auto scan = [&used](const std::shared_ptr<OpenXMLElement>& root)
         {
             if (!root)
             {
@@ -1395,7 +1480,7 @@ public:
                 const auto value = id->GetVal();
                 if (value.IsDefined())
                 {
-                    maxId = std::max(maxId, value.Value());
+                    used.push_back(value.Value());
                 }
             }
         };
@@ -1408,7 +1493,13 @@ public:
         {
             scan(fallbackScope);
         }
-        return maxId + 1;
+        return WordIdAllocator<int>(std::move(used));
+    }
+
+    static int NextSdtId(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                         const std::shared_ptr<OpenXMLElement>& fallbackScope)
+    {
+        return SdtIds(mainDocumentPart, fallbackScope).Next();
     }
 
     // Footnote/endnote entries (`w:footnote`/`w:endnote`) share their element name with an
@@ -1522,16 +1613,20 @@ public:
     static int NextNoteId(const std::shared_ptr<OpenXMLElement>& root)
     {
         const ExyokiOffice::OpenXmlQualifiedName idAttribute(kWordNamespace, "id");
-        int maxId = -2;
+        std::vector<int> used;
         for (const auto& entry : FindNoteEntries<TEntry>(root))
         {
             const auto value = entry->template GetAttributeValue<IntegerValue>(idAttribute);
             if (value.IsDefined())
             {
-                maxId = std::max(maxId, static_cast<int>(value.Value()));
+                used.push_back(static_cast<int>(value.Value()));
             }
         }
-        return maxId + 1;
+        // -1 and 0 are the separator and continuation-separator entries, so the
+        // floor is -1 rather than 1: a notes part that has neither is answered
+        // with -1 exactly as it was before, and one that has both counts on from
+        // them to 1.
+        return WordIdAllocator<int>(std::move(used), -1).Next();
     }
 
     // Creates a new footnote/endnote entry (with the standard reference mark) and appends the
@@ -1608,7 +1703,7 @@ public:
 
     static int NextCommentId(const std::shared_ptr<Packaging::WordprocessingCommentsPart>& part)
     {
-        int maxId = -1;
+        std::vector<int> used;
         if (part)
         {
             if (auto root = part->GetTypedRootElement())
@@ -1622,12 +1717,12 @@ public:
                     }
                     if (auto parsed = WordValueHelper::TryParseInt(entry->GetId().ToString()))
                     {
-                        maxId = std::max(maxId, *parsed);
+                        used.push_back(*parsed);
                     }
                 }
             }
         }
-        return maxId + 1;
+        return WordIdAllocator<int>(std::move(used), 0).Next();
     }
 };
 
@@ -2759,44 +2854,42 @@ public:
 
     static int NextAbstractNumberingId(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering)
     {
-        int maxId = 0;
         if (!numbering)
         {
             return 1;
         }
 
+        std::vector<int> used;
         for (const auto& abstractNum : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::AbstractNum>())
         {
             if (!abstractNum)
             {
                 continue;
             }
-            const auto current = abstractNum->GetAbstractNumberId().Value();
-            maxId = std::max(maxId, current);
+            used.push_back(abstractNum->GetAbstractNumberId().Value());
         }
 
-        return maxId + 1;
+        return WordIdAllocator<int>(std::move(used)).Next();
     }
 
     static int NextNumberingInstanceId(const std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::Numbering>& numbering)
     {
-        int maxId = 0;
         if (!numbering)
         {
             return 1;
         }
 
+        std::vector<int> used;
         for (const auto& instance : numbering->Elements<DocumentFormat::OpenXml::Wordprocessing::NumberingInstance>())
         {
             if (!instance)
             {
                 continue;
             }
-            const auto current = instance->GetNumberID().Value();
-            maxId = std::max(maxId, current);
+            used.push_back(instance->GetNumberID().Value());
         }
 
-        return maxId + 1;
+        return WordIdAllocator<int>(std::move(used)).Next();
     }
 
     static std::shared_ptr<DocumentFormat::OpenXml::Wordprocessing::AbstractNum> FindAbstractNumByName(
@@ -4698,14 +4791,14 @@ public:
         {
             return;
         }
-        int nextId = WordStructureHelper::NextSdtId(targetMainPart, nullptr);
+        auto nextId = WordStructureHelper::SdtIds(targetMainPart, nullptr);
         for (auto& id : ids)
         {
             if (!id)
             {
                 continue;
             }
-            id->SetVal(Int32Value(nextId++));
+            id->SetVal(Int32Value(nextId.Next()));
         }
     }
 
@@ -6975,7 +7068,7 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
     auto revisedParagraphs = revised.Paragraphs();
     const Size common = std::min(originalParagraphs.size(), revisedParagraphs.size());
     Size created = 0;
-    auto nextId = WordRevisionHelper::NextRevisionId(WordBodyHelper::GetMainDocumentRoot(m_document));
+    auto nextId = WordRevisionHelper::RevisionIds(WordBodyHelper::GetMainDocumentRoot(m_document));
 
     for (Size i = 0; i < common; ++i)
     {
@@ -6999,10 +7092,17 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
                 paragraph->RemoveChild(child);
             }
         }
+        // Both taken before either is used, so the pair is reserved whether or
+        // not each element ends up being created. That is what the trailing
+        // `nextId += 2` used to say, and it said it by arithmetic that is
+        // undefined once the scan can hand the counter its maximum.
+        const int deletionId = nextId.Next();
+        const int insertionId = nextId.Next();
+
         auto deletion = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::DeletedRun>();
         if (deletion)
         {
-            WordRevisionHelper::ApplyRevisionMetadata(deletion, author, std::to_string(nextId));
+            WordRevisionHelper::ApplyRevisionMetadata(deletion, author, std::to_string(deletionId));
             auto run = deletion->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
             if (run)
             {
@@ -7018,11 +7118,10 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         auto insertion = paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::InsertedRun>();
         if (insertion)
         {
-            WordRevisionHelper::ApplyRevisionMetadata(insertion, author, std::to_string(nextId + 1));
+            WordRevisionHelper::ApplyRevisionMetadata(insertion, author, std::to_string(insertionId));
             WordFieldHelper::AppendRunWithText(insertion, revisedText, true);
             ++created;
         }
-        nextId += 2;
     }
 
     for (Size i = common; i < originalParagraphs.size(); ++i)
@@ -7045,7 +7144,7 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         {
             continue;
         }
-        WordRevisionHelper::ApplyRevisionMetadata(deletion, author, std::to_string(nextId));
+        WordRevisionHelper::ApplyRevisionMetadata(deletion, author, std::to_string(nextId.Next()));
         auto run = deletion->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Run>();
         if (run)
         {
@@ -7055,7 +7154,6 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
                 text->SetText(originalText);
             }
         }
-        ++nextId;
         ++created;
     }
 
@@ -7072,9 +7170,8 @@ Size WordDocumentEditor::CompareWith(const WordDocumentEditor& revised,
         {
             continue;
         }
-        WordRevisionHelper::ApplyRevisionMetadata(insertion, author, std::to_string(nextId));
+        WordRevisionHelper::ApplyRevisionMetadata(insertion, author, std::to_string(nextId.Next()));
         WordFieldHelper::AppendRunWithText(insertion, revisedParagraphs[i]->PlainText(), true);
-        ++nextId;
         ++created;
     }
     return created;

@@ -165,9 +165,15 @@ void PowerPointDocument::ApplyOpenSettings(const OpenSettings& settings)
 
 bool PowerPointDocument::ApplyOpcValidationPolicy(const OpenSettings& settings)
 {
+    // Carried across rather than cleared, for the reason spelled out in
+    // WordDocument::ApplyOpcValidationPolicy: what the loader recorded is not a
+    // validation finding and validating does not produce it again.
+    ValidationResult carried = LastValidationResult();
     ClearValidationResult();
     if (settings.OpcValidation == OpcValidationMode::None)
     {
+        PowerPointDocumentHelper::ReportDiagnostics(carried, settings.ValidationDiagnostics);
+        SetLastValidationResult(std::move(carried));
         return true;
     }
 
@@ -175,14 +181,17 @@ bool PowerPointDocument::ApplyOpcValidationPolicy(const OpenSettings& settings)
     if (settings.OpcValidation == OpcValidationMode::Tolerant)
     {
         auto warnings = PowerPointDocumentHelper::CopyWithSeverity(validation, ValidationSeverity::Warning);
-        PowerPointDocumentHelper::ReportDiagnostics(warnings, settings.ValidationDiagnostics);
-        SetLastValidationResult(std::move(warnings));
+        carried.Merge(warnings);
+        PowerPointDocumentHelper::ReportDiagnostics(carried, settings.ValidationDiagnostics);
+        SetLastValidationResult(std::move(carried));
         return true;
     }
 
-    PowerPointDocumentHelper::ReportDiagnostics(validation, settings.ValidationDiagnostics);
-    SetLastValidationResult(validation);
-    return !validation.HasErrors();
+    const bool valid = !validation.HasErrors();
+    carried.Merge(validation);
+    PowerPointDocumentHelper::ReportDiagnostics(carried, settings.ValidationDiagnostics);
+    SetLastValidationResult(std::move(carried));
+    return valid;
 }
 
 bool PowerPointDocument::ApplyMarkupCompatibilityPolicy(const OpenSettings& settings)

@@ -693,6 +693,14 @@ public:
      * contain at most 15 bytes. Passing an empty password creates protection
      * that can be removed without a password.
      *
+     * That verifier stores a 16-bit hash, which is the whole of what
+     * SpreadsheetML records for a legacy sheet password: there are only 65 536
+     * distinct values, so short colliding passwords are found by trying them
+     * and the original is never recoverable from the file either. Unprotect()
+     * accepts any password that hashes the same. Use this to keep a user from
+     * editing a sheet by accident, never to keep data from someone who has the
+     * file.
+     *
      * Existing protection is replaced atomically.
      *
      * @param options Operations users may perform while protection is active.

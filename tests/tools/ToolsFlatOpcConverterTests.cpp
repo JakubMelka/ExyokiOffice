@@ -120,6 +120,25 @@ public:
         return FinishZip(archive);
     }
 
+    /// Every entry name the archive actually stores, as the archive stores it.
+    static std::vector<std::string> EntryNames(std::span<const ExyokiOffice::Byte> package)
+    {
+        int error = 0;
+        auto* archive = zip_stream_openwitherror(reinterpret_cast<const char*>(package.data()), package.size(), 0, 'r', &error);
+        REQUIRE(archive != nullptr);
+        std::vector<std::string> names;
+        const auto total = zip_entries_total(archive);
+        for (ExyokiOffice::Size index = 0; index < static_cast<ExyokiOffice::Size>(total); ++index)
+        {
+            REQUIRE(zip_entry_openbyindex(archive, index) == 0);
+            const char* name = zip_entry_name(archive);
+            names.emplace_back(name ? name : "");
+            REQUIRE(zip_entry_close(archive) == 0);
+        }
+        zip_stream_close(archive);
+        return names;
+    }
+
     static Bytes ReadZipEntry(std::span<const ExyokiOffice::Byte> package, std::string_view name)
     {
         int error = 0;
@@ -292,6 +311,51 @@ TEST_CASE("Flat OPC reader diagnoses bad parts but preserves valid parts [unit] 
     CHECK(result.Diagnostics.size() == 3);
     CHECK(FlatOpcTestHelpers::ReadZipEntry(result.PackageBytes, "valid.bin") ==
           FlatOpcTestHelpers::Bytes({0x01, 0x02, 0x03}));
+}
+
+TEST_CASE("Flat OPC refuses traversal without refusing dots in a name [unit] [tools] [flat-opc]")
+{
+    // A substring search for ".." matches all three names below. Only the first
+    // one navigates anywhere; the other two are ordinary part names, and
+    // dropping them loses content from a conversion that reports success -
+    // silently, because a rejected part is a diagnostic and not a failure.
+    constexpr std::string_view xml =
+        R"(<pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage"><pkg:part pkg:name="/word/../../escape.bin" pkg:contentType="application/octet-stream"><pkg:binaryData>AQ==</pkg:binaryData></pkg:part><pkg:part pkg:name="/word/media/..cover.png" pkg:contentType="image/png"><pkg:binaryData>AQID</pkg:binaryData></pkg:part><pkg:part pkg:name="/word/notes..xml" pkg:contentType="application/octet-stream"><pkg:binaryData>BAUG</pkg:binaryData></pkg:part></pkg:package>)";
+
+    const auto result = ConvertFromFlatOpc(xml);
+    REQUIRE(result.Ok);
+    CHECK(result.PartCount == 2);
+    CHECK(result.Diagnostics.size() == 1);
+    CHECK(FlatOpcTestHelpers::ReadZipEntry(result.PackageBytes, "word/media/..cover.png") ==
+          FlatOpcTestHelpers::Bytes({0x01, 0x02, 0x03}));
+    CHECK(FlatOpcTestHelpers::ReadZipEntry(result.PackageBytes, "word/notes..xml") ==
+          FlatOpcTestHelpers::Bytes({0x04, 0x05, 0x06}));
+}
+
+TEST_CASE("Flat OPC counts a backslash as a separator, like the writer does [security-regression]")
+{
+    // The name is validated here and rewritten on the way into the archive:
+    // zip_entry_open turns every backslash into a forward slash. A check that
+    // split on '/' alone would pass this name and then store
+    // `word/../escape.bin` - the segment it exists to refuse, reached by
+    // spelling it the other way.
+    constexpr std::string_view xml =
+        R"(<pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage"><pkg:part pkg:name="/word\..\escape.bin" pkg:contentType="application/octet-stream"><pkg:binaryData>AQ==</pkg:binaryData></pkg:part><pkg:part pkg:name="/word/keep.bin" pkg:contentType="application/octet-stream"><pkg:binaryData>AQID</pkg:binaryData></pkg:part></pkg:package>)";
+
+    const auto result = ConvertFromFlatOpc(xml);
+    REQUIRE(result.Ok);
+    CHECK(result.PartCount == 1);
+    CHECK(result.Diagnostics.size() == 1);
+    CHECK(FlatOpcTestHelpers::ReadZipEntry(result.PackageBytes, "word/keep.bin") ==
+          FlatOpcTestHelpers::Bytes({0x01, 0x02, 0x03}));
+
+    // The archive is what the check was really about, so the archive is what is
+    // asserted: no entry of the package navigates upwards, whichever separator
+    // the input used to ask for it.
+    for (const auto& name : FlatOpcTestHelpers::EntryNames(result.PackageBytes))
+    {
+        CHECK(name.find("..") == std::string::npos);
+    }
 }
 
 TEST_CASE("Flat OPC conversion reports invalid inputs [unit] [tools] [flat-opc]")

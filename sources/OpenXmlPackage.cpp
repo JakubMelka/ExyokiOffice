@@ -856,6 +856,26 @@ void OpenXmlPackageImpl::ReportLimitExceeded(ValidationDomain domain,
     lastValidationResult.AddIssue(std::move(issue));
 }
 
+void OpenXmlPackageImpl::ReportEntryUnreadable(std::string_view entryName, Size entryIndex, std::string reason)
+{
+    ValidationIssue issue;
+    issue.Severity = ValidationSeverity::Warning;
+    issue.Domain = ValidationDomain::Opc;
+    issue.Id = ValidationErrorId::OpcEntryUnreadable;
+    issue.Message = std::move(reason);
+    if (entryName.empty())
+    {
+        issue.Message += " Entry at index " + std::to_string(entryIndex) + "; its name could not be read.";
+        issue.Location.Path = "#" + std::to_string(entryIndex);
+    }
+    else
+    {
+        issue.Message += " Entry '" + std::string(entryName) + "'.";
+        issue.Location.Path = std::string(entryName);
+    }
+    lastValidationResult.AddIssue(std::move(issue));
+}
+
 bool OpenXmlPackageImpl::CheckCurrentEntryLimits(zip_t* archive, std::string_view entryName, bool isXml)
 {
     const auto reason = packageLimits.CheckEntry(zip_entry_size(archive), zip_entry_comp_size(archive));
@@ -1078,7 +1098,14 @@ bool OpenXmlPackageImpl::ReadContentTypes(zip_t* archive, const ICancellationTok
     {
         return false;
     }
-    if (zip_entry_open(archive, std::string(OpenXmlPackageHelper::kContentTypesEntry).c_str()) != 0)
+    // Case sensitive, because every other name comparison in the loader is.
+    // zip_entry_open() would also match `[content_types].xml`, and the part walk
+    // in ReadParts() skips only the exactly spelled name - so a package carrying
+    // both would have one of them decide the content types here and the other
+    // loaded as an ordinary part. OPC names the file exactly once, and a reader
+    // that accepts a second spelling is a reader that can be made to disagree
+    // with the one the consumer uses.
+    if (zip_entry_opencasesensitive(archive, std::string(OpenXmlPackageHelper::kContentTypesEntry).c_str()) != 0)
     {
         return false;
     }
@@ -1214,6 +1241,12 @@ bool OpenXmlPackageImpl::ReadRelationships(zip_t* archive,
         {
             return false;
         }
+        // The two failures above the name filter - the entry not opening, and
+        // its name not being readable - are reported by ReadParts rather than
+        // here. Both passes walk the same entries, and without a name this pass
+        // cannot even tell whether it was looking at a relationships part; one
+        // warning from the pass that decides what becomes a part says it once
+        // and says it accurately.
         if (zip_entry_openbyindex(archive, index) != 0)
         {
             continue;
@@ -1246,12 +1279,33 @@ bool OpenXmlPackageImpl::ReadRelationships(zip_t* archive,
         zip_entry_close(archive);
         if (read <= 0 || buffer == nullptr)
         {
+            // Every relationship this part declared is lost with it, so the
+            // parts it pointed at end up unreachable from the graph. Silence
+            // here would present that as a package that simply never linked
+            // them.
+            ReportEntryUnreadable(entryName, index,
+                                  "A relationships part could not be read from the archive; the "
+                                  "relationships it declared are absent from the loaded package.");
             continue;
         }
         Pugi::xml_document doc;
         if (!doc.load_buffer(buffer, bufferSize, Xml::ParseOptions::Preserving))
         {
             std::free(buffer);
+            // Not OpcEntryUnreadable: the bytes were read, and the caller that
+            // branches on the identifier is entitled to the difference between
+            // an entry the archive would not give up and one it gave up as text
+            // that is not XML.
+            ValidationIssue issue;
+            issue.Severity = ValidationSeverity::Warning;
+            issue.Domain = ValidationDomain::Opc;
+            issue.Id = ValidationErrorId::OpcMalformedPartXml;
+            issue.Message = "A relationships part is not well-formed XML; the relationships it declared "
+                            "are absent from the loaded package. Entry '" +
+                            entryName + "'.";
+            issue.Location.Path = entryName;
+            issue.PartUri = entryName;
+            lastValidationResult.AddIssue(std::move(issue));
             continue;
         }
         if (!CheckXmlLimits(doc, entryName, {}, cancellationToken))
@@ -1443,12 +1497,18 @@ bool OpenXmlPackageImpl::ReadParts(OpenXmlPackage& self,
         }
         if (zip_entry_openbyindex(archive, index) != 0)
         {
+            ReportEntryUnreadable({}, index,
+                                  "An archive entry could not be opened and was skipped; anything it "
+                                  "held is absent from the loaded package.");
             continue;
         }
         const char* rawName = zip_entry_name(archive);
         if (!rawName)
         {
             zip_entry_close(archive);
+            ReportEntryUnreadable({}, index,
+                                  "An archive entry has no readable name and was skipped; anything it "
+                                  "held is absent from the loaded package.");
             continue;
         }
         const std::string entryName = OpenXmlPackageHelper::NormalizeEntryName(rawName);
@@ -1469,6 +1529,15 @@ bool OpenXmlPackageImpl::ReadParts(OpenXmlPackage& self,
         if (zip_entry_read(archive, &bufferPtr, &bufferSize) < 0 || bufferPtr == nullptr)
         {
             zip_entry_close(archive);
+            // A failed CRC, an unsupported compression method or a directory bit
+            // on something that is not one all land here. The package still
+            // loads, and the part is simply not in it - which is why this has to
+            // be said out loud: a redactor asked to scrub that part would report
+            // nothing to scrub, and a caller comparing the part list against the
+            // archive would see a name it cannot account for.
+            ReportEntryUnreadable(entryName, index,
+                                  "An archive entry could not be decompressed and was skipped; the part "
+                                  "it held is absent from the loaded package.");
             continue;
         }
         zip_entry_close(archive);

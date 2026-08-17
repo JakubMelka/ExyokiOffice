@@ -147,11 +147,7 @@
                 "EXYOKIOFFICE_SANITIZER": "address",
                 "EXYOKIOFFICE_BUILD_UNIT_TESTS": "OFF",
                 "EXYOKIOFFICE_BUILD_TOOL": "OFF",
-                "EXYOKIOFFICE_BUILD_MCP": "ON",
-                "EXYOKIOFFICE_BUILD_EXAMPLE_WORD": "OFF",
-                "EXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDITOR": "OFF",
-                "EXYOKIOFFICE_BUILD_EXAMPLE_EXCEL_EDITOR": "OFF",
-                "EXYOKIOFFICE_BUILD_EXAMPLE_POWERPOINT_EDITOR": "OFF"
+                "EXYOKIOFFICE_BUILD_MCP": "ON"
             }
         },
         {

@@ -13,7 +13,12 @@
 #include "ExyokiOffice/Word/WordDocument.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include <algorithm>
+#include <fstream>
+#include <iterator>
 #include <string>
+#include <string_view>
+#include <vector>
 
 using namespace ExyokiOffice::Tools;
 using ExyokiOffice::Word::WordDocumentEditor;
@@ -83,10 +88,133 @@ public:
         SetPartXml(path, "/word/document.xml", xml);
         return path;
     }
+
+    static std::vector<char> ReadAllBytes(const std::filesystem::path& path)
+    {
+        std::ifstream file(path, std::ios::binary);
+        REQUIRE(file.is_open());
+        return std::vector<char>(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    }
+
+    /**
+     * @brief Flips one byte of the stored data of @p entryName, breaking its CRC.
+     *
+     * Written against the archive rather than through the library, because what
+     * is being reproduced is a file the library cannot produce: an entry whose
+     * central directory is intact and whose bytes do not match the checksum
+     * beside them. That is what a truncated download, a bit-rotted disk and a
+     * crafted package all look like from inside `zip_entry_read`.
+     */
+    static void CorruptEntryPayload(const std::filesystem::path& path, std::string_view entryName)
+    {
+        auto bytes = ReadAllBytes(path);
+        const std::string_view all(bytes.data(), bytes.size());
+        const auto readLe16 = [&bytes](ExyokiOffice::Size at)
+        {
+            return static_cast<ExyokiOffice::Size>(static_cast<unsigned char>(bytes[at])) |
+                   (static_cast<ExyokiOffice::Size>(static_cast<unsigned char>(bytes[at + 1])) << 8);
+        };
+
+        // Local file header: the signature, 26 bytes of fixed fields, the name
+        // length at 26, the extra length at 28, then the name and the data. The
+        // signature can also occur inside compressed data, so the name decides.
+        for (ExyokiOffice::Size at = 0;;)
+        {
+            const auto found = all.find("PK\x03\x04", at, 4);
+            REQUIRE(found != std::string_view::npos);
+            const auto nameLength = readLe16(found + 26);
+            const auto extraLength = readLe16(found + 28);
+            if (found + 30 + nameLength <= bytes.size() &&
+                all.substr(found + 30, nameLength) == entryName)
+            {
+                const auto data = found + 30 + nameLength + extraLength;
+                REQUIRE(data < bytes.size());
+                bytes[data] = static_cast<char>(bytes[data] ^ 0xFF);
+                std::ofstream out(path, std::ios::binary | std::ios::trunc);
+                REQUIRE(out.is_open());
+                out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+                REQUIRE(out.good());
+                return;
+            }
+            at = found + 4;
+        }
+    }
+
+    static bool HasDiagnostic(const std::vector<ToolDiagnostic>& diagnostics, std::string_view text)
+    {
+        return std::any_of(diagnostics.begin(), diagnostics.end(), [text](const auto& diagnostic)
+                           { return diagnostic.Message.find(text) != std::string::npos ||
+                                    diagnostic.Context.find(text) != std::string::npos; });
+    }
 };
 
 TEST_SUITE("Tools.Redactor")
 {
+    TEST_CASE("A part the loader could not read is still reported after the open [security-regression]")
+    {
+        // The warning is recorded by the package loader, and everything above it
+        // used to start by clearing the collection it lives in. Opening through
+        // an editor - which is how the tools and the MCP servers open documents,
+        // and how almost every application does - therefore threw away the one
+        // statement that the document is not all of the file.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor);
+        editor->AddParagraph("Body text");
+        const auto path = ExyokiOfficeTests::MakeTemporaryPath("exyoki_unreadable", ".docx");
+        REQUIRE(editor->SaveToFile(path));
+        editor.reset();
+
+        // Any part but the main one: what is being reproduced is a document
+        // that still opens with a piece of it missing, so which piece it is does
+        // not matter and pinning a particular name would only tie the case to
+        // what CreateNew happens to write today.
+        std::string victimUri;
+        {
+            ExyokiOffice::OpenXmlPackage intact;
+            REQUIRE(intact.LoadFromFile(path));
+            for (const auto& record : ListParts(intact))
+            {
+                if (record.Uri != "/word/document.xml")
+                {
+                    victimUri = record.Uri;
+                    break;
+                }
+            }
+        }
+        REQUIRE_FALSE(victimUri.empty());
+        REQUIRE(victimUri.front() == '/');
+
+        RedactorTestHelpers::CorruptEntryPayload(path, std::string_view(victimUri).substr(1));
+
+        SUBCASE("the editor keeps what the loader said")
+        {
+            auto reopened = WordDocumentEditor::Open(path);
+            REQUIRE(reopened);
+            auto document = reopened->GetDocument();
+            REQUIRE(document);
+
+            // The document opens: the main part is intact, and one part that is
+            // not is no reason to refuse the rest of the file.
+            CHECK(document->GetPartByUri(victimUri) == nullptr);
+
+            const auto& issues = document->LastValidationResult().Issues();
+            CHECK(std::any_of(issues.begin(), issues.end(), [](const auto& issue)
+                              { return issue.Id == ExyokiOffice::ValidationErrorId::OpcEntryUnreadable; }));
+        }
+
+        SUBCASE("a redaction says what it never got to look at")
+        {
+            const auto output = ExyokiOfficeTests::MakeTemporaryPath("exyoki_unreadable_out", ".docx");
+            const auto result = RedactDocument(path, output);
+
+            // Ok, because everything present was redacted. The diagnostic is
+            // what separates that from "this document is now clean".
+            CHECK(result.Ok);
+            CHECK(RedactorTestHelpers::HasDiagnostic(result.Diagnostics, "could not be read"));
+            CHECK(RedactorTestHelpers::HasDiagnostic(result.Diagnostics, victimUri.substr(1)));
+        }
+    }
+
     TEST_CASE("Revisions are accepted in every story part, not only the body [unit] [tools] [redact]")
     {
         // The typed editor's AcceptAllRevisions walks the main document. A

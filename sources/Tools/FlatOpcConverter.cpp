@@ -64,6 +64,42 @@ public:
         return bytes;
     }
 
+    /**
+     * @brief True when a path component of @p name is exactly "..".
+     *
+     * Tested per component rather than with a substring search, which is the
+     * same rule `PackageArchiver` applies and for the same reason: `..` inside a
+     * name matches `notes..xml` and `..cover.png`, which are ordinary part names
+     * with nothing wrong with them, while the component test matches exactly the
+     * navigation. Refusing a legitimate part silently drops content from a
+     * conversion that reports success.
+     *
+     * Both separators end a component, because the name checked here is not the
+     * name that gets stored: `zip_entry_open` rewrites every backslash to a
+     * forward slash, so `word\..\escape.bin` reaches the archive as
+     * `word/../escape.bin`. Splitting on `/` alone would check one string and
+     * write another - the exact mismatch this whole check exists to prevent.
+     */
+    static bool HasTraversalSegment(std::string_view name)
+    {
+        Size start = 0;
+        while (start <= name.size())
+        {
+            const auto separator = name.find_first_of("/\\", start);
+            const auto end = separator == std::string_view::npos ? name.size() : separator;
+            if (name.substr(start, end - start) == "..")
+            {
+                return true;
+            }
+            if (separator == std::string_view::npos)
+            {
+                break;
+            }
+            start = separator + 1;
+        }
+        return false;
+    }
+
     static std::string Extension(std::string_view name)
     {
         const auto slash = name.find_last_of('/');
@@ -194,7 +230,7 @@ ToFlatOpcResult ConvertToFlatOpc(std::span<const Byte> packageBytes, const ToFla
             zip_entry_close(archive);
             continue;
         }
-        if (name.find("..") != std::string::npos)
+        if (FlatOpcHelpers::HasTraversalSegment(name))
         {
             FlatOpcHelpers::Diagnostic(result.Diagnostics, "Rejected entry with path traversal", name);
             zip_entry_close(archive);
@@ -356,7 +392,7 @@ FromFlatOpcResult ConvertFromFlatOpc(std::string_view flatOpcXml, const FromFlat
         {
             entryName.erase(entryName.begin());
         }
-        if (entryName.empty() || entryName.find("..") != std::string::npos)
+        if (entryName.empty() || FlatOpcHelpers::HasTraversalSegment(entryName))
         {
             FlatOpcHelpers::Diagnostic(result.Diagnostics, "Rejected invalid Flat OPC part name", entryName);
             continue;

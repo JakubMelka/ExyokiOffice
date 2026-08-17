@@ -55,12 +55,19 @@ in [docs/](docs/README.md).
   (`RegexPattern::MaximumSubjectLength`).
 - An unreadable archive entry is reported as
   `ValidationErrorId::OpcEntryUnreadable` instead of being skipped in silence;
-  the load still succeeds.
+  the load still succeeds, opening through an editor keeps the warning, and
+  `Tools::RedactDocument` repeats it in its own diagnostics.
+- A relationships part that reads but is not XML is reported as
+  `ValidationErrorId::OpcMalformedPartXml`.
 - `[Content_Types].xml` is matched case-sensitively, so a package cannot carry
   two of them with different meanings.
 - An MCP message nesting arrays or objects deeper than 128 levels is refused
   before the JSON is parsed.
-- Word identifier allocation saturates instead of reaching signed overflow.
+- Word identifier allocation hands out a value the document does not already
+  use, instead of counting on from the highest one. A file carrying the largest
+  identifier its type holds used to reach signed overflow and then produce a
+  duplicate `w:id`, `w:name` or `wp:docPr/@id` - a document Word offers to
+  repair - and one such attribute in an input was enough.
 - An RSA-SHA1 signature value is refused even with no crypto provider present.
 - Parsing an EMF picture frame no longer subtracts two untrusted `Int32` fields
   into an `Int32`.
@@ -127,7 +134,8 @@ in [docs/](docs/README.md).
 ### Fixed
 
 - Flat OPC conversion tests path traversal one component at a time, so a part
-  named `notes..xml` is no longer dropped.
+  named `notes..xml` is no longer dropped, and counts a backslash as a separator
+  because the ZIP writer rewrites one into a slash.
 - Relationships created outside the main document part are recorded in that
   part; a paragraph with no part returns nullptr from `AddHyperlink`.
 - An inline content control inherits the part its paragraph lives in.

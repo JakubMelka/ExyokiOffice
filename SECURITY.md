@@ -22,7 +22,7 @@ minor release even when existing code still compiles against it.
 
 **Report privately through GitHub, not in a public issue or pull request.**
 Open a draft advisory with *Report a vulnerability* on the repository's
-[Security tab](https://github.com/JakubMelka/EverydayOffice/security/advisories/new).
+[Security tab](https://github.com/JakubMelka/ExyokiOffice/security/advisories/new).
 The report stays visible only to you and the maintainers until an advisory is
 published.
 

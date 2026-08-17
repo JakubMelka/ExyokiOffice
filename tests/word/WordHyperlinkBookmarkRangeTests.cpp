@@ -4,12 +4,27 @@
 
 #include "doctest.h"
 
+#include "TestSupport.hpp"
+
+#include "ExyokiOffice/OpenXmlPackage.hpp"
 #include "ExyokiOffice/Word/WordDocument.hpp"
 
 #include <string>
+#include <string_view>
 
 namespace
 {
+/// How many times @p needle appears in @p haystack, counting overlaps as one.
+ExyokiOffice::Size CountOccurrences(const std::string& haystack, std::string_view needle)
+{
+    ExyokiOffice::Size count = 0;
+    for (auto at = haystack.find(needle); at != std::string::npos; at = haystack.find(needle, at + needle.size()))
+    {
+        ++count;
+    }
+    return count;
+}
+
 using ExyokiOffice::Color;
 using ExyokiOffice::Word::Bookmark;
 using ExyokiOffice::Word::ContentRange;
@@ -440,6 +455,65 @@ TEST_SUITE("WordHyperlinkBookmarkRangeTests")
         const auto count = paragraph->ReplaceAllRegex(pattern, "-");
         CHECK(count == 4); // one empty match before each character plus one at the end
         CHECK(paragraph->PlainText() == "-a-b-c-");
+    }
+
+    TEST_CASE("An identifier at the top of the range does not force a duplicate [security-regression]")
+    {
+        // Identifiers are allocated by counting on from the highest one the
+        // document carries. A document carrying the largest value the type holds
+        // leaves nowhere to count to: the arithmetic is undefined for the signed
+        // kinds, and the value that comes back is one the document is already
+        // using - a duplicate `w:id` that Word reports as a file needing repair.
+        // One such attribute in an input is enough, so the answer cannot be to
+        // count further; it has to be to find a value nobody has taken.
+        const std::string hostile =
+            R"(<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>)"
+            R"(<w:p><w:bookmarkStart w:id="2147483647" w:name="hostile"/><w:bookmarkEnd w:id="2147483647"/>)"
+            R"(<w:r><w:t>text</w:t></w:r></w:p>)"
+            R"(<w:sdt><w:sdtPr><w:id w:val="2147483647"/></w:sdtPr><w:sdtContent><w:p/></w:sdtContent></w:sdt>)"
+            R"(</w:body></w:document>)";
+
+        auto seed = WordDocumentEditor::CreateNew();
+        REQUIRE(seed);
+        seed->AddParagraph("placeholder");
+        const auto path = ExyokiOfficeTests::MakeTemporaryPath("exyoki_id_ceiling", ".docx");
+        REQUIRE(seed->SaveToFile(path));
+        seed.reset();
+
+        {
+            ExyokiOffice::OpenXmlPackage package;
+            REQUIRE(package.LoadFromFile(path));
+            auto part = package.GetPartByUri("/word/document.xml");
+            REQUIRE(part);
+            part->SetXmlString(hostile);
+            REQUIRE(package.SaveToFile(path));
+        }
+
+        auto editor = WordDocumentEditor::Open(path);
+        REQUIRE(editor);
+
+        SUBCASE("a new bookmark gets an identifier of its own")
+        {
+            auto paragraphs = editor->Paragraphs();
+            REQUIRE_FALSE(paragraphs.empty());
+            auto bookmark = paragraphs.front()->AddBookmark("fresh");
+            REQUIRE(bookmark);
+
+            const auto xml = editor->GetDocument()->GetMainDocumentPart()->GetXmlString();
+            // Two starts named differently, and the identifier of the new one is
+            // not the identifier of the old one.
+            CHECK(xml.find(R"(w:name="fresh")") != std::string::npos);
+            CHECK(CountOccurrences(xml, R"(w:id="2147483647")") == 2); // the hostile start and its end
+        }
+
+        SUBCASE("a new content control gets an identifier of its own")
+        {
+            auto control = editor->Body().InsertContentControl("fresh", "Fresh");
+            REQUIRE(control);
+
+            const auto xml = editor->GetDocument()->GetMainDocumentPart()->GetXmlString();
+            CHECK(CountOccurrences(xml, R"(w:val="2147483647")") == 1);
+        }
     }
 
 } // TEST_SUITE("WordHyperlinkBookmarkRangeTests")

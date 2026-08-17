@@ -197,8 +197,12 @@ set(GENERATED_PACKAGING_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/sources/Packaging
 file(GLOB GENERATED_PACKAGING_HEADERS CONFIGURE_DEPENDS "${GENERATED_PACKAGING_INCLUDE_DIR}/*.hpp")
 file(GLOB GENERATED_PACKAGING_SOURCES CONFIGURE_DEPENDS "${GENERATED_PACKAGING_SOURCE_DIR}/*.cpp")
 
-message(STATUS "Generated headers: " ${GENERATED_HEADERS})
-message(STATUS "Generated sources: " ${GENERATED_SOURCES})
+# Counted rather than listed. There are hundreds of each, and a configure step
+# that prints them all buries every other message it emits - including the
+# FATAL_ERROR below, which is the one a reader actually has to see.
+list(LENGTH GENERATED_HEADERS GENERATED_HEADER_COUNT)
+list(LENGTH GENERATED_SOURCES GENERATED_SOURCE_COUNT)
+message(STATUS "Generated DOM: ${GENERATED_HEADER_COUNT} header(s), ${GENERATED_SOURCE_COUNT} source(s)")
 
 if(EXYOKIOFFICE_RUN_GENERATOR)
     set(GENERATED_STAMP ${CMAKE_CURRENT_BINARY_DIR}/OpenXmlGenerated.stamp)
@@ -486,10 +490,17 @@ include(GenerateExportHeader)
 # leave EXYOKIOFFICE_EXPORT decorative on those platforms and put every
 # file-local helper into the dynamic symbol table. Setting it here makes the
 # two platforms agree on what the public surface is.
+#
+# Position-independent code is set for both library kinds, not only the shared
+# one. CMake turns it on for a SHARED target by itself; a STATIC target gets it
+# only when asked, and a static archive without it cannot be linked into
+# somebody else's shared object at all on ELF platforms. Consumers that vendor
+# this library into a plugin are exactly the case a static build is for.
 set_target_properties(ExyokiOffice PROPERTIES
     CXX_VISIBILITY_PRESET hidden
     C_VISIBILITY_PRESET hidden
-    VISIBILITY_INLINES_HIDDEN ON)
+    VISIBILITY_INLINES_HIDDEN ON
+    POSITION_INDEPENDENT_CODE ON)
 set(EXPORT_HEADER_PATH ${CMAKE_CURRENT_BINARY_DIR}/ExyokiOffice/Export.hpp)
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Version.hpp.in
@@ -506,6 +517,18 @@ if(EXYOKIOFFICE_LIBRARY_KIND STREQUAL "STATIC")
 endif()
 
 exyokioffice_enable_fuzzing_instrumentation(ExyokiOffice)
+
+if(EXYOKIOFFICE_BUILD_FUZZERS)
+    # A mutated .docx fails the per-entry CRC32 before miniz hands over a single
+    # byte, so the raw-package target spends its whole budget on archive framing
+    # and the loader below it is never reached. Turning the check off in the fuzz
+    # build alone lets the mutated bytes through to the code being fuzzed; the
+    # bytes that arrive are ones a well-formed archive could have carried, so the
+    # findings are real rather than artifacts of the define.
+    #
+    # Fuzz builds only. A CRC is how a shipped build tells damage from data.
+    target_compile_definitions(ExyokiOffice PRIVATE MINIZ_DISABLE_ZIP_READER_CRC32_CHECKS)
+endif()
 
 if(WIN32)
     set(RC_FILE_DESCRIPTION "ExyokiOffice OpenXML library")
@@ -632,24 +655,37 @@ if(EXYOKIOFFICE_BUILD_UNIT_TESTS OR EXYOKIOFFICE_BUILD_MCP_PYTHON_TESTS)
     enable_testing()
 endif()
 
-if(EXYOKIOFFICE_BUILD_EXAMPLE_WORD)
-    add_subdirectory(examples/ExampleWord)
-endif()
+# Not in a fuzz build, and not by each example saying so. The library carries
+# coverage instrumentation there, and the __sanitizer_cov_* symbols it emits are
+# defined only by the libFuzzer runtime - which carries main() and can therefore
+# be linked into a fuzz executable and nowhere else. An example linking the
+# library is not one, so it cannot link at all.
+#
+# Stated once, here, rather than as a switch per example in every fuzz preset:
+# that list already missed ExampleWordEdit, and a preset that has to be edited
+# whenever an example is added is a fuzz build that breaks without being touched.
+if(EXYOKIOFFICE_BUILD_FUZZERS)
+    message(STATUS "Fuzzing - examples are not built: instrumented code needs the libFuzzer runtime to link")
+else()
+    if(EXYOKIOFFICE_BUILD_EXAMPLE_WORD)
+        add_subdirectory(examples/ExampleWord)
+    endif()
 
-if(EXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDITOR)
-    add_subdirectory(examples/ExampleWordEditor)
-endif()
+    if(EXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDITOR)
+        add_subdirectory(examples/ExampleWordEditor)
+    endif()
 
-if(EXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDIT)
-    add_subdirectory(examples/ExampleWordEdit)
-endif()
+    if(EXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDIT)
+        add_subdirectory(examples/ExampleWordEdit)
+    endif()
 
-if(EXYOKIOFFICE_BUILD_EXAMPLE_EXCEL_EDITOR)
-    add_subdirectory(examples/ExampleExcelEditor)
-endif()
+    if(EXYOKIOFFICE_BUILD_EXAMPLE_EXCEL_EDITOR)
+        add_subdirectory(examples/ExampleExcelEditor)
+    endif()
 
-if(EXYOKIOFFICE_BUILD_EXAMPLE_POWERPOINT_EDITOR)
-    add_subdirectory(examples/ExamplePowerPointEditor)
+    if(EXYOKIOFFICE_BUILD_EXAMPLE_POWERPOINT_EDITOR)
+        add_subdirectory(examples/ExamplePowerPointEditor)
+    endif()
 endif()
 
 # Added for both options: the fuzz entry points are a plain library that the

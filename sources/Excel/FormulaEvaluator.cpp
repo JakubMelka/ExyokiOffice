@@ -1019,7 +1019,22 @@ EvalValue FormulaEvaluationSession::Evaluate(const FormulaExpression& node)
     {
         return EvalValue::Error(FormulaErrorCode::Value);
     }
-    ++m_depth;
+
+    // Balanced by a guard rather than by a matching decrement at the bottom.
+    // Every path out of the switch below happens to reach that decrement today,
+    // and the counter is a session-lifetime one: a single leaked increment is
+    // not a wrong answer once, it is a session that answers #VALUE! to every
+    // formula deep enough from then on. That is too quiet a failure to leave
+    // resting on a future edit not adding an early return.
+    struct DepthGuard
+    {
+        int& depth;
+        explicit DepthGuard(int& counter) : depth(counter) { ++depth; }
+        ~DepthGuard() { --depth; }
+        DepthGuard(const DepthGuard&) = delete;
+        DepthGuard& operator=(const DepthGuard&) = delete;
+    } guard(m_depth);
+
     EvalValue result;
     switch (node.kind)
     {
@@ -1078,7 +1093,6 @@ EvalValue FormulaEvaluationSession::Evaluate(const FormulaExpression& node)
             result = EvaluateFunction(node);
             break;
     }
-    --m_depth;
     return result;
 }
 

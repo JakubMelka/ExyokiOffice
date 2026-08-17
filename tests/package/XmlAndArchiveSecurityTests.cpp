@@ -516,6 +516,104 @@ TEST_SUITE("XmlAndArchiveSecurityTests")
         CHECK(package.LoadFromMemory(XmlAndArchiveSecurityTestHelper::BuildWordPackage(xml)));
     }
 
+    TEST_CASE("an entry that cannot be read is reported rather than dropped [security-regression]")
+    {
+        // Stored, not deflated, so the payload appears in the archive verbatim
+        // and one flipped byte inside it is a CRC mismatch and nothing else.
+        constexpr std::string_view kMarker = "MARKER_UNREADABLE_PAYLOAD_0F1E2D3C";
+        const std::string documentXml =
+            std::string(R"(<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body><w:p><w:r><w:t>)") +
+            std::string(kMarker) + R"(</w:t></w:r></w:p></w:body>
+</w:document>)";
+
+        auto bytes = XmlAndArchiveSecurityTestHelper::BuildWordPackage(documentXml, 0);
+        const std::string_view raw(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+        const auto marker = raw.find(kMarker);
+        REQUIRE(marker != std::string_view::npos);
+        bytes[marker] = static_cast<ExyokiOffice::Byte>('X');
+
+        ExyokiOffice::OpenXmlPackage package;
+        package.SetPackageLimits(ExyokiOffice::OpenXmlPackageLimits::Recommended());
+
+        // The package still loads: one damaged part is not a reason to refuse
+        // the parts that are intact, and the content types and relationships
+        // are all still readable.
+        CHECK(package.LoadFromMemory(bytes));
+        CHECK(package.GetPartByUri("/word/document.xml") == nullptr);
+
+        // What must not happen is the load reporting nothing. A caller asking
+        // what is in this package would otherwise be told there is no main
+        // document part, which is a different statement about a different file.
+        CHECK(XmlAndArchiveSecurityTestHelper::HasValidationIssue(
+            package.LastValidationResult(), ExyokiOffice::ValidationErrorId::OpcEntryUnreadable));
+
+        const auto& issues = package.LastValidationResult().Issues();
+        const auto reported = std::find_if(issues.begin(), issues.end(), [](const auto& issue)
+                                           { return issue.Id == ExyokiOffice::ValidationErrorId::OpcEntryUnreadable; });
+        REQUIRE(reported != issues.end());
+        CHECK(reported->Severity == ExyokiOffice::ValidationSeverity::Warning);
+        CHECK(reported->Message.find("word/document.xml") != std::string::npos);
+
+        // Once per broken entry. Both loader passes walk every entry, and a
+        // warning per pass would double-count every damaged part in a report.
+        CHECK(std::count_if(issues.begin(), issues.end(), [](const auto& issue)
+                            { return issue.Id == ExyokiOffice::ValidationErrorId::OpcEntryUnreadable; }) == 1);
+    }
+
+    TEST_CASE("A relationships part that is not XML is reported as malformed, not unreadable")
+    {
+        // The distinction the identifier carries: these bytes were read. What
+        // failed was parsing them, and a caller branching on the identifier is
+        // entitled to tell an entry the archive would not give up from one it
+        // gave up as something that is not XML.
+        const auto bytes = XmlAndArchiveSecurityTestHelper::BuildArchive(
+            {{"[Content_Types].xml",
+              R"(<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+</Types>)"},
+             {"_rels/.rels", "<Relationships><this is not XML"}},
+            0);
+
+        ExyokiOffice::OpenXmlPackage package;
+        CHECK(package.LoadFromMemory(bytes));
+
+        const auto& result = package.LastValidationResult();
+        CHECK(XmlAndArchiveSecurityTestHelper::HasValidationIssue(
+            result, ExyokiOffice::ValidationErrorId::OpcMalformedPartXml));
+        CHECK_FALSE(XmlAndArchiveSecurityTestHelper::HasValidationIssue(
+            result, ExyokiOffice::ValidationErrorId::OpcEntryUnreadable));
+    }
+
+    TEST_CASE("the content types part is found by its exact name only [security-regression]")
+    {
+        constexpr std::string_view kTypes = R"(<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml"/>
+</Types>)";
+
+        SUBCASE("the spelling OPC prescribes loads")
+        {
+            ExyokiOffice::OpenXmlPackage package;
+            CHECK(package.LoadFromMemory(
+                XmlAndArchiveSecurityTestHelper::BuildArchive({{"[Content_Types].xml", std::string(kTypes)}}, 0)));
+        }
+
+        SUBCASE("a differently cased spelling does not")
+        {
+            // A case-insensitive lookup would accept this, and a package
+            // carrying both spellings would then have one file decide the
+            // content types while the other loaded as an ordinary part - two
+            // readers of the same document disagreeing about what its parts are.
+            ExyokiOffice::OpenXmlPackage package;
+            CHECK_FALSE(package.LoadFromMemory(
+                XmlAndArchiveSecurityTestHelper::BuildArchive({{"[content_types].xml", std::string(kTypes)}}, 0)));
+        }
+    }
+
     TEST_CASE("archive extraction rejects Zip Slip traversal entries [security-regression]")
     {
         const auto archivePath = ExyokiOfficeTests::MakeTemporaryPath("zip-slip", ".zip");
