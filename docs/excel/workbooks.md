@@ -26,9 +26,12 @@ std::vector<Byte> blob = editor->SaveToMemory();
 ```
 
 `Open` accepts an `OpenSettings` argument to control ZIP/XML safety limits and
-validation behavior. The core default is unlimited unless the application
-installs a policy; use `OpenXmlPackageLimits::Recommended()` for untrusted
-input as shown in
+validation behavior. New settings start with
+`OpenXmlPackageLimits::Recommended()`; an application that knows its inputs
+should usually tighten those general-purpose limits.
+`OpenXmlPackageLimits::Unlimited()` disables them explicitly for a trusted
+source. The final optional `Packaging::OpenError*` argument reports why an open
+failed. See
 [Opening untrusted packages safely](../introduction.md#opening-untrusted-packages-safely).
 All factories return `nullptr` when the source cannot be read or parsed —
 always check the result.

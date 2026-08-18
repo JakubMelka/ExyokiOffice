@@ -271,7 +271,7 @@ Chapter links point at the guide for each area; see the
 | [Text and paragraphs](word/text.md) | Yes | Yes | Yes | `word-text` | Body cursors, runs, character and paragraph formatting, find and replace including regular expressions. |
 | [Styles, headings, lists](word/styles.md) | Yes | Yes | Yes | `word-styles` | `StyleManager`, latent styles, multi-level numbering. |
 | [Tables](word/tables.md) | Yes | Yes | Yes | `word-tables` | Rows, columns, merges, nesting, the logical grid. |
-| [Images](word/images.md) | Yes | Yes | Yes | `word-images` | Inline and floating, wrapping, crop, alt text. `DetectImageFormat` does not sniff EMF/WMF/TIFF payloads. |
+| [Images](word/images.md) | Yes | Yes | Yes | `word-images` | Inline and floating, wrapping, crop, alt text. Detection covers PNG, JPEG, GIF, BMP, TIFF, EMF, and placeable WMF; SVG and bare WMF require an explicit format. |
 | [Hyperlinks and bookmarks](word/hyperlinks.md) | Yes | Yes | Yes | `word-hyperlinks` | External and internal links, bookmark ranges. |
 | [Fields and TOC](word/fields.md) | Yes | Yes | Yes | `word-fields` | Field instructions and cached results are authored; **values are never computed**. A layout-dependent field refuses a written result outright and is marked dirty so Word refreshes it. |
 | [Embedded charts](word/charts.md) | No | Yes | Yes | `word-charts` | Existing charts and their embedded workbooks are read and updated. Anchoring a *new* chart has no high-level helper. |

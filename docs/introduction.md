@@ -295,17 +295,21 @@ ctest --preset linux-ninja-debug
 
 Each preset pins a host system, so `cmake --list-presets` shows only those that
 apply to the machine you are on. The repository
-[README](../README.md#cmake-presets) lists every preset with its toolchain and
-binary directory. Presets are a convenience, not a constraint: a plain
+[README](../README.md#build-and-install) gives the usual Windows and Linux
+commands; `CMakePresets.json` is the authoritative list of presets and their
+binary directories. Presets are a convenience, not a constraint: a plain
 `cmake -S . -B <dir>` with your own options, generator, and toolchain file
 works exactly as it does for any other CMake project.
 
-The build runs the OpenXML source generator automatically before compiling
-the library; the generated translation units make a clean build relatively
-slow, which is normal. `exyoki` is built by default
-(`EXYOKIOFFICE_BUILD_TOOL=ON`), and the examples and doctest-based unit
-tests have their own options (see the repository `README.md` for the full
-table).
+In a writable top-level developer checkout, the build runs the OpenXML source
+generator automatically before compiling the library; package consumers,
+cross-compiling builds, and `add_subdirectory`/`FetchContent` consumers use the
+committed generated sources unless `EXYOKIOFFICE_RUN_GENERATOR` is explicitly
+enabled. The generated translation units make a clean developer build
+relatively slow, which is normal. `exyoki` is built by default
+(`EXYOKIOFFICE_BUILD_TOOL=ON`). The examples and doctest-based unit tests are
+enabled by the repository presets; their individual options are declared in
+the root `CMakeLists.txt`.
 
 Install and consume the library from another CMake project:
 
@@ -341,7 +345,8 @@ The manual reads front to back, but every chapter also stands on its own:
 3. **Format chapters** — the thorough treatment, one folder per format:
    [word/](word/documents.md), [excel/](excel/workbooks.md), and
    [powerpoint/](powerpoint/presentations.md).
-4. **Cross-cutting subsystems** — [Digital signatures](Signatures.md) and
+4. **Cross-cutting subsystems** — [Threading](Threading.md),
+   [Digital signatures](Signatures.md), and
    [External resources](ExternalResources.md), which apply to every format.
 5. **Tooling and front ends** — [exyoki](tools/exyoki.md), its
    [conversion formats](tools/conversion-formats.md), and the

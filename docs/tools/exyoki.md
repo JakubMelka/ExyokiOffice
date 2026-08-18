@@ -821,8 +821,8 @@ changed. In a real run all three fields describe the completed operation.
 exyoki search <package> <needle> [--context N] [--regex] [--ignore-case]
 ```
 
-The document family is detected from the package and the search covers the
-same scope as `extract-text`:
+The document family is detected from the package. Search operates on these
+text units:
 
 - **Word** — every paragraph reachable from the document: body, table cells
   (including nested tables), headers/footers of every section, footnotes,
@@ -830,11 +830,17 @@ same scope as `extract-text`:
 - **Excel** — every stored non-blank cell of every worksheet, with
   shared-string cells resolved; number/date/formula cells are matched by
   their stored value text. Labels are cell references: `Sheet1!B2`.
-- **PowerPoint** — every text-frame paragraph of every slide shape plus the
-  speaker notes: `slide 1 shape 2 paragraph 1`, `slide 1 notes`.
+- **PowerPoint** — every text-frame paragraph of each top-level slide shape
+  plus the speaker notes: `slide 1 shape 2 paragraph 1`, `slide 1 notes`.
+  Unlike `extract-text`, search does not currently descend into grouped shapes
+  or read DrawingML table cells.
 
 Exit code `5` (no matches) mirrors `grep`. Matching never crosses a
 paragraph, cell, or notes-page boundary.
+
+Reported `offset` and `length` values, and the `--context` budget, are measured
+in UTF-8 bytes. Context boundaries are moved outward when necessary so the
+reported context is always valid UTF-8.
 
 `--regex` treats `<needle>` as an ECMAScript regular expression (the
 `std::regex` default grammar) instead of a literal substring. `--ignore-case`
@@ -945,8 +951,10 @@ Dispatches by document family:
 
 - **Word** — the same body/table/header/footer/footnote/endnote/comment walk
   as `search`, one block per paragraph, labeled e.g. `body: body paragraph 1`.
-- **PowerPoint** — one block per shape with text (`slide 1 shape 2`) plus one
-  block per non-empty speaker-notes page (`slide 1 notes`).
+- **PowerPoint** — one block per shape with text, recursively including shapes
+  inside groups (`slide 1 shape 3.1`), one tab/newline-delimited block per
+  DrawingML table (`slide 1 table 4`), and one block per non-empty
+  speaker-notes page (`slide 1 notes`).
 - **Excel** — one block per non-blank cell, labeled `SheetName!A1`, with
   shared-string cells resolved to their text automatically.
 
@@ -1500,10 +1508,10 @@ Headers live under `include/ExyokiOffice/Tools/`:
 | `DocumentStats.hpp` | `Stat` over a path or an already open family editor: family-specific counts plus shared image, table, hyperlink, and comment totals. |
 | `DocumentRedactor.hpp` | `RedactDocument` + `RedactOptions` — comments, tracked revisions, hidden text, and identity metadata removal behind `redact`. |
 | `WordAutomationTools.hpp` | `FillWordTemplate` (JSON mail merge behind `fill`) and `CompareWordDocuments` (tracked-revision comparison behind `compare`). |
-| `WordDocumentTools.hpp` | Word-specific split and merge options/results used by the family-aware `DocumentTools` dispatcher. |
+| `WordDocumentTools.hpp` | Word-specific split and merge options/results used by the family-aware functions in `DocumentTools.hpp`. |
 | `SpreadsheetTools.hpp` | `RecalculateWorkbook` — the `recalc` command over `Excel::FormulaEngine`. |
 | `XmlQueryTool.hpp` | `Query(path, xpath, options)` — namespace-precise dynamic XPath over any XML part of any package. Built on `ExyokiOffice::Xml` (`include/ExyokiOffice/Xml/XmlQuery.hpp`: `SelectNodes`, `InnerText`, the fluent `XmlQuery`, and `XmlHelpers`). |
-| `DocumentTools.hpp` | Family-aware `SplitDocument` and `MergeDocuments` for Word, Excel, and PowerPoint. |
+| `DocumentTools.hpp` | Family-aware `SplitDocument` and `MergeDocuments` functions for Word, Excel, and PowerPoint. |
 | `TextExtractor.hpp` | `Extract` — multi-family dispatch (Word/Excel/PowerPoint). |
 | `PackageDiff.hpp` | `Compare`. |
 | `Report.hpp` | `ReportNode`/`ReportDocument` generic tree plus `RenderPlain`/`RenderMarkdown`/`RenderJson`/`RenderXml` (JSON rendering is implemented in `sources/Tools/Report.cpp` using the library's private nlohmann/json dependency). |

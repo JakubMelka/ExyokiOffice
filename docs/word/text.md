@@ -95,9 +95,10 @@ Reading mirrors writing: `paragraph->Runs()`, `paragraph->Texts()`,
 every run). `run->PlainText()` does the same for one run.
 
 Whitespace note: XML collapses leading and trailing spaces unless the text
-element asks for preservation. Pass `preserveSpaces = true` to `AddText` (or
-call `Text::SetPreserveSpaces`) when a run's text begins or ends with a
-space you need to keep.
+element asks for preservation. Text-taking Word API calls therefore default to
+`preserveSpaces = true`. Pass `false` only when you deliberately want an XML
+consumer to collapse boundary whitespace; `Text::SetPreserveSpaces` can change
+the setting afterwards.
 
 ## Run formatting
 
@@ -187,10 +188,12 @@ for (const auto& paragraph : editor->Paragraphs())
 }
 ```
 
-`Find` returns a `ContentRange` (offset and length in the paragraph's plain
-text) that `GetText` and `ReplaceText` consume; `ReplaceAll` adjusts
-subsequent ranges as it rewrites, and replacements preserve the formatting of
-the run where each match starts.
+`Find` returns a `ContentRange` (UTF-8 byte offset and byte length in the
+paragraph's plain text) that `GetText` and `ReplaceText` consume; `ReplaceAll`
+adjusts subsequent ranges as it rewrites, and replacements preserve the
+formatting of the run where each match starts. Ranges returned by the search
+methods always end on UTF-8 character boundaries; a range assembled manually
+must do the same.
 
 The regex variants take a `RegexPattern` — the ECMAScript expression and
 whether to fold case — rather than a compiled `std::regex`, which keeps

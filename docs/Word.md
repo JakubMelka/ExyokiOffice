@@ -127,7 +127,8 @@ existing content, save under a new name.
 
 - Fields are never computed; layout-dependent values require Word (or
   another layout engine) to refresh.
-- `DetectImageFormat` does not sniff EMF/WMF/TIFF payloads.
+- `DetectImageFormat` does not sniff SVG or WMF payloads without a placeable
+  header; pass their format explicitly.
 - Specialized content controls are preserved but have no typed editing API.
 - New chart anchors, SmartArt, text boxes, and equations have no high-level
   authoring helpers (existing charts can be read and updated — see

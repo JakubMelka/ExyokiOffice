@@ -94,7 +94,7 @@ documentation generated from the headers under `include/ExyokiOffice`.
 | --- | --- |
 | [Compatibility matrix](Compatibility.md) | Which file formats and Office versions are supported, and what create, edit, and preserve support each feature area has in Word, Excel, and PowerPoint. |
 | [Versioning and ABI](ABI.md) | Semantic versioning, why only patch releases keep the ABI, and what the installed shared library guarantees. |
-| [Continuous integration](ci.md) | The manual-only workflows and what each one builds. |
+| [Continuous integration](ci.md) | The automatically triggered smoke build, the manual workflows, and what each one builds. |
 | [Fuzzing](fuzzing.md) | The libFuzzer targets, `WinFuzz.ps1`, the corpus, and how crash artifacts become regression tests. |
 | [Code coverage](coverage.md) | Measuring what the test suite reaches with LLVM source-based coverage and `WinCoverage.ps1`, and the OpenCppCoverage alternative for an MSVC build. |
 
@@ -115,8 +115,8 @@ the build if anything breaks.
 ## The PDF manual and API reference
 
 The `docs-pdf.yml` GitHub workflow renders this directory into a single
-hyperlinked PDF with pandoc. It is manual-only, like every workflow in this
-repository: trigger it from the Actions tab and download the
+hyperlinked PDF with pandoc. It is manual-only: trigger it from the Actions
+tab and download the
 `ExyokiOffice-manual-<version>` artifact. The chapter order and the
 preprocessing live under [`_pdf/`](_pdf/chapters.txt); a new chapter must be
 added both to this index and to `_pdf/chapters.txt` to appear in the PDF.
