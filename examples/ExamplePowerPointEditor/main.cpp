@@ -402,9 +402,12 @@ int main()
     }
 
     // --- Review metadata: an author, a comment, a section, a custom show. ----
-    editor->AddCommentAuthor({.Id = "author-1", .Name = "Reviewer", .Initials = "RV"});
-    tableSlide->AddComment({.Id = "comment-1",
-                            .AuthorId = "author-1",
+    // Modern comment and author identifiers are GUIDs in braces; PowerPoint
+    // rewrites anything else while repairing the file.
+    const std::string authorId = "{7C0F1D8E-2B7A-4E5B-9C6D-1A2B3C4D5E6F}";
+    editor->AddCommentAuthor({.Id = authorId, .Name = "Reviewer", .Initials = "RV"});
+    tableSlide->AddComment({.Id = "{0B9E4F21-6D3C-4A8B-8F1E-2C3D4E5F6A7B}",
+                            .AuthorId = authorId,
                             .Text = "Confirm the roadmap wording before the release.",
                             .Position = {Inches(1.0), Inches(1.0)}});
 

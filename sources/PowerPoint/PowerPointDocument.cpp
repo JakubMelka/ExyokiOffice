@@ -9,6 +9,7 @@
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Drawing/Diagrams.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Office2021/PowerPoint/Comment.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Office2010/PowerPoint.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Office2016/Presentation/Command.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Presentation.hpp"
 #include "ExyokiOffice/OpenXmlSimpleTypes.hpp"
 #include "ExyokiOffice/Packaging/PackageUtilities.hpp"
@@ -31,6 +32,7 @@ namespace Charts = ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts;
 namespace Diagrams = ExyokiOffice::DocumentFormat::OpenXml::Drawing::Diagrams;
 namespace ModernComments = ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment;
 namespace PowerPoint2010 = ExyokiOffice::DocumentFormat::OpenXml::Office2010::PowerPoint;
+namespace PresentationCommand = ExyokiOffice::DocumentFormat::OpenXml::Office2016::Presentation::Command;
 
 class PresentationMeasurementHelpers
 {
@@ -366,16 +368,76 @@ UInt32 NextSlideId(const std::shared_ptr<Presentation::SlideIdList>& list)
     return next;
 }
 
+/**
+ * @brief Allocates `p:sldMasterId/@id` and `p:sldLayoutId/@id` values.
+ *
+ * Both attributes live in one value range that starts at 2 147 483 648, and
+ * PowerPoint treats the range as a single id space: a layout whose id equals a
+ * master's id (or a layout's id under another master) makes it repair the
+ * presentation and renumber the layouts. Every allocation therefore starts from
+ * the ids already used by every master and every layout in the presentation,
+ * not just from the list the new entry is appended to.
+ */
 class PresentationIdAllocator
 {
 public:
     static constexpr UInt32 MinimumSlideMasterId = 0x80000000u;
     static constexpr UInt32 MinimumSlideLayoutId = 0x80000000u;
 
-    static std::optional<UInt32> NextSlideMasterId(
-        const std::shared_ptr<Presentation::SlideMasterIdList>& list)
+    /**
+     * @brief Collects every master id and every layout id the presentation already uses.
+     *
+     * @param skipLayoutsOf A master whose own layout ids are left out, for a
+     * caller about to renumber exactly those layouts.
+     */
+    static std::unordered_set<UInt32> UsedMasterAndLayoutIds(
+        const std::shared_ptr<Packaging::PresentationPart>& presentationPart,
+        const std::shared_ptr<Packaging::SlideMasterPart>& skipLayoutsOf = nullptr)
     {
         std::unordered_set<UInt32> used;
+        auto presentation = presentationPart ? presentationPart->GetTypedRootElement() : nullptr;
+        if (!presentation)
+        {
+            return used;
+        }
+        if (auto masterList = presentation->GetFirstChildOfType<Presentation::SlideMasterIdList>())
+        {
+            for (const auto& entry : masterList->Elements<Presentation::SlideMasterId>())
+            {
+                if (entry->GetId().IsDefined())
+                {
+                    used.insert(entry->GetId().ValueOr(0));
+                }
+            }
+        }
+        for (const auto& masterPart : presentationPart->GetSlideMasterParts())
+        {
+            if (masterPart == skipLayoutsOf)
+            {
+                continue;
+            }
+            auto masterRoot = masterPart ? masterPart->GetTypedRootElement() : nullptr;
+            auto layoutList = masterRoot ? masterRoot->GetFirstChildOfType<Presentation::SlideLayoutIdList>() : nullptr;
+            if (!layoutList)
+            {
+                continue;
+            }
+            for (const auto& entry : layoutList->Elements<Presentation::SlideLayoutId>())
+            {
+                if (entry->GetId().IsDefined())
+                {
+                    used.insert(entry->GetId().ValueOr(0));
+                }
+            }
+        }
+        return used;
+    }
+
+    static std::optional<UInt32> NextSlideMasterId(
+        const std::shared_ptr<Presentation::SlideMasterIdList>& list,
+        const std::shared_ptr<Packaging::PresentationPart>& presentationPart = nullptr)
+    {
+        auto used = UsedMasterAndLayoutIds(presentationPart);
         if (list)
         {
             for (const auto& entry : list->Elements<Presentation::SlideMasterId>())
@@ -394,12 +456,14 @@ public:
      * @brief Allocates a slide layout id.
      *
      * `p:sldLayoutId/@id` shares the slide master's value range: PresentationML
-     * rejects anything below 2 147 483 648.
+     * rejects anything below 2 147 483 648, and PowerPoint expects the value to
+     * differ from every master id and every other layout id in the presentation.
      */
     static std::optional<UInt32> NextSlideLayoutId(
-        const std::shared_ptr<Presentation::SlideLayoutIdList>& list)
+        const std::shared_ptr<Presentation::SlideLayoutIdList>& list,
+        const std::shared_ptr<Packaging::PresentationPart>& presentationPart = nullptr)
     {
-        std::unordered_set<UInt32> used;
+        auto used = UsedMasterAndLayoutIds(presentationPart);
         if (list)
         {
             for (const auto& entry : list->Elements<Presentation::SlideLayoutId>())
@@ -412,6 +476,35 @@ public:
         }
 
         return NextAbove(used, MinimumSlideLayoutId);
+    }
+
+    /**
+     * @brief Gives every layout of an imported master an id unused elsewhere.
+     *
+     * The layouts keep the ids of their source presentation when the master
+     * part is imported, so they can repeat a master id or a layout id already
+     * present here; the whole list is renumbered from the first free value.
+     */
+    static void RenumberLayoutIds(const std::shared_ptr<Packaging::SlideMasterPart>& masterPart,
+                                  const std::shared_ptr<Packaging::PresentationPart>& presentationPart)
+    {
+        auto masterRoot = masterPart ? masterPart->GetTypedRootElement() : nullptr;
+        auto layoutList = masterRoot ? masterRoot->GetFirstChildOfType<Presentation::SlideLayoutIdList>() : nullptr;
+        if (!layoutList)
+        {
+            return;
+        }
+        auto used = UsedMasterAndLayoutIds(presentationPart, masterPart);
+        for (const auto& entry : layoutList->Elements<Presentation::SlideLayoutId>())
+        {
+            const auto id = NextAbove(used, MinimumSlideLayoutId);
+            if (!id)
+            {
+                return;
+            }
+            entry->SetId(UInt32Value(*id));
+            used.insert(*id);
+        }
     }
 
 private:
@@ -667,6 +760,13 @@ public:
             {
                 presentationPart->RemoveNotesMasterPart();
             }
+            return nullptr;
+        }
+        // Like a slide master, a notes master must own a theme part; PowerPoint
+        // reports the presentation as damaged when the relationship is missing.
+        if (!ThemeService::WriteDefaultTheme(part->AddThemePart()))
+        {
+            presentationPart->RemoveNotesMasterPart();
             return nullptr;
         }
 
@@ -3479,6 +3579,78 @@ public:
 class PresentationCommentHelpers
 {
 public:
+    /// `p:sld/p:extLst/p:ext/@uri` under which PowerPoint stores the
+    /// `p188:commentRel` that points at the slide's modern comment part.
+    static constexpr std::string_view CommentRelationshipExtensionUri = "{6950BFC3-D8DA-4A85-94F7-54DA5524770B}";
+
+    /**
+     * @brief Records the slide's comment part in the slide XML the way PowerPoint does.
+     *
+     * The comment part is reachable through the slide relationship alone, but
+     * PowerPoint also expects the `p188:commentRel` extension on the slide and
+     * writes one for every commented slide; mirroring it keeps the package in
+     * the shape PowerPoint produces itself.
+     */
+    static bool LinkCommentPart(const std::shared_ptr<Packaging::SlidePart>& slidePart,
+                                const std::shared_ptr<Packaging::PowerPointCommentPart>& commentPart)
+    {
+        auto slide = slidePart ? slidePart->GetTypedRootElement() : nullptr;
+        if (!slide || !commentPart || commentPart->RelationshipId().empty())
+        {
+            return false;
+        }
+        for (const auto& relationship : slide->Descendants<ModernComments::CommentRelationship>())
+        {
+            if (relationship->GetId().ToString() == commentPart->RelationshipId())
+            {
+                return true;
+            }
+        }
+        auto extensions = slide->GetFirstChildOfType<Presentation::SlideExtensionList>();
+        if (!extensions)
+        {
+            extensions = slide->AppendChild<Presentation::SlideExtensionList>();
+        }
+        auto extension = extensions ? extensions->AppendChild<Presentation::SlideExtension>() : nullptr;
+        auto relationship = extension ? extension->AppendChild<ModernComments::CommentRelationship>() : nullptr;
+        if (!relationship)
+        {
+            if (extension)
+            {
+                extensions->RemoveChild(extension);
+            }
+            return false;
+        }
+        extension->SetUri(StringValue(CommentRelationshipExtensionUri));
+        relationship->SetId(StringValue(commentPart->RelationshipId()));
+        return true;
+    }
+
+    /** @brief Drops the `p188:commentRel` extension that pointed at a removed comment part. */
+    static void UnlinkCommentPart(const std::shared_ptr<Packaging::SlidePart>& slidePart,
+                                  std::string_view relationshipId)
+    {
+        auto slide = slidePart ? slidePart->GetTypedRootElement() : nullptr;
+        auto extensions = slide ? slide->GetFirstChildOfType<Presentation::SlideExtensionList>() : nullptr;
+        if (!extensions)
+        {
+            return;
+        }
+        for (const auto& extension : extensions->Elements<Presentation::SlideExtension>())
+        {
+            auto relationship = extension->GetFirstChildOfType<ModernComments::CommentRelationship>();
+            if (relationship && relationship->GetId().ToString() == relationshipId)
+            {
+                extensions->RemoveChild(extension);
+                break;
+            }
+        }
+        if (extensions->Children().empty())
+        {
+            slide->RemoveChild(extensions);
+        }
+    }
+
     static PresentationCommentStatus ReadStatus(const EnumValue<ModernComments::CommentStatus>& status)
     {
         switch (status.ValueOr(ModernComments::CommentStatus::active).GetValue())
@@ -3695,8 +3867,18 @@ public:
      *        when it is undefined. The schema requires the attribute, so an
      *        edited comment passes the timestamp it already carried.
      */
+    /**
+     * @brief Appends a comment thread to a modern comment list.
+     *
+     * @param slideId `p:sldId/@id` of the slide the comment belongs to. A modern
+     * comment must open with an anchor - PowerPoint refuses to load the file
+     * without one - and a slide anchor (`pc:sldMkLst` naming the slide id) is
+     * what PowerPoint itself writes for a comment placed on a slide. Zero
+     * stands for "unknown" and falls back to `p188:unknownAnchor`.
+     */
     static ModernComments::Comment::Ptr Append(const ModernComments::CommentList::Ptr& list,
                                                const PresentationComment& value,
+                                               UInt32 slideId,
                                                const DateTimeValue& created = {})
     {
         if (!list || !IsValid(value))
@@ -3708,6 +3890,26 @@ public:
         comment->SetAuthorId(StringValue(value.AuthorId));
         comment->SetCreated(created.IsDefined() ? created : DateTimeValue(std::chrono::system_clock::now()));
         comment->SetStatus(EnumValue<ModernComments::CommentStatus>(WriteStatus(value.Status)));
+        if (slideId != 0)
+        {
+            auto anchor = comment->AppendChild<PresentationCommand::SlideMonikerList>();
+            auto documentMoniker = anchor ? anchor->AppendChild<PresentationCommand::DocumentMoniker>() : nullptr;
+            auto slideMoniker = anchor ? anchor->AppendChild<PresentationCommand::SlideMoniker>() : nullptr;
+            if (!documentMoniker || !slideMoniker)
+            {
+                list->RemoveChild(comment);
+                return nullptr;
+            }
+            // cId is the slide's p14:creationId, which this library does not
+            // assign; PowerPoint accepts zero and matches the slide by sldId.
+            slideMoniker->SetCId(UInt32Value(0));
+            slideMoniker->SetSldId(UInt32Value(slideId));
+        }
+        else if (!comment->AppendChild<ModernComments::CommentUnknownAnchor>())
+        {
+            list->RemoveChild(comment);
+            return nullptr;
+        }
         auto position = comment->AppendChild<ModernComments::Point2DType>();
         position->SetX(Int64Value(*PresentationMeasurementHelpers::ToInt64Emu(value.Position.X)));
         position->SetY(Int64Value(*PresentationMeasurementHelpers::ToInt64Emu(value.Position.Y)));
@@ -5571,7 +5773,31 @@ bool PresentationShape::SetPicture(const PresentationPictureData& value)
         hyperlink->SetId(StringValue(id));
         hyperlink->SetTooltip(StringValue(value.HyperlinkTooltip));
     }
-    return SetTransform(value.Transform);
+    if (!SetTransform(value.Transform))
+    {
+        return false;
+    }
+    // A picture without geometry has nothing to paint the fill into: PowerPoint
+    // opens the file but renders an empty area where the picture should be. Give
+    // a fresh picture the rectangle PowerPoint writes itself and leave any
+    // geometry an existing picture already carries alone.
+    shapeProperties = picture->GetFirstChildOfType<Presentation::ShapeProperties>();
+    if (!shapeProperties)
+    {
+        return false;
+    }
+    if (!shapeProperties->GetFirstChildOfType<Drawing::PresetGeometry>() &&
+        !shapeProperties->GetFirstChildOfType<Drawing::CustomGeometry>())
+    {
+        auto geometry = shapeProperties->AppendChild<Drawing::PresetGeometry>();
+        auto adjustments = geometry ? geometry->AppendChild<Drawing::AdjustValueList>() : nullptr;
+        if (!adjustments)
+        {
+            return false;
+        }
+        geometry->SetPreset(EnumValue<Drawing::ShapeTypeValues>(Drawing::ShapeTypeValues(Drawing::ShapeTypeValues::Rectangle)));
+    }
+    return true;
 }
 
 bool PresentationShape::ReplacePictureFromData(std::vector<Byte> data)
@@ -7712,9 +7938,19 @@ bool PresentationSlide::AddComment(const PresentationComment& value)
         return false;
     }
     auto parts = m_part->GetcommentParts();
-    auto part = parts.empty() ? m_part->AddPowerPointCommentPart() : parts.front();
+    const bool created = parts.empty();
+    auto part = created ? m_part->AddPowerPointCommentPart() : parts.front();
     auto list = part ? part->GetTypedRootElement() : nullptr;
-    return PresentationCommentHelpers::Append(list, value) != nullptr;
+    if (!PresentationCommentHelpers::Append(list, value, Id()) ||
+        !PresentationCommentHelpers::LinkCommentPart(m_part, part))
+    {
+        if (created && part)
+        {
+            m_part->RemovePowerPointCommentPart(part);
+        }
+        return false;
+    }
+    return true;
 }
 
 bool PresentationSlide::UpdateComment(std::string_view id, const PresentationComment& value)
@@ -7737,7 +7973,7 @@ bool PresentationSlide::UpdateComment(std::string_view id, const PresentationCom
             if (comment->GetId().ToString() == id)
             {
                 // An edit keeps the thread's original creation timestamp.
-                auto replacement = PresentationCommentHelpers::Append(list, value, comment->GetCreated());
+                auto replacement = PresentationCommentHelpers::Append(list, value, Id(), comment->GetCreated());
                 if (!replacement)
                 {
                     return false;
@@ -7796,7 +8032,9 @@ bool PresentationSlide::RemoveComment(std::string_view id)
                 list->RemoveChild(comment);
                 if (list->Elements<ModernComments::Comment>().empty())
                 {
+                    const std::string relationshipId = part->RelationshipId();
                     m_part->RemovePowerPointCommentPart(part);
+                    PresentationCommentHelpers::UnlinkCommentPart(m_part, relationshipId);
                 }
                 return true;
             }
@@ -8222,7 +8460,7 @@ PresentationSlide::Ptr PowerPointDocumentEditor::CopySlideFrom(const PowerPointD
         }
         const auto masterRelationshipId =
             masterList ? presentationPart->AddPartReference(importedMaster, SlideMasterRelationship) : std::string{};
-        const auto masterId = PresentationIdAllocator::NextSlideMasterId(masterList);
+        const auto masterId = PresentationIdAllocator::NextSlideMasterId(masterList, presentationPart);
         masterEntry = !masterRelationshipId.empty() && masterId
                           ? masterList->AppendChild<Presentation::SlideMasterId>()
                           : nullptr;
@@ -8238,34 +8476,7 @@ PresentationSlide::Ptr PowerPointDocumentEditor::CopySlideFrom(const PowerPointD
         masterEntry->SetId(UInt32Value(*masterId));
         masterEntry->SetRelationshipId(StringValue(masterRelationshipId));
 
-        std::unordered_set<UInt32> usedLayoutIds;
-        for (const auto& master : SlideMasters())
-        {
-            if (master->GetPart() == importedMaster)
-            {
-                continue;
-            }
-            for (const auto& layout : master->Layouts())
-            {
-                usedLayoutIds.insert(layout->Id());
-            }
-        }
-        auto masterRoot = importedMaster->GetTypedRootElement();
-        auto importedLayoutList =
-            masterRoot ? masterRoot->GetFirstChildOfType<Presentation::SlideLayoutIdList>() : nullptr;
-        UInt32 nextLayoutId = PresentationIdAllocator::MinimumSlideLayoutId;
-        if (importedLayoutList)
-        {
-            for (const auto& layoutEntry : importedLayoutList->Elements<Presentation::SlideLayoutId>())
-            {
-                while (usedLayoutIds.contains(nextLayoutId))
-                {
-                    ++nextLayoutId;
-                }
-                layoutEntry->SetId(UInt32Value(nextLayoutId));
-                usedLayoutIds.insert(nextLayoutId++);
-            }
-        }
+        PresentationIdAllocator::RenumberLayoutIds(importedMaster, presentationPart);
     }
 
     auto slideEntry = slideList->AppendChild<Presentation::SlideId>();
@@ -8856,6 +9067,12 @@ bool PowerPointDocumentEditor::SetHandoutSettings(const PresentationHandoutSetti
     {
         return false;
     }
+    // A handout master needs its own theme part just like the slide and notes
+    // masters do; without one PowerPoint repairs the presentation.
+    if (!part->GetThemePart() && !ThemeService::WriteDefaultTheme(part->AddThemePart()))
+    {
+        return false;
+    }
     auto headerFooter = root ? root->GetFirstChildOfType<Presentation::HeaderFooter>() : nullptr;
     if (!headerFooter)
     {
@@ -8960,7 +9177,7 @@ PresentationSlideMaster::Ptr PowerPointDocumentEditor::AddSlideMaster(std::strin
         presentationPart->RemoveSlideMasterPart(part);
         return nullptr;
     }
-    const auto id = PresentationIdAllocator::NextSlideMasterId(list);
+    const auto id = PresentationIdAllocator::NextSlideMasterId(list, presentationPart);
     if (!id)
     {
         presentationPart->RemoveSlideMasterPart(part);
@@ -9004,7 +9221,7 @@ PresentationSlideMaster::Ptr PowerPointDocumentEditor::ImportSlideMaster(
     {
         return nullptr;
     }
-    const auto id = PresentationIdAllocator::NextSlideMasterId(list);
+    const auto id = PresentationIdAllocator::NextSlideMasterId(list, presentationPart);
     if (!id)
     {
         presentationPart->RemoveSlideMasterPart(imported);
@@ -9033,6 +9250,7 @@ PresentationSlideMaster::Ptr PowerPointDocumentEditor::ImportSlideMaster(
     }
     entry->SetId(UInt32Value(*id));
     entry->SetRelationshipId(StringValue(std::move(presentationRelationshipId)));
+    PresentationIdAllocator::RenumberLayoutIds(imported, presentationPart);
     return PresentationSlideMaster::Ptr(new PresentationSlideMaster(imported, entry));
 }
 
@@ -9175,7 +9393,7 @@ PresentationSlideLayout::Ptr PowerPointDocumentEditor::AddSlideLayout(const Pres
     layoutRoot->SetMatchingName(common->GetName());
     layoutRoot->SetType(EnumValue<Presentation::SlideLayoutValues>(Presentation::SlideLayoutValues(type)));
 
-    const auto id = PresentationIdAllocator::NextSlideLayoutId(list);
+    const auto id = PresentationIdAllocator::NextSlideLayoutId(list, m_document->GetPresentationPart());
     auto entry = id ? list->AppendChild<Presentation::SlideLayoutId>() : nullptr;
     if (!entry)
     {

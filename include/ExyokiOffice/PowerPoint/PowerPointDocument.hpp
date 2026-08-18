@@ -658,7 +658,7 @@ struct PresentationChartInfo
 /** @brief Identity information for an author used by modern PowerPoint comments. */
 struct PresentationCommentAuthor
 {
-    std::string Id;         ///< Stable author identifier; must be unique and non-empty.
+    std::string Id;         ///< Stable author identifier; must be unique and non-empty. PowerPoint expects a braced GUID such as `{7C0F1D8E-2B7A-4E5B-9C6D-1A2B3C4D5E6F}`.
     std::string Name;       ///< Display name shown by PowerPoint.
     std::string Initials;   ///< Short initials used by comment indicators.
     std::string UserId;     ///< Optional provider-specific user identifier.
@@ -669,7 +669,7 @@ struct PresentationCommentAuthor
 /** @brief One reply in a modern PowerPoint comment thread. */
 struct PresentationCommentReply
 {
-    std::string Id;       ///< Stable reply identifier, unique within the presentation.
+    std::string Id;       ///< Stable reply identifier, unique within the presentation; PowerPoint expects a braced GUID.
     std::string AuthorId; ///< Identifier of an existing presentation comment author.
     std::string Text;     ///< UTF-8 plain-text reply body.
     bool operator==(const PresentationCommentReply&) const = default;
@@ -686,7 +686,7 @@ enum class PresentationCommentStatus
 /** @brief A modern PowerPoint comment and its ordered replies. */
 struct PresentationComment
 {
-    std::string Id;                                                       ///< Stable comment identifier, unique within the presentation.
+    std::string Id;                                                       ///< Stable comment identifier, unique within the presentation; PowerPoint expects a braced GUID.
     std::string AuthorId;                                                 ///< Identifier of an existing presentation comment author.
     std::string Text;                                                     ///< UTF-8 plain-text comment body.
     PresentationPoint Position{};                                         ///< Unit-aware physical comment-indicator position.

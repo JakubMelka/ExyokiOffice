@@ -135,6 +135,16 @@ in [docs/](docs/README.md).
 
 ### Fixed
 
+- PowerPoint packages written by `PowerPointDocumentEditor` open in PowerPoint
+  without repair and show their pictures:
+  - a new presentation carries the required `p:notesSz`;
+  - the notes master and the handout master get their own theme part;
+  - `AddSlideLayout`, `CopySlideFrom` and `ImportSlideMaster` allocate layout ids
+    unique across all masters and layouts;
+  - `AddComment` writes the slide anchor (`pc:sldMkLst`) and the slide-side
+    `p188:commentRel` extension, and the ids are documented as braced GUIDs;
+  - `AddPicture` gives the picture a rectangle geometry, without which PowerPoint
+    renders an empty area.
 - Flat OPC conversion tests path traversal one component at a time, so a part
   named `notes..xml` is no longer dropped, and counts a backslash as a separator
   because the ZIP writer rewrites one into a slash.

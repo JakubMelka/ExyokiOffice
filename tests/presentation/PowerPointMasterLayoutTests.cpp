@@ -33,11 +33,14 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         REQUIRE(title != nullptr);
         REQUIRE(content != nullptr);
         REQUIRE(blank != nullptr);
-        // PresentationML rejects a layout id below 2 147 483 648, and ids are
-        // allocated per master.
-        CHECK(title->Id() == 0x80000000u);
-        CHECK(content->Id() == 0x80000001u);
-        CHECK(blank->Id() == 0x80000000u);
+        // PresentationML rejects a layout id below 2 147 483 648, and PowerPoint
+        // keeps master and layout ids in one id space: a layout id that repeats
+        // a master id (or a layout id under another master) triggers repair.
+        CHECK(title->Id() == 0x80000002u);
+        CHECK(content->Id() == 0x80000003u);
+        CHECK(blank->Id() == 0x80000004u);
+        CHECK(title->Id() != corporate->Id());
+        CHECK(blank->Id() != alternate->Id());
         CHECK(title->Name() == "Title");
         CHECK(title->Type() == SlideLayoutValues::Title);
         CHECK(title->Master()->Id() == corporate->Id());

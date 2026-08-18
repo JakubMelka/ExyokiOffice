@@ -8,6 +8,7 @@
 
 #include "ExyokiOffice/MarkupCompatibility.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/ExtendedProperties.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Presentation.hpp"
 #include "ExyokiOffice/OpenXmlPackageValidator.hpp"
 #include "ExyokiOffice/Packaging/PackageUtilities.hpp"
 #include "pugixml/pugixml.hpp"
@@ -22,6 +23,7 @@
 namespace ExyokiOffice::Packaging
 {
 namespace ExtendedProperties = ExyokiOffice::DocumentFormat::OpenXml::ExtendedProperties;
+namespace Presentation = ExyokiOffice::DocumentFormat::OpenXml::Presentation;
 
 /// File-local part lookup helpers for the PowerPoint package.
 class PowerPointDocumentHelper
@@ -124,6 +126,23 @@ bool PowerPointDocument::InitDocument()
     if (!GetExtendedFilePropertiesPart() && !AddExtendedFilePropertiesPart())
     {
         return false;
+    }
+    // `p:notesSz` is the one child PresentationML makes mandatory in
+    // `p:presentation`; PowerPoint's own default is a portrait notes page.
+    auto presentation = GetPresentationPart()->GetTypedRootElement();
+    if (!presentation)
+    {
+        return false;
+    }
+    if (!presentation->GetFirstChildOfType<Presentation::NotesSize>())
+    {
+        auto notesSize = presentation->AppendChild<Presentation::NotesSize>();
+        if (!notesSize)
+        {
+            return false;
+        }
+        notesSize->SetCx(ExyokiOffice::Int64Value(6858000));
+        notesSize->SetCy(ExyokiOffice::Int64Value(9144000));
     }
     return UpdateDocumentProperties();
 }
