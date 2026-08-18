@@ -155,7 +155,7 @@ void Mention::SetLength(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateThreadedCommentMentionsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments", "mention"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::Mention", "CT_Mention/xltc:mention", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -270,7 +270,7 @@ const ExyokiOffice::OpenXMLElementClass* ThreadedCommentText::ElementMetaClass()
 
 ExyokiOffice::MetadataParticlePtr CreateThreadedCommentParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments", "text"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::ThreadedCommentText", "ThreadedCommentText", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments", "mentions"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::ThreadedCommentMentions", "ThreadedCommentMentions", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -432,9 +432,9 @@ void ThreadedComment::SetDone(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Extension", "CT_Extension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -498,7 +498,7 @@ const ExyokiOffice::OpenXMLElementClass* ExtensionList::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreatePersonParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -626,7 +626,7 @@ void Person::SetProviderId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateThreadedCommentsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments", "threadedComment"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::ThreadedComment", "CT_ThreadedComment/xltc:threadedComment", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::ExtensionList", "CT_ExtensionList/xltc:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -690,7 +690,7 @@ const ExyokiOffice::OpenXMLElementClass* ThreadedComments::ElementMetaClass() co
 
 ExyokiOffice::MetadataParticlePtr CreatePersonListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments", "person"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::Person", "CT_Person/xltc:person", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments::ExtensionList", "CT_ExtensionList/xltc:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);

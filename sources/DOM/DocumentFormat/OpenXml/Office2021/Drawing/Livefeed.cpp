@@ -33,9 +33,9 @@ namespace Livefeed {
 
 ExyokiOffice::MetadataParticlePtr CreateLiveFeedBackgroundPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2021/livefeed", "Normal"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::Livefeed::BackgroundNormalProperties", "CT_BackgroundNormalProperties/alf:Normal", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode2->AddChild(particleNode3);
     auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2021/livefeed", "Removed"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::Livefeed::BackgroundRemovedProperties", "CT_BackgroundRemovedProperties/alf:Removed", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
@@ -107,9 +107,9 @@ const ExyokiOffice::OpenXMLElementClass* LiveFeedBackgroundProperties::ElementMe
 
 ExyokiOffice::MetadataParticlePtr CreateOfficeArtExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Extension", "CT_OfficeArtExtension/a:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -173,7 +173,7 @@ const ExyokiOffice::OpenXMLElementClass* OfficeArtExtensionList::ElementMetaClas
 
 ExyokiOffice::MetadataParticlePtr CreateLiveFeedPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2021/livefeed", "backgroundProps"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::Livefeed::LiveFeedBackgroundProperties", "LiveFeedBackgroundProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2021/livefeed", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::Livefeed::OfficeArtExtensionList", "OfficeArtExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
@@ -237,7 +237,7 @@ const ExyokiOffice::OpenXMLElementClass* LiveFeedProperties::ElementMetaClass() 
 
 ExyokiOffice::MetadataParticlePtr CreateBackgroundCustomPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2021/livefeed", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::Livefeed::OfficeArtExtensionList", "OfficeArtExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -299,7 +299,7 @@ const ExyokiOffice::OpenXMLElementClass* BackgroundCustomProperties::ElementMeta
 
 ExyokiOffice::MetadataParticlePtr CreateBackgroundBlurPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2021/livefeed", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::Livefeed::OfficeArtExtensionList", "OfficeArtExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -361,7 +361,7 @@ const ExyokiOffice::OpenXMLElementClass* BackgroundBlurProperties::ElementMetaCl
 
 ExyokiOffice::MetadataParticlePtr CreateBackgroundRemovedPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2021/livefeed", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::Livefeed::OfficeArtExtensionList", "OfficeArtExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -423,7 +423,7 @@ const ExyokiOffice::OpenXMLElementClass* BackgroundRemovedProperties::ElementMet
 
 ExyokiOffice::MetadataParticlePtr CreateBackgroundNormalPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2021/livefeed", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::Livefeed::OfficeArtExtensionList", "OfficeArtExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;

@@ -436,6 +436,7 @@ TEST_SUITE("WordMatrixTests")
             bodyEnd,
             R"(<w:p><w:r><w:drawing>)"
             R"(<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">)"
+            R"(<wp:extent cx="5486400" cy="3200400"/><wp:docPr id="1" name="Chart 1"/>)"
             R"(<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">)"
             R"(<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">)"
             R"(<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart")"

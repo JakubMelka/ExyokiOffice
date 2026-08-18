@@ -569,10 +569,11 @@ TEST_SUITE("PowerPointMatrixTests")
         auto deck = MakeDeck();
         REQUIRE(deck.Slide->SetNotesText("Speaker notes"));
 
-        REQUIRE(deck.Editor->AddCommentAuthor(
-            PresentationCommentAuthor{.Id = "1", .Name = "Reviewer", .Initials = "R"}));
-        REQUIRE(deck.Slide->AddComment(
-            PresentationComment{.Id = "c1", .AuthorId = "1", .Text = "Please revisit this slide"}));
+        REQUIRE(deck.Editor->AddCommentAuthor(PresentationCommentAuthor{
+            .Id = "{A0000000-0000-4000-8000-000000000001}", .Name = "Reviewer", .Initials = "R"}));
+        REQUIRE(deck.Slide->AddComment(PresentationComment{.Id = "{C0000000-0000-4000-8000-000000000001}",
+                                                           .AuthorId = "{A0000000-0000-4000-8000-000000000001}",
+                                                           .Text = "Please revisit this slide"}));
 
         auto reopened = RoundTrip(deck.Editor);
         REQUIRE(reopened != nullptr);
@@ -584,7 +585,7 @@ TEST_SUITE("PowerPointMatrixTests")
 
         // Edit: change the notes, then resolve the comment thread.
         CHECK(reopened->GetSlide(0)->SetNotesText("Edited notes"));
-        CHECK(reopened->GetSlide(0)->SetCommentStatus("c1", PresentationCommentStatus::Resolved));
+        CHECK(reopened->GetSlide(0)->SetCommentStatus("{C0000000-0000-4000-8000-000000000001}", PresentationCommentStatus::Resolved));
 
         auto edited = RoundTrip(reopened);
         REQUIRE(edited != nullptr);

@@ -31,11 +31,15 @@ A comment must reference an existing author, so add the author first. The
 schema-required creation timestamp is written automatically (current UTC
 time); `UpdateComment` keeps the timestamp the thread already carried.
 
-Author, comment, and reply identifiers are stored as-is, but PowerPoint
-reads them as GUIDs: use braced GUIDs like the ones above, or PowerPoint
-reports the file as damaged and replaces the identifiers while repairing
-it. The first comment on a slide also records the comment part in the
-slide's `p:extLst` (`p188:commentRel`), the way PowerPoint itself does.
+PowerPoint reads author, comment, and reply identifiers as GUIDs and
+repairs a file that carries anything else, so `AddCommentAuthor`,
+`AddComment`, and `UpdateComment` accept only braced GUIDs like the ones
+above (`ExyokiOffice::Guid::New()` mints one; `Guid::IsBraced()` checks one)
+and return `false` otherwise. Identifiers read from an existing file are
+returned unchanged. Each comment is anchored to its slide (`pc:sldMkLst`),
+and the slide records the comment part in its `p:extLst`
+(`p188:commentRel`), the way PowerPoint itself does; editing a comment in a
+file written without that extension adds it.
 
 Text extraction across slides and notes — for indexing or review tooling —
 is available from the command line as [exyoki](../tools/exyoki.md)

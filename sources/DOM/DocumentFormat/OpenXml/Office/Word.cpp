@@ -32,10 +32,10 @@ namespace Word {
 
 ExyokiOffice::MetadataParticlePtr CreateSingleDataSourceRecordParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "active"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::RecordIncluded", "RecordIncluded", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "hash"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::RecordHashCode", "RecordHashCode", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "hash"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::RecordHashCode", "RecordHashCode", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -245,7 +245,7 @@ void RecordIncluded::SetVal(const OnOffValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateAllocatedCommandsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "acd"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::AllocatedCommand", "CT_Acd/wne:acd", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -307,7 +307,7 @@ const ExyokiOffice::OpenXMLElementClass* AllocatedCommands::ElementMetaClass() c
 
 ExyokiOffice::MetadataParticlePtr CreateToolbarsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "acdManifest"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::AllocatedCommandManifest", "CT_AcdManifest/wne:acdManifest", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "toolbarData"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::ToolbarData", "CT_Rel/wne:toolbarData", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -425,7 +425,7 @@ const ExyokiOffice::OpenXMLElementClass* KeymapsType::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateMismatchedKeyMapCustomizationParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "keymap"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::KeyMapEntry", "CT_Keymap/wne:keymap", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -487,7 +487,7 @@ const ExyokiOffice::OpenXMLElementClass* MismatchedKeyMapCustomization::ElementM
 
 ExyokiOffice::MetadataParticlePtr CreateKeyMapCustomizationsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "keymap"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::KeyMapEntry", "CT_Keymap/wne:keymap", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -624,7 +624,7 @@ void ToolbarData::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateAllocatedCommandManifestParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "acdEntry"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::AllocatedCommandManifestEntry", "CT_AcdKeymap/wne:acdEntry", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -686,7 +686,7 @@ const ExyokiOffice::OpenXMLElementClass* AllocatedCommandManifest::ElementMetaCl
 
 ExyokiOffice::MetadataParticlePtr CreateDocEventsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "eventDocNew"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::EventDocNewXsdString", "EventDocNewXsdString", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "eventDocOpen"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::EventDocOpenXsdString", "EventDocOpenXsdString", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -1714,15 +1714,15 @@ void AllocatedCommand::SetAcceleratorName(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateKeyMapEntryParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "fci"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::FixedCommandKeyboardCustomization", "FixedCommandKeyboardCustomization", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "fci"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::FixedCommandKeyboardCustomization", "FixedCommandKeyboardCustomization", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "macro"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::MacroKeyboardCustomization", "MacroKeyboardCustomization", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "macro"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::MacroKeyboardCustomization", "MacroKeyboardCustomization", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "acd"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::AllocatedCommandKeyboardCustomization", "AllocatedCommandKeyboardCustomization", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "acd"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::AllocatedCommandKeyboardCustomization", "AllocatedCommandKeyboardCustomization", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "wll"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::WllMacroKeyboardCustomization", "WllMacroKeyboardCustomization", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "wll"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::WllMacroKeyboardCustomization", "WllMacroKeyboardCustomization", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "wch"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::CharacterInsertion", "CharacterInsertion", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "wch"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::CharacterInsertion", "CharacterInsertion", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode5);
     return particleNode0;
 }
@@ -2404,7 +2404,7 @@ void FixedCommandKeyboardCustomization::SetArgument(const HexBinaryValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMailMergeRecipientsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "recipientData"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::SingleDataSourceRecord", "CT_HashedRecipientData/wne:recipientData", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -2466,7 +2466,7 @@ const ExyokiOffice::OpenXMLElementClass* MailMergeRecipients::ElementMetaClass()
 
 ExyokiOffice::MetadataParticlePtr CreateVbaSuppDataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "docEvents"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::DocEvents", "DocEvents", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "mcds"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::Mcds", "Mcds", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -2530,7 +2530,7 @@ const ExyokiOffice::OpenXMLElementClass* VbaSuppData::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateMcdsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "mcd"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::Mcd", "CT_Mcd/wne:mcd", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -2592,7 +2592,7 @@ const ExyokiOffice::OpenXMLElementClass* Mcds::ElementMetaClass() const noexcept
 
 ExyokiOffice::MetadataParticlePtr CreateTemplateCommandGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "keymaps"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::KeyMapCustomizations", "CT_Keymaps/wne:keymaps", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2006/wordml", "keymapsBad"), "ExyokiOffice::DocumentFormat::OpenXml::Office::Word::MismatchedKeyMapCustomization", "CT_Keymaps/wne:keymapsBad", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);

@@ -31,8 +31,8 @@ namespace ExtendedProperties {
 
 ExyokiOffice::MetadataParticlePtr CreateDigitalSignatureParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes", "blob"), "ExyokiOffice::DocumentFormat::OpenXml::VariantTypes::VTBlob", "VTBlob", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes", "blob"), "ExyokiOffice::DocumentFormat::OpenXml::VariantTypes::VTBlob", "VTBlob", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -93,8 +93,8 @@ const ExyokiOffice::OpenXMLElementClass* DigitalSignature::ElementMetaClass() co
 
 ExyokiOffice::MetadataParticlePtr CreateTitlesOfPartsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes", "vector"), "ExyokiOffice::DocumentFormat::OpenXml::VariantTypes::VTVector", "VTVector", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes", "vector"), "ExyokiOffice::DocumentFormat::OpenXml::VariantTypes::VTVector", "VTVector", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -209,8 +209,8 @@ const ExyokiOffice::OpenXMLElementClass* VectorVariantType::ElementMetaClass() c
 
 ExyokiOffice::MetadataParticlePtr CreateHyperlinkListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes", "vector"), "ExyokiOffice::DocumentFormat::OpenXml::VariantTypes::VTVector", "VTVector", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes", "vector"), "ExyokiOffice::DocumentFormat::OpenXml::VariantTypes::VTVector", "VTVector", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -271,8 +271,8 @@ const ExyokiOffice::OpenXMLElementClass* HyperlinkList::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateHeadingPairsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes", "vector"), "ExyokiOffice::DocumentFormat::OpenXml::VariantTypes::VTVector", "VTVector", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes", "vector"), "ExyokiOffice::DocumentFormat::OpenXml::VariantTypes::VTVector", "VTVector", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1568,7 +1568,7 @@ const ExyokiOffice::OpenXMLElementClass* Template::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreatePropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataAllParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataAllParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/extended-properties", "Template"), "ExyokiOffice::DocumentFormat::OpenXml::ExtendedProperties::Template", "Template", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/extended-properties", "Manager"), "ExyokiOffice::DocumentFormat::OpenXml::ExtendedProperties::Manager", "Manager", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);

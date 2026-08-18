@@ -33,9 +33,9 @@ namespace ChartDrawing {
 
 ExyokiOffice::MetadataParticlePtr CreateOfficeArtExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Extension", "CT_OfficeArtExtension/a:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -99,7 +99,7 @@ const ExyokiOffice::OpenXMLElementClass* OfficeArtExtensionList::ElementMetaClas
 
 ExyokiOffice::MetadataParticlePtr CreateTransform2DParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "off"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Offset", "Offset", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Extents", "Extents", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -300,8 +300,8 @@ void ApplicationNonVisualDrawingProperties::SetPublished(const BooleanValue& val
 
 ExyokiOffice::MetadataParticlePtr CreateNonVisualContentPartPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2010/chartDrawing", "cNvPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Drawing::ChartDrawing::NonVisualDrawingProperties", "NonVisualDrawingProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2010/chartDrawing", "cNvPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Drawing::ChartDrawing::NonVisualDrawingProperties", "NonVisualDrawingProperties", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2010/chartDrawing", "cNvContentPartPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Drawing::ChartDrawing::NonVisualInkContentPartProperties", "NonVisualInkContentPartProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode2);
@@ -364,7 +364,7 @@ const ExyokiOffice::OpenXMLElementClass* NonVisualContentPartProperties::Element
 
 ExyokiOffice::MetadataParticlePtr CreateNonVisualInkContentPartPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2010/main", "cpLocks"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Drawing::ContentPartLocks", "ContentPartLocks", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2010/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Drawing::OfficeArtExtensionList", "OfficeArtExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
@@ -449,7 +449,7 @@ void NonVisualInkContentPartProperties::SetIsComment(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateNonVisualDrawingPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "hlinkClick"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::HyperlinkOnClick", "HyperlinkOnClick", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "hlinkHover"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::HyperlinkOnHover", "HyperlinkOnHover", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -594,7 +594,7 @@ void NonVisualDrawingProperties::SetTitle(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateContentPartParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2010/chartDrawing", "nvContentPartPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Drawing::ChartDrawing::NonVisualContentPartProperties", "NonVisualContentPartProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2010/chartDrawing", "nvPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Drawing::ChartDrawing::ApplicationNonVisualDrawingProperties", "ApplicationNonVisualDrawingProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);

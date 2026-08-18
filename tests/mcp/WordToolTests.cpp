@@ -147,7 +147,7 @@ TEST_CASE("a paragraph is rewritten with formatting and survives the round trip 
     CHECK(editor->Paragraphs()[0]->PlainText() == "Rewritten content");
     const auto report = ExyokiOffice::Tools::Run(server->Path("edited.docx"));
     CHECK(report.Loaded);
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("headings appear in the outline [mcp-word]")
@@ -281,7 +281,7 @@ TEST_CASE("tables are inserted, filled, and restructured [mcp-word]")
     CHECK(tables.front()->GetRowCount() == 4);
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("tables.docx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("blocks are deleted and the remaining indices shift [mcp-word]")
@@ -336,7 +336,7 @@ TEST_CASE("headers, footers, and the page setup are written [mcp-word]")
 
     static_cast<void>(server->Call("save_document", nlohmann::json{{"documentId", documentId}}));
     const auto report = ExyokiOffice::Tools::Run(server->Path("layout.docx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("comments and notes are added and removed [mcp-word]")
@@ -629,7 +629,7 @@ TEST_CASE("table deletions stop at the last row and merges are validated [mcp-wo
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("structure.docx"));
     CHECK(report.Loaded);
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("a paragraph only joins a numbering instance that exists [mcp-word]")
@@ -674,7 +674,7 @@ TEST_CASE("a paragraph only joins a numbering instance that exists [mcp-word]")
     CHECK(*numbering.NumberingId == numberingId);
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("numbering.docx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("one image dimension keeps the natural aspect ratio [mcp-word]")
@@ -727,7 +727,7 @@ TEST_CASE("one image dimension keeps the natural aspect ratio [mcp-word]")
     CHECK(sawImage);
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("picture.docx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("a hyperlink carries formatted runs [mcp-word]")
@@ -772,7 +772,7 @@ TEST_CASE("a hyperlink carries formatted runs [mcp-word]")
     CHECK(hyperlinks.front()->PlainText() == "Exyoki manual");
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("links.docx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("a comment spans a block range and carries threaded replies [mcp-word]")
@@ -875,7 +875,7 @@ TEST_CASE("a comment spans a block range and carries threaded replies [mcp-word]
     CHECK(root->Replies().front()->PlainText() == "A reply");
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("ranges.docx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("a bookmark spans a block range [mcp-word]")
@@ -920,7 +920,7 @@ TEST_CASE("a bookmark spans a block range [mcp-word]")
     CHECK(owner->IsSameNode(*editor->Paragraphs()[1]->GetLowLevelApi()));
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("bookmarks.docx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("a footer carries a page-number field [mcp-word]")
@@ -980,7 +980,7 @@ TEST_CASE("a footer carries a page-number field [mcp-word]")
     CHECK(header->Paragraphs().size() == 2);
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("running.docx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("a template is filled from a path into a new file [mcp-word]")
@@ -1032,7 +1032,7 @@ TEST_CASE("a template is filled from a path into a new file [mcp-word]")
     CHECK(editor->Paragraphs().front()->PlainText().find("Acme Corp.") != std::string::npos);
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("filled.docx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("two documents are compared into a tracked-revision result [mcp-word]")

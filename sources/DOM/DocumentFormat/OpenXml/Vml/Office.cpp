@@ -1944,7 +1944,7 @@ void Relation::SetCenterShapeId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRelationTableParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("urn:schemas-microsoft-com:office:office", "rel"), "ExyokiOffice::DocumentFormat::OpenXml::Vml::Office::Relation", "CT_Relation/o:rel", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -2027,7 +2027,7 @@ void RelationTable::SetExtension(const EnumValue<ExyokiOffice::DocumentFormat::O
 
 ExyokiOffice::MetadataParticlePtr CreateRuleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("urn:schemas-microsoft-com:office:office", "proxy"), "ExyokiOffice::DocumentFormat::OpenXml::Vml::Office::Proxy", "CT_Proxy/o:proxy", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -2242,7 +2242,7 @@ void Entry::SetOld(const Int32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRulesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("urn:schemas-microsoft-com:office:office", "r"), "ExyokiOffice::DocumentFormat::OpenXml::Vml::Office::Rule", "CT_R/o:r", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -2325,7 +2325,7 @@ void Rules::SetExtension(const EnumValue<ExyokiOffice::DocumentFormat::OpenXml::
 
 ExyokiOffice::MetadataParticlePtr CreateRegroupTableParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("urn:schemas-microsoft-com:office:office", "entry"), "ExyokiOffice::DocumentFormat::OpenXml::Vml::Office::Entry", "CT_Entry/o:entry", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -3439,7 +3439,7 @@ void Complex::SetExtension(const EnumValue<ExyokiOffice::DocumentFormat::OpenXml
 
 ExyokiOffice::MetadataParticlePtr CreateOleObjectParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("urn:schemas-microsoft-com:office:office", "LinkType"), "ExyokiOffice::DocumentFormat::OpenXml::Vml::Office::LinkType", "LinkType", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("urn:schemas-microsoft-com:office:office", "LockedField"), "ExyokiOffice::DocumentFormat::OpenXml::Vml::Office::LockedField", "LockedField", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -4738,7 +4738,7 @@ void Skew::SetMatrix(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDiagramParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("urn:schemas-microsoft-com:office:office", "relationtable"), "ExyokiOffice::DocumentFormat::OpenXml::Vml::Office::RelationTable", "RelationTable", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -5279,7 +5279,7 @@ void SignatureLine::SetSignatureProviderUrl(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateShapeLayoutParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataAllParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataAllParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("urn:schemas-microsoft-com:office:office", "idmap"), "ExyokiOffice::DocumentFormat::OpenXml::Vml::Office::ShapeIdMap", "ShapeIdMap", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("urn:schemas-microsoft-com:office:office", "regrouptable"), "ExyokiOffice::DocumentFormat::OpenXml::Vml::Office::RegroupTable", "RegroupTable", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);

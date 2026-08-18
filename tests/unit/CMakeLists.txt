@@ -24,6 +24,7 @@ exyokioffice_add_test_executable(ExyokiOfficeUnitTests
         MarkupCompatibilityTests.cpp
         DomContextResolutionTests.cpp
         DomValidatorExtensibilityTests.cpp
+        DomValidatorRequiredContentTests.cpp
         DocumentEditTransactionTests.cpp
         XmlQueryTests.cpp
         XmlLocationCacheTests.cpp
@@ -49,6 +50,11 @@ exyokioffice_add_test_area(unit
     NAME Unit.DomExtensibility
     LABELS dom-extensibility validation
     TAGS "[dom-extensibility]")
+
+exyokioffice_add_test_area(unit
+    NAME Unit.DomRequiredContent
+    LABELS dom-required validation
+    TAGS "[dom-required]")
 
 exyokioffice_add_test_area(unit
     NAME Unit.XmlLocationCache

@@ -11,6 +11,7 @@
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Office2010/PowerPoint.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Office2016/Presentation/Command.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Presentation.hpp"
+#include "ExyokiOffice/Guid.hpp"
 #include "ExyokiOffice/OpenXmlSimpleTypes.hpp"
 #include "ExyokiOffice/Packaging/PackageUtilities.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
@@ -1101,6 +1102,67 @@ public:
                                                            std::string_view id)
     {
         return PresentationEmbeddedObjectHelpers::Relationship(slide, id);
+    }
+
+    /**
+     * @brief The child list of the slide's timing root, created when absent.
+     *
+     * `p:tnLst` admits exactly one `p:par`, the timing root (`nodeType="tmRoot"`);
+     * PowerPoint keeps media time nodes there, next to the main sequence. The
+     * ids of the root's `p:cTn` come from the same space as the animation nodes,
+     * so a fresh root takes the first value no timing node uses yet.
+     */
+    static Presentation::ChildTimeNodeList::Ptr RootChildren(const std::shared_ptr<Packaging::SlidePart>& slidePart)
+    {
+        auto slide = slidePart ? slidePart->GetSlide() : nullptr;
+        if (!slide)
+        {
+            return nullptr;
+        }
+        auto timing = slide->GetFirstChildOfType<Presentation::Timing>();
+        if (!timing)
+        {
+            timing = slide->AppendChild<Presentation::Timing>();
+        }
+        auto list = timing ? timing->GetFirstChildOfType<Presentation::TimeNodeList>() : nullptr;
+        if (!list && timing)
+        {
+            list = timing->AppendChild<Presentation::TimeNodeList>();
+        }
+        if (!list)
+        {
+            return nullptr;
+        }
+        auto root = list->GetFirstChildOfType<Presentation::ParallelTimeNode>();
+        auto common = root ? root->GetFirstChildOfType<Presentation::CommonTimeNode>() : nullptr;
+        if (!root)
+        {
+            root = list->AppendChild<Presentation::ParallelTimeNode>();
+            common = root ? root->AppendChild<Presentation::CommonTimeNode>() : nullptr;
+            if (!common)
+            {
+                return nullptr;
+            }
+            UInt32 nextId = 1;
+            for (const auto& node : slide->Descendants<Presentation::CommonTimeNode>())
+            {
+                nextId = std::max(nextId, node->GetId().ValueOr(0) + 1);
+            }
+            common->SetId(UInt32Value(nextId));
+            common->SetDuration(StringValue("indefinite"));
+            common->SetRestart(EnumValue<Presentation::TimeNodeRestartValues>(Presentation::TimeNodeRestartValues::Never));
+            common->SetNodeType(EnumValue<Presentation::TimeNodeValues>(Presentation::TimeNodeValues::TmingRoot));
+        }
+        if (!common)
+        {
+            common = root->AppendChild<Presentation::CommonTimeNode>();
+        }
+        auto children = common ? common->GetFirstChildOfType<Presentation::ChildTimeNodeList>() : nullptr;
+        if (!children && common)
+        {
+            children = common->AppendChild<Presentation::ChildTimeNodeList>();
+        }
+        return children;
     }
 
     static std::shared_ptr<Presentation::CommonMediaNode> TimingNode(
@@ -3301,6 +3363,58 @@ public:
         // The previous roots stay attached while the replacement is built so that
         // opaque effect subtrees can still be deep-copied out of them.
         const auto previousRoots = list->Elements<Presentation::ParallelTimeNode>();
+        // Media time nodes (p:audio, p:video) live in the root's child list next
+        // to the sequences; they are not effects and are moved to the new root.
+        std::vector<std::shared_ptr<OpenXMLElement>> mediaNodes;
+        for (const auto& previous : previousRoots)
+        {
+            if (auto children = Children(previous))
+            {
+                for (const auto& child : children->Children())
+                {
+                    if (std::dynamic_pointer_cast<Presentation::Audio>(child) ||
+                        std::dynamic_pointer_cast<Presentation::Video>(child))
+                    {
+                        mediaNodes.push_back(child);
+                    }
+                }
+            }
+        }
+        if (ordered.empty() && !mediaNodes.empty())
+        {
+            // No effects left, but the root still carries media: rebuild it with
+            // the media nodes alone rather than dropping the whole timing tree.
+            auto root = list->InsertChildRaw<Presentation::ParallelTimeNode>(previousRoots.empty() ? nullptr : previousRoots.front());
+            auto node = root ? root->AppendChild<Presentation::CommonTimeNode>() : nullptr;
+            auto children = node ? node->AppendChild<Presentation::ChildTimeNodeList>() : nullptr;
+            if (!children)
+            {
+                if (root)
+                {
+                    list->RemoveChild(root);
+                }
+                return false;
+            }
+            IdAllocator rootIds(ReservedIdentifiers(part, ordered, opaque));
+            node->SetId(UInt32Value(rootIds.Next()));
+            node->SetDuration(StringValue("indefinite"));
+            node->SetRestart(
+                EnumValue<Presentation::TimeNodeRestartValues>(Presentation::TimeNodeRestartValues::Never));
+            node->SetNodeType(EnumValue<Presentation::TimeNodeValues>(Presentation::TimeNodeValues::TmingRoot));
+            for (const auto& media : mediaNodes)
+            {
+                media->CopyInto(children);
+            }
+            for (const auto& previous : previousRoots)
+            {
+                list->RemoveChild(previous);
+            }
+            if (written)
+            {
+                written->clear();
+            }
+            return true;
+        }
         IdAllocator ids(ReservedIdentifiers(part, ordered, opaque));
         EffectList result;
         Presentation::ParallelTimeNode::Ptr root;
@@ -3342,6 +3456,10 @@ public:
                     return false;
                 }
                 index = end;
+            }
+            for (const auto& media : mediaNodes)
+            {
+                media->CopyInto(children);
             }
         }
 
@@ -3752,9 +3870,16 @@ public:
         return value;
     }
 
+    /**
+     * @brief Checks a comment before it is written.
+     *
+     * PowerPoint reads comment, reply and author identifiers as GUIDs and
+     * repairs a file that carries anything else, so new values must be braced
+     * GUIDs; identifiers already in an opened file are read back unchanged.
+     */
     static bool IsValid(const PresentationComment& value)
     {
-        if (value.Id.empty() || value.AuthorId.empty() ||
+        if (!Guid::IsBraced(value.Id) || !Guid::IsBraced(value.AuthorId) ||
             !PresentationMeasurementHelpers::ToInt64Emu(value.Position.X) ||
             !PresentationMeasurementHelpers::ToInt64Emu(value.Position.Y))
         {
@@ -3763,7 +3888,8 @@ public:
         std::unordered_set<std::string> ids;
         for (const auto& reply : value.Replies)
         {
-            if (reply.Id.empty() || reply.AuthorId.empty() || reply.Id == value.Id || !ids.insert(reply.Id).second)
+            if (!Guid::IsBraced(reply.Id) || !Guid::IsBraced(reply.AuthorId) || reply.Id == value.Id ||
+                !ids.insert(reply.Id).second)
             {
                 return false;
             }
@@ -5936,20 +6062,33 @@ bool PresentationShape::SetMedia(const PresentationMediaData& value)
     }
     else
     {
-        if (auto picture = std::dynamic_pointer_cast<Presentation::Picture>(m_element))
+        // No poster frame: p:blipFill is still required in CT_Picture, so the
+        // media shape keeps an empty one (a blip without an embed), which is how
+        // PowerPoint stores media whose preview image is not part of the file.
+        auto picture = std::dynamic_pointer_cast<Presentation::Picture>(m_element);
+        if (!picture)
         {
-            if (auto fill = picture->GetFirstChildOfType<Presentation::BlipFill>())
+            return false;
+        }
+        if (auto fill = picture->GetFirstChildOfType<Presentation::BlipFill>())
+        {
+            if (auto blip = fill->GetFirstChildOfType<Drawing::Blip>())
             {
-                if (auto blip = fill->GetFirstChildOfType<Drawing::Blip>())
+                const auto posterId = blip->GetEmbed().ToString();
+                if (auto poster = PresentationMediaHelpers::Target(m_slidePart, posterId))
                 {
-                    const auto posterId = blip->GetEmbed().ToString();
-                    if (auto poster = PresentationMediaHelpers::Target(m_slidePart, posterId))
-                    {
-                        m_slidePart->RemovePartReference(poster);
-                    }
+                    m_slidePart->RemovePartReference(poster);
                 }
-                picture->RemoveChild(fill);
             }
+            picture->RemoveChild(fill);
+        }
+        auto fill = picture->InsertChild<Presentation::BlipFill>(
+            picture->GetFirstChildOfType<Presentation::ShapeProperties>());
+        auto blip = fill ? fill->AppendChild<Drawing::Blip>() : nullptr;
+        auto stretch = fill ? fill->AppendChild<Drawing::Stretch>() : nullptr;
+        if (!blip || !stretch || !stretch->AppendChild<Drawing::FillRectangle>())
+        {
+            return false;
         }
         const auto properties = m_element->Descendants<Presentation::NonVisualDrawingProperties>();
         if (!properties.empty())
@@ -5960,6 +6099,18 @@ bool PresentationShape::SetMedia(const PresentationMediaData& value)
         if (!SetTransform(value.Transform))
         {
             return false;
+        }
+        // Like a picture, a media frame needs a geometry to be drawn at all.
+        auto shapeProperties = picture->GetFirstChildOfType<Presentation::ShapeProperties>();
+        if (shapeProperties && !shapeProperties->GetFirstChildOfType<Drawing::PresetGeometry>() &&
+            !shapeProperties->GetFirstChildOfType<Drawing::CustomGeometry>())
+        {
+            auto geometry = shapeProperties->AppendChild<Drawing::PresetGeometry>();
+            if (!geometry || !geometry->AppendChild<Drawing::AdjustValueList>())
+            {
+                return false;
+            }
+            geometry->SetPreset(EnumValue<Drawing::ShapeTypeValues>(Drawing::ShapeTypeValues(Drawing::ShapeTypeValues::Rectangle)));
         }
     }
 
@@ -6023,16 +6174,10 @@ bool PresentationShape::SetMedia(const PresentationMediaData& value)
             host->Parent()->RemoveChild(host);
         }
     }
-    auto slide = m_slidePart->GetSlide();
-    auto timing = slide ? slide->GetFirstChildOfType<Presentation::Timing>() : nullptr;
-    if (!timing && slide)
+    auto list = PresentationMediaHelpers::RootChildren(m_slidePart);
+    if (!list)
     {
-        timing = slide->AppendChild<Presentation::Timing>();
-    }
-    auto list = timing ? timing->GetFirstChildOfType<Presentation::TimeNodeList>() : nullptr;
-    if (!list && timing)
-    {
-        list = timing->AppendChild<Presentation::TimeNodeList>();
+        return false;
     }
     std::shared_ptr<OpenXMLElement> host = value.Kind == PresentationMediaKind::Audio
                                                ? std::static_pointer_cast<OpenXMLElement>(list->AppendChild<Presentation::Audio>())
@@ -7941,12 +8086,17 @@ bool PresentationSlide::AddComment(const PresentationComment& value)
     const bool created = parts.empty();
     auto part = created ? m_part->AddPowerPointCommentPart() : parts.front();
     auto list = part ? part->GetTypedRootElement() : nullptr;
-    if (!PresentationCommentHelpers::Append(list, value, Id()) ||
-        !PresentationCommentHelpers::LinkCommentPart(m_part, part))
+    // The slide-side link is established before the comment is appended, so a
+    // failure at either step leaves the document exactly as it was: a part
+    // created here is removed again, an existing part keeps its comments.
+    if (!list || !PresentationCommentHelpers::LinkCommentPart(m_part, part) ||
+        !PresentationCommentHelpers::Append(list, value, Id()))
     {
         if (created && part)
         {
+            const std::string relationshipId = part->RelationshipId();
             m_part->RemovePowerPointCommentPart(part);
+            PresentationCommentHelpers::UnlinkCommentPart(m_part, relationshipId);
         }
         return false;
     }
@@ -7979,6 +8129,9 @@ bool PresentationSlide::UpdateComment(std::string_view id, const PresentationCom
                     return false;
                 }
                 list->RemoveChild(comment);
+                // A file written before the slide-side link existed gets it on
+                // its first edit, so the saved package matches PowerPoint's shape.
+                PresentationCommentHelpers::LinkCommentPart(m_part, part);
                 return true;
             }
         }
@@ -8005,6 +8158,7 @@ bool PresentationSlide::SetCommentStatus(std::string_view id, PresentationCommen
             {
                 comment->SetStatus(
                     EnumValue<ModernComments::CommentStatus>(PresentationCommentHelpers::WriteStatus(status)));
+                PresentationCommentHelpers::LinkCommentPart(m_part, part);
                 return true;
             }
         }
@@ -8852,7 +9006,8 @@ std::vector<PresentationCommentAuthor> PowerPointDocumentEditor::CommentAuthors(
 bool PowerPointDocumentEditor::AddCommentAuthor(const PresentationCommentAuthor& value)
 {
     const auto authors = CommentAuthors();
-    if (value.Id.empty() ||
+    // PowerPoint reads the author id as a GUID; see PresentationCommentHelpers::IsValid.
+    if (!Guid::IsBraced(value.Id) ||
         std::any_of(authors.begin(), authors.end(), [&](const auto& author)
                     { return author.Id == value.Id; }))
     {

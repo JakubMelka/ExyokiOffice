@@ -99,7 +99,7 @@ TEST_SUITE("PowerPointGeometryTests")
         REQUIRE(connector);
         REQUIRE(connector->SetConnectorEndpoints({PresentationConnectorEndpoint{2, 0}},
                                                  {PresentationConnectorEndpoint{2, 1}}));
-        const auto validation = ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument());
+        const auto validation = ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument());
         CHECK(validation.IsValid());
     }
 }

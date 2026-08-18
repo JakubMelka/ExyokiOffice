@@ -222,7 +222,7 @@ void Characteristic::SetVocabulary(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateAdditionalCharacteristicsInfoParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/characteristics", "characteristic"), "ExyokiOffice::DocumentFormat::OpenXml::AdditionalCharacteristics::Characteristic", "CT_Characteristic/ac:characteristic", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;

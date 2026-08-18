@@ -33,9 +33,9 @@ namespace SketchyShapes {
 
 ExyokiOffice::MetadataParticlePtr CreateOfficeArtExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Extension", "CT_OfficeArtExtension/a:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -153,16 +153,16 @@ const ExyokiOffice::OpenXMLElementClass* LineSketchSeed::ElementMetaClass() cons
 
 ExyokiOffice::MetadataParticlePtr CreateLineSketchTypePropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2018/sketchyshapes", "lineSketchNone"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::SketchyShapes::LineSketchNoneEmpty", "LineSketchNoneEmpty", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2018/sketchyshapes", "lineSketchNone"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::SketchyShapes::LineSketchNoneEmpty", "LineSketchNoneEmpty", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2018/sketchyshapes", "lineSketchCurved"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::SketchyShapes::LineSketchCurvedEmpty", "LineSketchCurvedEmpty", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2018/sketchyshapes", "lineSketchCurved"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::SketchyShapes::LineSketchCurvedEmpty", "LineSketchCurvedEmpty", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode2->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2018/sketchyshapes", "lineSketchFreehand"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::SketchyShapes::LineSketchFreehandEmpty", "LineSketchFreehandEmpty", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2018/sketchyshapes", "lineSketchFreehand"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::SketchyShapes::LineSketchFreehandEmpty", "LineSketchFreehandEmpty", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode2->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2018/sketchyshapes", "lineSketchScribble"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::SketchyShapes::LineSketchScribbleEmpty", "LineSketchScribbleEmpty", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2018/sketchyshapes", "lineSketchScribble"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Drawing::SketchyShapes::LineSketchScribbleEmpty", "LineSketchScribbleEmpty", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode2->AddChild(particleNode6);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -225,12 +225,12 @@ const ExyokiOffice::OpenXMLElementClass* LineSketchTypeProperties::ElementMetaCl
 
 ExyokiOffice::MetadataParticlePtr CreateLineSketchStylePropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "custGeom"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::CustomGeometry", "CT_CustomGeometry2D/a:custGeom", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "custGeom"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::CustomGeometry", "CT_CustomGeometry2D/a:custGeom", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "prstGeom"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::PresetGeometry", "CT_PresetGeometry2D/a:prstGeom", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "prstGeom"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::PresetGeometry", "CT_PresetGeometry2D/a:prstGeom", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode4);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);

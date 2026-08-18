@@ -6,6 +6,7 @@
 
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include <cctype>
 #include <format>
 #include <random>
 
@@ -32,6 +33,26 @@ std::string Guid::New()
     return std::format("{{{:08X}-{:04X}-{:04X}-{:04X}-{:012X}}}", static_cast<UInt32>(high >> 32),
                        static_cast<UInt16>(high >> 16), static_cast<UInt16>(high),
                        static_cast<UInt16>(low >> 48), low & 0x0000ffffffffffffULL);
+}
+
+bool Guid::IsBraced(std::string_view value) noexcept
+{
+    // {8-4-4-4-12}: 38 characters, braces at both ends, hyphens at fixed
+    // offsets and hexadecimal digits everywhere else.
+    if (value.size() != 38 || value.front() != '{' || value.back() != '}')
+    {
+        return false;
+    }
+    for (std::size_t index = 1; index + 1 < value.size(); ++index)
+    {
+        const char character = value[index];
+        const bool hyphenPosition = index == 9 || index == 14 || index == 19 || index == 24;
+        if (hyphenPosition ? character != '-' : !std::isxdigit(static_cast<unsigned char>(character)))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace ExyokiOffice

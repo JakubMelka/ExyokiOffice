@@ -32,10 +32,10 @@ namespace CustomDocumentInformationPanel {
 
 ExyokiOffice::MetadataParticlePtr CreateCustomPropertyEditorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/customDocumentInformationPanel", "XMLNamespace"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomDocumentInformationPanel::PropertyEditorNamespace", "PropertyEditorNamespace", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/customDocumentInformationPanel", "XMLNamespace"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomDocumentInformationPanel::PropertyEditorNamespace", "PropertyEditorNamespace", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/customDocumentInformationPanel", "XSNLocation"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomDocumentInformationPanel::XsnFileLocation", "XsnFileLocation", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/customDocumentInformationPanel", "XSNLocation"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomDocumentInformationPanel::XsnFileLocation", "XsnFileLocation", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -311,10 +311,10 @@ const ExyokiOffice::OpenXMLElementClass* PropertyEditorNamespace::ElementMetaCla
 
 ExyokiOffice::MetadataParticlePtr CreateCustomPropertyEditorsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/customDocumentInformationPanel", "showOnOpen"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomDocumentInformationPanel::ShowOnOpen", "ShowOnOpen", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/customDocumentInformationPanel", "showOnOpen"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomDocumentInformationPanel::ShowOnOpen", "ShowOnOpen", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/customDocumentInformationPanel", "defaultPropertyEditorNamespace"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomDocumentInformationPanel::DefaultPropertyEditorNamespace", "DefaultPropertyEditorNamespace", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/customDocumentInformationPanel", "defaultPropertyEditorNamespace"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomDocumentInformationPanel::DefaultPropertyEditorNamespace", "DefaultPropertyEditorNamespace", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/customDocumentInformationPanel", "customPropertyEditor"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomDocumentInformationPanel::CustomPropertyEditor", "CT_CustomPropertyEditor/cdip:customPropertyEditor", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);

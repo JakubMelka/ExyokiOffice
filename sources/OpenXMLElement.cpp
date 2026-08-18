@@ -1400,14 +1400,30 @@ std::vector<std::shared_ptr<OpenXMLElement>> OpenXMLElement::ChildrenInContentMo
     {
         const OpenXMLElementClass* preferred = nullptr;
         std::string childNamespace;
-        if (particleTree)
+        if (metadata)
         {
             if (const auto childName = OpenXmlElementNameHelper::NodeQualifiedName(child, childNamespace);
                 childName && Generated::OpenXmlElementFactory::IsAmbiguousElementName(*childName))
             {
-                if (const auto* particle = OpenXmlElementNameHelper::FindElementParticle(particleTree, *childName))
+                if (const auto* particle = particleTree ? OpenXmlElementNameHelper::FindElementParticle(particleTree, *childName) : nullptr)
                 {
                     preferred = Generated::OpenXmlElementFactory::ResolveClassByTypeName(particle->ElementType());
+                }
+                else
+                {
+                    // An open content model (`xsd:any`, as in a:graphicData) does
+                    // not name its children, but the metadata still lists the
+                    // elements known to occur there and the type each one has in
+                    // that position: c:chart under a:graphicData is the CT_RelId
+                    // reference, not the CT_Chart body a bare-name lookup yields.
+                    for (const auto& additional : metadata->AdditionalElements())
+                    {
+                        if (additional.Name == *childName)
+                        {
+                            preferred = Generated::OpenXmlElementFactory::ResolveClassByTypeName(additional.TypeName);
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -1960,7 +1976,23 @@ std::shared_ptr<MetadataDefinition> OpenXMLElementClass::GetMetadata() const
         builder.SetElementName(QualifiedName());
         builder.SetTypeName(TypeQualifiedName());
         builder.SetAvailability(GetVersion());
-        ConfigureMetadata(builder);
+        // A derived element class shares the schema type of its base: w:top is
+        // a CT_Border like the abstract BorderType that declares its attributes
+        // and their facets, and w:b an OnOffType. The generator emits that
+        // metadata once, on the base, so the chain is configured base first and
+        // this class last, which lets a class of its own restate the parts it
+        // overrides (its particle, its schema name, its version).
+        std::vector<const OpenXMLElementClass*> chain;
+        for (const auto* current = this; current != nullptr; current = current->GetBaseMetaClass())
+        {
+            chain.push_back(current);
+        }
+        for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+        {
+            (*it)->ConfigureMetadata(builder);
+        }
+        builder.SetElementName(QualifiedName());
+        builder.SetTypeName(TypeQualifiedName());
         metadata_ = builder.Build(); });
     return metadata_;
 }

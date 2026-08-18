@@ -258,7 +258,7 @@ TEST_SUITE("CrossCuttingMatrixTests")
         // A diagnostic carries a positional path, not just a message.
         ExyokiOffice::OpenXmlPackage package;
         REQUIRE(package.LoadFromMemory(packages.Word));
-        const auto result = ExyokiOffice::OpenXmlPackageValidator().Validate(package);
+        const auto result = ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(package);
         for (const auto& issue : result.Issues())
         {
             CAPTURE(issue.Message);

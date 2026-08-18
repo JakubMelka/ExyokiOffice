@@ -33,7 +33,7 @@ namespace CommentsExt {
 
 ExyokiOffice::MetadataParticlePtr CreateExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2018/wordml", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Word::ExtensionList::Extension", "CT_Extension/w16cur:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -95,7 +95,7 @@ const ExyokiOffice::OpenXMLElementClass* ExtensionList::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateCommentExtensibleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2018/wordml/cex", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Word::CommentsExt::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -211,7 +211,7 @@ void CommentExtensible::SetIntelligentPlaceholder(const OnOffValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCommentsExtensibleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2018/wordml/cex", "commentExtensible"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Word::CommentsExt::CommentExtensible", "CT_CommentExtensible/w16cex:commentExtensible", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2018/wordml/cex", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Word::CommentsExt::ExtensionList", "CT_ExtensionList/w16cex:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);

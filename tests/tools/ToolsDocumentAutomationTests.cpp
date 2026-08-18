@@ -580,14 +580,14 @@ TEST_CASE("RedactDocument removes PowerPoint comments and their authors [unit] [
     REQUIRE(slide);
 
     PresentationCommentAuthor author;
-    author.Id = "author-1";
+    author.Id = "{A0000000-0000-4000-8000-000000000001}";
     author.Name = "Reviewer";
     author.Initials = "RV";
     REQUIRE(editor->AddCommentAuthor(author));
 
     PresentationComment comment;
-    comment.Id = "comment-1";
-    comment.AuthorId = "author-1";
+    comment.Id = "{C0000000-0000-4000-8000-000000000001}";
+    comment.AuthorId = "{A0000000-0000-4000-8000-000000000001}";
     comment.Text = "Please reword this slide.";
     REQUIRE(slide->AddComment(comment));
 

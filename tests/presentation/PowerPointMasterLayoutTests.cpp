@@ -57,7 +57,7 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         CHECK(corporate->Layouts().size() == 2);
         CHECK(alternate->Layouts().size() == 1);
         CHECK(title->GetPart()->GetSlideMasterPart() == corporate->GetPart());
-        const auto validation = ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument());
+        const auto validation = ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument());
         CHECK(validation.IsValid());
         CHECK(validation.Issues().empty());
 
@@ -405,6 +405,8 @@ TEST_SUITE("PowerPointMasterLayoutTests")
 
         REQUIRE(destination->AddSlide() != nullptr);
         REQUIRE(destination->SetSlideLayout(0, imported->Layouts()[0]));
+        // OPC-level only: the imported theme above is a deliberate stub without
+        // a:themeElements, so schema validation would report the fixture.
         CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*destination->GetDocument()).IsValid());
         auto reopened = PowerPointDocumentEditor::Open(destination->SaveToMemory());
         REQUIRE(reopened != nullptr);
@@ -440,6 +442,7 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         CHECK(slide->Layout()->Name() == "Replacement");
         CHECK(slide->GetPart()->GetXmlString() == slideXml);
         CHECK_FALSE(editor->RemoveSlideLayout(used, replacement));
+        // OPC-level only: the slide XML above is a deliberate stub without p:spTree.
         CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument()).IsValid());
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
@@ -469,7 +472,7 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         REQUIRE(editor->GetSlide(0)->Layout() != nullptr);
         CHECK(editor->GetSlide(0)->Layout()->Name() == "New");
         CHECK_FALSE(editor->RemoveSlideMaster(obsolete, retainedLayout));
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument()).IsValid());
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened != nullptr);
@@ -501,7 +504,7 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         CHECK(allocated->Id() == 0x80000000u);
         CHECK(allocated->Id() != first->Id());
         CHECK(allocated->Id() != second->Id());
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument()).IsValid());
     }
 
     TEST_CASE("typed theme settings update colors and fonts while preserving format effects [unit] [powerpoint] [masters-layouts]")

@@ -266,7 +266,7 @@ void PresenceInfo::SetUserId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePersonParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2012/wordml", "presenceInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::PresenceInfo", "PresenceInfo", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1004,7 +1004,7 @@ const ExyokiOffice::OpenXMLElementClass* SdtRepeatedSectionItem::ElementMetaClas
 
 ExyokiOffice::MetadataParticlePtr CreateSdtRepeatedSectionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2012/wordml", "sectionTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::SectionTitle", "SectionTitle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2012/wordml", "doNotAllowInsertDeleteSection"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::DoNotAllowInsertDeleteSection", "DoNotAllowInsertDeleteSection", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
@@ -1068,7 +1068,7 @@ const ExyokiOffice::OpenXMLElementClass* SdtRepeatedSection::ElementMetaClass() 
 
 ExyokiOffice::MetadataParticlePtr CreatePeopleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2012/wordml", "person"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::Person", "CT_Person/w15:person", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1130,7 +1130,7 @@ const ExyokiOffice::OpenXMLElementClass* People::ElementMetaClass() const noexce
 
 ExyokiOffice::MetadataParticlePtr CreateCommentsExParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2012/wordml", "commentEx"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Word::CommentEx", "CT_CommentEx/w15:commentEx", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode1);
     return particleNode0;

@@ -267,9 +267,9 @@ const ExyokiOffice::OpenXMLElementClass* AddressWebImageSupportingRichDataRelati
 
 ExyokiOffice::MetadataParticlePtr CreateExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Extension", "CT_Extension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -333,8 +333,8 @@ const ExyokiOffice::OpenXMLElementClass* ExtensionList::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateWebImageSupportingRichDataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2020/richdatawebimage", "address"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Excel::RichDataWebImage::AddressWebImageSupportingRichDataRelationship", "AddressWebImageSupportingRichDataRelationship", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2020/richdatawebimage", "address"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Excel::RichDataWebImage::AddressWebImageSupportingRichDataRelationship", "AddressWebImageSupportingRichDataRelationship", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2020/richdatawebimage", "moreImagesAddress"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Excel::RichDataWebImage::MoreImagesAddressWebImageSupportingRichDataRelationship", "MoreImagesAddressWebImageSupportingRichDataRelationship", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode2);
@@ -399,7 +399,7 @@ const ExyokiOffice::OpenXMLElementClass* WebImageSupportingRichData::ElementMeta
 
 ExyokiOffice::MetadataParticlePtr CreateWebImagesSupportingRichDataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2020/richdatawebimage", "webImageSrd"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Excel::RichDataWebImage::WebImageSupportingRichData", "CT_WebImageSupportingRichData/xlrdwi:webImageSrd", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2020/richdatawebimage", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Excel::RichDataWebImage::ExtensionList", "CT_ExtensionList/xlrdwi:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);

@@ -98,14 +98,14 @@ const ExyokiOffice::OpenXmlMetaEnum* CommentStatus::GetMetaEnum() noexcept
 
 ExyokiOffice::MetadataParticlePtr CreateCommentParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2013/main/command", "sldMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Presentation::Command::SlideMonikerList", "CT_SlideMonikerList/pc:sldMkLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2013/main/command", "sldMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Presentation::Command::SlideMonikerList", "CT_SlideMonikerList/pc:sldMkLst", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2013/main/command", "sldLayoutMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Presentation::Command::SlideLayoutMonikerList", "CT_SlideLayoutMonikerList/pc:sldLayoutMkLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2013/main/command", "sldLayoutMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Presentation::Command::SlideLayoutMonikerList", "CT_SlideLayoutMonikerList/pc:sldLayoutMkLst", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
     particleNode2->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2013/main/command", "sldMasterMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Presentation::Command::MainMasterMonikerList", "CT_MainMasterMonikerList/pc:sldMasterMkLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2013/main/command", "sldMasterMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Presentation::Command::MainMasterMonikerList", "CT_MainMasterMonikerList/pc:sldMasterMkLst", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
     particleNode2->AddChild(particleNode5);
     auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2013/main/command", "deMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::DeMkLstDrawingElementMonikerList", "CT_DrawingElementMonikerList/oac:deMkLst", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
     particleNode2->AddChild(particleNode6);
@@ -119,7 +119,7 @@ ExyokiOffice::MetadataParticlePtr CreateCommentParticleMetadata()
     particleNode2->AddChild(particleNode10);
     auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2013/main/command", "gridColMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Drawing::Command::TableColumnMonikerList", "CT_TableColumnMonikerList/oac:gridColMkLst", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
     particleNode2->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "unknownAnchor"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::CommentUnknownAnchor", "CT_CommentUnknownAnchor/p188:unknownAnchor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "unknownAnchor"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::CommentUnknownAnchor", "CT_CommentUnknownAnchor/p188:unknownAnchor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode2->AddChild(particleNode12);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -127,8 +127,8 @@ ExyokiOffice::MetadataParticlePtr CreateCommentParticleMetadata()
     particleNode0->AddChild(particleNode13);
     auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "replyLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::CommentReplyList", "CT_CommentReplyList/p188:replyLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode14);
-    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021, false);
-    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021, false);
+    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode17 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "txBody"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::TextBodyType", "CT_TextBody/p188:txBody", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode16->AddChild(particleNode17);
     auto particleNode18 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::CommentPropertiesExtensionList", "CT_CommentPropertiesExtensionList/p188:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
@@ -377,7 +377,7 @@ void Comment::SetTitle(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCommentReplyListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "reply"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::CommentReply", "CT_CommentReply/p188:reply", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -531,9 +531,9 @@ void Point2DType::SetY(const Int64Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCommentReplyParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "txBody"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::TextBodyType", "TextBodyType", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode2->AddChild(particleNode3);
     auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::CommentPropertiesExtensionList", "CommentPropertiesExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
@@ -696,7 +696,7 @@ void CommentReply::SetLikes(const ListValue<StringValue>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateAuthorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -840,9 +840,9 @@ void Author::SetProviderId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/presentationml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Presentation::Extension", "CT_Extension/p:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -981,7 +981,7 @@ void CommentRelationship::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCommentListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "cm"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::Comment", "CT_Comment/p188:cm", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1043,7 +1043,7 @@ const ExyokiOffice::OpenXMLElementClass* CommentList::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateAuthorListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2018/8/main", "author"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::PowerPoint::Comment::Author", "CT_Author/p188:author", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1105,9 +1105,9 @@ const ExyokiOffice::OpenXMLElementClass* AuthorList::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateCommentPropertiesExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/presentationml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Presentation::CommentPropertiesExtension", "CT_CommentPropertiesExtension/p:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -1171,8 +1171,8 @@ const ExyokiOffice::OpenXMLElementClass* CommentPropertiesExtensionList::Element
 
 ExyokiOffice::MetadataParticlePtr CreateTextBodyTypeParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "bodyPr"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::BodyProperties", "BodyProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "bodyPr"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::BodyProperties", "BodyProperties", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "lstStyle"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::ListStyle", "ListStyle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);

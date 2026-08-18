@@ -6448,34 +6448,34 @@ const ExyokiOffice::OpenXmlMetaEnum* ConformanceClass::GetMetaEnum() noexcept
 
 ExyokiOffice::MetadataParticlePtr CreateWorkbookExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "definedNames"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::DefinedNames", "DefinedNames", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "definedNames"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::DefinedNames", "DefinedNames", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotCaches", "PivotCaches", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotCaches", "PivotCaches", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "slicerCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SlicerCaches", "SlicerCaches", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "slicerCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SlicerCaches", "SlicerCaches", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "slicerCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::SlicerCaches", "SlicerCaches", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "slicerCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::SlicerCaches", "SlicerCaches", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "workbookPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::WorkbookProperties", "WorkbookProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "workbookPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::WorkbookProperties", "WorkbookProperties", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotCaches", "PivotCaches", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotCaches", "PivotCaches", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotTableReferences"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotTableReferences", "PivotTableReferences", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotTableReferences"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotTableReferences", "PivotTableReferences", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelineCachePivotCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelineCachePivotCaches", "TimelineCachePivotCaches", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelineCachePivotCaches"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelineCachePivotCaches", "TimelineCachePivotCaches", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelineCacheRefs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelineCacheReferences", "TimelineCacheReferences", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelineCacheRefs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelineCacheReferences", "TimelineCacheReferences", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "workbookPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::WorkbookProperties", "WorkbookProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "workbookPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::WorkbookProperties", "WorkbookProperties", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "dataModel"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::DataModel", "DataModel", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "dataModel"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::DataModel", "DataModel", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2023/externalCodeService", "externalCodeService"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2023::ExternalCodeService::ExternalCodeService", "ExternalCodeService", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2023/externalCodeService", "externalCodeService"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2023::ExternalCodeService::ExternalCodeService", "ExternalCodeService", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2024/workbookCompatibilityVersion", "version"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2024::WorkbookCompatibilityVersion::Version", "Version", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2024/workbookCompatibilityVersion", "version"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2024::WorkbookCompatibilityVersion::Version", "Version", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode13);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2025/externalCodeService2", "externalCodeServiceImageAsInput"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2025::ExternalCodeService2::ExternalCodeServiceImageAsInput", "ExternalCodeServiceImageAsInput", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2025/externalCodeService2", "externalCodeServiceImageAsInput"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2025::ExternalCodeService2::ExternalCodeServiceImageAsInput", "ExternalCodeServiceImageAsInput", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode14);
     auto particleNode15 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode15);
@@ -6561,7 +6561,7 @@ void WorkbookExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateWorkbookExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::WorkbookExtension", "CT_WorkbookExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -6623,7 +6623,7 @@ const ExyokiOffice::OpenXMLElementClass* WorkbookExtensionList::ElementMetaClass
 
 ExyokiOffice::MetadataParticlePtr CreateWebPublishObjectsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "webPublishObject"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::WebPublishObject", "CT_WebPublishObject/x:webPublishObject", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -7008,7 +7008,7 @@ void WebPublishing::SetCharacterSet(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotCachesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotCache"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotCache", "CT_PivotCache/x:pivotCache", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -7070,7 +7070,7 @@ const ExyokiOffice::OpenXMLElementClass* PivotCaches::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateCustomWorkbookViewsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "customWorkbookView"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CustomWorkbookView", "CT_CustomWorkbookView/x:customWorkbookView", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -7449,7 +7449,7 @@ void CalculationProperties::SetForceFullCalculation(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDefinedNamesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "definedName"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DefinedName", "CT_DefinedName/x:definedName", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -7511,7 +7511,7 @@ const ExyokiOffice::OpenXMLElementClass* DefinedNames::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateExternalReferencesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "externalReference"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExternalReference", "CT_ExternalReference/x:externalReference", 1, std::optional<ExyokiOffice::UInt32>{65534}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -7657,7 +7657,7 @@ void FunctionGroups::SetBuiltInGroupCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSheetsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheet"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Sheet", "CT_Sheet/x:sheet", 1, std::optional<ExyokiOffice::UInt32>{32767}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -7719,7 +7719,7 @@ const ExyokiOffice::OpenXMLElementClass* Sheets::ElementMetaClass() const noexce
 
 ExyokiOffice::MetadataParticlePtr CreateBookViewsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "workbookView"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::WorkbookView", "CT_BookView/x:workbookView", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -8647,10 +8647,10 @@ void FileVersion::SetCodeName(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTableExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "table"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::Table", "Table", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "table"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::Table", "Table", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2023/msForms", "msForm"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2023::MsForms::MsForm", "MsForm", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2023/msForms", "msForm"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2023::MsForms::MsForm", "MsForm", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -8736,7 +8736,7 @@ void TableExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTableExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TableExtension", "CT_TableExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -8929,7 +8929,7 @@ void TableStyleInfo::SetShowColumnStripes(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTableColumnsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tableColumn"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TableColumn", "CT_TableColumn/x:tableColumn", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9012,7 +9012,7 @@ void TableColumns::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSheetDataSetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetData"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExternalSheetData", "CT_ExternalSheetData/x:sheetData", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9074,7 +9074,7 @@ const ExyokiOffice::OpenXMLElementClass* SheetDataSet::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateExternalDefinedNamesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "definedName"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExternalDefinedName", "CT_ExternalDefinedName/x:definedName", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9136,7 +9136,7 @@ const ExyokiOffice::OpenXMLElementClass* ExternalDefinedNames::ElementMetaClass(
 
 ExyokiOffice::MetadataParticlePtr CreateSheetNamesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetName"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetName", "CT_ExternalSheetName/x:sheetName", 1, std::optional<ExyokiOffice::UInt32>{65534}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9198,24 +9198,24 @@ const ExyokiOffice::OpenXMLElementClass* SheetNames::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreatePivotCacheDefinitionExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotCacheDefinition"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotCacheDefinition", "PivotCacheDefinition", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotCacheDefinition"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotCacheDefinition", "PivotCacheDefinition", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotCacheDecoupled"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotCacheDecoupled", "PivotCacheDecoupled", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotCacheDecoupled"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotCacheDecoupled", "PivotCacheDecoupled", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelinePivotCacheDefinition"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelinePivotCacheDefinition", "TimelinePivotCacheDefinition", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelinePivotCacheDefinition"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelinePivotCacheDefinition", "TimelinePivotCacheDefinition", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotCacheIdVersion"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotCacheIdVersion", "PivotCacheIdVersion", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotCacheIdVersion"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotCacheIdVersion", "PivotCacheIdVersion", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2020/pivotNov2020", "implicitMeasureSupport"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Excel::Pivot::Xsdboolean", "Xsdboolean", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2020/pivotNov2020", "implicitMeasureSupport"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::Excel::Pivot::Xsdboolean", "Xsdboolean", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotRichData", "richInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotRichData::PivotCacheRichInfo", "PivotCacheRichInfo", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotRichData", "richInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotRichData::PivotCacheRichInfo", "PivotCacheRichInfo", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotVersionInfo", "cacheVersionInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotVersionInfo::CacheVersionInfo", "CacheVersionInfo", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotVersionInfo", "cacheVersionInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotVersionInfo::CacheVersionInfo", "CacheVersionInfo", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2024/pivotAutoRefresh", "autoRefresh"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2024::PivotAutoRefresh::Xsdboolean", "Xsdboolean", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2024/pivotAutoRefresh", "autoRefresh"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2024::PivotAutoRefresh::Xsdboolean", "Xsdboolean", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2024/pivotDynamicArrays", "pivotCacheDynamicArray"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2024::PivotDynamicArrays::PivotCacheDynamicArray", "PivotCacheDynamicArray", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2024/pivotDynamicArrays", "pivotCacheDynamicArray"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2024::PivotDynamicArrays::PivotCacheDynamicArray", "PivotCacheDynamicArray", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode9);
     auto particleNode10 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode10);
@@ -9301,7 +9301,7 @@ void PivotCacheDefinitionExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotCacheDefinitionExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotCacheDefinitionExtension", "CT_PivotCacheDefinitionExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9363,7 +9363,7 @@ const ExyokiOffice::OpenXMLElementClass* PivotCacheDefinitionExtensionList::Elem
 
 ExyokiOffice::MetadataParticlePtr CreateMapsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "map"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MeasureDimensionMap", "CT_MeasureDimensionMap/x:map", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9446,7 +9446,7 @@ void Maps::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMeasureGroupsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "measureGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MeasureGroup", "CT_MeasureGroup/x:measureGroup", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9529,7 +9529,7 @@ void MeasureGroups::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDimensionsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dimension"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Dimension", "CT_PivotDimension/x:dimension", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9612,7 +9612,7 @@ void Dimensions::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCalculatedMembersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "calculatedMember"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CalculatedMember", "CT_CalculatedMember/x:calculatedMember", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9695,7 +9695,7 @@ void CalculatedMembers::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCalculatedItemsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "calculatedItem"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CalculatedItem", "CT_CalculatedItem/x:calculatedItem", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9778,7 +9778,7 @@ void CalculatedItems::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTupleCacheParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "entries"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Entries", "Entries", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sets"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Sets", "Sets", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -9848,7 +9848,7 @@ const ExyokiOffice::OpenXMLElementClass* TupleCache::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateKpisParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "kpi"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Kpi", "CT_PCDKPI/x:kpi", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -9931,7 +9931,7 @@ void Kpis::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCacheHierarchiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cacheHierarchy"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheHierarchy", "CT_CacheHierarchy/x:cacheHierarchy", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10014,7 +10014,7 @@ void CacheHierarchies::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCacheFieldsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cacheField"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheField", "CT_CacheField/x:cacheField", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10098,9 +10098,9 @@ void CacheFields::SetCount(const UInt32Value& value)
 ExyokiOffice::MetadataParticlePtr CreateCacheSourceParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "worksheetSource"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::WorksheetSource", "WorksheetSource", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "worksheetSource"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::WorksheetSource", "WorksheetSource", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "consolidation"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Consolidation", "Consolidation", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "consolidation"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Consolidation", "Consolidation", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheSourceExtensionList", "CacheSourceExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -10199,14 +10199,14 @@ void CacheSource::SetConnectionId(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotTableDefinitionExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotTableDefinition"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotTableDefinition", "PivotTableDefinition", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotTableDefinition"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotTableDefinition", "PivotTableDefinition", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotTableData"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotTableData", "PivotTableData", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotTableData"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotTableData", "PivotTableData", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotTableUISettings"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotTableUISettings", "PivotTableUISettings", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotTableUISettings"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotTableUISettings", "PivotTableUISettings", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotVersionInfo", "pivotVersionInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotVersionInfo::PivotVersionInfo", "PivotVersionInfo", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotVersionInfo", "pivotVersionInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotVersionInfo::PivotVersionInfo", "PivotVersionInfo", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode4);
     auto particleNode5 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode5);
@@ -10292,7 +10292,7 @@ void PivotTableDefinitionExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotTableDefinitionExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotTableDefinitionExtension", "CT_pivotTableDefinitionExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10354,7 +10354,7 @@ const ExyokiOffice::OpenXMLElementClass* PivotTableDefinitionExtensionList::Elem
 
 ExyokiOffice::MetadataParticlePtr CreateColumnHierarchiesUsageParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "colHierarchyUsage"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ColumnHierarchyUsage", "CT_HierarchyUsage/x:colHierarchyUsage", 1, std::optional<ExyokiOffice::UInt32>{16384}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10437,7 +10437,7 @@ void ColumnHierarchiesUsage::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRowHierarchiesUsageParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "rowHierarchyUsage"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::RowHierarchyUsage", "CT_HierarchyUsage/x:rowHierarchyUsage", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10520,7 +10520,7 @@ void RowHierarchiesUsage::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotFiltersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "filter"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotFilter", "CT_PivotFilter/x:filter", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10748,7 +10748,7 @@ void PivotTableStyle::SetShowLastColumn(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotHierarchiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotHierarchy"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotHierarchy", "CT_PivotHierarchy/x:pivotHierarchy", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10831,7 +10831,7 @@ void PivotHierarchies::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateChartFormatsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "chartFormat"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ChartFormat", "CT_ChartFormat/x:chartFormat", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10914,7 +10914,7 @@ void ChartFormats::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConditionalFormatsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "conditionalFormat"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ConditionalFormat", "CT_ConditionalFormat/x:conditionalFormat", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10997,7 +10997,7 @@ void ConditionalFormats::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateFormatsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "format"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Format", "CT_Format/x:format", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -11080,7 +11080,7 @@ void Formats::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDataFieldsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dataField"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DataField", "CT_DataField/x:dataField", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -11163,7 +11163,7 @@ void DataFields::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePageFieldsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pageField"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PageField", "CT_PageField/x:pageField", 1, std::optional<ExyokiOffice::UInt32>{256}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -11246,7 +11246,7 @@ void PageFields::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateColumnItemsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "i"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::RowItem", "CT_I/x:i", 1, std::optional<ExyokiOffice::UInt32>{1048576}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -11329,7 +11329,7 @@ void ColumnItems::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateColumnFieldsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "field"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Field", "CT_Field/x:field", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -11412,7 +11412,7 @@ void ColumnFields::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRowItemsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "i"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::RowItem", "CT_I/x:i", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -11495,7 +11495,7 @@ void RowItems::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRowFieldsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "field"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Field", "CT_Field/x:field", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -11578,7 +11578,7 @@ void RowFields::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotFieldsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotField"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotField", "CT_PivotField/x:pivotField", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -11809,14 +11809,14 @@ void Location::SetColumnsPerPage(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateStylesheetExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "dxfs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::DifferentialFormats", "DifferentialFormats", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "dxfs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::DifferentialFormats", "DifferentialFormats", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "slicerStyles"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SlicerStyles", "SlicerStyles", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "slicerStyles"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SlicerStyles", "SlicerStyles", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "dxfs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::DifferentialFormats", "DifferentialFormats", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "dxfs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::DifferentialFormats", "DifferentialFormats", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelineStyles"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelineStyles", "TimelineStyles", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelineStyles"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelineStyles", "TimelineStyles", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode4);
     auto particleNode5 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode5);
@@ -11902,7 +11902,7 @@ void StylesheetExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateStylesheetExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StylesheetExtension", "CT_StylesheetExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -11964,7 +11964,7 @@ const ExyokiOffice::OpenXMLElementClass* StylesheetExtensionList::ElementMetaCla
 
 ExyokiOffice::MetadataParticlePtr CreateColorsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "indexedColors"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::IndexedColors", "IndexedColors", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "mruColors"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MruColors", "MruColors", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -12028,7 +12028,7 @@ const ExyokiOffice::OpenXMLElementClass* Colors::ElementMetaClass() const noexce
 
 ExyokiOffice::MetadataParticlePtr CreateTableStylesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tableStyle"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TableStyle", "CT_TableStyle/x:tableStyle", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12140,7 +12140,7 @@ void TableStyles::SetDefaultPivotStyle(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDifferentialFormatsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dxf"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DifferentialFormat", "CT_Dxf/x:dxf", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12223,7 +12223,7 @@ void DifferentialFormats::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCellStylesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cellStyle"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellStyle", "CT_CellStyle/x:cellStyle", 1, std::optional<ExyokiOffice::UInt32>{65430}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12306,7 +12306,7 @@ void CellStyles::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCellFormatsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "xf"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellFormat", "CT_Xf/x:xf", 1, std::optional<ExyokiOffice::UInt32>{65430}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12389,7 +12389,7 @@ void CellFormats::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCellStyleFormatsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "xf"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellFormat", "CT_Xf/x:xf", 1, std::optional<ExyokiOffice::UInt32>{65430}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12472,7 +12472,7 @@ void CellStyleFormats::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateBordersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "border"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Border", "CT_Border/x:border", 0, std::optional<ExyokiOffice::UInt32>{65430}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12555,7 +12555,7 @@ void Borders::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateFillsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "fill"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Fill", "CT_Fill/x:fill", 1, std::optional<ExyokiOffice::UInt32>{65430}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12638,7 +12638,7 @@ void Fills::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateFontsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "font"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Font", "CT_Font/x:font", 0, std::optional<ExyokiOffice::UInt32>{65491}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12736,7 +12736,7 @@ void Fonts::SetKnownFonts(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateNumberingFormatsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "numFmt"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberingFormat", "CT_NumFmt/x:numFmt", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12819,22 +12819,22 @@ void NumberingFormats::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateWorksheetExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "conditionalFormattings"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::ConditionalFormattings", "ConditionalFormattings", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "conditionalFormattings"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::ConditionalFormattings", "ConditionalFormattings", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "dataValidations"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::DataValidations", "DataValidations", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "dataValidations"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::DataValidations", "DataValidations", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "sparklineGroups"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SparklineGroups", "SparklineGroups", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "sparklineGroups"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SparklineGroups", "SparklineGroups", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "slicerList"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SlicerList", "SlicerList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "slicerList"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SlicerList", "SlicerList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "protectedRanges"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::ProtectedRanges", "ProtectedRanges", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "protectedRanges"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::ProtectedRanges", "ProtectedRanges", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "ignoredErrors"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::IgnoredErrors", "IgnoredErrors", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "ignoredErrors"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::IgnoredErrors", "IgnoredErrors", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "webExtensions"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::WebExtensions", "WebExtensions", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "webExtensions"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::WebExtensions", "WebExtensions", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelineRefs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelineReferences", "TimelineReferences", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "timelineRefs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TimelineReferences", "TimelineReferences", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode8);
     auto particleNode9 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode9);
@@ -12920,7 +12920,7 @@ void WorksheetExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateWorksheetExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::WorksheetExtension", "CT_WorksheetExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12982,7 +12982,7 @@ const ExyokiOffice::OpenXMLElementClass* WorksheetExtensionList::ElementMetaClas
 
 ExyokiOffice::MetadataParticlePtr CreateTablePartsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tablePart"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TablePart", "CT_TablePart/x:tablePart", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -13065,7 +13065,7 @@ void TableParts::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateIgnoredErrorsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ignoredError"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::IgnoredError", "CT_IgnoredError/x:ignoredError", 1, std::optional<ExyokiOffice::UInt32>{9}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -13129,7 +13129,7 @@ const ExyokiOffice::OpenXMLElementClass* IgnoredErrors::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateCellWatchesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cellWatch"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellWatch", "CT_CellWatch/x:cellWatch", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -13191,7 +13191,7 @@ const ExyokiOffice::OpenXMLElementClass* CellWatches::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateHyperlinksParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Hyperlink", "CT_Hyperlink/x:hyperlink", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -13253,7 +13253,7 @@ const ExyokiOffice::OpenXMLElementClass* Hyperlinks::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateDataValidationsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dataValidation"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DataValidation", "CT_DataValidation/x:dataValidation", 1, std::optional<ExyokiOffice::UInt32>{65534}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -13381,7 +13381,7 @@ void DataValidations::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMergeCellsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "mergeCell"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MergeCell", "CT_MergeCell/x:mergeCell", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -13464,7 +13464,7 @@ void MergeCells::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateScenariosParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "scenario"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Scenario", "CT_Scenario/x:scenario", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -13575,7 +13575,7 @@ void Scenarios::SetSequenceOfReferences(const ListValue<StringValue>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateProtectedRangesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "protectedRange"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ProtectedRange", "CT_ProtectedRange/x:protectedRange", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -13711,7 +13711,7 @@ void SheetCalculationProperties::SetFullCalculationOnLoad(const BooleanValue& va
 
 ExyokiOffice::MetadataParticlePtr CreateQueryTableExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::QueryTableExtension", "CT_QueryTableExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -13773,8 +13773,8 @@ const ExyokiOffice::OpenXMLElementClass* QueryTableExtensionList::ElementMetaCla
 
 ExyokiOffice::MetadataParticlePtr CreateQueryTableRefreshParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "queryTableFields"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::QueryTableFields", "QueryTableFields", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "queryTableFields"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::QueryTableFields", "QueryTableFields", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "queryTableDeletedFields"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::QueryTableDeletedFields", "QueryTableDeletedFields", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -13950,7 +13950,7 @@ void QueryTableRefresh::SetUnboundColumnsRight(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotFilterExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotFilterExtension", "CT_PivotFilterExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -14012,10 +14012,10 @@ const ExyokiOffice::OpenXMLElementClass* PivotFilterExtensionList::ElementMetaCl
 
 ExyokiOffice::MetadataParticlePtr CreateDataFieldExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "dataField"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::DataField", "DataField", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "dataField"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::DataField", "DataField", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "dataField"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::DataField", "DataField", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "dataField"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::DataField", "DataField", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -14101,7 +14101,7 @@ void DataFieldExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDataFieldExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DataFieldExtension", "CT_DataFieldExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -14163,10 +14163,10 @@ const ExyokiOffice::OpenXMLElementClass* DataFieldExtensionList::ElementMetaClas
 
 ExyokiOffice::MetadataParticlePtr CreateCalculatedMemberExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "calculatedMember"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::CalculatedMember", "CalculatedMember", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "calculatedMember"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::CalculatedMember", "CalculatedMember", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "calculatedMember"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::CalculatedMember", "CalculatedMember", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "calculatedMember"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::CalculatedMember", "CalculatedMember", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -14252,7 +14252,7 @@ void CalculatedMemberExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCalculatedMemberExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CalculatedMemberExtension", "CT_CalculatedMemberExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -14314,10 +14314,10 @@ const ExyokiOffice::OpenXMLElementClass* CalculatedMemberExtensionList::ElementM
 
 ExyokiOffice::MetadataParticlePtr CreateCacheHierarchyExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "cacheHierarchy"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::CacheHierarchy", "CacheHierarchy", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "cacheHierarchy"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::CacheHierarchy", "CacheHierarchy", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "cacheHierarchy"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::CacheHierarchy", "CacheHierarchy", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "cacheHierarchy"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::CacheHierarchy", "CacheHierarchy", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -14403,7 +14403,7 @@ void CacheHierarchyExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCacheHierarchyExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheHierarchyExtension", "CT_CacheHierarchyExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -14465,7 +14465,7 @@ const ExyokiOffice::OpenXMLElementClass* CacheHierarchyExtensionList::ElementMet
 
 ExyokiOffice::MetadataParticlePtr CreateGroupLevelsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "groupLevel"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::GroupLevel", "CT_GroupLevel/x:groupLevel", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -14548,7 +14548,7 @@ void GroupLevels::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateFieldsUsageParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "fieldUsage"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldUsage", "CT_FieldUsage/x:fieldUsage", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -14631,10 +14631,10 @@ void FieldsUsage::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCacheFieldExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "cacheField"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::CacheField", "CacheField", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "cacheField"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::CacheField", "CacheField", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "cachedUniqueNames"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::CachedUniqueNames", "CachedUniqueNames", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "cachedUniqueNames"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::CachedUniqueNames", "CachedUniqueNames", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -14720,7 +14720,7 @@ void CacheFieldExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCacheFieldExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheFieldExtension", "CT_CacheFieldExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -14782,8 +14782,8 @@ const ExyokiOffice::OpenXMLElementClass* CacheFieldExtensionList::ElementMetaCla
 
 ExyokiOffice::MetadataParticlePtr CreateFieldGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "rangePr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::RangeProperties", "CT_RangePr/x:rangePr", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "discretePr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DiscreteProperties", "CT_DiscretePr/x:discretePr", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -14886,17 +14886,17 @@ void FieldGroup::SetBase(const UInt32Value& value)
 ExyokiOffice::MetadataParticlePtr CreateSharedItemsParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingItem", "CT_Missing/x:m", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingItem", "CT_Missing/x:m", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberItem", "CT_Number/x:n", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberItem", "CT_Number/x:n", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "b"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::BooleanItem", "CT_Boolean/x:b", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "b"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::BooleanItem", "CT_Boolean/x:b", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "e"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ErrorItem", "CT_Error/x:e", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "e"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ErrorItem", "CT_Error/x:e", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StringItem", "CT_String/x:s", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StringItem", "CT_String/x:s", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "d"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DateTimeItem", "CT_DateTime/x:d", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "d"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DateTimeItem", "CT_DateTime/x:d", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode6);
     return particleNode0;
 }
@@ -15163,7 +15163,7 @@ void SharedItems::SetLongText(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTextFieldsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "textField"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TextField", "CT_TextField/x:textField", 1, std::optional<ExyokiOffice::UInt32>{2001}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -15246,10 +15246,10 @@ void TextFields::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConnectionExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "connection"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::Connection", "Connection", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "connection"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::Connection", "Connection", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "connection"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::Connection", "Connection", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "connection"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::Connection", "Connection", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -15335,7 +15335,7 @@ void ConnectionExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConnectionExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ConnectionExtension", "CT_ConnectionExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -15397,7 +15397,7 @@ const ExyokiOffice::OpenXMLElementClass* ConnectionExtensionList::ElementMetaCla
 
 ExyokiOffice::MetadataParticlePtr CreateParametersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "parameter"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Parameter", "CT_Parameter/x:parameter", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -15480,7 +15480,7 @@ void Parameters::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTextPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "textFields"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TextFields", "TextFields", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -15778,7 +15778,7 @@ void TextProperties::SetDelimiter(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateWebQueryPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tables"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Tables", "Tables", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -16336,8 +16336,8 @@ void DatabaseProperties::SetCommandType(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateQueryTableExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "queryTable"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::QueryTable", "QueryTable", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "queryTable"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::QueryTable", "QueryTable", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -16423,10 +16423,10 @@ void QueryTableExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotFilterExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotFilter"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotFilter", "PivotFilter", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "pivotFilter"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::PivotFilter", "PivotFilter", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "movingPeriodState"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::MovingPeriodState", "MovingPeriodState", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "movingPeriodState"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::MovingPeriodState", "MovingPeriodState", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -16512,12 +16512,12 @@ void PivotFilterExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSlicerCacheDefinitionExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "slicerCachePivotTables"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::SlicerCachePivotTables", "SlicerCachePivotTables", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "slicerCachePivotTables"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::SlicerCachePivotTables", "SlicerCachePivotTables", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "tableSlicerCache"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TableSlicerCache", "TableSlicerCache", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "tableSlicerCache"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::TableSlicerCache", "TableSlicerCache", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "slicerCacheHideItemsWithNoData"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::SlicerCacheHideItemsWithNoData", "SlicerCacheHideItemsWithNoData", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2010/11/main", "slicerCacheHideItemsWithNoData"), "ExyokiOffice::DocumentFormat::OpenXml::Office2013::Excel::SlicerCacheHideItemsWithNoData", "SlicerCacheHideItemsWithNoData", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode3);
     auto particleNode4 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
@@ -16914,7 +16914,7 @@ void DynamicFilter::SetMaxValIso(const DateTimeValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCustomFiltersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "customFilter"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CustomFilter", "CT_CustomFilter/x:customFilter", 1, std::optional<ExyokiOffice::UInt32>{2}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -17114,7 +17114,7 @@ void Top10::SetFilterValue(const DoubleValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateFiltersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "filter"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::Filter", "CT_Filter/x14:filter", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "filter"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Filter", "CT_Filter/x:filter", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -17615,8 +17615,8 @@ void SortCondition::SetIconId(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCommentPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "anchor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ObjectAnchor", "ObjectAnchor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "anchor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ObjectAnchor", "ObjectAnchor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -17894,7 +17894,7 @@ void CommentProperties::SetColHidden(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCacheSourceExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheSourceExtension", "CT_CacheSourceExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -17956,10 +17956,10 @@ const ExyokiOffice::OpenXMLElementClass* CacheSourceExtensionList::ElementMetaCl
 
 ExyokiOffice::MetadataParticlePtr CreateConsolidationParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pages"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Pages", "Pages", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "rangeSets"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::RangeSets", "RangeSets", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "rangeSets"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::RangeSets", "RangeSets", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -18159,7 +18159,7 @@ void WorksheetSource::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotFieldExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotFieldExtension", "CT_PivotFieldExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -18221,8 +18221,8 @@ const ExyokiOffice::OpenXMLElementClass* PivotFieldExtensionList::ElementMetaCla
 
 ExyokiOffice::MetadataParticlePtr CreateAutoSortScopeParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -18283,7 +18283,7 @@ const ExyokiOffice::OpenXMLElementClass* AutoSortScope::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateItemsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "item"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Item", "CT_Item/x:item", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -18366,7 +18366,7 @@ void Items::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotHierarchyExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotHierarchyExtension", "CT_PivotHierarchyExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -18428,7 +18428,7 @@ const ExyokiOffice::OpenXMLElementClass* PivotHierarchyExtensionList::ElementMet
 
 ExyokiOffice::MetadataParticlePtr CreateMembersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "member"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Member", "CT_Member/x:member", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -18525,7 +18525,7 @@ void Members::SetLevel(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMemberPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "mp"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MemberProperty", "CT_MemberProperty/x:mp", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -18608,7 +18608,7 @@ void MemberProperties::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCustomPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "customPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CustomProperty", "CT_CustomProperty/x:customPr", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -18670,7 +18670,7 @@ const ExyokiOffice::OpenXMLElementClass* CustomProperties::ElementMetaClass() co
 
 ExyokiOffice::MetadataParticlePtr CreateConditionalFormattingParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cfRule"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ConditionalFormattingRule", "CT_CfRule/x:cfRule", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -18770,7 +18770,7 @@ void ConditionalFormatting::SetSequenceOfReferences(const ListValue<StringValue>
 
 ExyokiOffice::MetadataParticlePtr CreateDataConsolidateParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dataRefs"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DataReferences", "DataReferences", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -18910,7 +18910,7 @@ void DataConsolidate::SetLink(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSheetDataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "row"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Row", "CT_Row/x:row", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -18972,7 +18972,7 @@ const ExyokiOffice::OpenXMLElementClass* SheetData::ElementMetaClass() const noe
 
 ExyokiOffice::MetadataParticlePtr CreateColumnsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "col"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Column", "CT_Col/x:col", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -19109,7 +19109,7 @@ void SheetDimension::SetReference(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateControlsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Control", "CT_Control/x:control", 1, std::optional<ExyokiOffice::UInt32>{65535}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -19171,7 +19171,7 @@ const ExyokiOffice::OpenXMLElementClass* Controls::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateOleObjectsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oleObject"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OleObject", "CT_OleObject/x:oleObject", 1, std::optional<ExyokiOffice::UInt32>{65535}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -19233,7 +19233,7 @@ const ExyokiOffice::OpenXMLElementClass* OleObjects::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateCustomSheetViewsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "customSheetView"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CustomSheetView", "CT_CustomSheetView/x:customSheetView", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -19856,7 +19856,7 @@ void SheetFormatProperties::SetDyDescent(const DoubleValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSheetViewsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetView"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetView", "CT_SheetView/x:sheetView", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -19920,7 +19920,7 @@ const ExyokiOffice::OpenXMLElementClass* SheetViews::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateSheetPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tabColor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TabColor", "TabColor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "outlinePr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OutlineProperties", "OutlineProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -20121,7 +20121,7 @@ void SheetProperties::SetEnableFormatConditionsCalculation(const BooleanValue& v
 
 ExyokiOffice::MetadataParticlePtr CreateDataReferencesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dataRef"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DataReference", "CT_DataRef/x:dataRef", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -20204,7 +20204,7 @@ void DataReferences::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConditionalFormattingRuleExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ConditionalFormattingRuleExtension", "CT_CfRuleExtension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -20266,7 +20266,7 @@ const ExyokiOffice::OpenXMLElementClass* ConditionalFormattingRuleExtensionList:
 
 ExyokiOffice::MetadataParticlePtr CreateIconSetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cfvo"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ConditionalFormatValueObject", "CT_Cfvo/x:cfvo", 2, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -20391,10 +20391,10 @@ void IconSet::SetReverse(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDataBarParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cfvo"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ConditionalFormatValueObject", "CT_Cfvo/x:cfvo", 2, std::optional<ExyokiOffice::UInt32>{2}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "CT_Color/x:color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "CT_Color/x:color", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -20506,7 +20506,7 @@ void DataBar::SetShowValue(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateColorScaleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cfvo"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ConditionalFormatValueObject", "CT_Cfvo/x:cfvo", 2, std::optional<ExyokiOffice::UInt32>{3}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "CT_Color/x:color", 2, std::optional<ExyokiOffice::UInt32>{3}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -20570,7 +20570,7 @@ const ExyokiOffice::OpenXMLElementClass* ColorScale::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateWebPublishItemsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "webPublishItem"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::WebPublishItem", "CT_WebPublishItem/x:webPublishItem", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -21311,7 +21311,7 @@ void Drawing::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCustomChartsheetViewsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "customSheetView"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CustomChartsheetView", "CT_CustomChartsheetView/x:customSheetView", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -21532,7 +21532,7 @@ void ChartSheetProtection::SetObjects(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateChartSheetViewsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetView"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ChartSheetView", "CT_ChartsheetView/x:sheetView", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -21596,7 +21596,7 @@ const ExyokiOffice::OpenXMLElementClass* ChartSheetViews::ElementMetaClass() con
 
 ExyokiOffice::MetadataParticlePtr CreateChartSheetPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tabColor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TabColor", "TabColor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -21695,8 +21695,8 @@ void ChartSheetProperties::SetCodeName(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateEmbeddedObjectPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "anchor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ObjectAnchor", "ObjectAnchor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "anchor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ObjectAnchor", "ObjectAnchor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -21932,8 +21932,8 @@ void EmbeddedObjectProperties::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateControlPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "anchor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ObjectAnchor", "ObjectAnchor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "anchor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ObjectAnchor", "ObjectAnchor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -22286,7 +22286,7 @@ void BorderPropertiesType::SetStyle(const EnumValue<BorderStyleValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateHorizontalBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -22348,7 +22348,7 @@ const ExyokiOffice::OpenXMLElementClass* HorizontalBorder::ElementMetaClass() co
 
 ExyokiOffice::MetadataParticlePtr CreateVerticalBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -22410,7 +22410,7 @@ const ExyokiOffice::OpenXMLElementClass* VerticalBorder::ElementMetaClass() cons
 
 ExyokiOffice::MetadataParticlePtr CreateDiagonalBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -22472,7 +22472,7 @@ const ExyokiOffice::OpenXMLElementClass* DiagonalBorder::ElementMetaClass() cons
 
 ExyokiOffice::MetadataParticlePtr CreateBottomBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -22534,7 +22534,7 @@ const ExyokiOffice::OpenXMLElementClass* BottomBorder::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateTopBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -22596,7 +22596,7 @@ const ExyokiOffice::OpenXMLElementClass* TopBorder::ElementMetaClass() const noe
 
 ExyokiOffice::MetadataParticlePtr CreateRightBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -22658,7 +22658,7 @@ const ExyokiOffice::OpenXMLElementClass* RightBorder::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateLeftBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -22720,7 +22720,7 @@ const ExyokiOffice::OpenXMLElementClass* LeftBorder::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateEndBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -22782,7 +22782,7 @@ const ExyokiOffice::OpenXMLElementClass* EndBorder::ElementMetaClass() const noe
 
 ExyokiOffice::MetadataParticlePtr CreateStartBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -22963,8 +22963,8 @@ void OleItem::SetPreferPicture(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCacheSourceExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "sourceConnection"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SourceConnection", "SourceConnection", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "sourceConnection"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SourceConnection", "SourceConnection", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -23050,8 +23050,8 @@ void CacheSourceExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotFieldExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotField"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotField", "PivotField", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotField"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotField", "PivotField", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -23137,8 +23137,8 @@ void PivotFieldExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotHierarchyExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotHierarchy"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotHierarchy", "PivotHierarchy", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "pivotHierarchy"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::PivotHierarchy", "PivotHierarchy", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -23224,8 +23224,8 @@ void PivotHierarchyExtension::SetUri(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConditionalFormattingRuleExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "id"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::Id", "Id", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "id"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::Id", "Id", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -23368,14 +23368,14 @@ const ExyokiOffice::OpenXMLElementClass* MarkerType::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateToMarkerParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "col"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::ColumnId", "ColumnId", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "col"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::ColumnId", "ColumnId", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "colOff"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::ColumnOffset", "ColumnOffset", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "colOff"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::ColumnOffset", "ColumnOffset", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "row"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::RowId", "RowId", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "row"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::RowId", "RowId", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "rowOff"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::RowOffset", "RowOffset", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "rowOff"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::RowOffset", "RowOffset", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
     return particleNode0;
 }
@@ -23436,14 +23436,14 @@ const ExyokiOffice::OpenXMLElementClass* ToMarker::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateFromMarkerParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "col"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::ColumnId", "ColumnId", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "col"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::ColumnId", "ColumnId", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "colOff"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::ColumnOffset", "ColumnOffset", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "colOff"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::ColumnOffset", "ColumnOffset", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "row"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::RowId", "RowId", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "row"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::RowId", "RowId", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "rowOff"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::RowOffset", "RowOffset", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing", "rowOff"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet::RowOffset", "RowOffset", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
     return particleNode0;
 }
@@ -23504,10 +23504,10 @@ const ExyokiOffice::OpenXMLElementClass* FromMarker::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateObjectAnchorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "from"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FromMarker", "FromMarker", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "from"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FromMarker", "FromMarker", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "to"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ToMarker", "ToMarker", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "to"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ToMarker", "ToMarker", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -23967,7 +23967,7 @@ void DefinedName::SetWorkbookParameter(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateWorkbookViewParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -24345,7 +24345,7 @@ void Sheet::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCustomWorkbookViewParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -25167,8 +25167,8 @@ void TopicReferences::SetSheetId(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTopicParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "v"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Xstring", "Xstring", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "v"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Xstring", "Xstring", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "stp"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Subtopic", "CT_Xstring/x:stp", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -25254,7 +25254,7 @@ void Topic::SetValueType(const EnumValue<VolatileValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMainParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tp"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Topic", "CT_VolTopic/x:tp", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -25339,7 +25339,7 @@ void Main::SetFirst(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateVolatileTypeParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "main"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Main", "CT_VolMain/x:main", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -25423,7 +25423,7 @@ void VolatileType::SetType(const EnumValue<VolatileDependencyValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateXmlColumnPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -25747,7 +25747,7 @@ const ExyokiOffice::OpenXMLElementClass* CalculatedColumnFormula::ElementMetaCla
 
 ExyokiOffice::MetadataParticlePtr CreateTableColumnParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "calculatedColumnFormula"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CalculatedColumnFormula", "CalculatedColumnFormula", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "totalsRowFormula"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TotalsRowFormula", "TotalsRowFormula", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -26129,7 +26129,7 @@ void SheetName::SetVal(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateOleLinkParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oleItems"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OleItems", "OleItems", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -26229,7 +26229,7 @@ void OleLink::SetProgId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDdeLinkParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ddeItems"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DdeItems", "DdeItems", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -26330,7 +26330,7 @@ void DdeLink::SetDdeTopic(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateExternalBookParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2021/extlinks2021", "alternateUrls"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2021::ExtLinks2021::ExternalBookAlternateUrls", "ExternalBookAlternateUrls", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetNames"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetNames", "SheetNames", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -26421,9 +26421,9 @@ void ExternalBook::SetId(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateOleItemsParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oleItem"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OleItem", "CT_OleItem/x:oleItem", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oleItem"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OleItem", "CT_OleItem/x:oleItem", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "oleItem"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::OleItem", "CT_OleItem/x14:oleItem", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "oleItem"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::OleItem", "CT_OleItem/x14:oleItem", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -26484,8 +26484,8 @@ const ExyokiOffice::OpenXMLElementClass* OleItems::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateValueParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "val"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DdeLinkValue", "DdeLinkValue", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "val"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DdeLinkValue", "DdeLinkValue", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -26567,7 +26567,7 @@ void Value::SetValueType(const EnumValue<DdeValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateValuesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "value"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Value", "CT_DdeValue/x:value", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -26666,7 +26666,7 @@ void Values::SetColumns(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDdeItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "values"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Values", "Values", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -26793,7 +26793,7 @@ void DdeItem::SetPreferPicture(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDdeItemsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ddeItem"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DdeItem", "CT_DdeItem/x:ddeItem", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -26855,7 +26855,7 @@ const ExyokiOffice::OpenXMLElementClass* DdeItems::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateExternalCellParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "v"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Xstring", "Xstring", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -26968,7 +26968,7 @@ void ExternalCell::SetValueMetaIndex(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateExternalRowParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cell"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExternalCell", "CT_ExternalCell/x:cell", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -27054,7 +27054,7 @@ void ExternalRow::SetRowIndex(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateExternalSheetDataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "row"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExternalRow", "CT_ExternalRow/x:row", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -27593,7 +27593,7 @@ void FontName::SetVal(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCellFormatParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "alignment"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Alignment", "Alignment", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "protection"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Protection", "Protection", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -27849,7 +27849,7 @@ void CellFormat::SetApplyProtection(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCellStyleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -28081,7 +28081,7 @@ void RgbColor::SetRgb(const HexBinaryValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTableStyleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tableStyleElement"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TableStyleElement", "CT_TableStyleElement/x:tableStyleElement", 0, std::optional<ExyokiOffice::UInt32>{28}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -28208,7 +28208,7 @@ void TableStyle::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMruColorsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "CT_Color/x:color", 1, std::optional<ExyokiOffice::UInt32>{10}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -28270,7 +28270,7 @@ const ExyokiOffice::OpenXMLElementClass* MruColors::ElementMetaClass() const noe
 
 ExyokiOffice::MetadataParticlePtr CreateIndexedColorsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "rgbColor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::RgbColor", "CT_RgbColor/x:rgbColor", 1, std::optional<ExyokiOffice::UInt32>{64}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -28332,7 +28332,7 @@ const ExyokiOffice::OpenXMLElementClass* IndexedColors::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateBorderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "start"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StartBorder", "StartBorder", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "end"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::EndBorder", "EndBorder", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
@@ -28459,7 +28459,7 @@ void Border::SetOutline(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateFillParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "patternFill"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PatternFill", "PatternFill", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "gradientFill"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::GradientFill", "GradientFill", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -28523,7 +28523,7 @@ const ExyokiOffice::OpenXMLElementClass* Fill::ElementMetaClass() const noexcept
 
 ExyokiOffice::MetadataParticlePtr CreateFontParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "b"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Bold", "Bold", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "i"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Italic", "Italic", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -28995,8 +28995,8 @@ void NumberingFormat::SetFormatCode(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateGradientStopParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "color"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Color", "Color", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -29080,7 +29080,7 @@ void GradientStop::SetPosition(const DoubleValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateGradientFillParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "stop"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::GradientStop", "CT_GradientStop/x:stop", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -29238,7 +29238,7 @@ void GradientFill::SetBottom(const DoubleValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePatternFillParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "fgColor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ForegroundColor", "ForegroundColor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "bgColor"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::BackgroundColor", "BackgroundColor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -29323,7 +29323,7 @@ void PatternFill::SetPatternType(const EnumValue<PatternValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateXmlPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -29439,8 +29439,8 @@ void XmlProperties::SetXmlDataType(const EnumValue<XmlDataValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateXmlCellPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "xmlPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::XmlProperties", "XmlProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "xmlPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::XmlProperties", "XmlProperties", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -29542,8 +29542,8 @@ void XmlCellProperties::SetUniqueName(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSingleXmlCellParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "xmlCellPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::XmlCellProperties", "XmlCellProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "xmlCellPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::XmlCellProperties", "XmlCellProperties", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -29950,7 +29950,7 @@ void MdxMemberProp::SetPropertyNameIndex(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMdxSetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NameIndex", "CT_MetadataStringIndex/x:n", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -30064,7 +30064,7 @@ void MdxSet::SetSortingOrder(const EnumValue<MdxSetOrderValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMdxTupleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NameIndex", "CT_MetadataStringIndex/x:n", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -30278,14 +30278,14 @@ void MdxTuple::SetBold(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMdxParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MdxTuple", "MdxTuple", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MdxTuple", "MdxTuple", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ms"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MdxSet", "MdxSet", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ms"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MdxSet", "MdxSet", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "p"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MdxMemberProp", "MdxMemberProp", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "p"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MdxMemberProp", "MdxMemberProp", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "k"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MdxKpi", "MdxKpi", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "k"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MdxKpi", "MdxKpi", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
     return particleNode0;
 }
@@ -30384,7 +30384,7 @@ void Mdx::SetCubeFunction(const EnumValue<MdxFunctionValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateFutureMetadataBlockParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -30537,7 +30537,7 @@ void MetadataRecord::SetVal(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMetadataBlockParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "rc"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MetadataRecord", "CT_MetadataRecord/x:rc", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -31129,7 +31129,7 @@ void MetadataBlocksType::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateValueMetadataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "bk"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MetadataBlock", "CT_MetadataBlock/x:bk", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -31192,7 +31192,7 @@ const ExyokiOffice::OpenXMLElementClass* ValueMetadata::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateCellMetadataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "bk"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MetadataBlock", "CT_MetadataBlock/x:bk", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -31255,7 +31255,7 @@ const ExyokiOffice::OpenXMLElementClass* CellMetadata::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateFutureMetadataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "bk"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FutureMetadataBlock", "CT_FutureMetadataBlock/x:bk", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -31358,7 +31358,7 @@ void FutureMetadata::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMdxMetadataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "mdx"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Mdx", "CT_Mdx/x:mdx", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -31442,7 +31442,7 @@ void MdxMetadata::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMetadataStringsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CharacterValue", "CT_XStringElement/x:s", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -31526,7 +31526,7 @@ void MetadataStrings::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMetadataTypesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "metadataType"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MetadataType", "CT_MetadataType/x:metadataType", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -31610,7 +31610,7 @@ void MetadataTypes::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateOleObjectParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "objectPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::EmbeddedObjectProperties", "EmbeddedObjectProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -31781,7 +31781,7 @@ void OleObject::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCustomSheetViewParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pane"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Pane", "Pane", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "selection"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Selection", "Selection", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -32153,7 +32153,7 @@ void CustomSheetView::SetTopLeftCell(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSheetViewParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pane"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Pane", "Pane", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "selection"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Selection", "CT_Selection/x:selection", 0, std::optional<ExyokiOffice::UInt32>{4}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -32500,7 +32500,7 @@ void SheetView::SetWorkbookViewId(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDataValidationParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2011/1/ac", "list"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::ExcelAc::List", "List", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2013);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "formula1"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Formula1", "Formula1", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -33036,7 +33036,7 @@ void IgnoredError::SetCalculatedColumn(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateControlParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "controlPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ControlProperties", "ControlProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -33284,7 +33284,7 @@ void InputCells::SetNumberFormatId(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCustomChartsheetViewParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pageMargins"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PageMargins", "PageMargins", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pageSetup"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ChartSheetPageSetup", "ChartSheetPageSetup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -33417,7 +33417,7 @@ void CustomChartsheetView::SetZoomToFit(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateChartSheetViewParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -34360,7 +34360,7 @@ void ProtectedRange::SetSecurityDescriptor(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateScenarioParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "inputCells"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::InputCells", "CT_InputCells/x:inputCells", 1, std::optional<ExyokiOffice::UInt32>{32}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -34518,7 +34518,7 @@ void Scenario::SetComment(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConditionalFormatValueObjectParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -34764,7 +34764,7 @@ void Hyperlink::SetDisplay(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConditionalFormattingRuleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "formula"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Formula", "CT_Xstring/x:formula", 0, std::optional<ExyokiOffice::UInt32>{3}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "colorScale"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ColorScale", "CT_ColorScale/x:colorScale", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -35027,7 +35027,7 @@ void ConditionalFormattingRule::SetEqualAverage(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateAutoFilterParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "filterColumn"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FilterColumn", "CT_FilterColumn/x:filterColumn", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sortState"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SortState", "CT_SortState/x:sortState", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -35114,7 +35114,7 @@ void AutoFilter::SetReference(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateHeaderFooterParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oddHeader"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OddHeader", "OddHeader", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oddFooter"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OddFooter", "OddFooter", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -35927,7 +35927,7 @@ void PageBreakType::SetManualBreakCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateColumnBreaksParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "brk"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Break", "CT_Break/x:brk", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -35991,7 +35991,7 @@ const ExyokiOffice::OpenXMLElementClass* ColumnBreaks::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateRowBreaksParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "brk"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Break", "CT_Break/x:brk", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -36304,8 +36304,8 @@ void Break::SetPivotTablePageBreak(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotSelectionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -37274,7 +37274,7 @@ void Column::SetCollapsed(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRowParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "c"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Cell", "CT_Cell/x:c", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -37532,7 +37532,7 @@ void Row::SetDyDescent(const DoubleValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateUserInfoParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -38042,7 +38042,7 @@ const ExyokiOffice::OpenXMLElementClass* DifferentialFormatType::ElementMetaClas
 
 ExyokiOffice::MetadataParticlePtr CreateDifferentialFormatParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "font"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Font", "Font", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "numFmt"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberingFormat", "NumberingFormat", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -38116,7 +38116,7 @@ const ExyokiOffice::OpenXMLElementClass* DifferentialFormat::ElementMetaClass() 
 
 ExyokiOffice::MetadataParticlePtr CreateNewDifferentialFormatParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "font"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Font", "Font", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "numFmt"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberingFormat", "NumberingFormat", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -38190,7 +38190,7 @@ const ExyokiOffice::OpenXMLElementClass* NewDifferentialFormat::ElementMetaClass
 
 ExyokiOffice::MetadataParticlePtr CreateOldDifferentialFormatParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "font"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Font", "Font", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "numFmt"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberingFormat", "NumberingFormat", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -38264,7 +38264,7 @@ const ExyokiOffice::OpenXMLElementClass* OldDifferentialFormat::ElementMetaClass
 
 ExyokiOffice::MetadataParticlePtr CreateNewCellParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "f"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellFormula", "CellFormula", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "v"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellValue", "CellValue", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -38575,7 +38575,7 @@ void CellType::SetShowPhonetic(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCellParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "f"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellFormula", "CellFormula", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "v"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellValue", "CellValue", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -38646,7 +38646,7 @@ const ExyokiOffice::OpenXMLElementClass* Cell::ElementMetaClass() const noexcept
 
 ExyokiOffice::MetadataParticlePtr CreateOldCellParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "f"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellFormula", "CellFormula", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "v"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CellValue", "CellValue", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -39011,7 +39011,7 @@ void Reviewed::SetRevisionId(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateReviewedListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "reviewed"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Reviewed", "CT_Reviewed/x:reviewed", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -39094,7 +39094,7 @@ void ReviewedList::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSheetIdMapParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetId"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetId", "CT_SheetId/x:sheetId", 1, std::optional<ExyokiOffice::UInt32>{65535}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -39620,7 +39620,7 @@ void RevisionComment::SetNewLength(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRevisionDefinedNameParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "formula"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Formula", "Formula", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oldFormula"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OldFormula", "OldFormula", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -40235,7 +40235,7 @@ void RevisionAutoFormat::SetReference(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRevisionFormatParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dxf"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DifferentialFormat", "DifferentialFormat", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -40393,10 +40393,10 @@ void RevisionFormat::SetLength(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRevisionCellChangeParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oc"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OldCell", "OldCell", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "nc"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NewCell", "NewCell", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "nc"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NewCell", "NewCell", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "odxf"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OldDifferentialFormat", "OldDifferentialFormat", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -40819,7 +40819,7 @@ void RevisionInsertSheet::SetSheetPosition(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRevisionSheetNameParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -41435,8 +41435,8 @@ void RevisionRowColumn::SetEdge(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateHeaderParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetIdMap"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetIdMap", "SheetIdMap", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetIdMap"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetIdMap", "SheetIdMap", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "reviewedList"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ReviewedList", "ReviewedList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -41718,8 +41718,8 @@ void PhoneticProperties::SetAlignment(const EnumValue<PhoneticAlignmentValues>& 
 
 ExyokiOffice::MetadataParticlePtr CreatePhoneticRunParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Text", "Text", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Text", "Text", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -41818,10 +41818,10 @@ void PhoneticRun::SetEndingBaseIndex(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRunParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "rPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::RunProperties", "RunProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Text", "Text", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Text", "Text", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -43364,7 +43364,7 @@ public:
         builder.SetAvailability(ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
         builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "phoneticPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PhoneticProperties");
         builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "rPh"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PhoneticRun");
-        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "r"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotCacheRecord");
+        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "r"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Run");
         builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Text");
     }
 };
@@ -43383,7 +43383,7 @@ const ExyokiOffice::OpenXMLElementClass* RstType::ElementMetaClass() const noexc
 
 ExyokiOffice::MetadataParticlePtr CreateCommentTextParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Text", "Text", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "r"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Run", "CT_RElt/x:r", 0, std::optional<ExyokiOffice::UInt32>{32767}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -43451,7 +43451,7 @@ const ExyokiOffice::OpenXMLElementClass* CommentText::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateInlineStringParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Text", "Text", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "r"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Run", "CT_RElt/x:r", 0, std::optional<ExyokiOffice::UInt32>{32767}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -43519,7 +43519,7 @@ const ExyokiOffice::OpenXMLElementClass* InlineString::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateSharedStringItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "t"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Text", "Text", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "r"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Run", "CT_RElt/x:r", 0, std::optional<ExyokiOffice::UInt32>{32767}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -43835,7 +43835,7 @@ void DeletedField::SetName(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateQueryTableDeletedFieldsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "deletedField"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DeletedField", "CT_DeletedField/x:deletedField", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -43918,7 +43918,7 @@ void QueryTableDeletedFields::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateQueryTableFieldsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "queryTableField"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::QueryTableField", "CT_QueryTableField/x:queryTableField", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -44001,7 +44001,7 @@ void QueryTableFields::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotAreaReferenceParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldItem", "CT_Index/x:x", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -44310,7 +44310,7 @@ void PivotAreaReference::SetApplyVariancePInSubtotal(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotAreaReferencesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "reference"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotAreaReference", "CT_PivotAreaReference/x:reference", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -44534,17 +44534,17 @@ void PageField::SetCaption(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateGroupItemsParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingItem", "CT_Missing/x:m", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingItem", "CT_Missing/x:m", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberItem", "CT_Number/x:n", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberItem", "CT_Number/x:n", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "b"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::BooleanItem", "CT_Boolean/x:b", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "b"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::BooleanItem", "CT_Boolean/x:b", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "e"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ErrorItem", "CT_Error/x:e", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "e"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ErrorItem", "CT_Error/x:e", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StringItem", "CT_String/x:s", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StringItem", "CT_String/x:s", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "d"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DateTimeItem", "CT_DateTime/x:d", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "d"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DateTimeItem", "CT_DateTime/x:d", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode6);
     return particleNode0;
 }
@@ -44626,7 +44626,7 @@ void GroupItems::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDiscretePropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldItem", "CT_Index/x:x", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -44882,7 +44882,7 @@ void RangeProperties::SetGroupInterval(const DoubleValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCacheHierarchyParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "fieldsUsage"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldsUsage", "FieldsUsage", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "groupLevels"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::GroupLevels", "GroupLevels", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -45268,8 +45268,8 @@ void CacheHierarchy::SetHidden(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotFilterParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "autoFilter"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::AutoFilter", "AutoFilter", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "autoFilter"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::AutoFilter", "AutoFilter", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotFilterExtensionList", "PivotFilterExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -46243,7 +46243,7 @@ const ExyokiOffice::OpenXMLElementClass* RowHierarchyUsage::ElementMetaClass() c
 
 ExyokiOffice::MetadataParticlePtr CreatePivotHierarchyParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "mps"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MemberProperties", "MemberProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "members"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Members", "CT_Members/x:members", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -46471,8 +46471,8 @@ void PivotHierarchy::SetCaption(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateChartFormatParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -46584,7 +46584,7 @@ void ChartFormat::SetSeries(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotAreasParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "CT_PivotArea/x:pivotArea", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -46667,8 +46667,8 @@ void PivotAreas::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConditionalFormatParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotAreas"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotAreas", "PivotAreas", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotAreas"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotAreas", "PivotAreas", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -46782,8 +46782,8 @@ void ConditionalFormat::SetPriority(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateFormatParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -46956,7 +46956,7 @@ void Field::SetIndex(const Int32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRowItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MemberPropertyIndex", "CT_X/x:x", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -47067,7 +47067,7 @@ void RowItem::SetIndex(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDataFieldParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DataFieldExtensionList", "DataFieldExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -47451,7 +47451,7 @@ void Item::SetDrillAcrossAttributes(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotFieldParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "items"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Items", "Items", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "autoSortScope"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::AutoSortScope", "AutoSortScope", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -48375,7 +48375,7 @@ void CalculatedMember::SetSet(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotAreaParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "references"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotAreaReferences", "PivotAreaReferences", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -48615,8 +48615,8 @@ void PivotArea::SetFieldPosition(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCalculatedItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotArea"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotArea", "PivotArea", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -48714,7 +48714,7 @@ void CalculatedItem::SetFormula(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateQueryParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tpls"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Tuples", "Tuples", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -48799,7 +48799,7 @@ void Query::SetMdx(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTupleSetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tpls"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Tuples", "CT_Tuples/x:tpls", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sortByTuple"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SortByTuple", "CT_Tuples/x:sortByTuple", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -49139,7 +49139,7 @@ void ServerFormat::SetFormat(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateServerFormatsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "serverFormat"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ServerFormat", "CT_ServerFormat/x:serverFormat", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -49222,7 +49222,7 @@ void ServerFormats::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateQueryCacheParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "query"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Query", "CT_Query/x:query", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -49305,7 +49305,7 @@ void QueryCache::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSetsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "set"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TupleSet", "CT_Set/x:set", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -49389,13 +49389,13 @@ void Sets::SetCount(const UInt32Value& value)
 ExyokiOffice::MetadataParticlePtr CreateEntriesParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingItem", "CT_Missing/x:m", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingItem", "CT_Missing/x:m", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberItem", "CT_Number/x:n", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberItem", "CT_Number/x:n", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "e"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ErrorItem", "CT_Error/x:e", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "e"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ErrorItem", "CT_Error/x:e", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StringItem", "CT_String/x:s", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StringItem", "CT_String/x:s", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
     return particleNode0;
 }
@@ -49567,7 +49567,7 @@ void GroupMember::SetGroup(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateGroupMembersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "groupMember"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::GroupMember", "CT_GroupMember/x:groupMember", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -49650,8 +49650,8 @@ void GroupMembers::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "groupMembers"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::GroupMembers", "GroupMembers", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "groupMembers"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::GroupMembers", "GroupMembers", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -49794,7 +49794,7 @@ void Group::SetId(const Int32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateGroupsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "group"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Group", "CT_LevelGroup/x:group", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -49877,7 +49877,7 @@ void Groups::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateGroupLevelParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "groups"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Groups", "Groups", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -50290,19 +50290,19 @@ void Kpi::SetWeight(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreatePivotCacheRecordParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingItem", "CT_Missing/x:m", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingItem", "CT_Missing/x:m", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberItem", "CT_Number/x:n", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "n"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberItem", "CT_Number/x:n", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "b"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::BooleanItem", "CT_Boolean/x:b", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "b"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::BooleanItem", "CT_Boolean/x:b", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "e"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ErrorItem", "CT_Error/x:e", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "e"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ErrorItem", "CT_Error/x:e", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StringItem", "CT_String/x:s", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::StringItem", "CT_String/x:s", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "d"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DateTimeItem", "CT_DateTime/x:d", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "d"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DateTimeItem", "CT_DateTime/x:d", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldItem", "CT_Index/x:x", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldItem", "CT_Index/x:x", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode7);
     return particleNode0;
 }
@@ -50618,7 +50618,7 @@ void TuplesType::SetMemberNameCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSortByTupleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tpl"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Tuple", "CT_Tuple/x:tpl", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -50680,7 +50680,7 @@ const ExyokiOffice::OpenXMLElementClass* SortByTuple::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateTuplesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tpl"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Tuple", "CT_Tuple/x:tpl", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -50742,7 +50742,7 @@ const ExyokiOffice::OpenXMLElementClass* Tuples::ElementMetaClass() const noexce
 
 ExyokiOffice::MetadataParticlePtr CreateDateTimeItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MemberPropertyIndex", "CT_X/x:x", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -50883,7 +50883,7 @@ void DateTimeItem::SetPropertyCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateStringItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tpls"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Tuples", "CT_Tuples/x:tpls", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MemberPropertyIndex", "CT_X/x:x", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -51126,7 +51126,7 @@ void StringItem::SetBold(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateErrorItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tpls"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Tuples", "Tuples", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MemberPropertyIndex", "CT_X/x:x", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -51369,7 +51369,7 @@ void ErrorItem::SetBold(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateBooleanItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MemberPropertyIndex", "CT_X/x:x", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -51510,7 +51510,7 @@ void BooleanItem::SetPropertyCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateNumberItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tpls"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Tuples", "CT_Tuples/x:tpls", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MemberPropertyIndex", "CT_X/x:x", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -51754,7 +51754,7 @@ void NumberItem::SetBold(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMissingItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tpls"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Tuples", "CT_Tuples/x:tpls", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MemberPropertyIndex", "CT_X/x:x", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -52231,7 +52231,7 @@ void PageItem::SetName(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePageParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pageItem"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PageItem", "CT_PageItem/x:pageItem", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -52314,7 +52314,7 @@ void Page::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRangeSetsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "rangeSet"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::RangeSet", "CT_RangeSet/x:rangeSet", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -52397,7 +52397,7 @@ void RangeSets::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePagesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "page"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Page", "CT_PCDSCPage/x:page", 1, std::optional<ExyokiOffice::UInt32>{4}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -52480,7 +52480,7 @@ void Pages::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCacheFieldParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sharedItems"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SharedItems", "SharedItems", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "fieldGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldGroup", "FieldGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -53236,11 +53236,11 @@ void Parameter::SetCell(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateTablesParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingTable", "CT_TableMissing/x:m", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "m"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MissingTable", "CT_TableMissing/x:m", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CharacterValue", "CT_XStringElement/x:s", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CharacterValue", "CT_XStringElement/x:s", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldItem", "CT_Index/x:x", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "x"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FieldItem", "CT_Index/x:x", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
     return particleNode0;
 }
@@ -53322,7 +53322,7 @@ void Tables::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConnectionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dbPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DatabaseProperties", "DatabaseProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "olapPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OlapProperties", "OlapProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -53690,7 +53690,7 @@ void Connection::SetSingleSignOnId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDataBindingParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -53837,7 +53837,7 @@ void DataBinding::SetDataBindingLoadMode(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMapParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "DataBinding"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DataBinding", "DataBinding", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -54044,7 +54044,7 @@ void Map::SetPreserveFormat(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSchemaParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -55028,8 +55028,8 @@ const ExyokiOffice::OpenXMLElementClass* Author::ElementMetaClass() const noexce
 
 ExyokiOffice::MetadataParticlePtr CreateCommentParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "text"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CommentText", "CommentText", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "text"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CommentText", "CommentText", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "commentPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CommentProperties", "CommentProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode2);
@@ -55159,7 +55159,7 @@ void Comment::SetShapeId(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCommentListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "comment"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Comment", "CT_Comment/x:comment", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -55221,7 +55221,7 @@ const ExyokiOffice::OpenXMLElementClass* CommentList::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateAuthorsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "author"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Author", "CT_Xstring/x:author", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -55519,9 +55519,9 @@ void CustomFilter::SetVal(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Extension", "CT_Extension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -55585,8 +55585,8 @@ const ExyokiOffice::OpenXMLElementClass* ExtensionList::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateSortStateParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2009/9/main", "sortCondition"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Excel::SortCondition", "CT_SortCondition/x14:sortCondition", 0, std::optional<ExyokiOffice::UInt32>{64}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sortCondition"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SortCondition", "CT_SortCondition/x:sortCondition", 0, std::optional<ExyokiOffice::UInt32>{64}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -55845,7 +55845,7 @@ void FilterColumn::SetShowButton(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateWorkbookParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "fileVersion"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FileVersion", "FileVersion", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "fileSharing"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FileSharing", "FileSharing", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -55858,7 +55858,7 @@ ExyokiOffice::MetadataParticlePtr CreateWorkbookParticleMetadata()
     particleNode0->AddChild(particleNode5);
     auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "bookViews"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::BookViews", "BookViews", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheets"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Sheets", "Sheets", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheets"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Sheets", "Sheets", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode7);
     auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "functionGroups"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::FunctionGroups", "FunctionGroups", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode8);
@@ -55962,7 +55962,7 @@ void Workbook::SetConformance(const EnumValue<ConformanceClass>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateVolatileTypesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "volType"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::VolatileType", "CT_VolType/x:volType", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -56026,12 +56026,12 @@ const ExyokiOffice::OpenXMLElementClass* VolatileTypes::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateTableParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "autoFilter"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::AutoFilter", "AutoFilter", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sortState"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SortState", "SortState", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tableColumns"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TableColumns", "TableColumns", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tableColumns"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TableColumns", "TableColumns", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
     auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "tableStyleInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::TableStyleInfo", "TableStyleInfo", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
@@ -56422,13 +56422,13 @@ void Table::SetConnectionId(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateExternalLinkParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "externalBook"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExternalBook", "CT_ExternalBook/x:externalBook", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "externalBook"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExternalBook", "CT_ExternalBook/x:externalBook", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ddeLink"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DdeLink", "CT_DdeLink/x:ddeLink", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ddeLink"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DdeLink", "CT_DdeLink/x:ddeLink", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oleLink"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OleLink", "CT_OleLink/x:oleLink", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "oleLink"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::OleLink", "CT_OleLink/x:oleLink", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode4);
     particleNode0->AddChild(particleNode1);
     auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -56492,7 +56492,7 @@ const ExyokiOffice::OpenXMLElementClass* ExternalLink::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateStylesheetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "numFmts"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::NumberingFormats", "NumberingFormats", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "fonts"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Fonts", "Fonts", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -56574,7 +56574,7 @@ const ExyokiOffice::OpenXMLElementClass* Stylesheet::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateSingleXmlCellsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "singleXmlCell"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SingleXmlCell", "CT_SingleXmlCell/x:singleXmlCell", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -56636,7 +56636,7 @@ const ExyokiOffice::OpenXMLElementClass* SingleXmlCells::ElementMetaClass() cons
 
 ExyokiOffice::MetadataParticlePtr CreateMetadataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "metadataTypes"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MetadataTypes", "MetadataTypes", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "metadataStrings"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::MetadataStrings", "MetadataStrings", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -56710,7 +56710,7 @@ const ExyokiOffice::OpenXMLElementClass* Metadata::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateDialogSheetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetProperties", "SheetProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetViews"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetViews", "SheetViews", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -56731,7 +56731,7 @@ ExyokiOffice::MetadataParticlePtr CreateDialogSheetParticleMetadata()
     particleNode0->AddChild(particleNode9);
     auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "drawing"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Drawing", "Drawing", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "legacyDrawing"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::LegacyDrawing", "LegacyDrawing", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "legacyDrawing"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::LegacyDrawing", "LegacyDrawing", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode11);
     auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "legacyDrawingHF"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::LegacyDrawingHeaderFooter", "LegacyDrawingHeaderFooter", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode12);
@@ -56802,10 +56802,10 @@ const ExyokiOffice::OpenXMLElementClass* DialogSheet::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateChartsheetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ChartSheetProperties", "ChartSheetProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetViews"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ChartSheetViews", "ChartSheetViews", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetViews"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ChartSheetViews", "ChartSheetViews", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetProtection"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ChartSheetProtection", "ChartSheetProtection", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -56817,7 +56817,7 @@ ExyokiOffice::MetadataParticlePtr CreateChartsheetParticleMetadata()
     particleNode0->AddChild(particleNode6);
     auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "headerFooter"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::HeaderFooter", "HeaderFooter", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "drawing"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Drawing", "Drawing", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "drawing"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Drawing", "Drawing", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode8);
     auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "legacyDrawing"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::LegacyDrawing", "LegacyDrawing", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode9);
@@ -56890,7 +56890,7 @@ const ExyokiOffice::OpenXMLElementClass* Chartsheet::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateWorksheetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetProperties", "SheetProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dimension"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetDimension", "SheetDimension", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -56901,7 +56901,7 @@ ExyokiOffice::MetadataParticlePtr CreateWorksheetParticleMetadata()
     particleNode0->AddChild(particleNode4);
     auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cols"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Columns", "CT_Cols/x:cols", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetData"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetData", "CT_SheetData/x:sheetData", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetData"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetData", "CT_SheetData/x:sheetData", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode6);
     auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "sheetCalcPr"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SheetCalculationProperties", "CT_SheetCalcPr/x:sheetCalcPr", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode7);
@@ -57026,7 +57026,7 @@ const ExyokiOffice::OpenXMLElementClass* Worksheet::ElementMetaClass() const noe
 
 ExyokiOffice::MetadataParticlePtr CreateUsersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "userInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::UserInfo", "CT_SharedUser/x:userInfo", 0, std::optional<ExyokiOffice::UInt32>{256}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -57194,7 +57194,7 @@ const ExyokiOffice::OpenXMLElementClass* Revisions::ElementMetaClass() const noe
 
 ExyokiOffice::MetadataParticlePtr CreateHeadersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "header"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Header", "CT_RevisionHeader/x:header", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -57438,7 +57438,7 @@ void Headers::SetPreserveHistory(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSharedStringTableParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "si"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::SharedStringItem", "CT_Rst/x:si", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -57539,7 +57539,7 @@ void SharedStringTable::SetUniqueCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateQueryTableParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "queryTableRefresh"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::QueryTableRefresh", "QueryTableRefresh", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::QueryTableExtensionList", "QueryTableExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -57923,8 +57923,8 @@ void QueryTable::SetApplyWidthHeightFormats(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotTableDefinitionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "location"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Location", "Location", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "location"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Location", "Location", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "pivotFields"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotFields", "PivotFields", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
@@ -58991,7 +58991,7 @@ void PivotTableDefinition::SetCustomListSort(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotCacheRecordsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "r"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::PivotCacheRecord", "CT_Record/x:r", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -59076,10 +59076,10 @@ void PivotCacheRecords::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreatePivotCacheDefinitionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cacheSource"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheSource", "CacheSource", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cacheSource"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheSource", "CacheSource", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cacheFields"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheFields", "CacheFields", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cacheFields"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheFields", "CacheFields", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "cacheHierarchies"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CacheHierarchies", "CacheHierarchies", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -59432,7 +59432,7 @@ void PivotCacheDefinition::SetSupportAdvancedDrill(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateConnectionsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "connection"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Connection", "CT_Connection/x:connection", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -59494,7 +59494,7 @@ const ExyokiOffice::OpenXMLElementClass* Connections::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateMapInfoParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "Schema"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Schema", "CT_Schema/x:Schema", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "Map"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Map", "CT_Map/x:Map", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -59580,10 +59580,10 @@ void MapInfo::SetSelectionNamespaces(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCommentsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "authors"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Authors", "Authors", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "authors"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Authors", "Authors", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "commentList"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CommentList", "CommentList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "commentList"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CommentList", "CommentList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
@@ -59646,7 +59646,7 @@ const ExyokiOffice::OpenXMLElementClass* Comments::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateCalculationChainParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "c"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::CalculationCell", "CT_CalcCell/x:c", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::ExtensionList", "CT_ExtensionList/x:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -59710,7 +59710,7 @@ const ExyokiOffice::OpenXMLElementClass* CalculationChain::ElementMetaClass() co
 
 ExyokiOffice::MetadataParticlePtr CreateExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;

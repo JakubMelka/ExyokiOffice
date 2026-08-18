@@ -235,7 +235,7 @@ ValidationSummary ValidatePackage(std::span<const ExyokiOffice::Byte> packageByt
     }
     summary.Loaded = true;
 
-    const auto result = ExyokiOffice::OpenXmlPackageValidator().Validate(package);
+    const auto result = ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(package);
     for (const auto& issue : result.Issues())
     {
         if (issue.Severity == ExyokiOffice::ValidationSeverity::Error)

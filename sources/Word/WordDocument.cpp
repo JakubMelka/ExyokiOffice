@@ -3579,6 +3579,45 @@ public:
 class WordDrawingHelper
 {
 public:
+    /**
+     * @brief Gives a tight or through wrap the polygon the schema requires.
+     *
+     * wp:wrapTight and wp:wrapThrough must carry a wp:wrapPolygon with a start
+     * point and at least two line segments; Word writes the picture's own
+     * rectangle in its 21600-unit shape space when nothing tighter is known.
+     */
+    template <typename TWrap>
+    static bool AppendRectangleWrapPolygon(const std::shared_ptr<TWrap>& wrap)
+    {
+        namespace Wp = ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing;
+        auto polygon = wrap ? wrap->template AppendChild<Wp::WrapPolygon>() : nullptr;
+        if (!polygon)
+        {
+            return false;
+        }
+        polygon->SetEdited(BooleanValue(false));
+        auto start = polygon->template AppendChild<Wp::StartPoint>();
+        if (!start)
+        {
+            return false;
+        }
+        start->SetX(Int64Value(0));
+        start->SetY(Int64Value(0));
+        constexpr Int64 kShapeSpace = 21600;
+        for (const auto [x, y] : {std::pair<Int64, Int64>{0, kShapeSpace}, std::pair<Int64, Int64>{kShapeSpace, kShapeSpace},
+                                  std::pair<Int64, Int64>{kShapeSpace, 0}, std::pair<Int64, Int64>{0, 0}})
+        {
+            auto line = polygon->template AppendChild<Wp::LineTo>();
+            if (!line)
+            {
+                return false;
+            }
+            line->SetX(Int64Value(x));
+            line->SetY(Int64Value(y));
+        }
+        return true;
+    }
+
     static bool PopulateDrawingWithPicture(const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing,
                                            const std::string& relationshipId,
                                            Int64 widthEmu,
@@ -3715,6 +3754,7 @@ public:
                     auto wrapTight = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTight>();
                     wrapTight->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(
                         ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides));
+                    AppendRectangleWrapPolygon(wrapTight);
                     break;
                 }
 
@@ -3723,6 +3763,7 @@ public:
                     auto wrapThrough = anchorDrawing->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapThrough>();
                     wrapThrough->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(
                         ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues::BothSides));
+                    AppendRectangleWrapPolygon(wrapThrough);
                     break;
                 }
 
@@ -6038,6 +6079,13 @@ std::shared_ptr<Table> WordDocumentEditor::BodyCursor::InsertTable(Size rows, Si
         ResolveInsertionReference(body));
     if (!table)
     {
+        return nullptr;
+    }
+    // w:tblPr is required in CT_Tbl (the grid follows from the rows); an empty
+    // one is what the schema needs and what every table setter fills in later.
+    if (!WordPropertiesElementHelper::EnsureTableProperties(table))
+    {
+        body->RemoveChild(table);
         return nullptr;
     }
 
@@ -9035,7 +9083,12 @@ Paragraph& Paragraph::SetBorders(ExyokiOffice::DocumentFormat::OpenXml::Wordproc
         return *this;
     }
 
-    const auto spaceValue = spacing ? static_cast<UInt32>(std::max(0, WordValueHelper::ToTwipsInt(*spacing))) : 0u;
+    // w:space is a border spacing measurement in whole points (ST_PointMeasure,
+    // 0..31), not the twips most other paragraph measures use.
+    const auto spaceValue = spacing
+        ? static_cast<UInt32>(std::clamp(static_cast<Int64>(std::lround(spacing->ToUnit(MeasurementUnit::Point).GetValue())),
+                                         Int64{0}, Int64{31}))
+        : 0u;
     const auto colorValue = color.ToHexString();
 
     auto applyBorder = [&](auto border)
@@ -12717,12 +12770,14 @@ Image& Image::SetWrap(ImageWrap wrap, ExyokiOffice::DocumentFormat::OpenXml::Dra
         {
             auto wrapTight = anchor->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTight>();
             wrapTight->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(wrapText));
+            WordDrawingHelper::AppendRectangleWrapPolygon(wrapTight);
             break;
         }
         case ImageWrap::Through:
         {
             auto wrapThrough = anchor->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapThrough>();
             wrapThrough->SetWrapText(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::WrapTextValues>(wrapText));
+            WordDrawingHelper::AppendRectangleWrapPolygon(wrapThrough);
             break;
         }
         case ImageWrap::TopAndBottom:
@@ -14329,8 +14384,12 @@ std::shared_ptr<Table> Table::AddNestedTable(Size row,
     }
 
     auto nested = cell->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Table>();
-    if (!nested)
+    if (!nested || !WordPropertiesElementHelper::EnsureTableProperties(nested))
     {
+        if (nested)
+        {
+            cell->RemoveChild(nested);
+        }
         return nullptr;
     }
 

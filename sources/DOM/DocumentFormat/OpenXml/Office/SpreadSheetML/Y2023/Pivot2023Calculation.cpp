@@ -376,7 +376,7 @@ const ExyokiOffice::OpenXMLElementClass* SubtotalPivotItemSubtotal::ElementMetaC
 
 ExyokiOffice::MetadataParticlePtr CreatePivotTableSubtotalLineItemsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2023/pivot2023Calculation", "subtotalLineItem"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2023::Pivot2023Calculation::SubtotalLineItemPivotItemSubtotal", "CT_PivotItemSubtotal/xlpcalc:subtotalLineItem", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -438,7 +438,7 @@ const ExyokiOffice::OpenXMLElementClass* PivotTableSubtotalLineItems::ElementMet
 
 ExyokiOffice::MetadataParticlePtr CreatePivotAreaReferenceSubtotalsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2023/pivot2023Calculation", "subtotal"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2023::Pivot2023Calculation::PivotSubtotalType", "CT_PivotSubtotalType/xlpcalc:subtotal", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -500,7 +500,7 @@ const ExyokiOffice::OpenXMLElementClass* PivotAreaReferenceSubtotals::ElementMet
 
 ExyokiOffice::MetadataParticlePtr CreatePivotFieldSubtotalsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2023/pivot2023Calculation", "subtotal"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2023::Pivot2023Calculation::SubtotalPivotItemSubtotal", "CT_PivotItemSubtotal/xlpcalc:subtotal", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     return particleNode0;

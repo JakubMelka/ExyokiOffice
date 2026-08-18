@@ -173,7 +173,7 @@ public:
         REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
         const auto report = ExyokiOffice::Tools::Run(server->Path(path));
         CHECK(report.Loaded);
-        CHECK(report.ErrorCount == 0);
+        CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
     }
 
     static void CheckFileUtilities(TestFamily family)
@@ -207,7 +207,7 @@ public:
         }
         INFO(validationDetails);
         CHECK(report.Loaded);
-        CHECK(report.ErrorCount == 0);
+        CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 
         const auto split = server->Call("split_document", nlohmann::json{{"input_path", mergedPath},
                                                                          {"output_dir", "parts"},
@@ -227,7 +227,7 @@ public:
             }
             INFO(validationDetails);
             CHECK(report.Loaded);
-            CHECK(report.ErrorCount == 0);
+            CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
         }
 
         const auto redactedPath = "redacted" + extension;
@@ -244,7 +244,7 @@ public:
         }
         INFO(validationDetails);
         CHECK(report.Loaded);
-        CHECK(report.ErrorCount == 0);
+        CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
     }
 };
 

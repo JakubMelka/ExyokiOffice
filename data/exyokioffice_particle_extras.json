@@ -11,7 +11,12 @@
         "caught rather than silently ignored.",
         "",
         "Only add an entry for markup a released Office application actually writes,",
-        "and say which one in 'Reason'."
+        "and say which one in 'Reason'.",
+        "",
+        "'AppendAdditionalElements' lists 'type/element' names known to occur under a",
+        "type whose content model is an xsd:any, the way the imported metadata's",
+        "'AdditionalElements' does. They add nothing to the generated API; the runtime",
+        "uses them to type a child whose name several classes declare."
     ],
     "Types": [
         {
@@ -72,6 +77,13 @@
                         }
                     ]
                 }
+            ]
+        },
+        {
+            "Type": "a:CT_GraphicalObjectData/a:graphicData",
+            "Reason": "Excel puts a chartex reference (cx:chart, CT_RelId) into a:graphicData for every 2016 chart type - waterfall, treemap, funnel and the rest. The imported metadata lists the DrawingML chart reference c:chart there but not the chartex one, so the bare name resolved to the cx:chart body inside cx:chartSpace and every drawing with such a chart failed validation.",
+            "AppendAdditionalElements": [
+                "cx:CT_RelId/cx:chart"
             ]
         }
     ]

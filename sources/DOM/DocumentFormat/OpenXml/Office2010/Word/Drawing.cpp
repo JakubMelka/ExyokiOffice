@@ -289,8 +289,8 @@ const ExyokiOffice::OpenXMLElementClass* PercentageWidth::ElementMetaClass() con
 
 ExyokiOffice::MetadataParticlePtr CreateRelativeHeightParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing", "pctHeight"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Word::Drawing::PercentageHeight", "PercentageHeight", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing", "pctHeight"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Word::Drawing::PercentageHeight", "PercentageHeight", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -374,8 +374,8 @@ void RelativeHeight::SetRelativeFrom(const EnumValue<SizeRelativeVerticallyValue
 
 ExyokiOffice::MetadataParticlePtr CreateRelativeWidthParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing", "pctWidth"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Word::Drawing::PercentageWidth", "PercentageWidth", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing", "pctWidth"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Word::Drawing::PercentageWidth", "PercentageWidth", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }

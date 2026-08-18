@@ -57,7 +57,7 @@ TEST_CASE("a document is created, edited, saved, and reopened by the library [mc
 
     const auto report = ExyokiOffice::Tools::Run(path);
     CHECK(report.Loaded);
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("closing a document with unsaved changes needs discard [mcp-lifecycle]")

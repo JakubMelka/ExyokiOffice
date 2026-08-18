@@ -35,11 +35,11 @@ namespace Main {
 
 ExyokiOffice::MetadataParticlePtr CreatePlaceholderTypeACBParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2023/02/main", "cameo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2023::M02::Main::CameoEmpty", "CameoEmpty", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2023/02/main", "cameo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2023::M02::Main::CameoEmpty", "CameoEmpty", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2023/02/main", "unknown"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2023::M02::Main::UnknownEmpty", "UnknownEmpty", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2023/02/main", "unknown"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2023::M02::Main::UnknownEmpty", "UnknownEmpty", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode1->AddChild(particleNode3);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -260,8 +260,8 @@ const ExyokiOffice::OpenXMLElementClass* CameoEmpty::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreatePlaceholderTypeExtensionParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2023/02/main", "type"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2023::M02::Main::PlaceholderTypeACB", "PlaceholderTypeACB", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2023/02/main", "type"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2023::M02::Main::PlaceholderTypeACB", "PlaceholderTypeACB", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }

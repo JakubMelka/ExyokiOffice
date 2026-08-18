@@ -187,10 +187,10 @@ void CommentV2Moniker::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCommentReplyV2MonikerListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2019/9/main/command", "cmMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2019::Main::Command::CommentV2MonikerList", "CommentV2MonikerList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2019/9/main/command", "cmMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2019::Main::Command::CommentV2MonikerList", "CommentV2MonikerList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2019/9/main/command", "cmRplyMk"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2019::Main::Command::CommentReplyV2Moniker", "CommentReplyV2Moniker", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2019/9/main/command", "cmRplyMk"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2019::Main::Command::CommentReplyV2Moniker", "CommentReplyV2Moniker", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -251,10 +251,10 @@ const ExyokiOffice::OpenXMLElementClass* CommentReplyV2MonikerList::ElementMetaC
 
 ExyokiOffice::MetadataParticlePtr CreateCommentV2MonikerListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2013/main/command", "sldMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Presentation::Command::SlideMonikerList", "SlideMonikerList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2013/main/command", "sldMkLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2016::Presentation::Command::SlideMonikerList", "SlideMonikerList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2016);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2019/9/main/command", "cmMK"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2019::Main::Command::CommentV2Moniker", "CommentV2Moniker", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2019/9/main/command", "cmMK"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2019::Main::Command::CommentV2Moniker", "CommentV2Moniker", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }

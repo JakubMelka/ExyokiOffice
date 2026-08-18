@@ -93,7 +93,7 @@ TEST_SUITE("PowerPointShapeTreeTests")
         REQUIRE(reopened != nullptr);
         REQUIRE(reopened->GetSlide(0)->ShapeTree() != nullptr);
         CHECK(reopened->GetSlide(0)->ShapeTree()->Count() == 2);
-        const auto validation = ExyokiOffice::OpenXmlPackageValidator().Validate(*reopened->GetDocument());
+        const auto validation = ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*reopened->GetDocument());
         CHECK(validation.IsValid());
     }
 

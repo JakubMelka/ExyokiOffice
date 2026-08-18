@@ -157,7 +157,7 @@ TEST_SUITE("PowerPointTableTests")
         REQUIRE(shape->InsertTableRow(1, 250000));
         REQUIRE(shape->InsertTableColumn(3, 500000));
         REQUIRE(shape->MergeTableCells(2, 0, 2, 2));
-        const auto report = ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument());
+        const auto report = ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument());
         CHECK(report.IsValid());
     }
 } // TEST_SUITE("PowerPointTableTests")

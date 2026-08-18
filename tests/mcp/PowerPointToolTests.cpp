@@ -158,7 +158,7 @@ TEST_CASE("slides are added with real placeholders [mcp-powerpoint]")
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("deck.pptx"));
     CHECK(report.Loaded);
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("an unknown layout is reported as layout_not_found [mcp-powerpoint]")
@@ -271,7 +271,7 @@ TEST_CASE("text boxes and shape transforms are written [mcp-powerpoint]")
     static_cast<void>(server->Call("save_document", nlohmann::json{{"documentId", documentId}}));
     const auto report = ExyokiOffice::Tools::Run(server->Path("shapes.pptx"));
     CHECK(report.Loaded);
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("placeholder text is written by type [mcp-powerpoint]")
@@ -365,7 +365,7 @@ TEST_CASE("tables and charts are placed on a slide [mcp-powerpoint]")
     static_cast<void>(server->Call("save_document", nlohmann::json{{"documentId", documentId}}));
     const auto report = ExyokiOffice::Tools::Run(server->Path("content.pptx"));
     CHECK(report.Loaded);
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("an image keeps its aspect ratio when only the width is given [mcp-powerpoint]")
@@ -463,7 +463,7 @@ TEST_CASE("notes, comments, transitions, sections, and the slide size are set [m
     }
     INFO(validationDetails);
     CHECK(report.Loaded);
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("a slide is imported from another presentation [mcp-powerpoint]")

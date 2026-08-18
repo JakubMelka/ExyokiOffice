@@ -295,24 +295,24 @@ const ExyokiOffice::OpenXmlMetaEnum* DisjunctionTypeValues::GetMetaEnum() noexce
 ExyokiOffice::MetadataParticlePtr CreateEmmaParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derivation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Derivation", "CT_Derivation/emma:derivation", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derivation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Derivation", "CT_Derivation/emma:derivation", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "grammar"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Grammar", "CT_Grammar/emma:grammar", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "grammar"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Grammar", "CT_Grammar/emma:grammar", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "model"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Model", "CT_Model/emma:model", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "model"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Model", "CT_Model/emma:model", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "endpoint-info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::EndPointInfo", "CT_EndPointInfo/emma:endpoint-info", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "endpoint-info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::EndPointInfo", "CT_EndPointInfo/emma:endpoint-info", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode10);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -397,7 +397,7 @@ void Emma::SetVersion(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateArcParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -640,7 +640,7 @@ void Arc::SetSource(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateNodeParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -754,7 +754,7 @@ void Node::SetCost(const DecimalValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateEndPointParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("##other", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -980,7 +980,7 @@ void EndPoint::SetMode(const ListValue<StringValue>& value)
 ExyokiOffice::MetadataParticlePtr CreateEndPointInfoParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "endpoint"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::EndPoint", "CT_EndPoint/emma:endpoint", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "endpoint"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::EndPoint", "CT_EndPoint/emma:endpoint", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1064,7 +1064,7 @@ void EndPointInfo::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateModelParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("##other", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1257,13 +1257,13 @@ void Grammar::SetReference(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateDerivationParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
     return particleNode0;
 }
@@ -1324,7 +1324,7 @@ const ExyokiOffice::OpenXMLElementClass* Derivation::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateGroupInfoParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("##other", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1409,18 +1409,18 @@ void GroupInfo::SetReference(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateSequenceParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derived-from"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::DerivedFrom", "CT_DerivedFrom/emma:derived-from", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derived-from"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::DerivedFrom", "CT_DerivedFrom/emma:derived-from", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode7);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1830,20 +1830,20 @@ void Sequence::SetDialogTurn(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateGroupParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derived-from"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::DerivedFrom", "CT_DerivedFrom/emma:derived-from", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derived-from"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::DerivedFrom", "CT_DerivedFrom/emma:derived-from", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group-info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::GroupInfo", "CT_GroupInfo/emma:group-info", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group-info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::GroupInfo", "CT_GroupInfo/emma:group-info", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode8);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -2253,18 +2253,18 @@ void Group::SetDialogTurn(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateOneOfParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derived-from"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::DerivedFrom", "CT_DerivedFrom/emma:derived-from", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derived-from"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::DerivedFrom", "CT_DerivedFrom/emma:derived-from", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "interpretation"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Interpretation", "CT_Interpretation/emma:interpretation", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "one-of"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::OneOf", "CT_OneOf/emma:one-of", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "group"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Group", "CT_Group/emma:group", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "sequence"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Sequence", "CT_Sequence/emma:sequence", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode7);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -2689,14 +2689,14 @@ void OneOf::SetDialogTurn(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateInterpretationParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derived-from"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::DerivedFrom", "CT_DerivedFrom/emma:derived-from", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "derived-from"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::DerivedFrom", "CT_DerivedFrom/emma:derived-from", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "info"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Info", "CT_Info/emma:info", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "lattice"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Lattice", "CT_Lattice/emma:lattice", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "lattice"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Lattice", "CT_Lattice/emma:lattice", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "literal"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Literal", "CT_Literal/emma:literal", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "literal"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Literal", "CT_Literal/emma:literal", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode5);
     auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/ink/2010/main", "context"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Ink::ContextNode", "CT_CtxNode/msink:context", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode6);
@@ -3191,9 +3191,9 @@ const ExyokiOffice::OpenXMLElementClass* Literal::ElementMetaClass() const noexc
 ExyokiOffice::MetadataParticlePtr CreateLatticeParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "arc"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Arc", "CT_Arc/emma:arc", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "arc"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Arc", "CT_Arc/emma:arc", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "node"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Node", "CT_Node/emma:node", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://www.w3.org/2003/04/emma", "node"), "ExyokiOffice::DocumentFormat::OpenXml::EMMA::Node", "CT_Node/emma:node", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -3320,7 +3320,7 @@ void Lattice::SetTimeReferenceAnchorPoint(const EnumValue<AnchorPointValues>& va
 
 ExyokiOffice::MetadataParticlePtr CreateInfoParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataAnyParticle>("##other", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;

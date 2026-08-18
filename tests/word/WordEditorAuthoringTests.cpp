@@ -362,7 +362,7 @@ TEST_SUITE("WordEditorAuthoringTests")
         ExyokiOffice::OpenXmlPackage package;
         REQUIRE(package.LoadFromMemory(bytes));
 
-        const auto result = ExyokiOffice::OpenXmlPackageValidator().Validate(package);
+        const auto result = ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(package);
         for (const auto& issue : result.Issues())
         {
             CAPTURE(issue.Message);

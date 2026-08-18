@@ -163,7 +163,7 @@ TEST_SUITE("PowerPointAnimationEffectTests")
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened);
         CHECK(reopened->GetSlide(0)->AnimationEffects() == stored);
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*reopened->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*reopened->GetDocument()).IsValid());
     }
 
     TEST_CASE("effect timing is stored on the effect node and round trips [unit] [powerpoint] [animation]")

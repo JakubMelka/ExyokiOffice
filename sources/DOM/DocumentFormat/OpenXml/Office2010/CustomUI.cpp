@@ -629,7 +629,7 @@ const ExyokiOffice::OpenXmlMetaEnum* LayoutChildrenValues::GetMetaEnum() noexcep
 
 ExyokiOffice::MetadataParticlePtr CreateContextMenusParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "contextMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ContextMenu", "CT_ContextMenu/mso14:contextMenu", 1, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -691,11 +691,11 @@ const ExyokiOffice::OpenXMLElementClass* ContextMenus::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateBackstageParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{255}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "tab"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageTab", "CT_BackstageTab/mso14:tab", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "tab"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageTab", "CT_BackstageTab/mso14:tab", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageFastCommandButton", "CT_BackstageFastCommandButton/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageFastCommandButton", "CT_BackstageFastCommandButton/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode3);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -794,7 +794,7 @@ void Backstage::SetOnHide(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRibbonParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataAllParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataAllParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "qat"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::QuickAccessToolbar", "QuickAccessToolbar", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "tabs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Tabs", "Tabs", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
@@ -881,7 +881,7 @@ void Ribbon::SetStartFromScratch(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCommandsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "command"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Command", "CT_Command/mso14:command", 1, std::optional<ExyokiOffice::UInt32>{5000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1316,7 +1316,7 @@ void BackstageFastCommandButton::SetGetImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateBackstageTabParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "firstColumn"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroups", "BackstageGroups", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "secondColumn"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SimpleGroups", "SimpleGroups", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
@@ -1731,11 +1731,11 @@ void BackstageTab::SetSecondColumnMaxWidth(const IntegerValue& value)
 ExyokiOffice::MetadataParticlePtr CreateSimpleGroupsParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "group"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroup", "CT_BackstageGroup/mso14:group", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "group"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroup", "CT_BackstageGroup/mso14:group", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "taskGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskGroup", "CT_TaskGroup/mso14:taskGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "taskGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskGroup", "CT_TaskGroup/mso14:taskGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode4);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -1798,17 +1798,17 @@ const ExyokiOffice::OpenXMLElementClass* SimpleGroups::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateBackstageGroupsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "taskFormGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskFormGroup", "CT_TaskFormGroup/mso14:taskFormGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "taskFormGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskFormGroup", "CT_TaskFormGroup/mso14:taskFormGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "group"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroup", "CT_BackstageGroup/mso14:group", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "group"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroup", "CT_BackstageGroup/mso14:group", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode5->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "taskGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskGroup", "CT_TaskGroup/mso14:taskGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "taskGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskGroup", "CT_TaskGroup/mso14:taskGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode5->AddChild(particleNode7);
     particleNode4->AddChild(particleNode5);
     particleNode3->AddChild(particleNode4);
@@ -1872,7 +1872,7 @@ const ExyokiOffice::OpenXMLElementClass* BackstageGroups::ElementMetaClass() con
 
 ExyokiOffice::MetadataParticlePtr CreateTaskFormGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "category"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskFormGroupCategory", "CT_TaskFormGroupCategory/mso14:category", 0, std::optional<ExyokiOffice::UInt32>{100}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -2133,7 +2133,7 @@ void TaskFormGroup::SetAllowedTaskSizes(const EnumValue<TaskSizesValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTaskFormGroupTaskParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "group"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroup", "CT_BackstageGroup/mso14:group", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -2515,7 +2515,7 @@ void TaskFormGroupTask::SetGetKeytip(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTaskFormGroupCategoryParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "task"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskFormGroupTask", "CT_TaskFormGroupTask/mso14:task", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -3165,7 +3165,7 @@ void TaskGroupTask::SetGetKeytip(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTaskGroupCategoryParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "task"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskGroupTask", "CT_TaskGroupTask/mso14:task", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -3449,12 +3449,12 @@ public:
     {
         builder.SetSchemaName("schemas_microsoft_com_office_2009_07_customui.json");
         builder.SetAvailability(ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
-        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox");
-        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ComboBox");
-        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DropDownRegular");
-        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::EditBox");
-        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular");
-        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LabelControl");
+        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox");
+        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageComboBox");
+        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageDropDown");
+        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageEditBox");
+        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton");
+        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageLabelControl");
         builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "groupBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GroupBox");
         builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Hyperlink");
         builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "imageControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ImageControl");
@@ -3479,28 +3479,28 @@ ExyokiOffice::MetadataParticlePtr CreateBottomItemsGroupControlsParticleMetadata
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton", "CT_BackstageGroupButton/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton", "CT_BackstageGroupButton/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox", "CT_BackstageCheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox", "CT_BackstageCheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageEditBox", "CT_BackstageEditBox/mso14:editBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageEditBox", "CT_BackstageEditBox/mso14:editBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageDropDown", "CT_BackstageDropDown/mso14:dropDown", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageDropDown", "CT_BackstageDropDown/mso14:dropDown", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "radioGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::RadioGroup", "CT_RadioGroup/mso14:radioGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "radioGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::RadioGroup", "CT_RadioGroup/mso14:radioGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageComboBox", "CT_BackstageComboBox/mso14:comboBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageComboBox", "CT_BackstageComboBox/mso14:comboBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Hyperlink", "CT_Hyperlink/mso14:hyperlink", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Hyperlink", "CT_Hyperlink/mso14:hyperlink", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageLabelControl", "CT_BackstageLabelControl/mso14:labelControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageLabelControl", "CT_BackstageLabelControl/mso14:labelControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "groupBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GroupBox", "CT_GroupBox/mso14:groupBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "groupBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GroupBox", "CT_GroupBox/mso14:groupBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "layoutContainer"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LayoutContainer", "CT_LayoutContainer/mso14:layoutContainer", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "layoutContainer"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LayoutContainer", "CT_LayoutContainer/mso14:layoutContainer", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "imageControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ImageControl", "CT_ImageControl/mso14:imageControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "imageControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ImageControl", "CT_ImageControl/mso14:imageControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode13);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -3565,28 +3565,28 @@ ExyokiOffice::MetadataParticlePtr CreateTopItemsGroupControlsParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton", "CT_BackstageGroupButton/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton", "CT_BackstageGroupButton/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox", "CT_BackstageCheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox", "CT_BackstageCheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageEditBox", "CT_BackstageEditBox/mso14:editBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageEditBox", "CT_BackstageEditBox/mso14:editBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageDropDown", "CT_BackstageDropDown/mso14:dropDown", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageDropDown", "CT_BackstageDropDown/mso14:dropDown", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "radioGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::RadioGroup", "CT_RadioGroup/mso14:radioGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "radioGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::RadioGroup", "CT_RadioGroup/mso14:radioGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageComboBox", "CT_BackstageComboBox/mso14:comboBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageComboBox", "CT_BackstageComboBox/mso14:comboBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Hyperlink", "CT_Hyperlink/mso14:hyperlink", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Hyperlink", "CT_Hyperlink/mso14:hyperlink", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageLabelControl", "CT_BackstageLabelControl/mso14:labelControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageLabelControl", "CT_BackstageLabelControl/mso14:labelControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "groupBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GroupBox", "CT_GroupBox/mso14:groupBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "groupBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GroupBox", "CT_GroupBox/mso14:groupBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "layoutContainer"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LayoutContainer", "CT_LayoutContainer/mso14:layoutContainer", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "layoutContainer"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LayoutContainer", "CT_LayoutContainer/mso14:layoutContainer", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "imageControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ImageControl", "CT_ImageControl/mso14:imageControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "imageControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ImageControl", "CT_ImageControl/mso14:imageControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode13);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -3649,7 +3649,7 @@ const ExyokiOffice::OpenXMLElementClass* TopItemsGroupControls::ElementMetaClass
 
 ExyokiOffice::MetadataParticlePtr CreatePrimaryItemParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageRegularButton", "BackstageRegularButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstagePrimaryMenu", "BackstagePrimaryMenu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
@@ -3713,17 +3713,17 @@ const ExyokiOffice::OpenXMLElementClass* PrimaryItem::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateBackstageMenuGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuButton", "CT_BackstageMenuButton/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuButton", "CT_BackstageMenuButton/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuCheckBox", "CT_BackstageMenuCheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuCheckBox", "CT_BackstageMenuCheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageSubMenu", "CT_BackstageSubMenu/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageSubMenu", "CT_BackstageSubMenu/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuToggleButton", "CT_BackstageMenuToggleButton/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuToggleButton", "CT_BackstageMenuToggleButton/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode7);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -3883,10 +3883,10 @@ void BackstageMenuGroup::SetItemSize(const EnumValue<ItemSizeValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateBackstagePrimaryMenuParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuGroup", "CT_BackstageMenuGroup/mso14:menuGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuGroup", "CT_BackstageMenuGroup/mso14:menuGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -4792,27 +4792,27 @@ const ExyokiOffice::OpenXMLElementClass* ItemBackstageItem::ElementMetaClass() c
 
 ExyokiOffice::MetadataParticlePtr CreateContextMenuParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparatorNoTitle", "CT_MenuSeparatorNoTitle/mso14:menuSeparator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparatorNoTitle", "CT_MenuSeparatorNoTitle/mso14:menuSeparator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode12);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -4898,7 +4898,7 @@ void ContextMenu::SetIdMso(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateContextualTabsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "tabSet"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TabSet", "CT_TabSet/mso14:tabSet", 1, std::optional<ExyokiOffice::UInt32>{100}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -4960,7 +4960,7 @@ const ExyokiOffice::OpenXMLElementClass* ContextualTabs::ElementMetaClass() cons
 
 ExyokiOffice::MetadataParticlePtr CreateTabsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "tab"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Tab", "CT_Tab/mso14:tab", 1, std::optional<ExyokiOffice::UInt32>{100}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -5022,7 +5022,7 @@ const ExyokiOffice::OpenXMLElementClass* Tabs::ElementMetaClass() const noexcept
 
 ExyokiOffice::MetadataParticlePtr CreateQuickAccessToolbarParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "sharedControls"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SharedControlsQatItems", "SharedControlsQatItems", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "documentControls"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DocumentControlsQatItems", "DocumentControlsQatItems", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
@@ -5205,7 +5205,7 @@ void Command::SetIdMso(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTabSetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "tab"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Tab", "CT_Tab/mso14:tab", 0, std::optional<ExyokiOffice::UInt32>{50}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -5319,9 +5319,9 @@ void TabSet::SetGetVisible(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTabParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{100}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "group"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Group", "CT_Group/mso14:group", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "group"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Group", "CT_Group/mso14:group", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -5636,7 +5636,7 @@ public:
         builder.SetSchemaName("schemas_microsoft_com_office_2009_07_customui.json");
         builder.SetAvailability(ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
         builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular");
-        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular");
+        builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneQat");
         builder.AddAdditionalElement(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "separator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Separator");
     }
 };
@@ -5655,13 +5655,13 @@ const ExyokiOffice::OpenXMLElementClass* QatItemsType::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateDocumentControlsQatItemsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneQat", "CT_ControlCloneQat/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneQat", "CT_ControlCloneQat/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "separator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Separator", "CT_Separator/mso14:separator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "separator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Separator", "CT_Separator/mso14:separator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode4);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -5723,13 +5723,13 @@ const ExyokiOffice::OpenXMLElementClass* DocumentControlsQatItems::ElementMetaCl
 
 ExyokiOffice::MetadataParticlePtr CreateSharedControlsQatItemsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneQat", "CT_ControlCloneQat/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneQat", "CT_ControlCloneQat/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "separator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Separator", "CT_Separator/mso14:separator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "separator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Separator", "CT_Separator/mso14:separator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode4);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -6297,42 +6297,42 @@ void ControlCloneQat::SetGetShowImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlClone", "CT_ControlClone/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlClone", "CT_ControlClone/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LabelControl", "CT_LabelControl/mso14:labelControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LabelControl", "CT_LabelControl/mso14:labelControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Button", "CT_Button/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Button", "CT_Button/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButton", "CT_ToggleButton/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButton", "CT_ToggleButton/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::EditBox", "CT_EditBox/mso14:editBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::EditBox", "CT_EditBox/mso14:editBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ComboBox", "CT_ComboBox/mso14:comboBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ComboBox", "CT_ComboBox/mso14:comboBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DropDownRegular", "CT_DropDownRegular/mso14:dropDown", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DropDownRegular", "CT_DropDownRegular/mso14:dropDown", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Gallery", "CT_Gallery/mso14:gallery", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Gallery", "CT_Gallery/mso14:gallery", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode13);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Menu", "CT_Menu/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Menu", "CT_Menu/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode14);
-    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenu", "CT_DynamicMenu/mso14:dynamicMenu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenu", "CT_DynamicMenu/mso14:dynamicMenu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode15);
-    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButton", "CT_SplitButton/mso14:splitButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButton", "CT_SplitButton/mso14:splitButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode16);
-    auto particleNode17 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "box"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Box", "CT_Box/mso14:box", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode17 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "box"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Box", "CT_Box/mso14:box", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode17);
-    auto particleNode18 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "buttonGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonGroup", "CT_ButtonGroup/mso14:buttonGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode18 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "buttonGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonGroup", "CT_ButtonGroup/mso14:buttonGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode18);
     particleNode3->AddChild(particleNode4);
     particleNode2->AddChild(particleNode3);
-    auto particleNode19 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "separator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Separator", "CT_Separator/mso14:separator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode19 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "separator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Separator", "CT_Separator/mso14:separator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode19);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -6746,8 +6746,8 @@ void Group::SetCenterVertically(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDialogBoxLauncherParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "ButtonRegular", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "ButtonRegular", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -8122,7 +8122,7 @@ void Item::SetSupertip(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCustomUIParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "commands"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Commands", "Commands", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "ribbon"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Ribbon", "Ribbon", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
@@ -8227,31 +8227,31 @@ void CustomUI::SetLoadImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMenuRootParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparator", "CT_MenuSeparator/mso14:menuSeparator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparator", "CT_MenuSeparator/mso14:menuSeparator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode9);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode11->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode11->AddChild(particleNode13);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode11->AddChild(particleNode14);
     particleNode10->AddChild(particleNode11);
     particleNode1->AddChild(particleNode10);
@@ -8366,7 +8366,7 @@ void MenuRoot::SetItemSize(const EnumValue<ItemSizeValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTaskGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "category"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::TaskGroupCategory", "CT_TaskGroupCategory/mso14:category", 0, std::optional<ExyokiOffice::UInt32>{100}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -8687,7 +8687,7 @@ void TaskGroup::SetAllowedTaskSizes(const EnumValue<TaskSizesValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateBackstageGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "primaryItem"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::PrimaryItem", "CT_PrimaryItem/mso14:primaryItem", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
@@ -9267,30 +9267,30 @@ void ImageControl::SetGetAltText(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateLayoutContainerParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton", "CT_BackstageGroupButton/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton", "CT_BackstageGroupButton/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox", "CT_BackstageCheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox", "CT_BackstageCheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageEditBox", "CT_BackstageEditBox/mso14:editBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageEditBox", "CT_BackstageEditBox/mso14:editBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageDropDown", "CT_BackstageDropDown/mso14:dropDown", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageDropDown", "CT_BackstageDropDown/mso14:dropDown", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "radioGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::RadioGroup", "CT_RadioGroup/mso14:radioGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "radioGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::RadioGroup", "CT_RadioGroup/mso14:radioGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageComboBox", "CT_BackstageComboBox/mso14:comboBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageComboBox", "CT_BackstageComboBox/mso14:comboBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Hyperlink", "CT_Hyperlink/mso14:hyperlink", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Hyperlink", "CT_Hyperlink/mso14:hyperlink", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageLabelControl", "CT_BackstageLabelControl/mso14:labelControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageLabelControl", "CT_BackstageLabelControl/mso14:labelControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "groupBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GroupBox", "CT_GroupBox/mso14:groupBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "groupBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GroupBox", "CT_GroupBox/mso14:groupBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "layoutContainer"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LayoutContainer", "CT_LayoutContainer/mso14:layoutContainer", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "layoutContainer"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LayoutContainer", "CT_LayoutContainer/mso14:layoutContainer", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "imageControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ImageControl", "CT_ImageControl/mso14:imageControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "imageControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ImageControl", "CT_ImageControl/mso14:imageControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode13);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -9447,30 +9447,30 @@ void LayoutContainer::SetLayoutChildren(const EnumValue<LayoutChildrenValues>& v
 
 ExyokiOffice::MetadataParticlePtr CreateGroupBoxParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton", "CT_BackstageGroupButton/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageGroupButton", "CT_BackstageGroupButton/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox", "CT_BackstageCheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageCheckBox", "CT_BackstageCheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageEditBox", "CT_BackstageEditBox/mso14:editBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageEditBox", "CT_BackstageEditBox/mso14:editBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageDropDown", "CT_BackstageDropDown/mso14:dropDown", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageDropDown", "CT_BackstageDropDown/mso14:dropDown", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "radioGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::RadioGroup", "CT_RadioGroup/mso14:radioGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "radioGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::RadioGroup", "CT_RadioGroup/mso14:radioGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageComboBox", "CT_BackstageComboBox/mso14:comboBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageComboBox", "CT_BackstageComboBox/mso14:comboBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Hyperlink", "CT_Hyperlink/mso14:hyperlink", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "hyperlink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Hyperlink", "CT_Hyperlink/mso14:hyperlink", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageLabelControl", "CT_BackstageLabelControl/mso14:labelControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageLabelControl", "CT_BackstageLabelControl/mso14:labelControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "groupBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GroupBox", "CT_GroupBox/mso14:groupBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "groupBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GroupBox", "CT_GroupBox/mso14:groupBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "layoutContainer"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LayoutContainer", "CT_LayoutContainer/mso14:layoutContainer", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "layoutContainer"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LayoutContainer", "CT_LayoutContainer/mso14:layoutContainer", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "imageControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ImageControl", "CT_ImageControl/mso14:imageControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "imageControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ImageControl", "CT_ImageControl/mso14:imageControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode13);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -10265,7 +10265,7 @@ void Hyperlink::SetGetTarget(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateBackstageComboBoxParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "item"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ItemBackstageItem", "CT_BackstageItem/mso14:item", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10615,7 +10615,7 @@ void BackstageComboBox::SetGetItemID(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRadioGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "radioButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::RadioButtonBackstageItem", "CT_BackstageItem/mso14:radioButton", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -10950,7 +10950,7 @@ void RadioGroup::SetGetItemID(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateBackstageDropDownParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "item"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ItemBackstageItem", "CT_BackstageItem/mso14:item", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -12741,10 +12741,10 @@ void BackstageMenuToggleButton::SetGetKeytip(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateBackstageSubMenuParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuGroup", "CT_BackstageMenuGroup/mso14:menuGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::BackstageMenuGroup", "CT_BackstageMenuGroup/mso14:menuGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -13662,23 +13662,23 @@ void BackstageMenuButton::SetGetImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateButtonGroupParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "separator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Separator", "CT_Separator/mso14:separator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "separator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Separator", "CT_Separator/mso14:separator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode9);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -13882,34 +13882,34 @@ void ButtonGroup::SetInsertBeforeQulifiedId(const StringValue& value)
 ExyokiOffice::MetadataParticlePtr CreateBoxParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlClone", "CT_ControlClone/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlClone", "CT_ControlClone/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LabelControl", "CT_LabelControl/mso14:labelControl", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "labelControl"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::LabelControl", "CT_LabelControl/mso14:labelControl", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Button", "CT_Button/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Button", "CT_Button/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButton", "CT_ToggleButton/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButton", "CT_ToggleButton/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::EditBox", "CT_EditBox/mso14:editBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "editBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::EditBox", "CT_EditBox/mso14:editBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ComboBox", "CT_ComboBox/mso14:comboBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "comboBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ComboBox", "CT_ComboBox/mso14:comboBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DropDownRegular", "CT_DropDownRegular/mso14:dropDown", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dropDown"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DropDownRegular", "CT_DropDownRegular/mso14:dropDown", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Gallery", "CT_Gallery/mso14:gallery", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Gallery", "CT_Gallery/mso14:gallery", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Menu", "CT_Menu/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Menu", "CT_Menu/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenu", "CT_DynamicMenu/mso14:dynamicMenu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenu", "CT_DynamicMenu/mso14:dynamicMenu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButton", "CT_SplitButton/mso14:splitButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButton", "CT_SplitButton/mso14:splitButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode13);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "box"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Box", "CT_Box/mso14:box", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "box"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Box", "CT_Box/mso14:box", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode14);
-    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "buttonGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonGroup", "CT_ButtonGroup/mso14:buttonGroup", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "buttonGroup"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonGroup", "CT_ButtonGroup/mso14:buttonGroup", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode15);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -14126,16 +14126,16 @@ void Box::SetBoxStyle(const EnumValue<BoxStyleValues>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSplitButtonParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleButton", "CT_VisibleButton/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleButton", "CT_VisibleButton/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleToggleButton", "CT_VisibleToggleButton/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleToggleButton", "CT_VisibleToggleButton/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode5);
     particleNode2->AddChild(particleNode3);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode6);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -15021,33 +15021,33 @@ void DynamicMenu::SetGetShowImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMenuParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode5->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode5->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode5->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode5->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode5->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparator", "CT_MenuSeparator/mso14:menuSeparator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparator", "CT_MenuSeparator/mso14:menuSeparator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode5->AddChild(particleNode11);
     particleNode4->AddChild(particleNode5);
     particleNode3->AddChild(particleNode4);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode13->AddChild(particleNode14);
-    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode13->AddChild(particleNode15);
-    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode13->AddChild(particleNode16);
     particleNode12->AddChild(particleNode13);
     particleNode3->AddChild(particleNode12);
@@ -15594,10 +15594,10 @@ void Menu::SetGetShowImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateGalleryParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "item"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Item", "CT_Item/mso14:item", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode3->AddChild(particleNode4);
     auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{16}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
@@ -16427,8 +16427,8 @@ void Gallery::SetGetShowImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDropDownRegularParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "item"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Item", "CT_Item/mso14:item", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{16}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
@@ -17079,8 +17079,8 @@ void DropDownRegular::SetGetShowImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateComboBoxParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "item"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Item", "CT_Item/mso14:item", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode2);
     particleNode0->AddChild(particleNode1);
@@ -20365,32 +20365,32 @@ void MenuSeparatorNoTitle::SetInsertBeforeQulifiedId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMenuWithTitleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparator", "CT_MenuSeparator/mso14:menuSeparator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparator", "CT_MenuSeparator/mso14:menuSeparator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode10);
     particleNode3->AddChild(particleNode4);
     particleNode2->AddChild(particleNode3);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonWithTitle", "CT_SplitButtonWithTitle/mso14:splitButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonWithTitle", "CT_SplitButtonWithTitle/mso14:splitButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode12->AddChild(particleNode13);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuWithTitle", "CT_MenuWithTitle/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuWithTitle", "CT_MenuWithTitle/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode12->AddChild(particleNode14);
-    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode12->AddChild(particleNode15);
     particleNode11->AddChild(particleNode12);
     particleNode2->AddChild(particleNode11);
@@ -20907,15 +20907,15 @@ void MenuWithTitle::SetGetShowImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSplitButtonWithTitleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleButton", "CT_VisibleButton/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleButton", "CT_VisibleButton/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleToggleButton", "CT_VisibleToggleButton/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleToggleButton", "CT_VisibleToggleButton/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode4);
     particleNode1->AddChild(particleNode2);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuWithTitle", "CT_MenuWithTitle/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuWithTitle", "CT_MenuWithTitle/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode5);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -21742,32 +21742,32 @@ void DynamicMenuRegular::SetGetShowImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateMenuRegularParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "control"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ControlCloneRegular", "CT_ControlCloneRegular/mso14:control", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "checkBox"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::CheckBox", "CT_CheckBox/mso14:checkBox", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "gallery"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::GalleryRegular", "CT_GalleryRegular/mso14:gallery", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ToggleButtonRegular", "CT_ToggleButtonRegular/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparator", "CT_MenuSeparator/mso14:menuSeparator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menuSeparator"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuSeparator", "CT_MenuSeparator/mso14:menuSeparator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode4->AddChild(particleNode10);
     particleNode3->AddChild(particleNode4);
     particleNode2->AddChild(particleNode3);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010, false);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "splitButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::SplitButtonRegular", "CT_SplitButtonRegular/mso14:splitButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode12->AddChild(particleNode13);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode12->AddChild(particleNode14);
-    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "dynamicMenu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::DynamicMenuRegular", "CT_DynamicMenuRegular/mso14:dynamicMenu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode12->AddChild(particleNode15);
     particleNode11->AddChild(particleNode12);
     particleNode2->AddChild(particleNode11);
@@ -22284,15 +22284,15 @@ void MenuRegular::SetGetShowImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSplitButtonRegularParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleButton", "CT_VisibleButton/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleButton", "CT_VisibleButton/mso14:button", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleToggleButton", "CT_VisibleToggleButton/mso14:toggleButton", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "toggleButton"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::VisibleToggleButton", "CT_VisibleToggleButton/mso14:toggleButton", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode4);
     particleNode1->AddChild(particleNode2);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "menu"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::MenuRegular", "CT_MenuRegular/mso14:menu", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode1->AddChild(particleNode5);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -23314,9 +23314,9 @@ void ToggleButtonRegular::SetGetShowImage(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateGalleryRegularParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "item"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::Item", "CT_Item/mso14:item", 0, std::optional<ExyokiOffice::UInt32>{1000}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);
     particleNode2->AddChild(particleNode3);
     auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2009/07/customui", "button"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::CustomUI::ButtonRegular", "CT_ButtonRegular/mso14:button", 0, std::optional<ExyokiOffice::UInt32>{16}, ExyokiOffice::OpenXml::FileFormatVersions::Office2010);

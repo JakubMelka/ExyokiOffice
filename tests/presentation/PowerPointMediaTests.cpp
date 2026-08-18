@@ -128,7 +128,7 @@ TEST_SUITE("PowerPointMediaTests")
             ExyokiOffice::Color(4, 5, 6)};
         REQUIRE(shape->SetEffects(effects));
         CHECK(shape->GetMedia() == media);
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument()).IsValid());
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened != nullptr);

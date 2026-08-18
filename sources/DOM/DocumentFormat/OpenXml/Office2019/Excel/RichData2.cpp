@@ -413,7 +413,7 @@ void RichValueTypeReservedKeyFlag::SetValue(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRichValueTypeReservedKeyParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "flag"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichValueTypeReservedKeyFlag", "CT_RichValueTypeReservedKeyFlag/xlrd2:flag", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -497,7 +497,7 @@ void RichValueTypeReservedKey::SetName(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRichValueTypeKeyFlagsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "key"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichValueTypeReservedKey", "CT_RichValueTypeReservedKey/xlrd2:key", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -559,7 +559,7 @@ const ExyokiOffice::OpenXMLElementClass* RichValueTypeKeyFlags::ElementMetaClass
 
 ExyokiOffice::MetadataParticlePtr CreateRichValueTypeParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "keyFlags"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichValueTypeKeyFlags", "RichValueTypeKeyFlags", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -645,7 +645,7 @@ void RichValueType::SetName(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRichValueTypesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "type"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichValueType", "CT_RichValueType/xlrd2:type", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -707,7 +707,7 @@ const ExyokiOffice::OpenXMLElementClass* RichValueTypes::ElementMetaClass() cons
 
 ExyokiOffice::MetadataParticlePtr CreateRichValueGlobalTypeParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "keyFlags"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichValueTypeKeyFlags", "RichValueTypeKeyFlags", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -846,7 +846,7 @@ void RichStylePropertyValue::SetI(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRichStyleParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "rpv"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichStylePropertyValue", "CT_RichStylePropertyValue/xlrd2:rpv", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1019,7 +1019,7 @@ void RichFormatProperty::SetT(const EnumValue<RichFormatPropertyType>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRichStylesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "rSty"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichStyle", "CT_RichStyle/xlrd2:rSty", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1081,7 +1081,7 @@ const ExyokiOffice::OpenXMLElementClass* RichStyles::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateRichFormatPropertiesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "rPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichFormatProperty", "CT_RichFormatProperty/xlrd2:rPr", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1143,7 +1143,7 @@ const ExyokiOffice::OpenXMLElementClass* RichFormatProperties::ElementMetaClass(
 
 ExyokiOffice::MetadataParticlePtr CreateDxfsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dxf"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::DifferentialFormat", "CT_Dxf/x:dxf", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1300,7 +1300,7 @@ void ArrayValue::SetT(const EnumValue<ArrayValueType>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateArrayParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "v"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ArrayValue", "CT_ArrayValue/xlrd2:v", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1472,7 +1472,7 @@ void SupportingPropertyBagArrayValue::SetT(const EnumValue<SupportingPropertyBag
 
 ExyokiOffice::MetadataParticlePtr CreateSupportingPropertyBagArrayParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "v"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagArrayValue", "CT_SupportingPropertyBagArrayValue/xlrd2:v", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1645,7 +1645,7 @@ void SupportingPropertyBagKey::SetT(const EnumValue<SupportingPropertyBagValueTy
 
 ExyokiOffice::MetadataParticlePtr CreateSupportingPropertyBagStructureParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "k"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagKey", "CT_SupportingPropertyBagKey/xlrd2:k", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1760,7 +1760,7 @@ const ExyokiOffice::OpenXMLElementClass* SupportingPropertyBagValue::ElementMeta
 
 ExyokiOffice::MetadataParticlePtr CreateSupportingPropertyBagParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "v"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagValue", "CT_SupportingPropertyBagValue/xlrd2:v", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1844,7 +1844,7 @@ void SupportingPropertyBag::SetS(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSupportingPropertyBagDataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "spb"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBag", "CT_SupportingPropertyBag/xlrd2:spb", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ExtensionList", "CT_ExtensionList/xlrd2:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -1930,7 +1930,7 @@ void SupportingPropertyBagData::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSupportingPropertyBagArrayDataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "a"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagArray", "CT_SupportingPropertyBagArray/xlrd2:a", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ExtensionList", "CT_ExtensionList/xlrd2:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -2408,9 +2408,9 @@ void RichFilter::SetNodata(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/spreadsheetml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet::Extension", "CT_Extension/x:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -2621,7 +2621,7 @@ void DynamicRichFilter::SetMaxValIso(const DateTimeValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateCustomRichFiltersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{2}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "customFilter"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::CustomRichFilter", "CT_CustomRichFilter/xlrd2:customFilter", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode1->AddChild(particleNode2);
@@ -2839,7 +2839,7 @@ void RichTop10::SetFilterValue(const DoubleValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateRichFiltersParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "filter"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichFilter", "CT_RichFilter/xlrd2:filter", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "dateGroupItem"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichDateGroupItem", "CT_RichDateGroupItem/xlrd2:dateGroupItem", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -2905,7 +2905,7 @@ const ExyokiOffice::OpenXMLElementClass* RichFilters::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateRichValueTypesInfoParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "global"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichValueGlobalType", "RichValueGlobalType", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "types"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichValueTypes", "RichValueTypes", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -2971,7 +2971,7 @@ const ExyokiOffice::OpenXMLElementClass* RichValueTypesInfo::ElementMetaClass() 
 
 ExyokiOffice::MetadataParticlePtr CreateRichStylesheetParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "dxfs"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::Dxfs", "Dxfs", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "richProperties"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichFormatProperties", "RichFormatProperties", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -3039,7 +3039,7 @@ const ExyokiOffice::OpenXMLElementClass* RichStylesheet::ElementMetaClass() cons
 
 ExyokiOffice::MetadataParticlePtr CreateArrayDataParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "a"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::Array", "CT_Array/xlrd2:a", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ExtensionList", "CT_ExtensionList/xlrd2:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -3125,7 +3125,7 @@ void ArrayData::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSupportingPropertyBagStructuresParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "s"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagStructure", "CT_SupportingPropertyBagStructure/xlrd2:s", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ExtensionList", "CT_ExtensionList/xlrd2:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
@@ -3211,10 +3211,10 @@ void SupportingPropertyBagStructures::SetCount(const UInt32Value& value)
 
 ExyokiOffice::MetadataParticlePtr CreateSupportingPropertyBagsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "spbArrays"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagArrayData", "SupportingPropertyBagArrayData", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "spbData"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagData", "SupportingPropertyBagData", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "spbData"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::SupportingPropertyBagData", "SupportingPropertyBagData", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode2);
     return particleNode0;
 }
@@ -3449,15 +3449,15 @@ void RichSortCondition::SetIconId(const UInt32Value& value)
 ExyokiOffice::MetadataParticlePtr CreateRichFilterColumnParticleMetadata()
 {
     auto particleNode0 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "filters"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichFilters", "RichFilters", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "filters"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichFilters", "RichFilters", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "top10"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichTop10", "RichTop10", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "top10"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::RichTop10", "RichTop10", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "customFilters"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::CustomRichFilters", "CustomRichFilters", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "customFilters"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::CustomRichFilters", "CustomRichFilters", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "dynamicFilter"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::DynamicRichFilter", "DynamicRichFilter", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "dynamicFilter"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::DynamicRichFilter", "DynamicRichFilter", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::RichData2::ExtensionList", "ExtensionList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode5);
     return particleNode0;
 }

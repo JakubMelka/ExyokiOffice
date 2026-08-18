@@ -95,8 +95,8 @@ const ExyokiOffice::OpenXmlMetaEnum* STorageType::GetMetaEnum() noexcept
 
 ExyokiOffice::MetadataParticlePtr CreateNumberDiagramInfoParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2016/11/diagram", "buPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Drawing::Diagram11::DiagramAutoBullet", "DiagramAutoBullet", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2016/11/diagram", "buPr"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Drawing::Diagram11::DiagramAutoBullet", "DiagramAutoBullet", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -195,15 +195,15 @@ void NumberDiagramInfo::SetPtType(const EnumValue<STorageType>& value)
 
 ExyokiOffice::MetadataParticlePtr CreateDiagramAutoBulletParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "buNone"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::NoBullet", "NoBullet", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "buNone"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::NoBullet", "NoBullet", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "buAutoNum"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::AutoNumberedBullet", "AutoNumberedBullet", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "buAutoNum"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::AutoNumberedBullet", "AutoNumberedBullet", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "buChar"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::CharacterBullet", "CharacterBullet", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "buChar"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::CharacterBullet", "CharacterBullet", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "buBlip"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::PictureBullet", "PictureBullet", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/drawingml/2006/main", "buBlip"), "ExyokiOffice::DocumentFormat::OpenXml::Drawing::PictureBullet", "PictureBullet", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode5);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -300,7 +300,7 @@ void DiagramAutoBullet::SetLeadZeros(const BooleanValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateNumberDiagramInfoListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/drawing/2016/11/diagram", "autoBuNodeInfo"), "ExyokiOffice::DocumentFormat::OpenXml::Office2019::Drawing::Diagram11::NumberDiagramInfo", "CT_NumberDiagramInfo/dgm1611:autoBuNodeInfo", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2019);
     particleNode0->AddChild(particleNode1);
     return particleNode0;

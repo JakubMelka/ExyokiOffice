@@ -7,6 +7,11 @@
 #include "ExyokiOffice/OpenXmlPackageValidator.hpp"
 #include "ExyokiOffice/PowerPoint/PowerPointDocument.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Drawing.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Presentation.hpp"
+
+#include <string>
+#include <vector>
 
 using namespace ExyokiOffice::PowerPoint;
 
@@ -132,7 +137,7 @@ TEST_SUITE("PowerPointPictureTests")
         linked.Transform.Position = {100, 200};
         linked.Transform.Size = {300, 400};
         REQUIRE(tree->AddPicture(linked));
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument()).IsValid());
     }
 
     TEST_CASE("detected picture data receives intrinsic size and supports payload-only replacement [unit] [powerpoint] [picture]")
@@ -184,5 +189,50 @@ TEST_SUITE("PowerPointPictureTests")
         CHECK(persisted->GetPicture()->Crop == original->Crop);
         CHECK(persisted->GetOutline() == outline);
         CHECK(persisted->GetEffects() == effects);
+    }
+
+    TEST_CASE("a picture receives rectangle geometry, and one that lacks it gets it in schema order [unit] [powerpoint] [picture]")
+    {
+        // Without a:prstGeom PowerPoint opens the file but paints nothing where
+        // the picture is. Earlier versions of the library wrote pictures that
+        // way; replacing such a picture's payload has to add the geometry at its
+        // schema position (after a:xfrm, before a:effectLst), not at the end.
+        namespace Drawing = ExyokiOffice::DocumentFormat::OpenXml::Drawing;
+        namespace Presentation = ExyokiOffice::DocumentFormat::OpenXml::Presentation;
+        auto editor = PowerPointDocumentEditor::CreateNew();
+        auto slide = editor->AddSlide();
+        auto picture = slide->ShapeTree()->AddPictureFromData(PngHeader(2, 1), {}, "Legacy");
+        REQUIRE(picture != nullptr);
+        PresentationShapeEffects effects;
+        effects.Shadow = PresentationTextShadow{
+            ExyokiOffice::MeasuringUnits(6.0, ExyokiOffice::MeasurementUnit::Point),
+            ExyokiOffice::MeasuringUnits(3.0, ExyokiOffice::MeasurementUnit::Point),
+            ExyokiOffice::Color(0x80, 0x80, 0x80)};
+        REQUIRE(picture->SetEffects(effects));
+
+        auto element = std::dynamic_pointer_cast<Presentation::Picture>(picture->GetElement());
+        REQUIRE(element != nullptr);
+        auto properties = element->GetFirstChildOfType<Presentation::ShapeProperties>();
+        REQUIRE(properties != nullptr);
+        auto geometry = properties->GetFirstChildOfType<Drawing::PresetGeometry>();
+        REQUIRE(geometry != nullptr);
+        CHECK(geometry->GetPreset().ValueOr(Drawing::ShapeTypeValues::Ellipse) == Drawing::ShapeTypeValues::Rectangle);
+
+        // The shape the old writer produced: transform and effects, no geometry.
+        REQUIRE(properties->RemoveChild(geometry));
+        REQUIRE(properties->GetFirstChildOfType<Drawing::PresetGeometry>() == nullptr);
+
+        REQUIRE(picture->ReplacePictureFromData(PngHeader(4, 3)));
+        std::vector<std::string> order;
+        for (const auto& child : properties->Children())
+        {
+            order.emplace_back(child->QualifiedName().localName());
+        }
+        REQUIRE(order.size() == 3);
+        CHECK(order[0] == "xfrm");
+        CHECK(order[1] == "prstGeom");
+        CHECK(order[2] == "effectLst");
+        CHECK(picture->GetEffects() == effects);
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument()).IsValid());
     }
 } // TEST_SUITE("PowerPointPictureTests")

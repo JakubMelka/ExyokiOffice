@@ -12,6 +12,8 @@
 #include "ToolRegistry.hpp"
 #include "Workspace.hpp"
 
+#include "ExyokiOffice/Tools/ValidationRunner.hpp"
+
 #include <nlohmann/json.hpp>
 
 #include <filesystem>
@@ -88,6 +90,9 @@ private:
  * @param version Requested revision; empty means the newest supported one.
  */
 [[nodiscard]] nlohmann::json MakeInitializeParams(const std::string& version = std::string());
+
+/// Joins the error messages of a validation report, for the message of a failed CHECK.
+[[nodiscard]] std::string DescribeValidationErrors(const ExyokiOffice::Tools::ValidationReport& report);
 
 /// Builds a Word test server with the shared and Word toolsets registered.
 [[nodiscard]] std::unique_ptr<McpTestServer> MakeWordServer(bool readOnly = false);

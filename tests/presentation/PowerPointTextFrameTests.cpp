@@ -64,7 +64,7 @@ TEST_SUITE("PowerPointTextFrameTests")
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened);
         CHECK(reopened->GetSlide(0)->ShapeTree()->Get(0)->GetTextFrame() == expected);
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*reopened->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*reopened->GetDocument()).IsValid());
     }
 
     TEST_CASE("text frame formatting and content round trip without DOM access [unit] [powerpoint] [text-frame]")
@@ -183,7 +183,7 @@ TEST_SUITE("PowerPointTextFrameTests")
                              PresentationTextBullet{std::string("–"), std::nullopt, 1},
                              {{914400, Drawing::TextTabAlignmentValues::Center}}}};
         REQUIRE(shape->SetTextFrame(frame));
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument()).IsValid());
     }
 
     TEST_CASE("advanced text effects and 3-D text round trip [unit] [powerpoint] [text-frame]")
@@ -255,7 +255,7 @@ TEST_SUITE("PowerPointTextFrameTests")
         auto actual = reopened->GetSlide(0)->ShapeTree()->Get(0)->GetTextFrame();
         REQUIRE(actual);
         CHECK(*actual == expected);
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*reopened->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*reopened->GetDocument()).IsValid());
     }
 
     TEST_CASE("invalid advanced text effects preserve existing text [unit] [powerpoint] [text-frame]")

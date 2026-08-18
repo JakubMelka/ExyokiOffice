@@ -111,6 +111,10 @@ in [docs/](docs/README.md).
 
 ### Changed
 
+- `PresentationSlide::AddComment`/`UpdateComment` and
+  `PowerPointDocumentEditor::AddCommentAuthor` accept only braced GUID identifiers
+  (`Guid::New()`, `Guid::IsBraced()`), which is what PowerPoint reads there;
+  the MCP `add_comment` tool mints its author ids accordingly.
 - `Word::Paragraph::FindAllRegex` and `ReplaceAllRegex` take a `RegexPattern`
   instead of a compiled `std::regex`, and `<regex>` is gone from the public
   headers; `PowerPointDocument.hpp` no longer includes `Presentation.hpp`.
@@ -144,7 +148,31 @@ in [docs/](docs/README.md).
   - `AddComment` writes the slide anchor (`pc:sldMkLst`) and the slide-side
     `p188:commentRel` extension, and the ids are documented as braced GUIDs;
   - `AddPicture` gives the picture a rectangle geometry, without which PowerPoint
-    renders an empty area.
+    renders an empty area; `ReplacePictureFromData` adds it to a picture that lacks one.
+- `OpenXmlDomValidator` and `exyoki validate` report content that ends before a
+  required child (`ParticleConstraintViolation`, "content ends after N child
+  elements"): the generator read a particle without `Occurs` in the imported
+  schema metadata as optional, whereas it means exactly one, so a missing
+  `p:notesSz`, `x:sheets`, `w:tblGrid` or `c:chart` passed validation. Documents
+  that validated clean before may now report errors.
+- Children of an open content model (`a:graphicData`) that share a name with
+  another class are typed from the metadata's additional-element list, so
+  `c:chart` and `cx:chart` in a drawing are validated as chart references, not as
+  chart bodies (`data/exyokioffice_particle_extras.json` gained
+  `AppendAdditionalElements` for the chartex reference).
+- A derived element class (`w:top`, `w:b`, every `IsDerived` type) is validated
+  with the attributes, facets, particle and constraints its base type declares;
+  they were skipped, so `w:space="120"` on a paragraph border passed.
+- `Paragraph::SetBorders` writes the border spacing in points (0-31), the unit of
+  `w:space`, instead of twips.
+- Tight and through image wrapping (`ImageWrap::Tight`/`Through`) write the
+  required `wp:wrapPolygon`.
+- `PresentationShapeTree::AddMedia` places the audio or video time node inside the
+  timing root (`p:tnLst/p:par`), keeps an empty `p:blipFill` and a rectangle
+  geometry on a media frame without a poster frame, and animation rebuilds keep
+  the media nodes.
+- `WordDocumentEditor::AddTable`/`InsertTable` and `Table::AddNestedTable` write the
+  required `w:tblPr`.
 - Flat OPC conversion tests path traversal one component at a time, so a part
   named `notes..xml` is no longer dropped, and counts a backslash as a separator
   because the ZIP writer rewrites one into a slash.

@@ -584,7 +584,7 @@ void ContextNodeProperty::SetType(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateContextNodeParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/ink/2010/main", "property"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Ink::ContextNodeProperty", "CT_Property/msink:property", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/ink/2010/main", "sourceLink"), "ExyokiOffice::DocumentFormat::OpenXml::Office2010::Ink::SourceLink", "CT_CtxLink/msink:sourceLink", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);

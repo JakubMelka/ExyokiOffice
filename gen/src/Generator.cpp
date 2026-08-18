@@ -370,9 +370,20 @@ using EnumIncludeLookup = std::unordered_map<std::string, EnumIncludeInfo>;
 
 using NamespaceRegistry = std::unordered_map<std::string, NamespaceRecord>;
 
+/**
+ * @brief Occurrence bounds of one particle, in the imported snapshot's encoding.
+ *
+ * The Open XML SDK metadata omits every default: a particle without an
+ * `Occurs` property occurs exactly once (`xsd:minOccurs="1" maxOccurs="1"`),
+ * an occurrence object without `Min` starts at zero, and one without `Max` is
+ * unbounded. `{"Max": 1}` is therefore optional, `{}` is `0..*`, `{"Min": 1}` is
+ * `1..*`, and no property at all is required - the reading the SDK's own
+ * validator applies (a `x:workbook` without `x:sheets`, or a `p:presentation`
+ * without `p:notesSz`, is "incomplete content").
+ */
 struct ParticleOccursRange
 {
-    std::uint32_t min = 0;
+    std::uint32_t min = 1;
     std::optional<std::uint32_t> max = 1;
 };
 
@@ -1562,8 +1573,13 @@ public:
         ParticleOccursRange range;
         if (rangeValue == nullptr)
         {
+            // No Occurs property: exactly once, see ParticleOccursRange.
             return range;
         }
+        // An explicit occurrence object starts from the snapshot's defaults for
+        // its two properties: Min omitted means zero, Max omitted means unbounded.
+        range.min = 0;
+        range.max = std::nullopt;
 
         if (!rangeValue->is_array() || rangeValue->as_array().empty())
         {
@@ -1602,14 +1618,6 @@ public:
                 throw std::runtime_error("Schema type '" + std::string(className) + "' in '" + std::string(sourceFile) + "' defines negative particle max occurrence.");
             }
             range.max = static_cast<std::uint32_t>(max);
-        }
-        else
-        {
-            // In the imported schema snapshot an explicitly present occurrence
-            // object without Max represents xsd:maxOccurs="unbounded". A missing
-            // Occurs property still uses ParticleOccursRange's optional 0..1
-            // default, so these two cases must not be collapsed.
-            range.max = std::nullopt;
         }
 
         return range;
@@ -2276,20 +2284,51 @@ public:
                 throw std::runtime_error("Particle overlay extends schema type '" + name + "', which has no content model, in " + overlayPath.string());
             }
 
-            const auto& items = entry.at("AppendItems");
-            if (!items.is_array())
+            if (const auto* items = entry.try_get("AppendItems"))
             {
-                throw std::runtime_error("Particle overlay entry '" + name + "' defines AppendItems using a non-array value.");
+                if (!items->is_array())
+                {
+                    throw std::runtime_error("Particle overlay entry '" + name + "' defines AppendItems using a non-array value.");
+                }
+
+                const std::unordered_map<std::string, TypedElement::ChildDefinition> noChildren;
+                for (const auto& item : items->as_array())
+                {
+                    element->particle->children.push_back(ParseParticleDefinition(item,
+                                                                                  noChildren,
+                                                                                  element->namespacePrefix,
+                                                                                  element->className,
+                                                                                  sourceFile));
+                }
             }
 
-            const std::unordered_map<std::string, TypedElement::ChildDefinition> noChildren;
-            for (const auto& item : items.as_array())
+            // Elements known to occur under an open content model, named as
+            // "type/element" like the imported AdditionalElements. They add
+            // nothing to the API; the runtime uses them to type an ambiguous
+            // child name where the particle tree (an xsd:any) cannot.
+            if (const auto* additionalElements = entry.try_get("AppendAdditionalElements"))
             {
-                element->particle->children.push_back(ParseParticleDefinition(item,
-                                                                              noChildren,
-                                                                              element->namespacePrefix,
-                                                                              element->className,
-                                                                              sourceFile));
+                if (!additionalElements->is_array())
+                {
+                    throw std::runtime_error("Particle overlay entry '" + name + "' defines AppendAdditionalElements using a non-array value.");
+                }
+                for (const auto& item : additionalElements->as_array())
+                {
+                    if (!item.is_string())
+                    {
+                        throw std::runtime_error("Particle overlay entry '" + name + "' has a non-string AppendAdditionalElements entry.");
+                    }
+                    TypedElement::AdditionalElementDefinition additional;
+                    additional.rawName = item.as_string();
+                    auto [typeName, elementName] = SplitParticleName(additional.rawName);
+                    if (typeName.find(':') == std::string::npos || elementName.find(':') == std::string::npos)
+                    {
+                        throw std::runtime_error("Particle overlay entry '" + name + "' names an additional element without a namespace prefix: " + additional.rawName);
+                    }
+                    additional.typeQualifiedName = std::move(typeName);
+                    additional.elementQualifiedName = std::move(elementName);
+                    element->additionalElements.push_back(std::move(additional));
+                }
             }
             ++patched;
         }
@@ -4019,9 +4058,19 @@ public:
             }
             for (const auto& additional : element.additionalElements)
             {
+                // The (type, element) pair first: an element name alone is
+                // ambiguous for names several classes declare (c:chart is the
+                // CT_RelId reference under a:graphicData and the CT_Chart body
+                // under c:chartSpace), and the entry names the type it means.
                 std::string typeName;
-                if (const auto resolvedElement = elementLookup.find(additional.elementQualifiedName);
-                    resolvedElement != elementLookup.end())
+                if (const auto resolvedPair = typeElementLookup.find(GeneratorValidatorExpressions::MakeTypeElementKey(
+                        additional.typeQualifiedName, additional.elementQualifiedName));
+                    resolvedPair != typeElementLookup.end())
+                {
+                    typeName = resolvedPair->second;
+                }
+                else if (const auto resolvedElement = elementLookup.find(additional.elementQualifiedName);
+                         resolvedElement != elementLookup.end())
                 {
                     typeName = resolvedElement->second;
                 }

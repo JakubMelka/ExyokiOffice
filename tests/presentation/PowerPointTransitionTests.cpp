@@ -162,7 +162,7 @@ TEST_SUITE("PowerPointTransitionTests")
             REQUIRE(persisted);
             CHECK(*persisted == expected[index]);
         }
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*reopened->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*reopened->GetDocument()).IsValid());
     }
 
     TEST_CASE("transition options exclusive to other effects are refused [unit] [powerpoint] [transition]")

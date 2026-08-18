@@ -173,7 +173,7 @@ TEST_CASE("cells are written and read back through the library [mcp-excel]")
     }
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("cells.xlsx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("a malformed A1 reference is reported as range_invalid [mcp-excel]")
@@ -258,7 +258,7 @@ TEST_CASE("ranges are cleared, merged, and formatted [mcp-excel]")
 
     static_cast<void>(server->Call("save_document", nlohmann::json{{"documentId", documentId}}));
     const auto report = ExyokiOffice::Tools::Run(server->Path("format.xlsx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("rows and columns are inserted and sized [mcp-excel]")
@@ -361,7 +361,7 @@ TEST_CASE("tables, names, validation, and formatting rules are added [mcp-excel]
 
     static_cast<void>(server->Call("save_document", nlohmann::json{{"documentId", documentId}}));
     const auto report = ExyokiOffice::Tools::Run(server->Path("analysis.xlsx"));
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
 TEST_CASE("a chart is anchored on the worksheet [mcp-excel]")
@@ -451,7 +451,7 @@ TEST_CASE("a pivot table is built from a source range [mcp-excel]")
     REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
     const auto report = ExyokiOffice::Tools::Run(server->Path("pivot.xlsx"));
     CHECK(report.Loaded);
-    CHECK(report.ErrorCount == 0);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 
     const auto unknownSheet = server->Call("add_pivot_table", nlohmann::json{{"documentId", documentId},
                                                                              {"source_range", "A1:B4"},

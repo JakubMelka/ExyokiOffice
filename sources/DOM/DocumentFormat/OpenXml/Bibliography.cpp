@@ -138,111 +138,111 @@ const ExyokiOffice::OpenXmlMetaEnum* DataSourceValues::GetMetaEnum() noexcept
 
 ExyokiOffice::MetadataParticlePtr CreateSourceParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "AbbreviatedCaseNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::AbbreviatedCaseNumber", "AbbreviatedCaseNumber", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "AbbreviatedCaseNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::AbbreviatedCaseNumber", "AbbreviatedCaseNumber", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "AlbumTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::AlbumTitle", "AlbumTitle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "AlbumTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::AlbumTitle", "AlbumTitle", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Author"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::AuthorList", "AuthorList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Author"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::AuthorList", "AuthorList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "BookTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::BookTitle", "BookTitle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "BookTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::BookTitle", "BookTitle", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Broadcaster"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Broadcaster", "Broadcaster", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Broadcaster"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Broadcaster", "Broadcaster", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "BroadcastTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::BroadcastTitle", "BroadcastTitle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "BroadcastTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::BroadcastTitle", "BroadcastTitle", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "CaseNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::CaseNumber", "CaseNumber", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "CaseNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::CaseNumber", "CaseNumber", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ChapterNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ChapterNumber", "ChapterNumber", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ChapterNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ChapterNumber", "ChapterNumber", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "City"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::City", "City", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "City"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::City", "City", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Comments"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Comments", "Comments", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Comments"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Comments", "Comments", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ConferenceName"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ConferenceName", "ConferenceName", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ConferenceName"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ConferenceName", "ConferenceName", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "CountryRegion"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::CountryRegion", "CountryRegion", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "CountryRegion"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::CountryRegion", "CountryRegion", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode13);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Court"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Court", "Court", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Court"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Court", "Court", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode14);
-    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Day"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Day", "Day", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Day"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Day", "Day", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode15);
-    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "DayAccessed"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::DayAccessed", "DayAccessed", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "DayAccessed"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::DayAccessed", "DayAccessed", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode16);
-    auto particleNode17 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Department"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Department", "Department", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode17 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Department"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Department", "Department", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode17);
-    auto particleNode18 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Distributor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Distributor", "Distributor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode18 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Distributor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Distributor", "Distributor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode18);
-    auto particleNode19 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Edition"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Edition", "Edition", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode19 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Edition"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Edition", "Edition", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode19);
-    auto particleNode20 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Guid"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::GuidString", "GuidString", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode20 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Guid"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::GuidString", "GuidString", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode20);
-    auto particleNode21 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Institution"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Institution", "Institution", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode21 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Institution"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Institution", "Institution", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode21);
-    auto particleNode22 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "InternetSiteTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::InternetSiteTitle", "InternetSiteTitle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode22 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "InternetSiteTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::InternetSiteTitle", "InternetSiteTitle", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode22);
-    auto particleNode23 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Issue"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Issue", "Issue", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode23 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Issue"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Issue", "Issue", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode23);
-    auto particleNode24 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "JournalName"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::JournalName", "JournalName", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode24 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "JournalName"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::JournalName", "JournalName", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode24);
-    auto particleNode25 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "LCID"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::LcId", "LcId", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode25 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "LCID"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::LcId", "LcId", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode25);
-    auto particleNode26 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Medium"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Medium", "Medium", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode26 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Medium"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Medium", "Medium", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode26);
-    auto particleNode27 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Month"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Month", "Month", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode27 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Month"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Month", "Month", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode27);
-    auto particleNode28 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "MonthAccessed"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::MonthAccessed", "MonthAccessed", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode28 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "MonthAccessed"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::MonthAccessed", "MonthAccessed", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode28);
-    auto particleNode29 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NumberVolumes"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NumberVolumes", "NumberVolumes", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode29 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NumberVolumes"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NumberVolumes", "NumberVolumes", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode29);
-    auto particleNode30 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Pages"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Pages", "Pages", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode30 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Pages"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Pages", "Pages", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode30);
-    auto particleNode31 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "PatentNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::PatentNumber", "PatentNumber", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode31 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "PatentNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::PatentNumber", "PatentNumber", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode31);
-    auto particleNode32 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "PeriodicalTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::PeriodicalTitle", "PeriodicalTitle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode32 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "PeriodicalTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::PeriodicalTitle", "PeriodicalTitle", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode32);
-    auto particleNode33 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ProductionCompany"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ProductionCompany", "ProductionCompany", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode33 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ProductionCompany"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ProductionCompany", "ProductionCompany", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode33);
-    auto particleNode34 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "PublicationTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::PublicationTitle", "PublicationTitle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode34 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "PublicationTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::PublicationTitle", "PublicationTitle", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode34);
-    auto particleNode35 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Publisher"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Publisher", "Publisher", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode35 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Publisher"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Publisher", "Publisher", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode35);
-    auto particleNode36 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "RecordingNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::RecordingNumber", "RecordingNumber", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode36 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "RecordingNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::RecordingNumber", "RecordingNumber", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode36);
-    auto particleNode37 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "RefOrder"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ReferenceOrder", "ReferenceOrder", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode37 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "RefOrder"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ReferenceOrder", "ReferenceOrder", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode37);
-    auto particleNode38 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Reporter"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Reporter", "Reporter", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode38 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Reporter"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Reporter", "Reporter", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode38);
-    auto particleNode39 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "SourceType"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::SourceType", "SourceType", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode39 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "SourceType"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::SourceType", "SourceType", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode39);
-    auto particleNode40 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ShortTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ShortTitle", "ShortTitle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode40 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ShortTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ShortTitle", "ShortTitle", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode40);
-    auto particleNode41 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "StandardNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::StandardNumber", "StandardNumber", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode41 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "StandardNumber"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::StandardNumber", "StandardNumber", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode41);
-    auto particleNode42 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "StateProvince"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::StateProvince", "StateProvince", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode42 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "StateProvince"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::StateProvince", "StateProvince", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode42);
-    auto particleNode43 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Station"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Station", "Station", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode43 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Station"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Station", "Station", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode43);
-    auto particleNode44 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Tag"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Tag", "Tag", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode44 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Tag"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Tag", "Tag", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode44);
-    auto particleNode45 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Theater"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Theater", "Theater", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode45 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Theater"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Theater", "Theater", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode45);
-    auto particleNode46 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ThesisType"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ThesisType", "ThesisType", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode46 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ThesisType"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ThesisType", "ThesisType", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode46);
-    auto particleNode47 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Title"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Title", "Title", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode47 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Title"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Title", "Title", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode47);
-    auto particleNode48 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Type"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::PatentType", "PatentType", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode48 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Type"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::PatentType", "PatentType", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode48);
-    auto particleNode49 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "URL"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::UrlString", "UrlString", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode49 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "URL"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::UrlString", "UrlString", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode49);
-    auto particleNode50 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Version"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Version", "Version", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode50 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Version"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Version", "Version", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode50);
-    auto particleNode51 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Volume"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Volume", "Volume", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode51 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Volume"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Volume", "Volume", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode51);
-    auto particleNode52 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Year"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Year", "Year", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode52 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Year"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Year", "Year", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode52);
-    auto particleNode53 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "YearAccessed"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::YearAccessed", "YearAccessed", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode53 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "YearAccessed"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::YearAccessed", "YearAccessed", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode53);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -358,39 +358,39 @@ const ExyokiOffice::OpenXMLElementClass* SourceType::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateAuthorListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Artist"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Artist", "Artist", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Artist"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Artist", "Artist", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Author"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Author", "Author", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Author"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Author", "Author", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "BookAuthor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::BookAuthor", "BookAuthor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "BookAuthor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::BookAuthor", "BookAuthor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Compiler"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Compiler", "Compiler", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Compiler"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Compiler", "Compiler", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Composer"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Composer", "Composer", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Composer"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Composer", "Composer", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Conductor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Conductor", "Conductor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Conductor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Conductor", "Conductor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Counsel"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Counsel", "Counsel", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Counsel"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Counsel", "Counsel", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Director"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Director", "Director", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Director"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Director", "Director", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Editor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Editor", "Editor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Editor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Editor", "Editor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Interviewee"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Interviewee", "Interviewee", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Interviewee"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Interviewee", "Interviewee", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Interviewer"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Interviewer", "Interviewer", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Interviewer"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Interviewer", "Interviewer", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Inventor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Inventor", "Inventor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Inventor"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Inventor", "Inventor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode13);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Performer"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Performer", "Performer", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Performer"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Performer", "Performer", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode14);
-    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ProducerName"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ProducerName", "ProducerName", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "ProducerName"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::ProducerName", "ProducerName", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode15);
-    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Translator"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Translator", "Translator", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode16 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Translator"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Translator", "Translator", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode16);
-    auto particleNode17 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Writer"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Writer", "Writer", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode17 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Writer"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Writer", "Writer", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode17);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -507,11 +507,11 @@ const ExyokiOffice::OpenXMLElementClass* NameOrCorporateType::ElementMetaClass()
 
 ExyokiOffice::MetadataParticlePtr CreatePerformerParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Corporate"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Corporate", "Corporate", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Corporate"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Corporate", "Corporate", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -573,11 +573,11 @@ const ExyokiOffice::OpenXMLElementClass* Performer::ElementMetaClass() const noe
 
 ExyokiOffice::MetadataParticlePtr CreateAuthorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Corporate"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Corporate", "Corporate", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Corporate"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Corporate", "Corporate", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode1->AddChild(particleNode3);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -693,8 +693,8 @@ const ExyokiOffice::OpenXMLElementClass* NameType::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateWriterParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -755,8 +755,8 @@ const ExyokiOffice::OpenXMLElementClass* Writer::ElementMetaClass() const noexce
 
 ExyokiOffice::MetadataParticlePtr CreateTranslatorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -817,8 +817,8 @@ const ExyokiOffice::OpenXMLElementClass* Translator::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateProducerNameParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -879,8 +879,8 @@ const ExyokiOffice::OpenXMLElementClass* ProducerName::ElementMetaClass() const 
 
 ExyokiOffice::MetadataParticlePtr CreateInventorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -941,8 +941,8 @@ const ExyokiOffice::OpenXMLElementClass* Inventor::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateInterviewerParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1003,8 +1003,8 @@ const ExyokiOffice::OpenXMLElementClass* Interviewer::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateIntervieweeParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1065,8 +1065,8 @@ const ExyokiOffice::OpenXMLElementClass* Interviewee::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateEditorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1127,8 +1127,8 @@ const ExyokiOffice::OpenXMLElementClass* Editor::ElementMetaClass() const noexce
 
 ExyokiOffice::MetadataParticlePtr CreateDirectorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1189,8 +1189,8 @@ const ExyokiOffice::OpenXMLElementClass* Director::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateCounselParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1251,8 +1251,8 @@ const ExyokiOffice::OpenXMLElementClass* Counsel::ElementMetaClass() const noexc
 
 ExyokiOffice::MetadataParticlePtr CreateConductorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1313,8 +1313,8 @@ const ExyokiOffice::OpenXMLElementClass* Conductor::ElementMetaClass() const noe
 
 ExyokiOffice::MetadataParticlePtr CreateComposerParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1375,8 +1375,8 @@ const ExyokiOffice::OpenXMLElementClass* Composer::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateCompilerParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1437,8 +1437,8 @@ const ExyokiOffice::OpenXMLElementClass* Compiler::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateBookAuthorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1499,8 +1499,8 @@ const ExyokiOffice::OpenXMLElementClass* BookAuthor::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateArtistParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "NameList"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::NameList", "NameList", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
 }
@@ -1561,7 +1561,7 @@ const ExyokiOffice::OpenXMLElementClass* Artist::ElementMetaClass() const noexce
 
 ExyokiOffice::MetadataParticlePtr CreateNameListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Person"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Person", "CT_PersonType/b:Person", 1, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -4539,7 +4539,7 @@ const ExyokiOffice::OpenXMLElementClass* Last::ElementMetaClass() const noexcept
 
 ExyokiOffice::MetadataParticlePtr CreatePersonParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Last"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Last", "ST_String255/b:Last", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "First"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::First", "ST_String255/b:First", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
@@ -4605,7 +4605,7 @@ const ExyokiOffice::OpenXMLElementClass* Person::ElementMetaClass() const noexce
 
 ExyokiOffice::MetadataParticlePtr CreateSourcesParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/officeDocument/2006/bibliography", "Source"), "ExyokiOffice::DocumentFormat::OpenXml::Bibliography::Source", "CT_SourceType/b:Source", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
     return particleNode0;

@@ -974,33 +974,33 @@ const ExyokiOffice::OpenXMLElementClass* AttributionTaskUser::ElementMetaClass()
 
 ExyokiOffice::MetadataParticlePtr CreateTaskHistoryEventParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Attribution"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::AttributionTaskUser", "AttributionTaskUser", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Attribution"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::AttributionTaskUser", "AttributionTaskUser", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Anchor"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskAnchor", "TaskAnchor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Assign"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::AssignTaskUser", "CT_TaskUser/t:Assign", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Assign"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::AssignTaskUser", "CT_TaskUser/t:Assign", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode4);
-    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Unassign"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::UnassignTaskUser", "CT_TaskUser/t:Unassign", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Unassign"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::UnassignTaskUser", "CT_TaskUser/t:Unassign", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Create"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskCreateEventInfo", "CT_TaskCreateEventInfo/t:Create", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Create"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskCreateEventInfo", "CT_TaskCreateEventInfo/t:Create", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "SetTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskTitleEventInfo", "CT_TaskTitleEventInfo/t:SetTitle", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "SetTitle"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskTitleEventInfo", "CT_TaskTitleEventInfo/t:SetTitle", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Schedule"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskScheduleEventInfo", "CT_TaskScheduleEventInfo/t:Schedule", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Schedule"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskScheduleEventInfo", "CT_TaskScheduleEventInfo/t:Schedule", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode8);
-    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Progress"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskProgressEventInfo", "CT_TaskProgressEventInfo/t:Progress", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Progress"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskProgressEventInfo", "CT_TaskProgressEventInfo/t:Progress", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Priority"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskPriorityEventInfo", "CT_TaskPriorityEventInfo/t:Priority", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Priority"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskPriorityEventInfo", "CT_TaskPriorityEventInfo/t:Priority", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Delete"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskDeleteEventInfo", "CT_TaskDeleteEventInfo/t:Delete", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Delete"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskDeleteEventInfo", "CT_TaskDeleteEventInfo/t:Delete", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode11);
-    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Undelete"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskUndeleteEventInfo", "CT_TaskUndeleteEventInfo/t:Undelete", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Undelete"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskUndeleteEventInfo", "CT_TaskUndeleteEventInfo/t:Undelete", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode12);
-    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "UnassignAll"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskUnassignAll", "CT_TaskUnassignAll/t:UnassignAll", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode13 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "UnassignAll"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskUnassignAll", "CT_TaskUnassignAll/t:UnassignAll", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode13);
-    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Undo"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskUndo", "CT_TaskUndo/t:Undo", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
+    auto particleNode14 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Undo"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskUndo", "CT_TaskUndo/t:Undo", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode3->AddChild(particleNode14);
     particleNode0->AddChild(particleNode3);
     auto particleNode15 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::ExtensionList", "CT_ExtensionList/t:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
@@ -1102,7 +1102,7 @@ void TaskHistoryEvent::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTaskHistoryParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Event"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskHistoryEvent", "CT_TaskHistoryEvent/t:Event", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1164,7 +1164,7 @@ const ExyokiOffice::OpenXMLElementClass* TaskHistory::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateTaskAnchorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Comment"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::CommentAnchor", "CommentAnchor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
@@ -1228,7 +1228,7 @@ const ExyokiOffice::OpenXMLElementClass* TaskAnchor::ElementMetaClass() const no
 
 ExyokiOffice::MetadataParticlePtr CreateExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2019/extlst", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::OfficeExtLst::Extension", "CT_Extension/oel:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -1290,7 +1290,7 @@ const ExyokiOffice::OpenXMLElementClass* ExtensionList::ElementMetaClass() const
 
 ExyokiOffice::MetadataParticlePtr CreateTaskParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Anchor"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskAnchor", "TaskAnchor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "History"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::TaskHistory", "TaskHistory", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
@@ -1379,7 +1379,7 @@ void Task::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTasksParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "Task"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::Task", "CT_Task/t:Task", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/tasks/2019/documenttasks", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office2021::DocumentTasks::ExtensionList", "CT_ExtensionList/t:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2021);

@@ -244,14 +244,14 @@ const ExyokiOffice::OpenXMLElementClass* XsnLocation::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateCustomXsnParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/metadata/customXsn", "xsnLocation"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomXsn::XsnLocation", "XsnLocation", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/metadata/customXsn", "xsnLocation"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomXsn::XsnLocation", "XsnLocation", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode1);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/metadata/customXsn", "cached"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomXsn::CachedView", "CachedView", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/metadata/customXsn", "cached"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomXsn::CachedView", "CachedView", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode2);
-    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/metadata/customXsn", "openByDefault"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomXsn::OpenByDefault", "OpenByDefault", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/metadata/customXsn", "openByDefault"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomXsn::OpenByDefault", "OpenByDefault", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode3);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/metadata/customXsn", "xsnScope"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomXsn::Scope", "Scope", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/2006/metadata/customXsn", "xsnScope"), "ExyokiOffice::DocumentFormat::OpenXml::Office::CustomXsn::Scope", "Scope", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode0->AddChild(particleNode4);
     return particleNode0;
 }

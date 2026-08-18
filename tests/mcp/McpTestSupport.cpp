@@ -207,4 +207,25 @@ std::unique_ptr<McpTestServer> MakePowerPointServer(bool readOnly)
                                            readOnly);
 }
 
+std::string DescribeValidationErrors(const ExyokiOffice::Tools::ValidationReport& report)
+{
+    std::string text;
+    for (const auto* issues : {&report.LoadIssues, &report.ValidationIssues})
+    {
+        for (const auto& issue : *issues)
+        {
+            if (issue.Severity != ExyokiOffice::ValidationSeverity::Error)
+            {
+                continue;
+            }
+            if (!text.empty())
+            {
+                text += " | ";
+            }
+            text += issue.Message + " in " + issue.PartUri + " at " + issue.Location.Path;
+        }
+    }
+    return text;
+}
+
 } // namespace ExyokiOfficeTests

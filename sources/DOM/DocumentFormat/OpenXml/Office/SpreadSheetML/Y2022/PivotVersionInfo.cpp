@@ -193,7 +193,7 @@ const ExyokiOffice::OpenXMLElementClass* RequiredFeatureXsdstring::ElementMetaCl
 
 ExyokiOffice::MetadataParticlePtr CreatePivotVersionInfoParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotVersionInfo", "requiredFeature"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotVersionInfo::RequiredFeatureXsdstring", "String/xxpvi:requiredFeature", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotVersionInfo", "lastUpdateFeature"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotVersionInfo::LastUpdateFeatureXsdstring", "String/xxpvi:lastUpdateFeature", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
@@ -257,7 +257,7 @@ const ExyokiOffice::OpenXMLElementClass* PivotVersionInfo::ElementMetaClass() co
 
 ExyokiOffice::MetadataParticlePtr CreateCacheVersionInfoParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotVersionInfo", "requiredFeature"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotVersionInfo::RequiredFeatureXsdstring", "String/xxpvi:requiredFeature", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/spreadsheetml/2022/pivotVersionInfo", "lastRefreshFeature"), "ExyokiOffice::DocumentFormat::OpenXml::Office::SpreadSheetML::Y2022::PivotVersionInfo::LastRefreshFeatureXsdstring", "String/xxpvi:lastRefreshFeature", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);

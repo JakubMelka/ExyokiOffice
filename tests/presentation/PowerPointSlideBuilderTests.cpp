@@ -64,7 +64,7 @@ TEST_SUITE("PowerPointSlideBuilderTests")
         CHECK(shapes[1]->GetTextFrame()->Paragraphs[1].Runs[0].Text == "Second line");
         CHECK(shapes[2]->GetPresetGeometry() == Drawing::ShapeTypeValues::Ellipse);
         CHECK(shapes[2]->GetTransform() == shapeTransform);
-        CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*editor->GetDocument()).IsValid());
+        CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument()).IsValid());
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened);

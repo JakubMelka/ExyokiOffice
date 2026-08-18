@@ -21,101 +21,13 @@
 // the individual rules on markup small enough to read.
 // ---------------------------------------------------------------------------
 
+#include "DomValidationTestSupport.hpp"
+
 #include "doctest.h"
-
-#include "ExyokiOffice/OpenXMLElement.hpp"
-#include "ExyokiOffice/OpenXmlDomValidator.hpp"
-#include "ExyokiOffice/OpenXmlPackage.hpp"
-#include "ExyokiOffice/OpenXmlPackagePart.hpp"
-#include "ExyokiOffice/StandardTypes.hpp"
-#include "ExyokiOffice/ValidationResult.hpp"
-#include "zip/zip.h"
-
-#include <cstdlib>
-#include <string>
-#include <string_view>
-#include <vector>
-
-namespace DomValidatorExtensibilityHelpers
-{
-
-void AddZipEntry(zip_t* archive, const char* name, std::string_view content)
-{
-    REQUIRE(zip_entry_open(archive, name) == 0);
-    CHECK(zip_entry_write(archive, content.data(), content.size()) == 0);
-    zip_entry_close(archive);
-}
-
-/**
- * @brief Wraps one XML part in a package so the DOM can be loaded from it.
- *
- * The validator works on a live element tree, and only a package produces one
- * whose namespace declarations and parent links are those of a real document -
- * which `mc:Ignorable` needs, because resolving its prefixes depends on both.
- */
-std::vector<ExyokiOffice::Byte> BuildSingleXmlPartPackage(std::string_view xml)
-{
-    auto* archive = zip_stream_open(nullptr, 0, ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
-    REQUIRE(archive != nullptr);
-
-    AddZipEntry(archive,
-                "[Content_Types].xml",
-                R"(<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="xml" ContentType="application/xml"/>
-</Types>)");
-    AddZipEntry(archive, "custom.xml", xml);
-
-    void* rawBuffer = nullptr;
-    ExyokiOffice::Size rawSize = 0;
-    REQUIRE(zip_stream_copy(archive, &rawBuffer, &rawSize) > 0);
-    zip_stream_close(archive);
-    REQUIRE(rawBuffer != nullptr);
-
-    const auto* bytes = static_cast<const ExyokiOffice::UInt8*>(rawBuffer);
-    std::vector<ExyokiOffice::Byte> result(bytes, bytes + rawSize);
-    std::free(rawBuffer);
-    return result;
-}
-
-/**
- * @brief Loads @p xml and returns the errors a full-tree DOM validation reports,
- * joined into one string so a failing CHECK shows them.
- */
-std::string ValidationErrors(std::string_view xml)
-{
-    // The package owns the DOM, and the returned strings are read after it goes
-    // out of scope, so it is kept alive only for the duration of the walk.
-    ExyokiOffice::OpenXmlPackage package;
-    REQUIRE(package.LoadFromMemory(BuildSingleXmlPartPackage(xml)));
-
-    auto part = package.GetPartByUri("/custom.xml");
-    REQUIRE(part != nullptr);
-    auto root = part->GetRootElement();
-    REQUIRE(root != nullptr);
-
-    const auto result = ExyokiOffice::OpenXmlDomValidator().Validate(*root);
-
-    std::string errors;
-    for (const auto& issue : result.Issues())
-    {
-        if (issue.Severity == ExyokiOffice::ValidationSeverity::Error)
-        {
-            if (!errors.empty())
-            {
-                errors += " | ";
-            }
-            errors += issue.Message + " at " + issue.Location.Path;
-        }
-    }
-    return errors;
-}
-
-} // namespace DomValidatorExtensibilityHelpers
 
 TEST_SUITE("DOM validation of open-ended content models")
 {
-    using DomValidatorExtensibilityHelpers::ValidationErrors;
+    using ExyokiOfficeTests::DomValidation::ValidationErrors;
 
     TEST_CASE("mc:AlternateContent stands in for the element it wraps [unit] [dom-extensibility]")
     {
@@ -133,6 +45,7 @@ TEST_SUITE("DOM validation of open-ended content models")
     <mc:Choice Requires="c14"><c14:style val="102"/></mc:Choice>
     <mc:Fallback><c:style val="2"/></mc:Fallback>
   </mc:AlternateContent>
+  <c:chart><c:plotArea><c:pieChart/></c:plotArea></c:chart>
 </c:chartSpace>)");
 
         CHECK(errors == "");
@@ -153,6 +66,7 @@ TEST_SUITE("DOM validation of open-ended content models")
   <c:date1904 val="0"/>
   <xr:revisionPtr revIDLastSave="0" documentId="8_{F836CEFC-F02A-4900-B730-FBB43223F871}"/>
   <c:roundedCorners val="0"/>
+  <c:chart><c:plotArea><c:pieChart/></c:plotArea></c:chart>
 </c:chartSpace>)");
 
         CHECK(errors == "");
@@ -170,6 +84,7 @@ TEST_SUITE("DOM validation of open-ended content models")
   <c:date1904 val="0"/>
   <xr:revisionPtr revIDLastSave="0" documentId="8_{F836CEFC-F02A-4900-B730-FBB43223F871}"/>
   <c:roundedCorners val="0"/>
+  <c:chart><c:plotArea><c:pieChart/></c:plotArea></c:chart>
 </c:chartSpace>)");
 
         CHECK_FALSE(errors.empty());
@@ -204,7 +119,7 @@ TEST_SUITE("DOM validation of open-ended content models")
               xmlns:c16r3="http://schemas.microsoft.com/office/drawing/2017/03/chart"
               xmlns:c15="http://schemas.microsoft.com/office/drawing/2012/chart">
   <c:chart>
-    <c:plotArea><c:layout/></c:plotArea>
+    <c:plotArea><c:layout/><c:pieChart/></c:plotArea>
     <c:extLst>
       <c:ext uri="{56B9EC1D-385E-4148-901F-78D8002777C0}">
         <c16r3:dataDisplayOptions16><c16r3:dispNaAsBlank val="1"/></c16r3:dataDisplayOptions16>

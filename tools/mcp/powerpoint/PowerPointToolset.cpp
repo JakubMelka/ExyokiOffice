@@ -2454,8 +2454,9 @@ private:
         }
         else
         {
+            // PowerPoint reads the author id as a GUID, like the comment id below.
             PowerPoint::PresentationCommentAuthor author;
-            author.Id = "author" + std::to_string(authors.size() + 1);
+            author.Id = Guid::New();
             author.Name = authorName;
             author.Initials = authorName.empty() ? std::string("EO") : authorName.substr(0, 2);
             if (!session.Editor().AddCommentAuthor(author))

@@ -35,7 +35,7 @@ namespace Main {
 
 ExyokiOffice::MetadataParticlePtr CreateTaskHistoryParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "event"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskHistoryEvent", "CT_TaskHistoryEvent/p228:event", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     return particleNode0;
@@ -97,27 +97,27 @@ const ExyokiOffice::OpenXMLElementClass* TaskHistory::ElementMetaClass() const n
 
 ExyokiOffice::MetadataParticlePtr CreateTaskHistoryEventParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "atrbtn"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::AtrbtnTaskAssignUnassignUser", "AtrbtnTaskAssignUnassignUser", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "atrbtn"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::AtrbtnTaskAssignUnassignUser", "AtrbtnTaskAssignUnassignUser", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "anchr"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskAnchor", "TaskAnchor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode2);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataChoiceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "asgn"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::AsgnTaskAssignUnassignUser", "CT_TaskAssignUnassignUser/p228:asgn", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode4 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "asgn"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::AsgnTaskAssignUnassignUser", "CT_TaskAssignUnassignUser/p228:asgn", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode3->AddChild(particleNode4);
     auto particleNode5 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "add"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::AddEmpty", "CT_Empty/p228:add", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode3->AddChild(particleNode5);
-    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "title"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskTitleEventInfo", "CT_TaskTitleEventInfo/p228:title", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode6 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "title"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskTitleEventInfo", "CT_TaskTitleEventInfo/p228:title", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode3->AddChild(particleNode6);
-    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "date"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskScheduleEventInfo", "CT_TaskScheduleEventInfo/p228:date", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode7 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "date"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskScheduleEventInfo", "CT_TaskScheduleEventInfo/p228:date", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode3->AddChild(particleNode7);
-    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "pcntCmplt"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskProgressEventInfo", "CT_TaskProgressEventInfo/p228:pcntCmplt", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode8 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "pcntCmplt"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskProgressEventInfo", "CT_TaskProgressEventInfo/p228:pcntCmplt", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode3->AddChild(particleNode8);
     auto particleNode9 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "unasgnAll"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::UnasgnAllEmpty", "CT_Empty/p228:unasgnAll", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode3->AddChild(particleNode9);
-    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "undo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskUndo", "CT_TaskUndo/p228:undo", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode10 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "undo"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskUndo", "CT_TaskUndo/p228:undo", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode3->AddChild(particleNode10);
-    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "unknown"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskUnknownRecord", "CT_TaskUnknownRecord/p228:unknown", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode11 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "unknown"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskUnknownRecord", "CT_TaskUnknownRecord/p228:unknown", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode3->AddChild(particleNode11);
     particleNode0->AddChild(particleNode3);
     auto particleNode12 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::ExtensionList", "CT_ExtensionList/p228:extLst", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
@@ -746,8 +746,8 @@ const ExyokiOffice::OpenXMLElementClass* AddEmpty::ElementMetaClass() const noex
 
 ExyokiOffice::MetadataParticlePtr CreateTaskAnchorParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "comment"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::CommentAnchor", "CommentAnchor", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "comment"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::CommentAnchor", "CommentAnchor", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode2);
@@ -992,9 +992,9 @@ const ExyokiOffice::OpenXMLElementClass* AtrbtnTaskAssignUnassignUser::ElementMe
 
 ExyokiOffice::MetadataParticlePtr CreateExtensionListParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode1 = std::make_shared<ExyokiOffice::MetadataGroupParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode2 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
     auto particleNode3 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.openxmlformats.org/presentationml/2006/main", "ext"), "ExyokiOffice::DocumentFormat::OpenXml::Presentation::Extension", "CT_Extension/p:ext", 0, std::optional<ExyokiOffice::UInt32>{}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007);
     particleNode2->AddChild(particleNode3);
     particleNode1->AddChild(particleNode2);
@@ -1134,8 +1134,8 @@ void CommentAnchor::SetId(const StringValue& value)
 
 ExyokiOffice::MetadataParticlePtr CreateTaskDetailsParticleMetadata()
 {
-    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
-    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "history"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskHistory", "TaskHistory", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
+    auto particleNode0 = std::make_shared<ExyokiOffice::MetadataSequenceParticle>(1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Office2007, false);
+    auto particleNode1 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "history"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::TaskHistory", "TaskHistory", 1, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode1);
     auto particleNode2 = std::make_shared<ExyokiOffice::MetadataElementParticle>(ExyokiOffice::OpenXmlQualifiedName("http://schemas.microsoft.com/office/powerpoint/2022/08/main", "extLst"), "ExyokiOffice::DocumentFormat::OpenXml::Office::PowerPoint::Y2022::M08::Main::ExtensionList", "ExtensionList", 0, std::optional<ExyokiOffice::UInt32>{1}, ExyokiOffice::OpenXml::FileFormatVersions::Microsoft365);
     particleNode0->AddChild(particleNode2);

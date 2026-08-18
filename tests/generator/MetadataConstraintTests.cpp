@@ -634,11 +634,18 @@ TEST_SUITE("MetadataConstraintTests")
             CHECK(issue.Location.ElementName == "w:p");
         }
 
-        // There is deliberately no case for content that ends before a required
-        // particle is satisfied. Every particle tree in the imported metadata is
-        // itself declared with minOccurs 0, so an empty or truncated content model
-        // always matches by taking zero occurrences; the reporting path for it
-        // exists, but no document can currently reach it.
+        SUBCASE("content that ends before a required particle names what is missing")
+        {
+            // w:tblPr and w:tblGrid are both required in CT_Tbl; the second is
+            // absent, so the message points past the last child at the parent.
+            const auto issue = particleIssue(
+                R"(<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">)"
+                R"(<w:tblPr/></w:tbl>)");
+
+            CHECK(issue.Message.find("content ends after 1 child element") != std::string::npos);
+            CHECK(issue.Message.find("'w:tblGrid'") != std::string::npos);
+            CHECK(issue.Location.Path == "/w:tbl");
+        }
 
         SUBCASE("a child appearing too often is blamed at the repeat")
         {
@@ -661,7 +668,7 @@ TEST_SUITE("MetadataConstraintTests")
                 R"(<a:cNvPr/></p:nvSpPr>)");
 
             CHECK(issue.Message.find("child 1 is 'a:cNvPr'") != std::string::npos);
-            CHECK(issue.Message.find("expected one of 'p:cNvPr'") != std::string::npos);
+            CHECK(issue.Message.find("expected 'p:cNvPr'") != std::string::npos);
         }
     }
 
