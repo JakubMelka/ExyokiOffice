@@ -170,10 +170,11 @@ Rendering is a permanent non-goal, listed as such in
 [Out of scope](Compatibility.md#out-of-scope), because layout and pagination
 are a different discipline from markup editing.
 
-What a commercial suite costs is a per-developer licence, renewed, per
-product, plus a closed implementation you cannot read, patch, or audit.
-ExyokiOffice is MIT-licensed with the full source in the repository,
-including the code generator that produces the DOM.
+Commercial vendors use different licensing, subscription, maintenance, and
+source-access models. Verify the current terms for the specific product and
+edition when making a purchasing decision. ExyokiOffice is distributed under
+the MIT licence with its source code, including the DOM generator, available
+in the repository.
 
 Choose a commercial suite for rendering, conversion, and legacy formats.
 Choose ExyokiOffice when the work is authoring and editing OOXML, and pair
