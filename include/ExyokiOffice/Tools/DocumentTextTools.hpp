@@ -23,12 +23,14 @@ struct EXYOKIOFFICE_EXPORT DocumentSearchMatch
     /// Human-readable location. Word: "body: body paragraph 1"; Excel:
     /// "Sheet1!B2"; PowerPoint: "slide 1 shape 2 paragraph 1" or "slide 1 notes".
     std::string Label;
-    /// Character offset of the match within the containing text unit
+    /// UTF-8 byte offset of the match within the containing text unit
     /// (paragraph, cell, or notes page).
     Size Offset = 0;
+    /// Length of the match in UTF-8 bytes.
     Size Length = 0;
     std::string MatchText;
-    /// Surrounding text (up to the requested number of characters on each side).
+    /// Surrounding text (up to the requested number of bytes on each side, snapped
+    /// outward to a UTF-8 character boundary so the context is always valid UTF-8).
     std::string Context;
 };
 

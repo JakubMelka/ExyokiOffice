@@ -29,15 +29,19 @@ which walks through the whole procedure.
 | Release | Source compatibility | Binary compatibility (ABI) |
 |---|---|---|
 | Patch (`1.2.3` → `1.2.4`) | preserved | **preserved** — drop in the new library and relink nothing |
-| Minor (`1.2.x` → `1.3.0`) | preserved for existing code | **not preserved** — recompilation required |
+| Minor (`1.2.x` → `1.3.0`) | preserved for existing code, apart from a documented break | **may change** — recompilation required |
 | Major (`1.x.y` → `2.0.0`) | may break | not preserved |
 
 Only a patch release guarantees an unchanged ABI. A minor release is allowed to
-change layouts, virtual tables, inline behavior and exported symbols even while
-it stays source compatible, so consumers must rebuild against it.
+change the ABI — layouts, virtual tables, inline behavior, and the set of
+exported symbols, up to removing or replacing an exported function — so
+consumers must rebuild against it.
 
-The exception at either level is a security or critical correctness fix that
-cannot be made otherwise; such a break is called out in the changelog.
+Source compatibility is normally preserved across a minor release. A minor may
+nonetheless carry a documented source-breaking change — most often a removal or
+a signature change forced by a security or correctness fix — without a major
+bump; a major release is reserved for a wider redesign. Every such break is
+called out in the changelog.
 
 ## The ABI identity
 

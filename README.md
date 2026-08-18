@@ -45,7 +45,7 @@ dropped.
 | Word / Excel / PowerPoint | all three | all three | all three | separate projects | Excel only |
 | High-level editing API | yes | typed DOM | yes | yes | yes |
 | Typed schema DOM | yes | yes | yes | no | no |
-| Schema and semantic validation | yes | yes | no | no | no |
+| Schema and semantic validation | yes | yes | schema only | no | no |
 | Command-line front end | `exyoki` | no | no | no | no |
 | MCP servers for AI agents | three | no | no | no | no |
 | License | MIT | MIT | Apache-2.0 | mostly MIT | permissive |

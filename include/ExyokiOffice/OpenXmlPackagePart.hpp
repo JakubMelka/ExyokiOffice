@@ -545,6 +545,13 @@ private:
     friend struct OpenXmlPackageImpl;
     friend class OpenXmlPartContainer;
 
+    /// Parses @p xml into the part's document and reports whether it was
+    /// well-formed. Unlike SetXmlString this returns the parse result, so the
+    /// OPC loader can reject a malformed part, and it leaves the parsed tree in
+    /// place for the loader to run its limit check over - the bytes a package
+    /// carries are therefore parsed once, not once here and once for the check.
+    [[nodiscard]] bool LoadXmlString(const std::string& xml);
+
     void AddIncomingRelationship(OpenXmlPartContainer* source, const OpenXmlRelationship& relationship);
     void RemoveIncomingRelationshipsFrom(const OpenXmlPartContainer* source);
     void RemoveIncomingRelationship(const OpenXmlPartContainer* source, std::string_view relationshipId);

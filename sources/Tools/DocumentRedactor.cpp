@@ -121,6 +121,25 @@ public:
         return contentType.find("wordprocessingml") != std::string::npos && contentType.ends_with("styles+xml");
     }
 
+    /// The Word settings part, which is where the `w:rsids` registry lists every
+    /// revision-save id the document has ever carried.
+    [[nodiscard]] static bool IsWordSettingsContentType(const std::string& contentType)
+    {
+        return contentType.find("wordprocessingml") != std::string::npos && contentType.ends_with("settings+xml");
+    }
+
+    /// True for a part that belongs to the glossary (building-block) document
+    /// rather than to the main document.
+    ///
+    /// The glossary lives under `word/glossary/` and can carry its own styles
+    /// part, so a `styleId` defined there is a different style from the same id
+    /// in the main document. Which graph a part belongs to decides which styles
+    /// part governs it.
+    [[nodiscard]] static bool IsGlossaryUri(const std::string& uri)
+    {
+        return uri.find("/glossary/") != std::string::npos;
+    }
+
     /**
      * @brief Parts that carry identity or content the document does not show.
      *
@@ -483,6 +502,46 @@ public:
         return removed;
     }
 
+    /// Scrubs the revision-save ids from the settings part.
+    ///
+    /// The per-story pass reaches the `w:rsid*` attributes scattered through the
+    /// body, but `word/settings.xml` is not a story part, and it holds the
+    /// `w:rsids` registry: a list of every editing session that ever touched the
+    /// file. Left behind, it ties a redacted document back to the machines and
+    /// sittings that produced it, so the registry element goes whole, and any
+    /// stray attributes on the settings tree go with it.
+    static Size ScrubWordSettings(const std::shared_ptr<OpenXMLElement>& root)
+    {
+        if (!root)
+        {
+            return 0;
+        }
+        Size removed = RemoveRevisionSaveIds(root);
+
+        // `ChildOfType` would stop at the first registry, but the loader does not
+        // run strict schema validation, so a non-conformant settings part can
+        // carry more than one `w:rsids`, and leaving the second behind would
+        // republish exactly the editing-session ids this pass exists to remove.
+        // Collect every registry in the subtree first - removing during the walk
+        // would mutate the tree it reads - then drop them all, so the scrub is
+        // fail-closed even for malformed input.
+        std::vector<std::shared_ptr<W::Rsids>> registries;
+        ForEachElement(root,
+                       [&registries](const std::shared_ptr<OpenXMLElement>& element)
+                       {
+                           if (auto rsids = openxmlelement_cast<W::Rsids>(element))
+                           {
+                               registries.push_back(std::move(rsids));
+                           }
+                       });
+        for (const auto& rsids : registries)
+        {
+            rsids->Remove();
+            ++removed;
+        }
+        return removed;
+    }
+
     /// True when a `w:vanish` or `w:specVanish` actually hides its run.
     ///
     /// Both are `CT_OnOff`, so both can be switched off with `w:val="false"` -
@@ -808,7 +867,15 @@ public:
 
         // Which styles hide text has to be known before any part is scrubbed,
         // because the answer lives in a different part from the runs it hides.
-        std::unordered_set<std::string> hiddenStyles;
+        // A document can hold more than one styles part - the main one and a
+        // glossary one - and the same `styleId` in each is a different style, so
+        // the sets are kept per graph rather than unioned across both: unioning
+        // would apply a glossary style's hiddenness to a main-document run that
+        // merely shares its id, deleting text the document shows. Within one
+        // graph the ids from every styles part are unioned, so a style that
+        // hides text is never missed because another part came later.
+        std::unordered_set<std::string> mainHiddenStyles;
+        std::unordered_set<std::string> glossaryHiddenStyles;
         if (options.RemoveHiddenText)
         {
             for (const auto& record : ListParts(package))
@@ -819,7 +886,8 @@ public:
                 }
                 if (const auto part = package.GetPartByUri(record.Uri))
                 {
-                    hiddenStyles = HiddenStyleIds(openxmlelement_cast<W::Styles>(part->GetRootElement()));
+                    auto& scope = IsGlossaryUri(record.Uri) ? glossaryHiddenStyles : mainHiddenStyles;
+                    scope.merge(HiddenStyleIds(openxmlelement_cast<W::Styles>(part->GetRootElement())));
                 }
             }
         }
@@ -865,6 +933,11 @@ public:
 
                 if (options.RemoveComments || options.RemoveHiddenText)
                 {
+                    // A glossary story part is scrubbed with the glossary styles,
+                    // a main-document one with the main styles, so a shared
+                    // `styleId` is judged against the styles that actually apply.
+                    const auto& hiddenStyles =
+                        IsGlossaryUri(record.Uri) ? glossaryHiddenStyles : mainHiddenStyles;
                     ScrubWordPart(root, options.RemoveComments, options.RemoveHiddenText, hiddenStyles,
                                   commentMarkersRemoved, result.HiddenRunsRemoved);
                 }
@@ -889,6 +962,17 @@ public:
 
         if (options.RemovePersonalMetadata)
         {
+            for (const auto& record : ListParts(package))
+            {
+                if (!IsWordSettingsContentType(record.ContentType))
+                {
+                    continue;
+                }
+                if (const auto part = package.GetPartByUri(record.Uri))
+                {
+                    ScrubWordSettings(part->GetRootElement());
+                }
+            }
             RedactMetadata(package, result, options.RemoveComments);
         }
 

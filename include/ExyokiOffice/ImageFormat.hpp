@@ -28,7 +28,7 @@ struct ImageFormatInfo
 };
 
 /**
- * @brief Detects PNG, JPEG, GIF, or BMP metadata from the payload signature.
+ * @brief Detects PNG, JPEG, GIF, BMP, TIFF, EMF, or WMF metadata from the payload signature.
  * @param data Image bytes; the buffer is only inspected and is never retained.
  * @return Format metadata, or `std::nullopt` for malformed or unsupported data.
  */

@@ -907,6 +907,31 @@ void OpenXmlPackagePart::SetXmlString(const std::string& xml)
     m_impl->verbatimXml = m_impl->hasVerbatimXml ? xml : std::string();
 }
 
+bool OpenXmlPackagePart::LoadXmlString(const std::string& xml)
+{
+    if (!IsXmlPart())
+    {
+        return false;
+    }
+
+    if (!m_impl->xmlData)
+    {
+        m_impl->xmlData = std::make_unique<XmlDocumentStorage>();
+    }
+
+    m_impl->xmlData->Document.reset();
+
+    // Same parse as SetXmlString - load_buffer over the raw bytes, preserving
+    // whitespace-only text - but the result is returned rather than dropped, so
+    // a part that is not well-formed fails the load instead of being kept empty.
+    const auto result =
+        m_impl->xmlData->Document.load_buffer(xml.data(), xml.size(), Xml::ParseOptions::Preserving);
+
+    m_impl->hasVerbatimXml = RequiresByteStableXml(ContentType());
+    m_impl->verbatimXml = m_impl->hasVerbatimXml ? xml : std::string();
+    return static_cast<bool>(result);
+}
+
 void OpenXmlPackagePart::SetContentType(std::string contentType)
 {
     m_impl->contentTypeOverride = std::move(contentType);

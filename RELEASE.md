@@ -21,17 +21,20 @@ Semantic versioning, as described in [docs/ABI.md](docs/ABI.md):
 
 | Change | Bump |
 | --- | --- |
-| Incompatible public API or ABI change | major |
-| Backward-compatible functionality | minor |
-| Backward-compatible fixes only | patch |
+| Wider redesign of the public API | major |
+| ABI change, a documented source-breaking change, or new backward-compatible functionality | minor |
+| Backward-compatible fixes that keep the ABI | patch |
 
-The `0.x` series is over: from 1.0.0 on, a minor release keeps source and a
-patch release keeps ABI, and the one exception is the security or correctness
-fix that cannot be made compatibly, which [docs/ABI.md](docs/ABI.md) allows
-only when the break is spelled out in the changelog. Read the
-`## [Unreleased]` section of [CHANGELOG.md](CHANGELOG.md) to see what actually
-accumulated — that, not a calendar, decides the number. A `### Removed`
-section there means the answer is a major release.
+The `0.x` series is over: from 1.0.0 on, only a patch release keeps the ABI. A
+minor release may change the ABI — consumers recompile — and may even carry a
+documented source-breaking change, most often a removal or a signature change
+forced by a security or correctness fix, provided the break is spelled out in
+the changelog; a major release is reserved for a wider redesign. See
+[docs/ABI.md](docs/ABI.md) for the full policy. Read the `## [Unreleased]`
+section of [CHANGELOG.md](CHANGELOG.md) to see what actually accumulated —
+that, not a calendar, decides the number. A `### Removed` section is a minor
+release when its break is documented there, and a major only when the API is
+being redesigned more broadly.
 
 ## 2. Edit the version
 

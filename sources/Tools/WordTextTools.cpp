@@ -11,6 +11,7 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include "Tools/TextPatternHelpers.hpp"
+#include "Utf8Text.hpp"
 #include "Word/WordParagraphSearch.hpp"
 
 #include <functional>
@@ -237,8 +238,20 @@ SearchResult Search(Word::WordDocumentEditor& editor, std::string_view needle, S
                                                   match.Length = range.Length();
                                                   match.MatchText = text.substr(range.Start, range.Length());
 
-                                                  const auto contextStart = range.Start > contextChars ? range.Start - contextChars : 0;
-                                                  const auto contextEnd = std::min(text.size(), range.End + contextChars);
+                                                  auto contextStart = range.Start > contextChars ? range.Start - contextChars : Size{0};
+                                                  auto contextEnd = std::min(text.size(), range.End + contextChars);
+                                                  // Offsets are UTF-8 byte positions, so a fixed byte window can
+                                                  // begin or end inside a multi-byte character. Snap the start back
+                                                  // and the end forward to the nearest character boundary, so the
+                                                  // context is always valid UTF-8 rather than a half-cut sequence.
+                                                  while (contextStart > 0 && Utf8Text::IsContinuationByte(text[contextStart]))
+                                                  {
+                                                      --contextStart;
+                                                  }
+                                                  while (contextEnd < text.size() && Utf8Text::IsContinuationByte(text[contextEnd]))
+                                                  {
+                                                      ++contextEnd;
+                                                  }
                                                   match.Context = text.substr(contextStart, contextEnd - contextStart);
 
                                                   result.Matches.push_back(std::move(match));

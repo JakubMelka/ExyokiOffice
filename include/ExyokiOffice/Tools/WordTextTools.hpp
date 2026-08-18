@@ -38,11 +38,13 @@ struct EXYOKIOFFICE_EXPORT SearchMatch
     TextScope Scope = TextScope::Body;
     /// Human-readable location, e.g. "table 1 paragraph 2", "footnote 3", "comment 1 (Reviewer)".
     std::string Label;
-    /// Character offset of the match within the containing paragraph's plain text.
+    /// UTF-8 byte offset of the match within the containing paragraph's plain text.
     Size Offset = 0;
+    /// Length of the match in UTF-8 bytes.
     Size Length = 0;
     std::string MatchText;
-    /// Surrounding text (up to the requested number of characters on each side).
+    /// Surrounding text (up to the requested number of bytes on each side, snapped
+    /// outward to a UTF-8 character boundary so the context is always valid UTF-8).
     std::string Context;
 };
 

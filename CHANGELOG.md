@@ -86,12 +86,14 @@ in [docs/](docs/README.md).
 - `Tools::RedactDocument` scrubs what it claimed to: tracked changes are
   accepted in every story part, a deleted paragraph mark merges its paragraph,
   deleted rows go with their cells, `w:rPrChange` records are dropped, a
-  character style that hides text counts as hidden, `w:vanish` and
-  `w:specVanish` are read as on/off values, `xl/persons` and legacy
-  `ppt/comments/*` go with the comments they belong to, and the metadata pass
-  clears descriptive properties, last-printed time, attached template name,
-  `w:rsid*`, `customXml` and `docProps/thumbnail`. What it still does not reach
-  is stated in the API and in [docs/tools/exyoki.md](docs/tools/exyoki.md).
+  character style that hides text counts as hidden - across every styles part a
+  document carries, not just the last one - `w:vanish` and `w:specVanish` are
+  read as on/off values, `xl/persons` and legacy `ppt/comments/*` go with the
+  comments they belong to, and the metadata pass clears descriptive properties,
+  last-printed time, attached template name, `w:rsid*` including the `w:rsids`
+  registry in `word/settings.xml`, `customXml` and `docProps/thumbnail`. What it
+  still does not reach is stated in the API and in
+  [docs/tools/exyoki.md](docs/tools/exyoki.md).
 - `PowerPointDocument::Open` applies `OpcValidationMode` and
   `MaxCharactersInPart`, which it used to ignore.
 - A ZIP entry with an empty name no longer causes a one-byte heap under-read.
@@ -104,8 +106,8 @@ in [docs/](docs/README.md).
   `paragraph->FindAllRegex(std::regex(text, std::regex::icase))` with
   `paragraph->FindAllRegex(RegexPattern{text, true})`, or with
   `RegexPattern::Literal(text)` where the needle is not an expression.
-  [docs/ABI.md](docs/ABI.md) reserves a source break for a security fix that
-  cannot be made otherwise, which this is. **The next release has to be 2.0.0.**
+  [docs/ABI.md](docs/ABI.md) allows a documented source break in a minor release,
+  which this is; it ships in **1.1.0**, which already requires a recompile.
 
 ### Changed
 
@@ -145,7 +147,10 @@ in [docs/](docs/README.md).
 - PowerPoint text extraction descends into group shapes and reads tables.
 - A leading empty cell keeps its column when a PowerPoint table is extracted.
 - Searching a Word document compiles the expression once instead of once per
-  paragraph.
+  paragraph, and the reported context snaps to a UTF-8 character boundary
+  instead of cutting a multi-byte character in half.
+- An XML part is parsed once when a package is loaded: the limit check reads the
+  same tree the part keeps rather than a second throwaway parse of the same bytes.
 - A path outside ASCII opens on Windows; the bundled ZIP layer is handed UTF-8
   rather than the active code page.
 - Numbers are read and written locale-independently through

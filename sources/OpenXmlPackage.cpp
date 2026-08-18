@@ -1595,16 +1595,18 @@ bool OpenXmlPackageImpl::ReadParts(OpenXmlPackage& self,
                 part->SetOriginalBytes(buffer);
             }
             std::string xml(buffer.begin(), buffer.end());
-            Pugi::xml_document doc;
-            if (!doc.load_buffer(xml.data(), xml.size(), Xml::ParseOptions::Preserving))
+            // Parse the part once: LoadXmlString builds the tree the part keeps
+            // and reports whether it was well-formed, and the limit check then
+            // runs over that same tree instead of a second throwaway parse of
+            // the identical bytes.
+            if (!part->LoadXmlString(xml))
             {
                 return false;
             }
-            if (!CheckXmlLimits(doc, entryName, partUri, cancellationToken))
+            if (!CheckXmlLimits(part->m_impl->xmlData->Document, entryName, partUri, cancellationToken))
             {
                 return false;
             }
-            part->SetXmlString(xml);
         }
         else
         {

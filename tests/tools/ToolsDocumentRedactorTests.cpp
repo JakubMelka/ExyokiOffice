@@ -399,6 +399,149 @@ TEST_SUITE("Tools.Redactor")
         CHECK(redacted.find("00AB12CD") == std::string::npos);
     }
 
+    TEST_CASE("The revision-save id registry is stripped from the settings part [unit] [tools] [redact]")
+    {
+        // The per-story pass reaches the `w:rsid*` attributes scattered through
+        // the body, but the `w:rsids` registry - the list of every editing
+        // session that ever touched the file - lives in word/settings.xml, which
+        // is not a story part, so a body-only pass would leave it behind.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor);
+        editor->AddParagraph("text");
+        const auto path = ExyokiOfficeTests::MakeTemporaryPath("exyoki_redact_settings", ".docx");
+        REQUIRE(editor->SaveToFile(path));
+
+        {
+            ExyokiOffice::Packaging::WordDocument package;
+            REQUIRE(package.LoadFromFile(path));
+            REQUIRE(package.EnsureDocumentSettingsPart());
+            REQUIRE(package.SaveToFile(path));
+        }
+
+        std::string settings = "<w:settings xmlns:w=\"";
+        settings += RedactorTestHelpers::WordNamespace;
+        settings += "\"><w:rsids><w:rsidRoot w:val=\"00AB12CD\"/><w:rsid w:val=\"00AB12CD\"/>"
+                    "<w:rsid w:val=\"00EF3456\"/></w:rsids></w:settings>";
+        RedactorTestHelpers::SetPartXml(path, "/word/settings.xml", settings);
+
+        const auto output = ExyokiOfficeTests::MakeTemporaryPath("exyoki_redact_settings_out", ".docx");
+        REQUIRE(RedactDocument(path, output).Ok);
+
+        const auto redacted = RedactorTestHelpers::GetPartXml(output, "/word/settings.xml");
+        CHECK(redacted.find("rsid") == std::string::npos);
+        CHECK(redacted.find("00AB12CD") == std::string::npos);
+        CHECK(redacted.find("00EF3456") == std::string::npos);
+    }
+
+    TEST_CASE("Every revision-save id registry is stripped, even a duplicate one [unit] [tools] [redact]")
+    {
+        // The loader does not run strict schema validation, so a non-conformant
+        // settings part can carry more than one `w:rsids`. Dropping only the first
+        // would republish the editing-session ids the second one still lists.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor);
+        editor->AddParagraph("text");
+        const auto path = ExyokiOfficeTests::MakeTemporaryPath("exyoki_redact_settings_dup", ".docx");
+        REQUIRE(editor->SaveToFile(path));
+
+        {
+            ExyokiOffice::Packaging::WordDocument package;
+            REQUIRE(package.LoadFromFile(path));
+            REQUIRE(package.EnsureDocumentSettingsPart());
+            REQUIRE(package.SaveToFile(path));
+        }
+
+        std::string settings = "<w:settings xmlns:w=\"";
+        settings += RedactorTestHelpers::WordNamespace;
+        settings += "\"><w:rsids><w:rsid w:val=\"00AB12CD\"/></w:rsids>"
+                    "<w:rsids><w:rsid w:val=\"00EF3456\"/></w:rsids></w:settings>";
+        RedactorTestHelpers::SetPartXml(path, "/word/settings.xml", settings);
+
+        const auto output = ExyokiOfficeTests::MakeTemporaryPath("exyoki_redact_settings_dup_out", ".docx");
+        REQUIRE(RedactDocument(path, output).Ok);
+
+        const auto redacted = RedactorTestHelpers::GetPartXml(output, "/word/settings.xml");
+        CHECK(redacted.find("rsids") == std::string::npos);
+        CHECK(redacted.find("00AB12CD") == std::string::npos);
+        CHECK(redacted.find("00EF3456") == std::string::npos);
+    }
+
+    TEST_CASE("A hidden glossary style does not delete a main run that shares its id [unit] [tools] [redact]")
+    {
+        // The main document and the glossary each carry their own styles part, and
+        // the same styleId in each is a different style. A style that hides text in
+        // the glossary must not reach a visible main-document run that merely shares
+        // the id, or redaction would silently delete text the document shows.
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor);
+        editor->AddParagraph("placeholder");
+        const auto path = ExyokiOfficeTests::MakeTemporaryPath("exyoki_redact_glossary", ".docx");
+        REQUIRE(editor->SaveToFile(path));
+
+        std::string mainStylesUri;
+        std::string glossaryDocUri;
+        std::string glossaryStylesUri;
+        {
+            ExyokiOffice::Packaging::WordDocument package;
+            REQUIRE(package.LoadFromFile(path));
+            auto mainPart = package.GetMainDocumentPart();
+            REQUIRE(mainPart);
+
+            auto mainStyles = mainPart->GetStyleDefinitionsPart();
+            if (!mainStyles)
+            {
+                mainStyles = mainPart->AddStyleDefinitionsPart();
+            }
+            REQUIRE(mainStyles);
+            mainStylesUri = mainStyles->Uri();
+
+            auto glossary = mainPart->AddGlossaryDocumentPart();
+            REQUIRE(glossary);
+            glossaryDocUri = glossary->Uri();
+            auto glossaryStyles = glossary->AddStyleDefinitionsPart();
+            REQUIRE(glossaryStyles);
+            glossaryStylesUri = glossaryStyles->Uri();
+
+            REQUIRE(package.SaveToFile(path));
+        }
+
+        std::string mainBody = "<w:document xmlns:w=\"";
+        mainBody += RedactorTestHelpers::WordNamespace;
+        mainBody += "\"><w:body><w:p><w:r><w:rPr><w:rStyle w:val=\"Shared\"/></w:rPr>"
+                    "<w:t>main shared text</w:t></w:r></w:p></w:body></w:document>";
+        RedactorTestHelpers::SetPartXml(path, "/word/document.xml", mainBody);
+
+        std::string mainStyles = "<w:styles xmlns:w=\"";
+        mainStyles += RedactorTestHelpers::WordNamespace;
+        mainStyles += "\"><w:style w:type=\"character\" w:styleId=\"Shared\"><w:rPr/></w:style></w:styles>";
+        RedactorTestHelpers::SetPartXml(path, mainStylesUri, mainStyles);
+
+        std::string glossaryDoc = "<w:glossaryDocument xmlns:w=\"";
+        glossaryDoc += RedactorTestHelpers::WordNamespace;
+        glossaryDoc += "\"><w:docParts><w:docPart><w:docPartBody>"
+                       "<w:p><w:r><w:rPr><w:rStyle w:val=\"Shared\"/></w:rPr>"
+                       "<w:t>glossary shared text</w:t></w:r></w:p>"
+                       "</w:docPartBody></w:docPart></w:docParts></w:glossaryDocument>";
+        RedactorTestHelpers::SetPartXml(path, glossaryDocUri, glossaryDoc);
+
+        std::string glossaryStyles = "<w:styles xmlns:w=\"";
+        glossaryStyles += RedactorTestHelpers::WordNamespace;
+        glossaryStyles += "\"><w:style w:type=\"character\" w:styleId=\"Shared\">"
+                          "<w:rPr><w:vanish/></w:rPr></w:style></w:styles>";
+        RedactorTestHelpers::SetPartXml(path, glossaryStylesUri, glossaryStyles);
+
+        const auto output = ExyokiOfficeTests::MakeTemporaryPath("exyoki_redact_glossary_out", ".docx");
+        REQUIRE(RedactDocument(path, output).Ok);
+
+        // The main run keeps its text: the main styles part does not hide "Shared".
+        const auto mainOut = RedactorTestHelpers::GetPartXml(output, "/word/document.xml");
+        CHECK(mainOut.find("main shared text") != std::string::npos);
+
+        // The glossary run is removed: the glossary styles part does hide "Shared".
+        const auto glossaryOut = RedactorTestHelpers::GetPartXml(output, glossaryDocUri);
+        CHECK(glossaryOut.find("glossary shared text") == std::string::npos);
+    }
+
     TEST_CASE("Hiding switched off with w:val=\"false\" is not hiding [unit] [tools] [redact]")
     {
         // `w:vanish` and `w:specVanish` are both CT_OnOff, so both can be turned
