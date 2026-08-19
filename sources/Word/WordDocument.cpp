@@ -3604,8 +3604,8 @@ public:
         start->SetX(Int64Value(0));
         start->SetY(Int64Value(0));
         constexpr Int64 kShapeSpace = 21600;
-        for (const auto [x, y] : {std::pair<Int64, Int64>{0, kShapeSpace}, std::pair<Int64, Int64>{kShapeSpace, kShapeSpace},
-                                  std::pair<Int64, Int64>{kShapeSpace, 0}, std::pair<Int64, Int64>{0, 0}})
+        for (const auto& [x, y] : {std::pair<Int64, Int64>{0, kShapeSpace}, std::pair<Int64, Int64>{kShapeSpace, kShapeSpace},
+                                   std::pair<Int64, Int64>{kShapeSpace, 0}, std::pair<Int64, Int64>{0, 0}})
         {
             auto line = polygon->template AppendChild<Wp::LineTo>();
             if (!line)
