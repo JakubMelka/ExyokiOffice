@@ -19,7 +19,7 @@ if(MSVC AND VCPKG_TARGET_TRIPLET MATCHES "-static$")
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
-find_package(ExyokiOffice 1.0 CONFIG REQUIRED)
+find_package(ExyokiOffice 1.1 CONFIG REQUIRED)
 
 add_executable(ExyokiOfficeVcpkgSmoke main.cpp)
 target_compile_features(ExyokiOfficeVcpkgSmoke PRIVATE cxx_std_20)

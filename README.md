@@ -220,10 +220,10 @@ A distroless [container image](docs/tools/docker.md) carries the library,
 command line, and all three servers:
 
 ```bash
-docker pull ghcr.io/jakubmelka/exyokioffice:1.0.0
+docker pull ghcr.io/jakubmelka/exyokioffice:1.1.0
 
 docker run --rm --network none --user "$(id -u):$(id -g)" -v "$PWD:/work" \
-  ghcr.io/jakubmelka/exyokioffice:1.0.0 exyoki convert report.docx report.md
+  ghcr.io/jakubmelka/exyokioffice:1.1.0 exyoki convert report.docx report.md
 ```
 
 The image runs as an unprivileged uid of its own, so `--user` is what makes the
@@ -274,7 +274,7 @@ cmake --install build/linux-ninja-release --prefix /opt/ExyokiOffice
 Consume an installed package through its exported CMake target:
 
 ```cmake
-find_package(ExyokiOffice 1.0 CONFIG REQUIRED)
+find_package(ExyokiOffice 1.1 CONFIG REQUIRED)
 target_link_libraries(MyApplication PRIVATE ExyokiOffice::ExyokiOffice)
 ```
 

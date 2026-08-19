@@ -118,7 +118,7 @@ none of them needs a client.
 
 ```powershell
 exyoki-mcp-word --version
-# exyoki-mcp-word 1.0.0
+# exyoki-mcp-word 1.1.0
 ```
 
 **2. The catalog is what you expect.** `--print-tools` writes the catalog to
@@ -154,7 +154,7 @@ exyoki-mcp-word --workspace . --log-level info --replay smoke.jsonl
 Standard output carries the JSON-RPC answers; the log goes to standard error:
 
 ```text
-[info] exyoki-mcp-word 1.0.0 ready with 50 tools.
+[info] exyoki-mcp-word 1.1.0 ready with 50 tools.
 [info] Input closed; shutting down.
 ```
 
@@ -908,7 +908,7 @@ To see what the server is doing, start it with `--log-level debug`. The log
 goes to standard error and never touches the protocol stream:
 
 ```text
-[info] exyoki-mcp-word 1.0.0 ready with 50 tools.
+[info] exyoki-mcp-word 1.1.0 ready with 50 tools.
 [warn] Discarding an unparsable JSON-RPC line.
 [info] Input closed; shutting down.
 ```

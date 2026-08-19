@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(ExyokiOfficeInstallSmoke LANGUAGES CXX)
 
-find_package(ExyokiOffice 1.0 CONFIG REQUIRED)
+find_package(ExyokiOffice 1.1 CONFIG REQUIRED)
 
 add_executable(ExyokiOfficeInstallSmoke main.cpp)
 target_compile_features(ExyokiOfficeInstallSmoke PRIVATE cxx_std_20)

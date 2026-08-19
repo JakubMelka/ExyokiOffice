@@ -29,11 +29,11 @@ The image lives in the GitHub Container Registry as
 page](https://github.com/JakubMelka/ExyokiOffice/pkgs/container/exyokioffice):
 
 ```bash
-docker pull ghcr.io/jakubmelka/exyokioffice:1.0.0
+docker pull ghcr.io/jakubmelka/exyokioffice:1.1.0
 docker pull ghcr.io/jakubmelka/exyokioffice:latest
 ```
 
-Two tags point at every release. `1.0.0` is that release and nothing else, and
+Two tags point at every release. `1.1.0` is that release and nothing else, and
 it never moves; `latest` follows the newest published release, so it means a
 different image after each one. Pin the version in anything reproducible — a
 `docker compose` file, an MCP client configuration, a CI job — and keep
@@ -48,18 +48,18 @@ pushed from that very tarball — so use it when a machine cannot reach the
 registry, or to keep an archived copy of a version:
 
 ```bash
-sha256sum -c ExyokiOffice-1.0.0-docker-amd64.tar.gz.sha256
-docker load < ExyokiOffice-1.0.0-docker-amd64.tar.gz
-# Loaded image: exyokioffice:1.0.0
+sha256sum -c ExyokiOffice-1.1.0-docker-amd64.tar.gz.sha256
+docker load < ExyokiOffice-1.1.0-docker-amd64.tar.gz
+# Loaded image: exyokioffice:1.1.0
 ```
 
-A loaded image is named `exyokioffice:1.0.0`, without the registry prefix. The
+A loaded image is named `exyokioffice:1.1.0`, without the registry prefix. The
 examples below use the registry name; substitute whichever you have.
 
 Run it with no arguments and it tells you the rest:
 
 ```bash
-docker run --rm ghcr.io/jakubmelka/exyokioffice:1.0.0
+docker run --rm ghcr.io/jakubmelka/exyokioffice:1.1.0
 ```
 
 Only `linux/amd64` is built, matching the x64-only zip archives.
@@ -74,7 +74,7 @@ that produced the image reports both.
 Locally, neither number is what the tooling shows by default:
 
 ```bash
-docker image inspect --format '{{.Size}}' ghcr.io/jakubmelka/exyokioffice:1.0.0
+docker image inspect --format '{{.Size}}' ghcr.io/jakubmelka/exyokioffice:1.1.0
 ```
 
 sums the layer sizes as the descriptors you happen to have record them — the
@@ -112,7 +112,7 @@ also on the outside, as [OCI image
 labels](https://github.com/opencontainers/image-spec/blob/main/annotations.md):
 
 ```bash
-IMAGE=ghcr.io/jakubmelka/exyokioffice:1.0.0
+IMAGE=ghcr.io/jakubmelka/exyokioffice:1.1.0
 docker image inspect --format '{{json .Config.Labels}}' "$IMAGE"
 docker image inspect \
   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' \
@@ -160,7 +160,7 @@ Name `exyoki` as the first argument; everything after it reaches the tool
 unchanged. Mount the documents you want it to see at `/work`:
 
 ```bash
-IMAGE=ghcr.io/jakubmelka/exyokioffice:1.0.0
+IMAGE=ghcr.io/jakubmelka/exyokioffice:1.1.0
 docker run --rm --network none -v "$PWD:/work" "$IMAGE" exyoki --help
 docker run --rm --network none -v "$PWD:/work" "$IMAGE" exyoki validate report.docx
 docker run --rm --network none --user "$(id -u):$(id -g)" -v "$PWD:/work" "$IMAGE" \
@@ -189,19 +189,19 @@ needs `-i` and must not be given `-t`. Beyond that the entry is the ordinary
       "command": "docker",
       "args": ["run", "--rm", "-i", "--network", "none",
                "-v", "/path/to/documents:/work",
-               "ghcr.io/jakubmelka/exyokioffice:1.0.0", "word"]
+               "ghcr.io/jakubmelka/exyokioffice:1.1.0", "word"]
     },
     "excel": {
       "command": "docker",
       "args": ["run", "--rm", "-i", "--network", "none",
                "-v", "/path/to/documents:/work",
-               "ghcr.io/jakubmelka/exyokioffice:1.0.0", "excel"]
+               "ghcr.io/jakubmelka/exyokioffice:1.1.0", "excel"]
     },
     "powerpoint": {
       "command": "docker",
       "args": ["run", "--rm", "-i", "--network", "none",
                "-v", "/path/to/documents:/work",
-               "ghcr.io/jakubmelka/exyokioffice:1.0.0", "powerpoint"]
+               "ghcr.io/jakubmelka/exyokioffice:1.1.0", "powerpoint"]
     }
   }
 }
@@ -281,7 +281,7 @@ Compose it is `network_mode: "none"`:
 ```yaml
 services:
   exyoki:
-    image: ghcr.io/jakubmelka/exyokioffice:1.0.0
+    image: ghcr.io/jakubmelka/exyokioffice:1.1.0
     network_mode: "none"
     volumes:
       - ./documents:/work

@@ -11,6 +11,10 @@ in [docs/](docs/README.md).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.1.0] - 2026-08-20
+
 ### Added
 
 - Code coverage: the `EXYOKIOFFICE_COVERAGE` option, the
@@ -107,7 +111,7 @@ in [docs/](docs/README.md).
   `paragraph->FindAllRegex(RegexPattern{text, true})`, or with
   `RegexPattern::Literal(text)` where the needle is not an expression.
   [docs/ABI.md](docs/ABI.md) allows a documented source break in a minor release,
-  which this is; it ships in **1.1.0**, which already requires a recompile.
+  which this is; this release already requires a recompile.
 
 ### Changed
 

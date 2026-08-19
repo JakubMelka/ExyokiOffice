@@ -76,12 +76,27 @@ longer matches the installed version.
 
 Patch releases do not touch these: `1.0` still matches `1.0.4`.
 
-### 2.4 Sample tool output — whenever the number changes
+### 2.4 Sample output and image tags — whenever the number changes
 
-[docs/tools/exyoki.md](docs/tools/exyoki.md) shows `"toolVersion": "X.Y.Z"` in
-three JSON envelope samples. `exyoki` prints the library version there, so the
-samples should show the release being documented. Markdown cannot interpolate
-the number, which is why this is a manual step.
+Markdown cannot interpolate the number, so every place a sample prints or pulls
+the version is a manual step. None of these break a build; all of them tell a
+reader to install the previous release.
+
+- [docs/tools/exyoki.md](docs/tools/exyoki.md) — four `"toolVersion": "X.Y.Z"`
+  samples, which `exyoki` prints from the library version
+- [docs/tools/mcp-servers.md](docs/tools/mcp-servers.md) — three
+  `exyoki-mcp-word X.Y.Z` start-up lines
+- [docs/tools/docker.md](docs/tools/docker.md) — the pulled and loaded image
+  tags and the `docker save` tarball name. The compressed and unpacked size
+  figures name a release too; re-read them from the `create_install` summary in
+  step 8 rather than carrying the old numbers forward.
+- [README.md](README.md) — the two `docker pull` lines in the tooling section
+- [docs/ci.md](docs/ci.md) — the sample archive names and the
+  `publish_docker.yml` invocation
+
+`vcpkg/test/vcpkg.json` also carries a `version`, but it is the version of the
+consumer test project itself, not of the library. It happens to have started at
+`1.0.0` and does not move with a release.
 
 ### 2.5 Prove nothing was missed
 
@@ -244,6 +259,11 @@ been opened.
 
 ## 9. Commit, tag and publish
 
+Stage deliberately. The repository root tends to collect untracked working
+material — audit notes, sample documents produced while testing — and `git add
+-A` would publish all of it in the release commit. Run `git status` first and
+either delete what does not belong or move it out of the tree.
+
 ```powershell
 git add -A
 git commit -m "Release X.Y.Z"
@@ -327,12 +347,16 @@ will download.
 [ ] README.md                        find_package minimum (major/minor)
 [ ] docs/introduction.md             find_package minimum (major/minor)
 [ ] llms-full.txt                    find_package minimum (major/minor)
-[ ] docs/tools/exyoki.md             three toolVersion samples
+[ ] docs/tools/exyoki.md             four toolVersion samples
+[ ] docs/tools/mcp-servers.md        three server start-up lines
+[ ] docs/tools/docker.md             image tags, tarball name, size figures
+[ ] README.md + docs/ci.md           docker pull tags, sample archive names
 [ ] CHANGELOG.md                     Unreleased -> [X.Y.Z] - date, new empty Unreleased
 [ ] rg for the previous version      no unexpected survivors
 [ ] WinBuild.ps1 -Clean -Test        RelWithDebInfo and Debug both green
 [ ] WinLint.ps1 -Check               clean
 [ ] git diff after the build         no unintended generated churn
+[ ] git status before the commit     nothing untracked that should not ship
 [ ] Version.hpp / .rc                carry X.Y.Z, Version::Abi is X.Y
 [ ] install smoke test               configures, links, prints X.Y.Z
 [ ] share/doc/.../licenses           six third-party notices present

@@ -166,15 +166,15 @@ gh workflow run create_install.yml --ref master -f run_linux=false -f package_su
 | `build_docker` | `true` | Also pack the Linux binaries into a container image. Ignored when `run_linux` is off. |
 
 The archive is named after the version in `VERSION.txt` and the platform it
-was built for, for example `ExyokiOffice-1.0.0-windows-x64-msvc.zip` and
-`ExyokiOffice-1.0.0-linux-x64-gcc.zip`. A `.sha256` checksum file is uploaded
+was built for, for example `ExyokiOffice-1.1.0-windows-x64-msvc.zip` and
+`ExyokiOffice-1.1.0-linux-x64-gcc.zip`. A `.sha256` checksum file is uploaded
 next to it and the run summary repeats the digest.
 
 Each archive holds a single root folder of the same name, so extracting it
 never scatters files into the current directory:
 
 ```text
-ExyokiOffice-1.0.0-windows-x64-msvc/
+ExyokiOffice-1.1.0-windows-x64-msvc/
   BUILD-INFO.txt      version, platform, compiler, build type, commit, run URL
   bin/                exyoki, exyoki-mcp-word, exyoki-mcp-excel,
                       exyoki-mcp-power-point, plus ExyokiOffice.dll on Windows
@@ -251,13 +251,13 @@ Registry is a separate, deliberate act, and `publish_docker` is the workflow
 that performs it:
 
 ```powershell
-gh workflow run publish_docker.yml -f release=v1.0.0
-gh workflow run publish_docker.yml -f release=v1.0.0 -f dry_run=true
+gh workflow run publish_docker.yml -f release=v1.1.0
+gh workflow run publish_docker.yml -f release=v1.1.0 -f dry_run=true
 ```
 
 | Input | Default | Meaning |
 |---|---|---|
-| `release` | — | Tag of the release whose image is published, for example `v1.0.0`. |
+| `release` | — | Tag of the release whose image is published, for example `v1.1.0`. |
 | `tag_latest` | `true` | Also move `:latest` to this image. |
 | `dry_run` | `false` | Do everything except the push. |
 

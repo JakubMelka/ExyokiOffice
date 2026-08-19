@@ -118,7 +118,7 @@ The JSON envelope looks like:
 ```json
 {
   "tool": "exyoki",
-  "toolVersion": "1.0.0",
+  "toolVersion": "1.1.0",
   "command": "info",
   "status": "ok",
   "data": { "...": "..." },
@@ -169,7 +169,7 @@ $ exyoki commands --format json
 ```json
 {
   "tool": "exyoki",
-  "toolVersion": "1.0.0",
+  "toolVersion": "1.1.0",
   "command": "commands",
   "status": "ok",
   "data": {
@@ -287,7 +287,7 @@ are never considered dangling).
 ```
 $ exyoki relationships report.docx --dangling-only --format json
 {
-  "tool": "exyoki", "toolVersion": "1.0.0", "command": "relationships", "status": "ok",
+  "tool": "exyoki", "toolVersion": "1.1.0", "command": "relationships", "status": "ok",
   "data": { "relationshipCount": 10, "danglingCount": 0, "relationships": [] },
   "diagnostics": []
 }
@@ -920,7 +920,7 @@ data:
 
 $ exyoki query report.docx "//w:hyperlink" --format json --max 1
 {
-  "tool": "exyoki", "toolVersion": "1.0.0", "command": "query", "status": "ok",
+  "tool": "exyoki", "toolVersion": "1.1.0", "command": "query", "status": "ok",
   "data": {
     "part": "/word/document.xml",
     "matchCount": 1,

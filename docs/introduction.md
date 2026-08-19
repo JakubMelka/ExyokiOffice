@@ -318,7 +318,7 @@ cmake --install build/vs --prefix C:/ExyokiOffice
 ```
 
 ```cmake
-find_package(ExyokiOffice 1.0 CONFIG REQUIRED)
+find_package(ExyokiOffice 1.1 CONFIG REQUIRED)
 target_link_libraries(MyApplication PRIVATE ExyokiOffice::ExyokiOffice)
 ```
 

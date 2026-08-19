@@ -325,7 +325,7 @@ ctest --preset linux-ninja-debug
 Consumers use the installed target:
 
 ```cmake
-find_package(ExyokiOffice 1.0 CONFIG REQUIRED)
+find_package(ExyokiOffice 1.1 CONFIG REQUIRED)
 target_link_libraries(MyApplication PRIVATE ExyokiOffice::ExyokiOffice)
 ```
 
