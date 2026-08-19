@@ -46,6 +46,19 @@ jobs:
           mv build/doxygen/latex/refman.pdf \
              "build/doxygen/ExyokiOffice-api-reference-${VERSION}.pdf"
 
+      # LATEX_BATCHMODE in the Doxyfile keeps pdflatex quiet on the terminal,
+      # so a failed render shows nothing but the make exit code. Print the
+      # errors out of the log the run left behind.
+      - name: Report the LaTeX errors
+        if: failure()
+        run: |
+          log=build/doxygen/latex/refman.log
+          if [ -f "$log" ]; then
+            grep -n -A 6 '^!' "$log" | head -100
+          else
+            echo "No ${log} was produced."
+          fi
+
       - name: Upload the API reference artifact
         uses: actions/upload-artifact@v7
         with:

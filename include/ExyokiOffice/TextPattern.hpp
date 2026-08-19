@@ -25,9 +25,10 @@ namespace ExyokiOffice
  *
  * The syntax is ECMAScript, matched over bytes. UTF-8 goes through unharmed
  * because the library never splits a sequence, but the character classes are
- * ASCII: `.` matches one *byte*, so it takes three of them to match `字`, and
- * @ref IgnoreCase folds `a`/`A` and nothing else. Anchor and quantify accented
- * text accordingly, or match it literally with @ref Literal.
+ * ASCII: `.` matches one *byte*, so it takes three of them to match a
+ * three-byte CJK character, and @ref IgnoreCase folds `a`/`A` and nothing
+ * else. Anchor and quantify accented text accordingly, or match it
+ * literally with @ref Literal.
  */
 struct EXYOKIOFFICE_EXPORT RegexPattern
 {
