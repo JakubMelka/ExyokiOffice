@@ -130,6 +130,10 @@ jobs:
             $ver = [regex]::Match($text, 'set\(CMAKE_CXX_COMPILER_VERSION "([^"]*)"\)').Groups[1].Value
             if ($id) { $compiler = "$id $ver".Trim() }
           }
+          # The installed package config is written with SameMinorVersion, so a
+          # find_package minimum that names an older minor is refused outright.
+          # Derive it from VERSION.txt rather than spelling it out here.
+          $abi = ($env:VERSION -split '\.')[0..1] -join '.'
           $info = @"
           ExyokiOffice $env:VERSION
 
@@ -152,7 +156,7 @@ jobs:
 
           Consuming the package from CMake:
 
-            find_package(ExyokiOffice 1.0 CONFIG REQUIRED
+            find_package(ExyokiOffice $abi CONFIG REQUIRED
                          PATHS "<extracted>/lib/cmake/ExyokiOffice")
             target_link_libraries(app PRIVATE ExyokiOffice::ExyokiOffice)
 
@@ -339,7 +343,7 @@ jobs:
 
           Consuming the package from CMake:
 
-            find_package(ExyokiOffice 1.0 CONFIG REQUIRED
+            find_package(ExyokiOffice ${VERSION%.*} CONFIG REQUIRED
                          PATHS "<extracted>/$libdir/cmake/ExyokiOffice")
             target_link_libraries(app PRIVATE ExyokiOffice::ExyokiOffice)
 
