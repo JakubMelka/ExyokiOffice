@@ -468,6 +468,10 @@ endif()
 
 exyokioffice_enable_strict_warnings(ExyokiOffice)
 
+# CMAKE_CXX_STANDARD is a directory variable and does not travel with the
+# exported target; the compile feature is what a consumer inherits.
+target_compile_features(ExyokiOffice PUBLIC cxx_std_20)
+
 target_include_directories(ExyokiOffice PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>

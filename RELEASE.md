@@ -170,7 +170,7 @@ covered by CI.
 ```powershell
 $prefix = Join-Path (Get-Location) 'build\install'
 .\WinBuild.ps1 -Configuration RelWithDebInfo -Install -InstallPrefix build\install
-cmake -S tests\install -B build\install-smoke -DCMAKE_PREFIX_PATH=$prefix
+cmake -S tests\install -B build\install-smoke "-DCMAKE_PREFIX_PATH=$prefix"
 cmake --build build\install-smoke --config RelWithDebInfo
 # ExyokiOffice is a shared library; the smoke executable needs the DLL.
 $env:PATH = "$prefix\bin;$env:PATH"
@@ -179,7 +179,9 @@ $env:PATH = "$prefix\bin;$env:PATH"
 
 The executable prints the library version and returns non-zero if the runtime
 and compile-time versions disagree. The printed number must be `X.Y.Z`.
-`CMAKE_PREFIX_PATH` needs an absolute path, hence the `$prefix` variable.
+`CMAKE_PREFIX_PATH` needs an absolute path, hence the `$prefix` variable, and
+the whole `-D` argument is quoted: unquoted, PowerShell mangles the backslashes
+on their way to CMake and the package is reported missing rather than stale.
 
 Then check that the notices the licenses require a binary distribution to carry
 are actually in it:

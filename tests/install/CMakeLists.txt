@@ -9,5 +9,7 @@ project(ExyokiOfficeInstallSmoke LANGUAGES CXX)
 find_package(ExyokiOffice 1.1 CONFIG REQUIRED)
 
 add_executable(ExyokiOfficeInstallSmoke main.cpp)
-target_compile_features(ExyokiOfficeInstallSmoke PRIVATE cxx_std_20)
+# Deliberately no target_compile_features here: the C++20 the public headers
+# need has to arrive from the imported target, and asking for it again would
+# hide the case where it does not.
 target_link_libraries(ExyokiOfficeInstallSmoke PRIVATE ExyokiOffice::ExyokiOffice)
