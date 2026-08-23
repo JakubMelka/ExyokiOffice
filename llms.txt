@@ -28,6 +28,7 @@ individual links is inconvenient.
 - [Word chapters](docs/README.md#word): Documents, text, styles, tables, images, links, fields, charts, sections, notes, revisions, and protection.
 - [Word editing example](examples/ExampleWordEditor/main.cpp): Complete document authored with the public high-level API.
 - [Existing Word document example](examples/ExampleWordEdit/main.cpp): Open, find placeholders across runs, insert with cursors, extend tables, and save.
+- [One-page Word showcase](examples/ExampleWordDemo/main.cpp): Image from a file, bulleted list, formatted table, bordered code callout, hyperlink, and footer page fields on a single A4 page.
 - [Excel quickstart](docs/Excel.md): `ExcelDocumentEditor` lifecycle and feature tour.
 - [Excel chapters](docs/README.md#excel): Workbooks, worksheets, cells, formulas, styles, tables, charts, pivots, slicers, validation, layout, and printing.
 - [Excel example](examples/ExampleExcelEditor/main.cpp): Complete two-sheet workbook using the public high-level API.

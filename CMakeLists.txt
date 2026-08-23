@@ -75,6 +75,7 @@ option(EXYOKIOFFICE_DUMP_EXPORTS "Generate demangled export list (Windows only)"
 option(EXYOKIOFFICE_BUILD_EXAMPLE_WORD "Build the ExampleWord sample" ON)
 option(EXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDITOR "Build the ExampleWordEditor sample" ON)
 option(EXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDIT "Build the ExampleWordEdit sample" ON)
+option(EXYOKIOFFICE_BUILD_EXAMPLE_WORD_DEMO "Build the ExampleWordDemo sample" ON)
 option(EXYOKIOFFICE_BUILD_EXAMPLE_EXCEL_EDITOR "Build the ExampleExcelEditor sample" ON)
 option(EXYOKIOFFICE_BUILD_EXAMPLE_POWERPOINT_EDITOR "Build the ExamplePowerPointEditor sample" ON)
 option(EXYOKIOFFICE_BUILD_UNIT_TESTS "Build doctest-based unit tests" OFF)
@@ -681,6 +682,10 @@ else()
 
     if(EXYOKIOFFICE_BUILD_EXAMPLE_WORD_EDIT)
         add_subdirectory(examples/ExampleWordEdit)
+    endif()
+
+    if(EXYOKIOFFICE_BUILD_EXAMPLE_WORD_DEMO)
+        add_subdirectory(examples/ExampleWordDemo)
     endif()
 
     if(EXYOKIOFFICE_BUILD_EXAMPLE_EXCEL_EDITOR)

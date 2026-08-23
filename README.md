@@ -100,6 +100,9 @@ styles, lists, tables, images, links, notes, comments, fields, page setup, and
 search and replace. [ExampleWordEdit](examples/ExampleWordEdit/main.cpp) shows
 how to open an existing document, fill placeholders, insert content, extend a
 table, and save a new copy.
+[ExampleWordDemo](examples/ExampleWordDemo/main.cpp) is the short one: a single
+A4 page with the project logo, a bulleted list, a formatted table, a code
+callout, and a footer page number.
 
 ### Excel
 

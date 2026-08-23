@@ -18,8 +18,11 @@ A complete runnable version of most snippets is in
 [examples/ExampleWordEditor/main.cpp](../examples/ExampleWordEditor/main.cpp),
 which builds a full report — title page, table of contents, prose, lists, a
 table, an image, review markup, and a footer with page fields — and re-opens
-the saved file to prove it round-trips. The full API reference is the
-Doxygen documentation in
+the saved file to prove it round-trips.
+[examples/ExampleWordDemo/main.cpp](../examples/ExampleWordDemo/main.cpp) is the
+short counterpart: one A4 page with the project logo, a bulleted list, a
+formatted table, a bordered code callout, and a footer page number. The full API
+reference is the Doxygen documentation in
 [WordDocument.hpp](../include/ExyokiOffice/Word/WordDocument.hpp).
 
 ## Hello world

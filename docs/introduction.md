@@ -368,6 +368,7 @@ build if anything breaks:
 | --- | --- |
 | `examples/ExampleWordEditor` | A complete Word report authored from scratch. |
 | `examples/ExampleWordEdit` | Opening an existing document, filling placeholders, inserting through cursors. |
+| `examples/ExampleWordDemo` | A one-page Word showcase: logo, bulleted list, formatted table, code callout, page fields. |
 | `examples/ExampleExcelEditor` | A two-sheet workbook with formulas, a chart, a table, and a slicer. |
 | `examples/ExamplePowerPointEditor` | A five-slide deck with placeholders, media, animations, and sections. |
 | `examples/ExampleWord` | The typed DOM and packaging layers underneath all three editors. |

@@ -108,6 +108,7 @@ the build if anything breaks.
 | --- | --- |
 | [ExampleWordEditor](../examples/ExampleWordEditor/main.cpp) | [Word](Word.md) — a complete report authored from scratch. |
 | [ExampleWordEdit](../examples/ExampleWordEdit/main.cpp) | [Word](Word.md) — opening an existing document, filling placeholders, inserting through cursors. |
+| [ExampleWordDemo](../examples/ExampleWordDemo/main.cpp) | [Word](Word.md) — a one-page showcase with the project logo, a bulleted list, a table, a code callout, and page fields. |
 | [ExampleExcelEditor](../examples/ExampleExcelEditor/main.cpp) | [Excel](Excel.md) — a two-sheet workbook with formulas, a chart, a table, and a slicer. |
 | [ExamplePowerPointEditor](../examples/ExamplePowerPointEditor/main.cpp) | [PowerPoint](PowerPoint.md) — a five-slide deck. |
 | [ExampleWord](../examples/ExampleWord/main.cpp) | The typed DOM and packaging layers underneath all three editors. |

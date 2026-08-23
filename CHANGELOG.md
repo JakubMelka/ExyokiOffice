@@ -11,7 +11,10 @@ in [docs/](docs/README.md).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `examples/ExampleWordDemo`, a one-page Word showcase document built with
+  `Word::WordDocumentEditor`, enabled by `EXYOKIOFFICE_BUILD_EXAMPLE_WORD_DEMO`.
 
 ## [1.1.0] - 2026-08-20
 
