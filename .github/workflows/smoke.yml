@@ -48,7 +48,7 @@ jobs:
       # A full build compiles the whole generated OpenXML DOM, which is most of
       # the wall-clock time and almost never changes between runs.
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ccache
           key: smoke-ccache-${{ github.sha }}
