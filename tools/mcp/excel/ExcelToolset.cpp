@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 // See LICENSE file in the project root for full license text.
 
+#include "ExyokiOffice/ThemeService.hpp"
 #include "ExcelToolset.hpp"
 
 #include "ExcelAddressing.hpp"
@@ -18,6 +19,7 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
+#include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -72,6 +74,29 @@ bool ExcelDocumentHandle::LoadFromMemory(std::span<const Byte> bytes)
 std::shared_ptr<OpenXmlPackage> ExcelDocumentHandle::Package() const
 {
     return m_editor ? m_editor->GetDocument() : nullptr;
+}
+
+std::shared_ptr<Packaging::ThemePart> ExcelDocumentHandle::Theme() const
+{
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto main = document ? document->GetWorkbookPart() : nullptr;
+    return main ? main->GetThemePart() : nullptr;
+}
+
+std::shared_ptr<Packaging::ThemePart> ExcelDocumentHandle::EnsureTheme()
+{
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto main = document ? document->GetWorkbookPart() : nullptr;
+    if (!main)
+    {
+        return nullptr;
+    }
+    if (const auto existing = main->GetThemePart())
+    {
+        return existing;
+    }
+    const auto created = main->AddThemePart();
+    return created && ThemeService::WriteDefaultTheme(created) ? created : nullptr;
 }
 
 nlohmann::json ExcelDocumentHandle::Summary() const
@@ -226,6 +251,9 @@ public:
         RegisterAddTable(registry);
         RegisterListTables(registry);
         RegisterUpdateTable(registry);
+        RegisterGetVbaProject(registry);
+        RegisterSetVbaProject(registry);
+        RegisterRemoveVbaProject(registry);
         RegisterAddNamedRange(registry);
         RegisterAddDataValidation(registry);
         RegisterAddConditionalFormatting(registry);
@@ -3632,6 +3660,247 @@ private:
             dimension.Hidden = !visible;
             sheet->SetRowDimension(row, dimension);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // VBA project
+    //
+    // The project is carried as opaque bytes throughout: nothing here parses,
+    // rewrites, or runs the code it contains. A workbook that gains one becomes
+    // macro-enabled, which is a property of the package rather than of the file
+    // name, so the tools say so rather than renaming anything behind the
+    // caller's back.
+    // -----------------------------------------------------------------------
+
+    static void RegisterGetVbaProject(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        // Not `path`: a reading tool already publishes that as the document to
+        // open, and the two would be the same argument.
+        properties["output_path"] = Schema::String(
+            "Workspace file to write vbaProject.bin to; omitted, only the report is returned.");
+        properties["overwrite"] = Schema::BooleanWithDefault("Replace an existing file at that path.", false);
+
+        auto definition = MakeDefinition(
+            "get_vba_project", "Get VBA project",
+            "Report whether the workbook carries a VBA project and, when a path is given, write the opaque "
+            "vbaProject.bin to it. The payload is never parsed or executed.",
+            "vba");
+        definition.InputSchema = Schema::Object("Arguments of get_vba_project.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("VBA project.", {"present"},
+                           nlohmann::json{{"present", Schema::Boolean("A project is embedded.")},
+                                          {"bytes", Schema::Integer("Size of the project payload.")},
+                                          {"path", Schema::String("Workspace file it was written to.")}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"output_path", "macros.bin"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return GetVbaProject(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome GetVbaProject(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        const auto document = reader.Editor().GetDocument();
+        if (document == nullptr)
+        {
+            return MakeError(ErrorCode::InternalError, "The workbook has no package.");
+        }
+
+        nlohmann::json data = nlohmann::json::object();
+        data["present"] = document->HasVbaProject();
+        if (!document->HasVbaProject())
+        {
+            return ResultBuilder("The workbook carries no VBA project.").WithData(std::move(data)).Build();
+        }
+
+        const auto payload = document->GetVbaProjectData();
+        data["bytes"] = static_cast<UInt64>(payload.size());
+
+        const auto path = arguments.value("output_path", std::string());
+        if (path.empty())
+        {
+            return ResultBuilder("The workbook carries a VBA project of " + std::to_string(payload.size()) +
+                                 " bytes.")
+                .WithData(std::move(data))
+                .Build();
+        }
+
+        ToolOutcome failure;
+        const auto resolved =
+            ToolSupport::ResolveOutputPath(context, path, arguments.value("overwrite", false), failure);
+        if (!resolved.has_value())
+        {
+            return failure;
+        }
+
+        std::ofstream stream(*resolved, std::ios::binary | std::ios::trunc);
+        if (!stream)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The file could not be written.", path);
+        }
+
+        stream.write(reinterpret_cast<const char*>(payload.data()), static_cast<std::streamsize>(payload.size()));
+        if (!stream)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The file could not be written.", path);
+        }
+
+        data["path"] = context.GetWorkspace().Relativize(*resolved);
+
+        return ResultBuilder("Wrote the VBA project to " + path + ".").WithData(std::move(data)).Build();
+    }
+
+    static void RegisterSetVbaProject(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["source_path"] = Schema::String("Workspace file holding the vbaProject.bin to embed.");
+
+        auto definition = MakeDefinition(
+            "set_vba_project", "Set VBA project",
+            "Embed or replace the workbook's VBA project from a workspace file, which makes the workbook "
+            "macro-enabled. The bytes are stored exactly as given: nothing here parses, rewrites or runs them, "
+            "and saving under an .xlsx name produces a macro-enabled package a reader will question.",
+            "vba");
+        definition.InputSchema =
+            Schema::Object("Arguments of set_vba_project.", {"documentId", "source_path"},
+                           std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Embedded project.", {"bytes"},
+                           nlohmann::json{{"bytes", Schema::Integer("Size of the embedded payload.")},
+                                          {"macroEnabled", Schema::Boolean("The package is now macro-enabled.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"source_path", "macros.bin"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetVbaProject(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome SetVbaProject(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto path = arguments.value("source_path", std::string());
+        ToolOutcome failure;
+        const auto resolved = ToolSupport::ResolveExistingFile(context, path, failure);
+        if (!resolved.has_value())
+        {
+            return failure;
+        }
+
+        std::ifstream stream(*resolved, std::ios::binary);
+        if (!stream)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The file could not be read.", path);
+        }
+
+        const std::vector<Byte> payload((std::istreambuf_iterator<char>(stream)),
+                                        std::istreambuf_iterator<char>());
+        if (payload.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "The file is empty.", path,
+                             "A VBA project is the vbaProject.bin taken out of a macro-enabled workbook.");
+        }
+
+        const auto document = session.Editor().GetDocument();
+        if (document == nullptr)
+        {
+            return MakeError(ErrorCode::InternalError, "The workbook has no package.", session.Session().Id());
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!document->SetVbaProjectData(payload))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The VBA project could not be embedded.", path);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["bytes"] = static_cast<UInt64>(payload.size());
+        data["macroEnabled"] = document->HasVbaProject();
+
+        return ResultBuilder("Embedded a VBA project of " + std::to_string(payload.size()) + " bytes.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterRemoveVbaProject(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+
+        auto definition = MakeDefinition(
+            "remove_vba_project", "Remove VBA project",
+            "Remove the workbook's VBA project and turn the package back into its macro-free counterpart.",
+            "vba");
+        definition.InputSchema =
+            Schema::Object("Arguments of remove_vba_project.", {"documentId"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Removal.", {"removed"},
+                           nlohmann::json{{"removed", Schema::Boolean("A project was there and is gone.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.Destructive = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return RemoveVbaProject(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome RemoveVbaProject(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto document = session.Editor().GetDocument();
+        if (document == nullptr)
+        {
+            return MakeError(ErrorCode::InternalError, "The workbook has no package.", session.Session().Id());
+        }
+
+        if (!document->HasVbaProject())
+        {
+            return MakeError(ErrorCode::MediaNotFound, "The workbook carries no VBA project.",
+                             session.Session().Id());
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!document->RemoveVbaProject())
+        {
+            return MakeError(ErrorCode::OperationFailed, "The VBA project could not be removed.",
+                             session.Session().Id());
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["removed"] = true;
+
+        return ResultBuilder("Removed the VBA project.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
     }
 
     static void RegisterListTables(ToolRegistry& registry)

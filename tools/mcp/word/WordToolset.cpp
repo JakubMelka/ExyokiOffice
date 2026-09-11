@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 // See LICENSE file in the project root for full license text.
 
+#include "ExyokiOffice/ThemeService.hpp"
 #include "WordToolset.hpp"
 
 #include "SharedToolset.hpp"
@@ -77,6 +78,29 @@ bool WordDocumentHandle::LoadFromMemory(std::span<const Byte> bytes)
 std::shared_ptr<OpenXmlPackage> WordDocumentHandle::Package() const
 {
     return m_editor ? m_editor->GetDocument() : nullptr;
+}
+
+std::shared_ptr<Packaging::ThemePart> WordDocumentHandle::Theme() const
+{
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto main = document ? document->GetMainDocumentPart() : nullptr;
+    return main ? main->GetThemePart() : nullptr;
+}
+
+std::shared_ptr<Packaging::ThemePart> WordDocumentHandle::EnsureTheme()
+{
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto main = document ? document->GetMainDocumentPart() : nullptr;
+    if (!main)
+    {
+        return nullptr;
+    }
+    if (const auto existing = main->GetThemePart())
+    {
+        return existing;
+    }
+    const auto created = main->AddThemePart();
+    return created && ThemeService::WriteDefaultTheme(created) ? created : nullptr;
 }
 
 nlohmann::json WordDocumentHandle::Summary() const

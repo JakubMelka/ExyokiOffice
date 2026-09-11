@@ -703,6 +703,7 @@ Reading — each accepts `documentId` **or** `path`:
 | `validate_document` | R I | OPC and schema validation report |
 | `query_xml` | R I | XPath query over one XML part (read-only) |
 | `get_properties` | R I | Core, extended, and custom properties |
+| `get_theme` | R I | The scheme colours and fonts the document resolves against |
 | `list_media` | R I | Media inventory without payloads |
 | `get_media` | R I | One image or audio payload as a content block |
 
@@ -712,7 +713,15 @@ Editing:
 | --- | --- | --- |
 | `replace_text` | M | Replace text throughout the document |
 | `set_properties` | M I | Write core, extended, and custom properties |
+| `set_theme` | M I | Change the scheme colours and fonts |
 | `batch` | M | Apply several mutating tools as one transaction |
+
+A theme is the same DrawingML in all three families; only the part it hangs off
+differs, and a presentation keeps it on a slide master, so an empty one has
+nowhere to put it. A document this library creates carries no theme at all, so
+`set_theme` writes the Office default first and changes that. Everything the
+theme holds beyond colours and fonts — the effect and format matrices — is left
+untouched.
 
 File utilities — primarily path to path. `redact_document` and `export_media`
 also accept `documentId`, so they can operate on unsaved session content:
@@ -795,6 +804,9 @@ tracked differences.
 | `add_table` | analysis | M | Turn a range into a structured table |
 | `list_tables` | analysis | R I | Tables with their columns and the filters in force |
 | `update_table` | analysis | M | Rename a table, toggle its filter buttons and totals row, filter its columns |
+| `get_vba_project` | vba | R I | Report the embedded VBA project, and write it to a file |
+| `set_vba_project` | vba | M | Embed or replace the VBA project from a workspace file |
+| `remove_vba_project` | vba | D | Remove the VBA project and make the package macro-free |
 | `add_named_range` | analysis | M | Define a workbook or sheet name |
 | `add_data_validation` | analysis | M | Constrain what a range accepts |
 | `add_conditional_formatting` | analysis | M | Add a conditional formatting rule |
@@ -821,6 +833,12 @@ and the only one a reply can attach to. A threaded comment is written together
 with the plain note that backs it, which is what a reader too old for threads
 shows and what Excel requires before it will accept the thread at all; that
 backing note is not reported by `list_comments` as a note of its own.
+
+A VBA project is carried as opaque bytes from end to end: nothing parses,
+rewrites, or executes the code it contains, and `get_vba_project` hands back
+exactly what `set_vba_project` was given. Embedding one makes the package
+macro-enabled, which is a property of the package rather than of the file name,
+so saving under an `.xlsx` name produces a workbook a reader will question.
 
 A table filter is two things in the file, and `update_table` writes both: the
 criteria the funnel button offers, and the `hidden` flag on each row the filter

@@ -106,6 +106,17 @@ Three things are worth carrying forward:
   which is every workbook a test builds. Cases like this need a fixture that
   makes the two differ on purpose.
 
+## What the oracle cannot reach
+
+One area is now covered by tools and not by the gate: **the VBA project**.
+Verifying that Excel accepts a project the server embedded needs a genuine
+`vbaProject.bin`, and producing one means turning on trusted access to the VBA
+object model — a security setting on the machine, not something a test may
+change. The round trip is covered instead: the payload is opaque from end to
+end, what comes out is byte-for-byte what went in, and the package becomes
+macro-enabled. Anyone releasing this should say plainly that the VBA path is
+tested for fidelity rather than for acceptance.
+
 ## Gap A: asymmetries between the three servers
 
 These read as oversights rather than decisions, because the same capability is
@@ -134,14 +145,14 @@ Each row is graded supported in the compatibility matrix and has zero tools.
 | Comments (`excel-layout`) | Excel | `SetComment`, `GetComment`, `Comments`, `RemoveComment`, `AddThreadedComment`, `ThreadedComments`, `RemoveThreadedComment` |
 | Images (`excel-layout`) | Excel | `AddImage`, `Images`, `RemoveImage`, `ExcelWorksheetImage` |
 | Slicers (`excel-slicers`) | Excel | `ExcelSlicer.hpp`, over pivot tables and worksheet tables |
-| VBA projects (`vba`) | Excel | extract, replace, remove `vbaProject.bin`, with document type conversion |
+| VBA projects (`vba`) | Excel | ~~extract, replace, remove `vbaProject.bin`~~ done |
 | Animations (`ppt-animations`) | PowerPoint | sequences, effects, triggers, reordering, removal policy |
 | Shapes beyond a text box (`ppt-shapes`) | PowerPoint | preset and freeform geometry, connectors, fills, outlines, effects |
 | Custom shows (`ppt-sections`) | PowerPoint | named shows over a slide subset |
 | Style definitions (`word-styles`) | Word | `StyleManager`, latent styles, multi-level numbering |
 | Content controls (`word-content-controls`) | Word | inline controls with tag, alias, lock, text |
 | Protection (`protection`) | all three | editing restrictions with a password verifier |
-| Themes (`themes`) | all three | `ThemeService` |
+| Themes (`themes`) | all three | ~~`ThemeService`~~ done |
 
 ## Gap C: tools shallower than the library
 
@@ -197,11 +208,12 @@ decision before the announcement rather than after it:
 - [x] Excel table listing, auto-filter and column filters; the ranking and
       average conditional-format rules. Sort state, colour scales and data bars
       turned out to be Gap D rather than Gap C — see above
-- [ ] Excel VBA extract, replace, remove
+- [x] Excel VBA extract, replace, remove
 - [ ] Word style definitions and numbering
 - [ ] Word floating images with wrapping; section columns; character styles
 - [ ] Word content controls
-- [ ] Themes, all three families; document protection for Word and PowerPoint
+- [x] Themes, all three families
+- [ ] Document protection for Word and PowerPoint
 
 ### P2 — decisions to state rather than gaps to close
 

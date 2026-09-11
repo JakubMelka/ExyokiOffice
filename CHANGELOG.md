@@ -41,6 +41,13 @@ in [docs/](docs/README.md).
 - Excel `add_conditional_formatting` takes the `containsErrors`,
   `notContainsErrors`, `top`, `bottom`, `aboveAverage` and `belowAverage` rule
   kinds, and applies one rule to several ranges at once.
+- `get_theme` and `set_theme` on all three servers read and change the scheme
+  colours and fonts a document resolves its theme references against; a
+  document without a theme is given the Office default first. See
+  [MCP servers](docs/tools/mcp-servers.md).
+- Excel `get_vba_project`, `set_vba_project` and `remove_vba_project` move the
+  opaque `vbaProject.bin` between a workbook and a workspace file; the payload
+  is never parsed or executed.
 
 ### Fixed
 

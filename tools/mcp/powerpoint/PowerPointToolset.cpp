@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 // See LICENSE file in the project root for full license text.
 
+#include "ExyokiOffice/ThemeService.hpp"
 #include "PowerPointToolset.hpp"
 
 #include "PptAddressing.hpp"
@@ -70,6 +71,47 @@ bool PowerPointDocumentHandle::LoadFromMemory(std::span<const Byte> bytes)
 std::shared_ptr<OpenXmlPackage> PowerPointDocumentHandle::Package() const
 {
     return m_editor ? m_editor->GetDocument() : nullptr;
+}
+
+std::shared_ptr<Packaging::ThemePart> PowerPointDocumentHandle::Theme() const
+{
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto presentation = document ? document->GetPresentationPart() : nullptr;
+    if (!presentation)
+    {
+        return nullptr;
+    }
+    if (const auto own = presentation->GetThemePart())
+    {
+        return own;
+    }
+
+    // A presentation usually hangs its theme off the first slide master rather
+    // than off the presentation part, and that is the one its slides inherit.
+    const auto masters = presentation->GetSlideMasterParts();
+    return masters.empty() || !masters.front() ? nullptr : masters.front()->GetThemePart();
+}
+
+std::shared_ptr<Packaging::ThemePart> PowerPointDocumentHandle::EnsureTheme()
+{
+    if (const auto existing = Theme())
+    {
+        return existing;
+    }
+
+    // A slide reads its theme through its master, so a theme created here has
+    // to hang off the master rather than off the presentation part.
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto presentation = document ? document->GetPresentationPart() : nullptr;
+    const auto masters = presentation ? presentation->GetSlideMasterParts()
+                                      : std::vector<std::shared_ptr<Packaging::SlideMasterPart>>{};
+    if (masters.empty() || !masters.front())
+    {
+        return nullptr;
+    }
+
+    const auto created = masters.front()->AddThemePart();
+    return created && ThemeService::WriteDefaultTheme(created) ? created : nullptr;
 }
 
 nlohmann::json PowerPointDocumentHandle::Summary() const

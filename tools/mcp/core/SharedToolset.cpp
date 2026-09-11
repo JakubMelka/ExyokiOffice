@@ -8,6 +8,8 @@
 
 #include "ExyokiOffice/ImageFormat.hpp"
 #include "ExyokiOffice/Packaging/DocumentProperties.hpp"
+#include "ExyokiOffice/Packaging/GeneratedParts.hpp"
+#include "ExyokiOffice/ThemeService.hpp"
 #include "ExyokiOffice/Tools/DocumentConverter.hpp"
 #include "ExyokiOffice/Tools/DocumentModelIO.hpp"
 #include "ExyokiOffice/Tools/DocumentRedactor.hpp"
@@ -37,6 +39,42 @@ namespace ExyokiOffice::Mcp
 class SharedToolsetHelper
 {
 public:
+    /// The scheme colour slots, in the fixed order DrawingML stores them.
+    static const std::vector<std::pair<const char*, ThemeColorSlot>>& ThemeColorSlots()
+    {
+        static const std::vector<std::pair<const char*, ThemeColorSlot>> slots{
+            {"dark1", ThemeColorSlot::Dark1},
+            {"light1", ThemeColorSlot::Light1},
+            {"dark2", ThemeColorSlot::Dark2},
+            {"light2", ThemeColorSlot::Light2},
+            {"accent1", ThemeColorSlot::Accent1},
+            {"accent2", ThemeColorSlot::Accent2},
+            {"accent3", ThemeColorSlot::Accent3},
+            {"accent4", ThemeColorSlot::Accent4},
+            {"accent5", ThemeColorSlot::Accent5},
+            {"accent6", ThemeColorSlot::Accent6},
+            {"hyperlink", ThemeColorSlot::Hyperlink},
+            {"followedHyperlink", ThemeColorSlot::FollowedHyperlink}};
+        return slots;
+    }
+
+    /// Renders one font collection the way both theme tools describe it.
+    static nlohmann::json DescribeFonts(const ThemeFontCollection& fonts)
+    {
+        nlohmann::json entry = nlohmann::json::object();
+        entry["latin"] = fonts.Latin;
+        if (!fonts.EastAsian.empty())
+        {
+            entry["eastAsian"] = fonts.EastAsian;
+        }
+        if (!fonts.ComplexScript.empty())
+        {
+            entry["complexScript"] = fonts.ComplexScript;
+        }
+        return entry;
+    }
+
+
     /// Content types and URI shapes MediaExporter treats as media payloads.
     static bool IsMediaPart(const OpenXmlPackagePart& part)
     {
@@ -1230,6 +1268,7 @@ public:
         RegisterValidateDocument(registry);
         RegisterQueryXml(registry);
         RegisterGetProperties(registry);
+        RegisterGetTheme(registry);
         RegisterListMedia(registry);
         RegisterGetMedia(registry);
     }
@@ -1797,6 +1836,73 @@ private:
             .Build();
     }
 
+    static void RegisterGetTheme(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+
+        nlohmann::json fonts =
+            Schema::Object("One font collection.", {"latin"},
+                           nlohmann::json{{"latin", Schema::String("Latin typeface.")},
+                                          {"eastAsian", Schema::String("East Asian typeface, when one is set.")},
+                                          {"complexScript",
+                                           Schema::String("Complex-script typeface, when one is set.")}});
+
+        auto definition = MakeReadDefinition(
+            "get_theme", "Get theme",
+            "Read the theme a document draws its scheme colours and fonts from. Every colour a document names as "
+            "a scheme colour resolves through this.");
+        definition.InputSchema = Schema::Object("Arguments of get_theme.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Theme.", {"name", "colors"},
+                           nlohmann::json{{"name", Schema::String("Theme name.")},
+                                          {"colorSchemeName", Schema::String("Colour scheme name.")},
+                                          {"fontSchemeName", Schema::String("Font scheme name.")},
+                                          {"colors", Schema::FreeObject(
+                                                         "Scheme colours by slot name, as RRGGBB hex.")},
+                                          {"majorFonts", fonts},
+                                          {"minorFonts", fonts}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return GetTheme(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome GetTheme(ToolContext& context, const nlohmann::json& arguments)
+    {
+        DocumentAccess access(context, arguments);
+        if (!access.IsValid())
+        {
+            return access.Failure();
+        }
+
+        const auto part = access.Document().Theme();
+        const auto settings = part ? ThemeService::ReadSettings(part) : std::nullopt;
+        if (!settings.has_value())
+        {
+            return MakeError(ErrorCode::MediaNotFound, "The document carries no theme.", {},
+                             "A document without a theme resolves its scheme colours to the application "
+                             "default; set_theme writes one.");
+        }
+
+        nlohmann::json colors = nlohmann::json::object();
+        for (const auto& [name, slot] : SharedToolsetHelper::ThemeColorSlots())
+        {
+            colors[name] = settings->Colors[static_cast<Size>(slot)].ToHexString();
+        }
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = settings->Name;
+        data["colorSchemeName"] = settings->ColorSchemeName;
+        data["fontSchemeName"] = settings->FontSchemeName;
+        data["colors"] = std::move(colors);
+        data["majorFonts"] = SharedToolsetHelper::DescribeFonts(settings->MajorFonts);
+        data["minorFonts"] = SharedToolsetHelper::DescribeFonts(settings->MinorFonts);
+
+        return ResultBuilder("Read the theme '" + settings->Name + "'.").WithData(std::move(data)).Build();
+    }
+
     static void RegisterGetProperties(ToolRegistry& registry)
     {
         nlohmann::json properties = nlohmann::json::object();
@@ -2021,6 +2127,7 @@ public:
     {
         RegisterReplaceText(registry);
         RegisterSetProperties(registry);
+        RegisterSetTheme(registry);
         RegisterBatch(registry);
     }
 
@@ -2129,6 +2236,173 @@ private:
             .WithSession(*session)
             .WithData(std::move(data))
             .WithDiagnostics(result.Diagnostics)
+            .Build();
+    }
+
+    static void RegisterSetTheme(ToolRegistry& registry)
+    {
+        nlohmann::json colors = nlohmann::json::object();
+        colors["additionalProperties"] = false;
+        colors["type"] = "object";
+        colors["description"] = "Scheme colours to change, by slot name; the rest keep their current value.";
+        nlohmann::json slots = nlohmann::json::object();
+        for (const auto& [name, slot] : SharedToolsetHelper::ThemeColorSlots())
+        {
+            slots[name] = Schema::String("Colour as RRGGBB or #RRGGBB hex.");
+        }
+        colors["properties"] = std::move(slots);
+
+        nlohmann::json fonts = Schema::Object(
+            "Typefaces to change; the rest keep their current value.", {},
+            nlohmann::json{{"latin", Schema::String("Latin typeface.")},
+                           {"eastAsian", Schema::String("East Asian typeface.")},
+                           {"complexScript", Schema::String("Complex-script typeface.")}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["name"] = Schema::String("Theme name.");
+        properties["colors"] = std::move(colors);
+        properties["major_fonts"] = fonts;
+        properties["minor_fonts"] = fonts;
+
+        ToolDefinition definition;
+        definition.Name = "set_theme";
+        definition.Title = "Set theme";
+        definition.Description =
+            "Change the scheme colours and fonts a document resolves its theme references against. Only the "
+            "members you pass are changed, and everything the theme carries beyond colours and fonts - the "
+            "effect and format matrices - is left as it was. A document that has no theme yet is given the "
+            "Office default first, so this always has something to change.";
+        definition.Group = "edit";
+        definition.InputSchema =
+            Schema::Object("Arguments of set_theme.", {"documentId"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Written theme.", {"name", "changed"},
+                           nlohmann::json{{"name", Schema::String("Theme name after the change.")},
+                                          {"changed", Schema::Array("What was changed.",
+                                                                    Schema::String("A slot or font name."))}}),
+            true);
+        definition.Example = nlohmann::json{
+            {"documentId", "doc-1"},
+            {"colors", nlohmann::json{{"accent1", "1F6FEB"}}},
+            {"minor_fonts", nlohmann::json{{"latin", "Calibri"}}}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetTheme(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    /// Applies the typefaces @p source names to @p target, reporting what changed.
+    static void ApplyThemeFonts(const nlohmann::json& source, ThemeFontCollection& target,
+                                std::string_view label, nlohmann::json& changed)
+    {
+        const auto apply = [&](const char* key, std::string& field)
+        {
+            const auto member = source.find(key);
+            if (member == source.end() || !member->is_string())
+            {
+                return;
+            }
+
+            field = member->get<std::string>();
+            changed.push_back(std::string(label) + "." + key);
+        };
+
+        apply("latin", target.Latin);
+        apply("eastAsian", target.EastAsian);
+        apply("complexScript", target.ComplexScript);
+    }
+
+    static ToolOutcome SetTheme(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ToolOutcome failure;
+        auto* session = ToolSupport::RequireSession(context, arguments, failure);
+        if (session == nullptr)
+        {
+            return failure;
+        }
+
+        // A document this library creates carries no theme part, so the first
+        // call writes the Office default and changes that, rather than refusing
+        // the case the caller is most likely to be in.
+        const auto part = session->Document().EnsureTheme();
+        auto settings = part ? ThemeService::ReadSettings(part) : std::nullopt;
+        if (!settings.has_value())
+        {
+            return MakeError(ErrorCode::OperationFailed, "The document has nowhere to keep a theme.",
+                             session->Id(),
+                             "A presentation keeps its theme on a slide master, so an empty one has no place "
+                             "for it; add a slide first.");
+        }
+
+        // Every argument is resolved before the theme is touched, so a colour
+        // that does not parse leaves the document alone rather than half
+        // rewritten.
+        nlohmann::json changed = nlohmann::json::array();
+        const auto colors = arguments.find("colors");
+        if (colors != arguments.end())
+        {
+            for (const auto& [name, slot] : SharedToolsetHelper::ThemeColorSlots())
+            {
+                const auto member = colors->find(name);
+                if (member == colors->end() || !member->is_string())
+                {
+                    continue;
+                }
+
+                const auto text = member->get<std::string>();
+                const auto parsed = ParseColor(text);
+                if (!parsed.has_value())
+                {
+                    return MakeError(ErrorCode::InputInvalid, "'" + text + "' is not a colour.", name,
+                                     "Write a colour as RRGGBB or #RRGGBB hex.");
+                }
+
+                settings->Colors[static_cast<Size>(slot)] = *parsed;
+                changed.push_back(std::string("colors.") + name);
+            }
+        }
+
+        if (const auto major = arguments.find("major_fonts"); major != arguments.end())
+        {
+            ApplyThemeFonts(*major, settings->MajorFonts, "majorFonts", changed);
+        }
+
+        if (const auto minor = arguments.find("minor_fonts"); minor != arguments.end())
+        {
+            ApplyThemeFonts(*minor, settings->MinorFonts, "minorFonts", changed);
+        }
+
+        if (arguments.contains("name"))
+        {
+            settings->Name = arguments.value("name", std::string());
+            changed.push_back("name");
+        }
+
+        if (changed.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "Nothing to change.", session->Id(),
+                             "Pass a name, colours, or fonts.");
+        }
+
+        MutationGuard guard(*session);
+
+        if (!ThemeService::WriteSettings(part, *settings))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The theme could not be written.", session->Id());
+        }
+
+        guard.Commit();
+
+        const auto count = changed.size();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = settings->Name;
+        data["changed"] = std::move(changed);
+
+        return ResultBuilder("Changed " + std::to_string(count) + " theme setting(s).")
+            .WithSession(*session)
+            .WithData(std::move(data))
             .Build();
     }
 

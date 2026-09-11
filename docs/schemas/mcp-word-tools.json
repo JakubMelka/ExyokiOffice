@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-word",
   "title": "ExyokiOffice Word MCP Server",
-  "toolCount": 53,
+  "toolCount": 55,
   "tools": [
     {
       "annotations": {
@@ -2219,6 +2219,191 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
+      "description": "Read the theme a document draws its scheme colours and fonts from. Every colour a document names as a scheme colour resolves through this.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "read",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of get_theme.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "get_theme",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Theme.",
+            "properties": {
+              "colorSchemeName": {
+                "description": "Colour scheme name.",
+                "type": "string"
+              },
+              "colors": {
+                "description": "Scheme colours by slot name, as RRGGBB hex.",
+                "type": "object"
+              },
+              "fontSchemeName": {
+                "description": "Font scheme name.",
+                "type": "string"
+              },
+              "majorFonts": {
+                "additionalProperties": false,
+                "description": "One font collection.",
+                "properties": {
+                  "complexScript": {
+                    "description": "Complex-script typeface, when one is set.",
+                    "type": "string"
+                  },
+                  "eastAsian": {
+                    "description": "East Asian typeface, when one is set.",
+                    "type": "string"
+                  },
+                  "latin": {
+                    "description": "Latin typeface.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "latin"
+                ],
+                "type": "object"
+              },
+              "minorFonts": {
+                "additionalProperties": false,
+                "description": "One font collection.",
+                "properties": {
+                  "complexScript": {
+                    "description": "Complex-script typeface, when one is set.",
+                    "type": "string"
+                  },
+                  "eastAsian": {
+                    "description": "East Asian typeface, when one is set.",
+                    "type": "string"
+                  },
+                  "latin": {
+                    "description": "Latin typeface.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "latin"
+                ],
+                "type": "object"
+              },
+              "name": {
+                "description": "Theme name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "colors"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Get theme"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
       "description": "List every image, audio, video, and embedded-object part of the document without transferring any payload.",
       "example": {
         "documentId": "doc-1"
@@ -3942,6 +4127,258 @@
         "type": "object"
       },
       "title": "Set document properties"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Change the scheme colours and fonts a document resolves its theme references against. Only the members you pass are changed, and everything the theme carries beyond colours and fonts - the effect and format matrices - is left as it was. A document that has no theme yet is given the Office default first, so this always has something to change.",
+      "example": {
+        "colors": {
+          "accent1": "1F6FEB"
+        },
+        "documentId": "doc-1",
+        "minor_fonts": {
+          "latin": "Calibri"
+        }
+      },
+      "group": "edit",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_theme.",
+        "properties": {
+          "colors": {
+            "additionalProperties": false,
+            "description": "Scheme colours to change, by slot name; the rest keep their current value.",
+            "properties": {
+              "accent1": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent2": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent3": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent4": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent5": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent6": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "dark1": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "dark2": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "followedHyperlink": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "hyperlink": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "light1": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "light2": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "major_fonts": {
+            "additionalProperties": false,
+            "description": "Typefaces to change; the rest keep their current value.",
+            "properties": {
+              "complexScript": {
+                "description": "Complex-script typeface.",
+                "type": "string"
+              },
+              "eastAsian": {
+                "description": "East Asian typeface.",
+                "type": "string"
+              },
+              "latin": {
+                "description": "Latin typeface.",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "minor_fonts": {
+            "additionalProperties": false,
+            "description": "Typefaces to change; the rest keep their current value.",
+            "properties": {
+              "complexScript": {
+                "description": "Complex-script typeface.",
+                "type": "string"
+              },
+              "eastAsian": {
+                "description": "East Asian typeface.",
+                "type": "string"
+              },
+              "latin": {
+                "description": "Latin typeface.",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "name": {
+            "description": "Theme name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "set_theme",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Written theme.",
+            "properties": {
+              "changed": {
+                "description": "What was changed.",
+                "items": {
+                  "description": "A slot or font name.",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "description": "Theme name after the change.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set theme"
     },
     {
       "annotations": {

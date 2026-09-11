@@ -202,7 +202,7 @@ TEST_CASE("every registered tool has an explicit behavioral test commitment [mcp
         "create_document", "open_document", "save_document", "close_document", "list_documents", "undo",
         "get_document_info", "get_document_model", "get_document_markdown", "get_document_text", "search_text",
         "validate_document", "query_xml", "get_properties", "list_media", "get_media", "replace_text",
-        "set_properties", "batch", "list_workspace", "convert_document", "diff_documents", "merge_documents",
+        "set_properties", "get_theme", "set_theme", "batch", "list_workspace", "convert_document", "diff_documents", "merge_documents",
         "split_document", "redact_document", "export_media"};
     const std::set<std::string> word{
         "get_outline", "read_blocks", "list_styles", "list_revisions", "list_comments", "insert_paragraph",
@@ -213,7 +213,8 @@ TEST_CASE("every registered tool has an explicit behavioral test commitment [mcp
     const std::set<std::string> excel{
         "list_sheets", "read_range", "add_sheet", "rename_sheet", "delete_sheet", "write_cells", "write_range",
         "clear_range", "modify_sheet_structure", "set_hyperlink", "recalculate", "merge_cells", "format_range",
-        "set_column_width", "set_row_height", "freeze_panes", "add_table", "list_tables", "update_table", "add_named_range",
+        "set_column_width", "set_row_height", "freeze_panes", "add_table", "list_tables", "update_table", "get_vba_project", "set_vba_project",
+        "remove_vba_project", "add_named_range",
         "add_data_validation", "add_conditional_formatting", "add_chart", "add_pivot_table", "add_comment",
         "list_comments", "delete_comment", "add_image", "set_print_setup", "move_sheet", "copy_sheet",
         "copy_range", "set_protection", "add_slicer", "list_slicers", "set_slicer_selection"};

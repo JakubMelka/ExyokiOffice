@@ -4,6 +4,10 @@
 
 #include "McpTestSupport.hpp"
 
+#include <fstream>
+#include <filesystem>
+#include <iterator>
+
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Spreadsheet.hpp"
 #include "ExyokiOffice/Excel/ExcelDocument.hpp"
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
@@ -1985,4 +1989,139 @@ TEST_CASE("a conditional formatting rule is refused when it cannot be built [mcp
     const auto documents = server->Call("list_documents", nlohmann::json::object());
     REQUIRE(documents["data"]["documents"].size() == 1);
     CHECK(documents["data"]["documents"][0]["dirty"] == false);
+}
+
+/// Stand-in for a VBA project: an OLE compound-file signature and filler.
+///
+/// The server treats the payload as opaque throughout, so the round trip is
+/// exactly as meaningful with these bytes as with a real project. What no test
+/// here can show is whether Excel accepts a project the server embedded: that
+/// needs a genuine `vbaProject.bin`, and obtaining one means turning on trusted
+/// access to the VBA object model, which is not a setting a test may change.
+static std::vector<ExyokiOffice::Byte> MakeVbaPayload(ExyokiOffice::Byte marker)
+{
+    std::vector<ExyokiOffice::Byte> payload{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1};
+    payload.resize(64, marker);
+    return payload;
+}
+
+static void WriteWorkspaceFile(const std::filesystem::path& path,
+                               const std::vector<ExyokiOffice::Byte>& payload)
+{
+    std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+    REQUIRE(stream.good());
+    stream.write(reinterpret_cast<const char*>(payload.data()),
+                 static_cast<std::streamsize>(payload.size()));
+    REQUIRE(stream.good());
+}
+
+TEST_CASE("a VBA project is embedded, extracted unchanged, and removed [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto payload = MakeVbaPayload(0x11);
+    WriteWorkspaceFile(server->Path("macros.bin"), payload);
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "book.xlsm"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto before = server->Call("get_vba_project", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(before["ok"] == true);
+    CHECK(before["data"]["present"] == false);
+
+    const auto embedded = server->Call(
+        "set_vba_project", nlohmann::json{{"documentId", documentId}, {"source_path", "macros.bin"}});
+    REQUIRE(embedded["ok"] == true);
+    CHECK(embedded["data"]["bytes"] == payload.size());
+    CHECK(embedded["data"]["macroEnabled"] == true);
+
+    const auto extracted = server->Call(
+        "get_vba_project", nlohmann::json{{"documentId", documentId}, {"output_path", "extracted.bin"}});
+    REQUIRE(extracted["ok"] == true);
+    CHECK(extracted["data"]["present"] == true);
+    CHECK(extracted["data"]["path"] == "extracted.bin");
+
+    // The payload is opaque, so what comes back has to be what went in.
+    std::ifstream stream(server->Path("extracted.bin"), std::ios::binary);
+    REQUIRE(stream.good());
+    const std::vector<ExyokiOffice::Byte> roundTripped((std::istreambuf_iterator<char>(stream)),
+                                                       std::istreambuf_iterator<char>());
+    CHECK(roundTripped == payload);
+
+    // Embedding again replaces rather than appends.
+    const auto replacement = MakeVbaPayload(0x22);
+    WriteWorkspaceFile(server->Path("other.bin"), replacement);
+    REQUIRE(server->Call("set_vba_project",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"source_path", "other.bin"}})["ok"] == true);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("book.xlsm"));
+    REQUIRE(editor != nullptr);
+    REQUIRE(editor->GetDocument() != nullptr);
+    CHECK(editor->GetDocument()->HasVbaProject());
+    CHECK(editor->GetDocument()->GetVbaProjectData() == replacement);
+
+    const auto removed = server->Call("remove_vba_project", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["removed"] == true);
+
+    const auto after = server->Call("get_vba_project", nlohmann::json{{"documentId", documentId}});
+    CHECK(after["data"]["present"] == false);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("book.xlsm"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("the VBA tools refuse a payload they cannot take [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "plain.xlsm"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    // Removing what is not there is reported rather than silently accepted.
+    const auto nothingToRemove = server->Call("remove_vba_project", nlohmann::json{{"documentId", documentId}});
+    CHECK(nothingToRemove["ok"] == false);
+    CHECK(nothingToRemove["error"]["code"] == "media_not_found");
+
+    const auto missing = server->Call(
+        "set_vba_project", nlohmann::json{{"documentId", documentId}, {"source_path", "absent.bin"}});
+    CHECK(missing["ok"] == false);
+    CHECK(missing["error"]["code"] == "file_not_found");
+
+    const auto outside = server->Call(
+        "set_vba_project", nlohmann::json{{"documentId", documentId}, {"source_path", "../escape.bin"}});
+    CHECK(outside["ok"] == false);
+    CHECK(outside["error"]["code"] == "path_outside_workspace");
+
+    WriteWorkspaceFile(server->Path("empty.bin"), {});
+    const auto empty = server->Call(
+        "set_vba_project", nlohmann::json{{"documentId", documentId}, {"source_path", "empty.bin"}});
+    CHECK(empty["ok"] == false);
+    CHECK(empty["error"]["code"] == "input_invalid");
+
+    // A workspace file that already exists is not overwritten by accident.
+    const auto payload = MakeVbaPayload(0x33);
+    WriteWorkspaceFile(server->Path("macros.bin"), payload);
+    REQUIRE(server->Call("set_vba_project",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"source_path", "macros.bin"}})["ok"] == true);
+    WriteWorkspaceFile(server->Path("taken.bin"), MakeVbaPayload(0x44));
+    const auto clash = server->Call(
+        "get_vba_project", nlohmann::json{{"documentId", documentId}, {"output_path", "taken.bin"}});
+    CHECK(clash["ok"] == false);
+
+    const auto forced = server->Call("get_vba_project", nlohmann::json{{"documentId", documentId},
+                                                                       {"output_path", "taken.bin"},
+                                                                       {"overwrite", true}});
+    CHECK(forced["ok"] == true);
+
+    // Nothing above may have written the workbook to disk.
+    const auto documents = server->Call("list_documents", nlohmann::json::object());
+    REQUIRE(documents["data"]["documents"].size() == 1);
+    CHECK(documents["data"]["documents"][0]["dirty"] == true);
 }
