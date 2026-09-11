@@ -51,8 +51,8 @@ Two weaknesses:
   suites validate OPC structure and markup schema, which is not the same thing.
   A COM oracle gate belongs in the release checklist.
 
-  Running that gate by hand found four defects nothing else could have caught,
-  in files that were valid throughout. Two are recorded under
+  Running that gate by hand found five defects nothing else could have caught,
+  in files that were valid throughout. Three are recorded under
   [Library defects the oracle found](#library-defects-the-oracle-found) because
   they are the library's, not the servers'; the other two were the servers': a shape given neither
   a fill nor an outline drew nothing at all, because a new `p:sp` carries no
@@ -68,30 +68,42 @@ and its invalid-input cases covered.
 
 ## Library defects the oracle found
 
-**These block a release, and neither is an MCP defect.** Both constructs are
-graded `Yes` in the compatibility matrix, both round-trip through the library's
-own tests, both validate as OPC and against the schema — and Excel discards
-them. Each was confirmed twice: Excel reports the object as absent through its
-object model, and re-saving the file from Excel drops the parts.
+**Four defects, all in the library rather than in the servers, all now fixed.**
+Every one of them produced a file that round-tripped through the library's own
+tests and validated as OPC and against the schema, while Excel threw the feature
+away. Each construct is graded `Yes` in the compatibility matrix, so the matrix
+was overstating what shipped.
 
-| Construct | Matrix | What Excel does |
-| --- | --- | --- |
-| Threaded comments (`excel-layout`) | Yes | Drops `xl/threadedcomments/*` entirely; `CommentsThreaded.Count` is 0 and the persons part is left an empty shell |
-| Table slicers (`excel-slicers`) | Yes | Drops `xl/slicerCaches/*` and the drawing, leaving an orphaned `xl/slicers/slicer1.xml`; `SlicerCaches.Count` and `Shapes.Count` are both 0 |
+| Construct | Matrix | What Excel did | Cause | Fix |
+| --- | --- | --- | --- | --- |
+| Threaded comments (`excel-layout`) | Yes | Dropped `xl/threadedcomments/*` entirely; `CommentsThreaded.Count` was 0 | A thread is not self-sufficient: Excel requires a legacy note carrying the flattened conversation, and that note's VML box | `AddThreadedComment` writes the backing note, its VML drawing and the `legacyDrawing` reference; `Comments()` hides the backing, and every rewrite of the comments part restores it |
+| Table slicers (`excel-slicers`) | Yes | Dropped the cache and the drawing, leaving an orphaned `xl/slicers/slicer1.xml` | Two causes at once: the worksheet `slicerList` extension URI was wrong, and the cache had no workbook defined name | Table slicers register under `{3A4CF648-…}`; every slicer cache gets a `#N/A` defined name |
+| Pivot slicers (`excel-slicers`) | Yes | Refused to open the workbook at all, then discarded the slicer once it opened | Three causes: the pivot `slicerList` URI was wrong in its last segment, the slicer cache named a `pivotCacheId` no extension declared, and the pivot table still claimed the Excel 2007 feature version | Pivot slicers register under `{A8765BA9-…-ACF838C121DE}`; the pivot cache declares its identifier; hosting a slicer raises `updatedVersion` to 4 |
+| Pivot slicers on a reordered workbook (`excel-slicers`) | Yes | Discarded the slicer whenever a sheet's position and its `sheetId` differed | The cache's `tabId` was written as the tab position; Excel reads it as the `sheetId` | `SheetTabId` reads the `sheetId` off the workbook sheet list |
 
-Isolated to one construct per file, so neither is a side effect of the other.
-A plain note written by the same `add_comment` tool survives and is shown, which
-is why that is now its default.
+Each cause was isolated by bisecting against a file Excel itself wrote: our
+parts were swapped into a working reference one at a time until it broke, then
+the differences inside the guilty part were bisected the same way. Every fix is
+confirmed the way the defect was found — Excel reports the object through its
+object model — and is guarded by a test.
 
-Until the markup is accepted, `add_slicer` reports success for a slicer no
-spreadsheet application will show. That is worse than not having the tool, and
-it is a decision to take deliberately rather than to discover after the
-announcement.
+The last one had gone unnoticed because every test and every sample had the two
+numbers coincide; they diverge as soon as a sheet is reordered or deleted.
 
-Note for anyone running the gate: **Excel with `DisplayAlerts = $false` repairs
-silently**, where PowerPoint with alerts off refuses the file outright. An Excel
-workbook that opens is therefore not evidence of anything; ask the object model
-what it sees, or have Excel re-save the file and compare the parts.
+Three things are worth carrying forward:
+
+- **A wrong extension URI is invisible to every check but Excel.** The header
+  that defines these URIs said so in its own doc comment, and the unit tests
+  asserted the typo, which is what kept all three defects alive. URIs are now
+  transcribed from files Excel wrote, and the tests say so.
+- **Excel with `DisplayAlerts = $false` repairs silently**, where PowerPoint
+  with alerts off refuses the file outright. An Excel workbook that opens is
+  therefore not evidence of anything; ask the object model what it sees, or have
+  Excel re-save the file and compare the parts.
+- **An identifier that happens to match is not an identifier that is right.**
+  A sheet's position equals its `sheetId` in every workbook built front to back,
+  which is every workbook a test builds. Cases like this need a fixture that
+  makes the two differ on purpose.
 
 ## Gap A: asymmetries between the three servers
 

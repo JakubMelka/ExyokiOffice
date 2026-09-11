@@ -6462,8 +6462,8 @@
             "type": "string"
           },
           "threaded": {
-            "default": false,
-            "description": "Address the modern threaded comment model rather than the plain note model. Excel currently discards a threaded comment written by this library; a plain note survives.",
+            "default": true,
+            "description": "Address the modern threaded comment model rather than the plain note model.",
             "type": "boolean"
           }
         },

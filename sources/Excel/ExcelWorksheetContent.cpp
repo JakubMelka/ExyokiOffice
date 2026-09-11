@@ -157,6 +157,94 @@ public:
         }
 
         /// True when any worksheet of the workbook still holds a threaded comment.
+        /**
+         * @brief Author prefix marking a note that only backs a threaded thread.
+         *
+         * Excel writes the thread's identifier here rather than a person, which
+         * is how a reader tells a backing note apart from one a user typed.
+         */
+        static constexpr std::string_view BackingAuthorPrefix = "tc=";
+
+        /** @brief Text a legacy-only reader shows above the flattened thread. */
+        static constexpr std::string_view BackingPreamble =
+            "[Threaded comment]\n\nYour version of Excel allows you to read this threaded comment; "
+            "however, any edits to it will get removed if the file is opened in a newer version of Excel. "
+            "Learn more: https://go.microsoft.com/fwlink/?linkid=870924\n";
+
+        /**
+         * @brief Appends the backing notes for @p worksheetPart's threads to @p notes.
+         *
+         * Every rewrite of the comments part goes through here, because dropping
+         * the backings would make Excel discard the threads they belong to.
+         */
+        static std::vector<ExcelComment> WithBackingNotes(
+            const std::shared_ptr<Packaging::WorksheetPart>& worksheetPart, std::vector<ExcelComment> notes)
+        {
+            auto backings = BuildBackingNotes(worksheetPart);
+            notes.insert(notes.end(), std::make_move_iterator(backings.begin()),
+                         std::make_move_iterator(backings.end()));
+            return notes;
+        }
+
+        /** @brief True when @p author marks a note written only to back a thread. */
+        static bool IsBackingAuthor(std::string_view author)
+        {
+            return author.starts_with(BackingAuthorPrefix);
+        }
+
+        /**
+         * @brief Builds the plain note Excel expects behind every threaded thread.
+         *
+         * A threaded comment is not self-sufficient: Excel discards the whole
+         * `xl/threadedcomments` part unless each thread is also present as a
+         * plain note carrying the flattened conversation, and that note in turn
+         * needs its VML box. One note backs a whole thread, so replies append to
+         * the note the thread's first comment created.
+         */
+        static std::vector<ExcelComment> BuildBackingNotes(
+            const std::shared_ptr<Packaging::WorksheetPart>& worksheetPart)
+        {
+            std::vector<ExcelComment> result;
+            const auto parts = worksheetPart ? worksheetPart->GetWorksheetThreadedCommentsParts()
+                                             : std::vector<std::shared_ptr<Packaging::WorksheetThreadedCommentsPart>>{};
+            const auto root = parts.empty() || !parts.front() ? nullptr : parts.front()->GetTypedRootElement();
+            if (!root)
+            {
+                return result;
+            }
+
+            for (const auto& element : root->Elements<Xltc::ThreadedComment>())
+            {
+                if (!element)
+                {
+                    continue;
+                }
+                const auto address = CellAddress::ParseA1(element->GetRef().ToString());
+                if (!address)
+                {
+                    continue;
+                }
+                const auto textElement = element->GetFirstChildOfType<Xltc::ThreadedCommentText>();
+                const std::string body = textElement ? std::string(textElement->GetText()) : std::string{};
+                const auto existing = std::find_if(result.begin(), result.end(),
+                                                   [&](const auto& item)
+                                                   { return item.Address.ToA1() == address->ToA1(); });
+                if (existing == result.end())
+                {
+                    ExcelComment note;
+                    note.Address = *address;
+                    note.Author = std::string(BackingAuthorPrefix) + element->GetId().ToString();
+                    note.Text = std::string(BackingPreamble) + "\nComment:\n    " + body;
+                    result.push_back(std::move(note));
+                }
+                else
+                {
+                    existing->Text += "\n\nReply:\n    " + body;
+                }
+            }
+            return result;
+        }
+
         static bool WorkbookHasThreadedComments(const std::shared_ptr<Packaging::WorkbookPart>& workbook)
         {
             if (!workbook)
@@ -398,6 +486,77 @@ public:
 
         const auto xml = Detail::SerializeRaw(document);
         part->SetBinaryData(std::vector<Byte>(xml.begin(), xml.end()));
+    }
+
+    /**
+     * @brief Rewrites `comments1.xml`, its VML drawing and the worksheet reference.
+     *
+     * The three are always written together: Excel treats a comments part
+     * without its drawing as damaged content, and @p comments is the complete
+     * set for the sheet, notes the user wrote and threaded backings alike.
+     */
+    static bool WriteCommentsParts(const std::shared_ptr<Packaging::WorksheetPart>& worksheetPart,
+                                   const std::vector<ExcelComment>& comments)
+    {
+        if (!worksheetPart)
+        {
+            return false;
+        }
+        if (comments.empty())
+        {
+            worksheetPart->RemoveWorksheetCommentsPart();
+            WriteCommentVmlDrawing(worksheetPart, comments);
+            UpdateLegacyDrawingReference(worksheetPart);
+            return true;
+        }
+
+        auto part = worksheetPart->GetWorksheetCommentsPart();
+        if (!part)
+        {
+            part = worksheetPart->AddWorksheetCommentsPart();
+        }
+        if (!part)
+        {
+            return false;
+        }
+
+        std::vector<std::string> authors;
+        for (const auto& item : comments)
+        {
+            if (std::find(authors.begin(), authors.end(), item.Author) == authors.end())
+            {
+                authors.push_back(item.Author);
+            }
+        }
+
+        // Comments are always rewritten as a whole from the in-memory list rather
+        // than patched incrementally, so this builds a fresh standalone document.
+        Pugi::xml_document document;
+        auto root = document.append_child("comments");
+        root.append_attribute("xmlns").set_value(SpreadsheetMlNs);
+        auto authorsElement = root.append_child("authors");
+        for (const auto& author : authors)
+        {
+            authorsElement.append_child("author").text().set(author.c_str());
+        }
+
+        auto commentList = root.append_child("commentList");
+        for (const auto& item : comments)
+        {
+            const auto authorIndex = std::find(authors.begin(), authors.end(), item.Author) - authors.begin();
+            auto commentElement = commentList.append_child("comment");
+            commentElement.append_attribute("ref").set_value(item.Address.ToA1().c_str());
+            commentElement.append_attribute("authorId").set_value(std::to_string(authorIndex).c_str());
+            commentElement.append_child("text").append_child("t").text().set(item.Text.c_str());
+        }
+
+        part->SetXmlString(Detail::SerializeRaw(document));
+
+        // Excel needs the matching VML box for every comment, and the worksheet
+        // has to point at the drawing that holds them.
+        WriteCommentVmlDrawing(worksheetPart, comments);
+        UpdateLegacyDrawingReference(worksheetPart);
+        return true;
     }
 
     /** @brief Points the worksheet's `legacyDrawing` element at the comment VML, or removes it. */
@@ -654,6 +813,9 @@ bool Worksheet::RemoveHyperlink(CellAddress address)
     return false;
 }
 
+/** @brief Shorthand for the threaded comment helpers the comment API leans on. */
+using ThreadNotes = WorksheetContentHelper::ThreadedCommentHelpers;
+
 bool Worksheet::SetComment(const ExcelComment& comment)
 {
     if (!m_part || !comment.Address.IsValid() || comment.Author.empty())
@@ -674,53 +836,8 @@ bool Worksheet::SetComment(const ExcelComment& comment)
         *iterator = comment;
     }
 
-    auto part = m_part->GetWorksheetCommentsPart();
-    if (!part)
-    {
-        part = m_part->AddWorksheetCommentsPart();
-    }
-    if (!part)
-    {
-        return false;
-    }
-
-    std::vector<std::string> authors;
-    for (const auto& item : comments)
-    {
-        if (std::find(authors.begin(), authors.end(), item.Author) == authors.end())
-        {
-            authors.push_back(item.Author);
-        }
-    }
-
-    // Comments are always rewritten as a whole from the in-memory list rather
-    // than patched incrementally, so this builds a fresh standalone document.
-    Pugi::xml_document document;
-    auto root = document.append_child("comments");
-    root.append_attribute("xmlns").set_value(WorksheetContentHelper::SpreadsheetMlNs);
-    auto authorsElement = root.append_child("authors");
-    for (const auto& author : authors)
-    {
-        authorsElement.append_child("author").text().set(author.c_str());
-    }
-
-    auto commentList = root.append_child("commentList");
-    for (const auto& item : comments)
-    {
-        const auto authorIndex = std::find(authors.begin(), authors.end(), item.Author) - authors.begin();
-        auto commentElement = commentList.append_child("comment");
-        commentElement.append_attribute("ref").set_value(item.Address.ToA1().c_str());
-        commentElement.append_attribute("authorId").set_value(std::to_string(authorIndex).c_str());
-        commentElement.append_child("text").append_child("t").text().set(item.Text.c_str());
-    }
-
-    part->SetXmlString(Detail::SerializeRaw(document));
-
-    // Excel needs the matching VML box for every comment, and the worksheet has
-    // to point at the drawing that holds them.
-    WorksheetContentHelper::WriteCommentVmlDrawing(m_part, comments);
-    WorksheetContentHelper::UpdateLegacyDrawingReference(m_part);
-    return true;
+    auto all = ThreadNotes::WithBackingNotes(m_part, std::move(comments));
+    return WorksheetContentHelper::WriteCommentsParts(m_part, all);
 }
 
 std::vector<ExcelComment> Worksheet::Comments() const
@@ -761,6 +878,12 @@ std::vector<ExcelComment> Worksheet::Comments() const
         ExcelComment item;
         item.Address = *address;
         item.Author = authorIndex < authors.size() ? authors[authorIndex] : std::string{};
+        // A note that only backs a threaded thread is an implementation detail
+        // of that thread, so it is not reported as a note of its own.
+        if (WorksheetContentHelper::ThreadedCommentHelpers::IsBackingAuthor(item.Author))
+        {
+            continue;
+        }
         item.Text = commentElement.child("text").child("t").text().as_string();
         result.push_back(std::move(item));
     }
@@ -786,24 +909,8 @@ bool Worksheet::RemoveComment(CellAddress address)
     {
         return false;
     }
-    if (comments.empty())
-    {
-        const bool removed = m_part->RemoveWorksheetCommentsPart();
-        WorksheetContentHelper::WriteCommentVmlDrawing(m_part, comments);
-        WorksheetContentHelper::UpdateLegacyDrawingReference(m_part);
-        return removed;
-    }
-
-    const auto first = comments.front();
-    m_part->RemoveWorksheetCommentsPart();
-    for (const auto& item : comments)
-    {
-        if (!SetComment(item))
-        {
-            return false;
-        }
-    }
-    return GetComment(first.Address).has_value();
+    auto all = ThreadNotes::WithBackingNotes(m_part, std::move(comments));
+    return WorksheetContentHelper::WriteCommentsParts(m_part, all);
 }
 
 std::optional<std::string> Worksheet::AddThreadedComment(ExcelThreadedComment comment)
@@ -901,6 +1008,12 @@ std::optional<std::string> Worksheet::AddThreadedComment(ExcelThreadedComment co
     }
 
     text->SetText(comment.Text);
+
+    if (!WorksheetContentHelper::WriteCommentsParts(m_part, ThreadNotes::WithBackingNotes(m_part, Comments())))
+    {
+        root->RemoveChild(element);
+        return std::nullopt;
+    }
     return comment.Id;
 }
 
@@ -1012,10 +1125,17 @@ bool Worksheet::RemoveThreadedComment(std::string_view id)
 
     if (!root->Elements<Xltc::ThreadedComment>().empty())
     {
-        return true;
+        // The backings are rebuilt from what survived, so the removed thread
+        // stops showing in a reader that only understands plain notes.
+        return WorksheetContentHelper::WriteCommentsParts(m_part,
+                                                          ThreadNotes::WithBackingNotes(m_part, Comments()));
     }
 
     const auto removed = m_part->RemoveWorksheetThreadedCommentsPart(parts.front());
+    if (!WorksheetContentHelper::WriteCommentsParts(m_part, ThreadNotes::WithBackingNotes(m_part, Comments())))
+    {
+        return false;
+    }
     const auto workbook = m_document ? m_document->GetWorkbookPart() : nullptr;
     if (workbook && !WorksheetContentHelper::ThreadedCommentHelpers::WorkbookHasThreadedComments(workbook))
     {

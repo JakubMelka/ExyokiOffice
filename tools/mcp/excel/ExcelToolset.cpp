@@ -1844,20 +1844,14 @@ private:
      * its cell, a threaded one by an identifier, and a cell can hold both. The
      * flag is therefore explicit everywhere rather than guessed.
      *
-     * It defaults to the plain note, which is the older of the two models and
-     * not the one Excel writes today. That is deliberate: a threaded comment
-     * this library produces is discarded by Excel on open - the whole
-     * `xl/threadedcomments` part goes - while a plain note survives and is
-     * shown. Defaulting to the model that reaches the reader beats defaulting
-     * to the modern one that does not. Revisit when the library's threaded
-     * markup is accepted.
+     * It defaults to the threaded model, which is the one Excel writes today and
+     * the one a reply can be attached to.
      */
     static nlohmann::json ThreadedProperty()
     {
         return Schema::BooleanWithDefault("Address the modern threaded comment model rather than the plain "
-                                          "note model. Excel currently discards a threaded comment written by "
-                                          "this library; a plain note survives.",
-                                          false);
+                                          "note model.",
+                                          true);
     }
 
     /// The paper sizes SpreadsheetML names, as the tokens the schema publishes.
@@ -2403,7 +2397,7 @@ private:
         const auto replyTo = arguments.value("reply_to", std::string());
         // The fallback here has to match the schema's published default: the
         // schema documents the default, it does not fill it in.
-        const bool threaded = !replyTo.empty() || arguments.value("threaded", false);
+        const bool threaded = !replyTo.empty() || arguments.value("threaded", true);
 
         // A reply has to name an entry that exists. Without the check the
         // orphaned parent identifier would be written out and Excel would drop

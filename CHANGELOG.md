@@ -36,6 +36,24 @@ in [docs/](docs/README.md).
   - Excel `add_slicer`, `list_slicers` and `set_slicer_selection`, over pivot
     tables and worksheet tables.
 
+### Fixed
+
+- Excel constructs that the library wrote as valid markup and Excel then threw
+  away. See [MCP servers](docs/tools/mcp-servers.md).
+  - `Worksheet::AddThreadedComment` writes the legacy note and VML drawing that
+    back a thread; without them Excel discarded `xl/threadedcomments`
+    altogether. `Worksheet::Comments` does not report the backing note.
+  - `Worksheet::CreateSlicer` registers a table slicer under the extension URI
+    `{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}` and a pivot slicer under
+    `{A8765BA9-456A-4dab-B4F3-ACF838C121DE}`; both were written under one wrong
+    URI and discarded on open.
+  - `Worksheet::CreateSlicer` declares the slicer cache as a workbook defined
+    name, declares the pivot cache identifier its slicer cache names, and
+    raises the pivot table's `updatedVersion` to 4. Without the first two Excel
+    refused the workbook; without the third it dropped the slicer.
+  - A pivot slicer cache names its sheet by `sheetId` rather than by tab
+    position, so a slicer survives on a workbook whose sheets were reordered.
+
 ## [1.1.0] - 2026-08-20
 
 ### Added

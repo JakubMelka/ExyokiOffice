@@ -814,14 +814,11 @@ is addressed by its cell, a threaded comment by the identifier `add_comment`
 returns, and one cell can hold both. `reply_to` implies a threaded comment,
 since a plain note has no parent to point at.
 
-The flag defaults to the plain note, which is the older model and not the one
-Excel writes today. That is deliberate: **Excel currently discards a threaded
-comment this library produces**, dropping the whole `xl/threadedcomments` part
-on open, while a plain note survives and is shown. **A slicer is discarded the
-same way** — its cache part and drawing go, leaving the slicer part orphaned —
-so `add_slicer` reports a success no spreadsheet application will display.
-Both constructs round-trip through the library and validate; only a real Excel
-shows the difference.
+The flag defaults to the threaded model, which is the one Excel writes today
+and the only one a reply can attach to. A threaded comment is written together
+with the plain note that backs it, which is what a reader too old for threads
+shows and what Excel requires before it will accept the thread at all; that
+backing note is not reported by `list_comments` as a note of its own.
 
 CSV import and export run through `convert_document`, which takes
 `csv_separator` and `sheet` on this server.

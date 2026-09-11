@@ -1108,11 +1108,12 @@ TEST_CASE("cell comments survive a round trip in both models [mcp-excel]")
     // has to hand one back; a plain note has nothing to hand back.
     CHECK_FALSE(threaded["data"]["commentId"].get<std::string>().empty());
 
-    // The default is the plain note, because that is the model Excel reads
-    // back; a threaded comment has to be asked for.
+    // The default is the threaded model, so the older plain note has to be
+    // asked for by name.
     const auto plain = server->Call("add_comment", nlohmann::json{{"documentId", documentId},
                                                                   {"cell", "C5"},
-                                                                  {"text", "A plain note."}});
+                                                                  {"text", "A plain note."},
+                                                                  {"threaded", false}});
     REQUIRE(plain["ok"] == true);
     CHECK(plain["data"]["threaded"] == false);
     CHECK(plain["data"]["commentId"] == "");
@@ -1149,6 +1150,7 @@ TEST_CASE("cell comments survive a round trip in both models [mcp-excel]")
     REQUIRE(editor != nullptr);
     auto sheet = editor->FirstWorksheet();
     REQUIRE(sheet != nullptr);
+    // The note backing the threaded comment is not reported as a note of its own.
     REQUIRE(sheet->Comments().size() == 1);
     CHECK(sheet->Comments()[0].Text == "A plain note.");
     REQUIRE(sheet->ThreadedComments().size() == 1);

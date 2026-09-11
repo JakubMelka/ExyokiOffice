@@ -362,22 +362,34 @@ Worksheet::Ptr WorksheetForPart(const ExcelDocument::Ptr& document,
 }
 
 /** Returns the one-based tab index of @p worksheetPart, or zero when unknown. */
-UInt32 SheetTabIndex(const ExcelDocument::Ptr& document,
-                     const std::shared_ptr<Packaging::WorksheetPart>& worksheetPart)
+/**
+ * Returns the `sheetId` of the sheet @p worksheetPart backs.
+ *
+ * This is what a slicer cache's `tabId` names. It is not the sheet's position:
+ * the two coincide in a workbook whose sheets were never reordered or deleted,
+ * and once they diverge Excel drops the slicer without a word.
+ */
+UInt32 SheetTabId(const ExcelDocument::Ptr& document,
+                  const std::shared_ptr<Packaging::WorksheetPart>& worksheetPart)
 {
     const auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
     if (!workbookPart || !worksheetPart)
     {
         return 0;
     }
-    UInt32 index = 1;
-    for (const auto& candidate : workbookPart->GetWorksheetParts())
+    const auto relationshipId = RelationshipIdBetween(*workbookPart, *worksheetPart);
+    const auto workbook = workbookPart->GetTypedRootElement();
+    const auto sheets = workbook ? workbook->GetFirstChildOfType<S::Sheets>() : nullptr;
+    if (relationshipId.empty() || !sheets)
     {
-        if (candidate == worksheetPart)
+        return 0;
+    }
+    for (const auto& sheet : sheets->Elements<S::Sheet>())
+    {
+        if (sheet && sheet->GetId().ToString() == relationshipId)
         {
-            return index;
+            return sheet->GetSheetId().ValueOr(0);
         }
-        ++index;
     }
     return 0;
 }
@@ -432,6 +444,128 @@ bool RegisterWorkbookCache(const ExcelDocument::Ptr& document,
     return true;
 }
 
+/** Lowest `updatedVersion` a pivot table may declare and still host a slicer. */
+constexpr UInt8 kSlicerAwarePivotVersion = 4;
+
+bool RaisePivotVersionForSlicer(const ExcelPivotTable::Ptr& pivotTable, bool& raised)
+{
+    raised = false;
+    const auto part = pivotTable ? pivotTable->GetPart() : nullptr;
+    const auto root = part ? part->GetTypedRootElement() : nullptr;
+    if (!root)
+    {
+        return false;
+    }
+    if (root->GetUpdatedVersion().ValueOr(0) >= kSlicerAwarePivotVersion)
+    {
+        return true;
+    }
+    root->SetUpdatedVersion(ByteValue(kSlicerAwarePivotVersion));
+    raised = true;
+    return true;
+}
+
+std::optional<UInt32> EnsurePivotCacheIdentifier(const ExcelPivotTable::Ptr& pivotTable, bool& added)
+{
+    added = false;
+    const auto cachePart = pivotTable ? pivotTable->GetCacheDefinitionPart() : nullptr;
+    const auto root = cachePart ? cachePart->GetPivotCacheDefinition() : nullptr;
+    if (!root)
+    {
+        return std::nullopt;
+    }
+
+    const auto present =
+        Detail::FindExtension<S::PivotCacheDefinitionExtensionList, S::PivotCacheDefinitionExtension>(
+            root, Detail::ExtensionUris::PivotCacheDefinition);
+    const auto declared = present ? present->GetFirstChildOfType<X14::PivotCacheDefinition>() : nullptr;
+    if (const auto identifier = declared ? declared->GetPivotCacheId().ValueOr(0) : 0; identifier != 0)
+    {
+        return identifier;
+    }
+
+    const auto extension =
+        Detail::GetOrCreateExtension<S::PivotCacheDefinitionExtensionList, S::PivotCacheDefinitionExtension>(
+            root, Detail::ExtensionUris::PivotCacheDefinition, true);
+    const auto declaration = Detail::GetOrCreateExtensionFeature<X14::PivotCacheDefinition>(extension, true);
+    if (!declaration)
+    {
+        return std::nullopt;
+    }
+    // The workbook's own cache identifier is unique among pivot caches already,
+    // so it doubles as the declared one and keeps the output reproducible.
+    const auto identifier = pivotTable->CacheId();
+    declaration->SetPivotCacheId(UInt32Value(identifier));
+    added = true;
+    return identifier;
+}
+
+/**
+ * Registers the workbook defined name a worksheet table slicer cache needs.
+ *
+ * Excel resolves a slicer's cache through a workbook defined name that carries
+ * the cache's own name and the placeholder value `#N/A`; without it the slicer,
+ * its cache and its drawing are all discarded on open even though every part
+ * validates. Both slicer kinds need it.
+ */
+bool RegisterCacheDefinedName(const ExcelDocument::Ptr& document, const std::string& cacheName)
+{
+    const auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
+    const auto workbook = workbookPart ? workbookPart->GetTypedRootElement() : nullptr;
+    if (!workbook || cacheName.empty())
+    {
+        return false;
+    }
+    auto names = workbook->GetFirstChildOfType<S::DefinedNames>();
+    if (!names)
+    {
+        names = workbook->AppendChild<S::DefinedNames>();
+    }
+    if (!names)
+    {
+        return false;
+    }
+    for (const auto& existing : names->Elements<S::DefinedName>())
+    {
+        if (existing && existing->GetName().ToString() == cacheName)
+        {
+            return true;
+        }
+    }
+    const auto entry = names->AppendChild<S::DefinedName>();
+    if (!entry)
+    {
+        return false;
+    }
+    entry->SetName(StringValue(cacheName));
+    entry->SetText("#N/A");
+    return true;
+}
+
+/** Removes the defined name RegisterCacheDefinedName wrote for @p cacheName. */
+void UnregisterCacheDefinedName(const ExcelDocument::Ptr& document, const std::string& cacheName)
+{
+    const auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
+    const auto workbook = workbookPart ? workbookPart->GetTypedRootElement() : nullptr;
+    const auto names = workbook ? workbook->GetFirstChildOfType<S::DefinedNames>() : nullptr;
+    if (!names || cacheName.empty())
+    {
+        return;
+    }
+    for (const auto& existing : names->Elements<S::DefinedName>())
+    {
+        if (existing && existing->GetName().ToString() == cacheName)
+        {
+            names->RemoveChild(existing);
+            break;
+        }
+    }
+    if (names->Elements<S::DefinedName>().empty())
+    {
+        workbook->RemoveChild(names);
+    }
+}
+
 /** Removes the workbook registry entry whose relationship resolves to @p cachePart. */
 void UnregisterWorkbookCache(const ExcelDocument::Ptr& document,
                              const std::shared_ptr<Packaging::SlicerCachePart>& cachePart)
@@ -469,14 +603,24 @@ void UnregisterWorkbookCache(const ExcelDocument::Ptr& document,
     prune.template operator()<X15::SlicerCaches>(Detail::ExtensionUris::WorkbookSlicerCachesX15);
 }
 
+/** The `x:ext` URI under which @p kind registers its worksheet slicer list. */
+constexpr std::string_view WorksheetSlicerListUri(SlicerSourceKind kind)
+{
+    return kind == SlicerSourceKind::PivotTable ? Detail::ExtensionUris::WorksheetPivotSlicerList
+                                                : Detail::ExtensionUris::WorksheetTableSlicerList;
+}
+
 /**
  * Adds this worksheet's `x14:slicerList` entry for a slicers part.
  *
  * There is one entry per slicers part rather than per slicer, so the entry is
- * written once and reused by every later slicer on the same worksheet.
+ * written once and reused by every later slicer of the same kind on the same
+ * worksheet. A worksheet carrying both kinds gets one extension per kind, both
+ * naming the single slicers part, which is how Excel writes that case too.
  */
 bool RegisterWorksheetSlicerList(const std::shared_ptr<S::Worksheet>& worksheet,
                                  const std::shared_ptr<Packaging::SlicersPart>& slicersPart,
+                                 SlicerSourceKind kind,
                                  bool& added)
 {
     added = false;
@@ -490,7 +634,7 @@ bool RegisterWorksheetSlicerList(const std::shared_ptr<S::Worksheet>& worksheet,
         return false;
     }
     const auto extension = Detail::GetOrCreateExtension<S::WorksheetExtensionList, S::WorksheetExtension>(
-        worksheet, Detail::ExtensionUris::WorksheetSlicerList, true);
+        worksheet, WorksheetSlicerListUri(kind), true);
     const auto list = Detail::GetOrCreateExtensionFeature<X14::SlicerList>(extension, true);
     if (!list)
     {
@@ -513,7 +657,12 @@ bool RegisterWorksheetSlicerList(const std::shared_ptr<S::Worksheet>& worksheet,
     return true;
 }
 
-/** Removes this worksheet's `x14:slicerList` entry for a slicers part. */
+/**
+ * Removes this worksheet's `x14:slicerList` entry for a slicers part.
+ *
+ * The caller removes a part rather than a single slicer, and one part can be
+ * named by both kinds' extensions, so both are swept.
+ */
 void UnregisterWorksheetSlicerList(const std::shared_ptr<S::Worksheet>& worksheet,
                                    const std::string& relationshipId)
 {
@@ -521,25 +670,28 @@ void UnregisterWorksheetSlicerList(const std::shared_ptr<S::Worksheet>& workshee
     {
         return;
     }
-    const auto extension = Detail::FindExtension<S::WorksheetExtensionList, S::WorksheetExtension>(
-        worksheet, Detail::ExtensionUris::WorksheetSlicerList);
-    const auto list = extension ? extension->GetFirstChildOfType<X14::SlicerList>() : nullptr;
-    if (!list)
+    for (const auto uri : {Detail::ExtensionUris::WorksheetPivotSlicerList,
+                           Detail::ExtensionUris::WorksheetTableSlicerList})
     {
-        return;
-    }
-    for (const auto& reference : list->Elements<X14::SlicerRef>())
-    {
-        if (reference && reference->GetId().ToString() == relationshipId)
+        const auto extension =
+            Detail::FindExtension<S::WorksheetExtensionList, S::WorksheetExtension>(worksheet, uri);
+        const auto list = extension ? extension->GetFirstChildOfType<X14::SlicerList>() : nullptr;
+        if (!list)
         {
-            list->RemoveChild(reference);
-            break;
+            continue;
         }
-    }
-    if (list->Elements<X14::SlicerRef>().empty())
-    {
-        Detail::RemoveExtension<S::WorksheetExtensionList, S::WorksheetExtension>(
-            worksheet, Detail::ExtensionUris::WorksheetSlicerList);
+        for (const auto& reference : list->Elements<X14::SlicerRef>())
+        {
+            if (reference && reference->GetId().ToString() == relationshipId)
+            {
+                list->RemoveChild(reference);
+                break;
+            }
+        }
+        if (list->Elements<X14::SlicerRef>().empty())
+        {
+            Detail::RemoveExtension<S::WorksheetExtensionList, S::WorksheetExtension>(worksheet, uri);
+        }
     }
 }
 
@@ -728,6 +880,25 @@ void RemoveSlicerAnchor(const std::shared_ptr<Packaging::WorksheetPart>& workshe
 // Source resolution
 // ---------------------------------------------------------------------------
 
+/**
+ * Returns the identifier a pivot slicer cache must use to name its pivot cache.
+ *
+ * The identifier lives in an extension on the pivot cache definition, not in the
+ * workbook's `cacheId`, and Excel refuses to open a workbook whose slicer cache
+ * names one that no extension declares. It is written on first use and reused
+ * afterwards, so every slicer over the same pivot cache agrees on it.
+ */
+std::optional<UInt32> EnsurePivotCacheIdentifier(const ExcelPivotTable::Ptr& pivotTable, bool& added);
+
+/**
+ * Raises @p pivotTable's `updatedVersion` to the lowest one that admits a slicer.
+ *
+ * Slicers arrived with Excel 2010, so Excel silently drops one whose pivot table
+ * still declares the 2007 feature version: the workbook opens, the pivot table
+ * works, and the slicer is simply gone.
+ */
+bool RaisePivotVersionForSlicer(const ExcelPivotTable::Ptr& pivotTable, bool& raised);
+
 /** Everything the writers need after a definition's source has been resolved. */
 struct ResolvedSource
 {
@@ -738,6 +909,8 @@ struct ResolvedSource
     std::vector<std::string> captions;
     /** Pivot table name, for the cache's `x14:pivotTables` entry. */
     std::string pivotTableName;
+    /** The pivot table itself, whose cache part declares the identifier below. */
+    ExcelPivotTable::Ptr pivotTable;
     UInt32 pivotCacheId = 0;
     UInt32 pivotTabId = 0;
     UInt32 tableId = 0;
@@ -1008,8 +1181,9 @@ std::optional<ResolvedSource> ResolvePivotSource(const ExcelDocument::Ptr& docum
         resolved.captions.push_back(item.Caption);
     }
     resolved.pivotTableName = pivotTable->Name();
+    resolved.pivotTable = pivotTable;
     resolved.pivotCacheId = pivotTable->CacheId();
-    resolved.pivotTabId = SheetTabIndex(document, HostWorksheetPartOfPivotTable(document, pivotTable));
+    resolved.pivotTabId = SheetTabId(document, HostWorksheetPartOfPivotTable(document, pivotTable));
     return resolved;
 }
 
@@ -1961,7 +2135,7 @@ SlicerCreationResult Worksheet::CreateSlicer(const ExcelSlicerDefinition& defini
     }
 
     SlicerResult status;
-    const auto resolved = Detail::ResolveSource(m_document, definition, status);
+    auto resolved = Detail::ResolveSource(m_document, definition, status);
     if (!resolved)
     {
         return report(std::move(status));
@@ -2004,6 +2178,12 @@ SlicerCreationResult Worksheet::CreateSlicer(const ExcelSlicerDefinition& defini
     auto slicersPart = existingSlicersParts.empty() ? m_part->AddSlicersPart() : existingSlicersParts.front();
     const bool createdSlicersPart = existingSlicersParts.empty();
 
+    const auto pivotCachePart = resolved->pivotTable ? resolved->pivotTable->GetCacheDefinitionPart() : nullptr;
+    const auto originalPivotCacheXml = pivotCachePart ? pivotCachePart->GetXmlString() : std::string{};
+    const auto pivotTablePart = resolved->pivotTable ? resolved->pivotTable->GetPart() : nullptr;
+    const auto originalPivotTableXml = pivotTablePart ? pivotTablePart->GetXmlString() : std::string{};
+    bool addedPivotCacheIdentifier = false;
+    bool raisedPivotVersion = false;
     bool addedWorkbookEntry = false;
     bool addedWorksheetReference = false;
     bool createdDrawingPart = false;
@@ -2045,12 +2225,32 @@ SlicerCreationResult Worksheet::CreateSlicer(const ExcelSlicerDefinition& defini
         {
             workbookPart->RemoveSlicerCachePart(cachePart);
         }
+        if (addedPivotCacheIdentifier && pivotCachePart)
+        {
+            pivotCachePart->SetXmlString(originalPivotCacheXml);
+        }
+        if (raisedPivotVersion && pivotTablePart)
+        {
+            pivotTablePart->SetXmlString(originalPivotTableXml);
+        }
     };
 
     if (!cachePart || !slicersPart || cacheName.empty())
     {
         rollback();
         return report(Detail::Failure(SlicerError::WriteFailed, "The slicer parts could not be created."));
+    }
+
+    if (resolved->kind == SlicerSourceKind::PivotTable)
+    {
+        const auto identifier = Detail::EnsurePivotCacheIdentifier(resolved->pivotTable, addedPivotCacheIdentifier);
+        if (!identifier || !Detail::RaisePivotVersionForSlicer(resolved->pivotTable, raisedPivotVersion))
+        {
+            rollback();
+            return report(Detail::Failure(SlicerError::WriteFailed,
+                                          "The pivot table could not be prepared to host a slicer."));
+        }
+        resolved->pivotCacheId = *identifier;
     }
 
     if (createdCache)
@@ -2067,6 +2267,12 @@ SlicerCreationResult Worksheet::CreateSlicer(const ExcelSlicerDefinition& defini
                 Detail::Failure(SlicerError::WriteFailed, "The workbook slicer cache registry could not be updated."));
         }
         addedWorkbookEntry = true;
+        if (!Detail::RegisterCacheDefinedName(m_document, cacheName))
+        {
+            rollback();
+            return report(Detail::Failure(SlicerError::WriteFailed,
+                                          "The workbook defined name for the slicer cache could not be written."));
+        }
     }
     if (!Detail::ApplyTableSelection(*resolved, selection, hasExplicitSelection))
     {
@@ -2074,7 +2280,7 @@ SlicerCreationResult Worksheet::CreateSlicer(const ExcelSlicerDefinition& defini
         return report(Detail::Failure(SlicerError::WriteFailed, "The table filter could not be updated."));
     }
 
-    if (!Detail::RegisterWorksheetSlicerList(worksheetRoot, slicersPart, addedWorksheetReference))
+    if (!Detail::RegisterWorksheetSlicerList(worksheetRoot, slicersPart, resolved->kind, addedWorksheetReference))
     {
         rollback();
         return report(Detail::Failure(SlicerError::WriteFailed, "The worksheet slicer list could not be updated."));
@@ -2213,6 +2419,7 @@ bool Worksheet::RemoveSlicer(const ExcelSlicer::Ptr& slicer)
             }
         }
         Detail::UnregisterWorkbookCache(m_document, cachePart);
+        Detail::UnregisterCacheDefinedName(m_document, cacheName);
         if (const auto workbookPart = m_document->GetWorkbookPart(); workbookPart && cachePart)
         {
             workbookPart->RemoveSlicerCachePart(cachePart);
