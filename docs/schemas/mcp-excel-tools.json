@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-excel",
   "title": "ExyokiOffice Excel MCP Server",
-  "toolCount": 48,
+  "toolCount": 53,
   "tools": [
     {
       "annotations": {
@@ -2889,6 +2889,181 @@
     {
       "annotations": {
         "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the comments of the workbook, optionally narrowed to one sheet. Both threaded comments and plain notes are reported.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "review",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_comments.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_comments",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Comments.",
+            "properties": {
+              "comments": {
+                "description": "Comments.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One comment.",
+                  "properties": {
+                    "author": {
+                      "description": "Author display name.",
+                      "type": "string"
+                    },
+                    "cell": {
+                      "description": "A1 address.",
+                      "type": "string"
+                    },
+                    "id": {
+                      "description": "Thread entry identifier; empty for a plain note.",
+                      "type": "string"
+                    },
+                    "parentId": {
+                      "description": "Identifier of the entry this one replies to.",
+                      "type": "string"
+                    },
+                    "sheet": {
+                      "description": "Worksheet name.",
+                      "type": "string"
+                    },
+                    "text": {
+                      "description": "Comment text.",
+                      "type": "string"
+                    },
+                    "threaded": {
+                      "description": "True for a threaded comment.",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "sheet",
+                    "cell",
+                    "text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "comments"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List comments"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
         "idempotentHint": false,
         "openWorldHint": false,
         "readOnlyHint": false
@@ -4760,6 +4935,880 @@
         "type": "object"
       },
       "title": "Set cell hyperlink"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Set how a worksheet prints: orientation, paper, scaling, margins, print area, repeated titles, headers and footers. Every member is optional and the ones left out keep their current value.",
+      "example": {
+        "documentId": "doc-1",
+        "fit_to_width": 1,
+        "orientation": "landscape"
+      },
+      "group": "layout",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_print_setup.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "fit_to_height": {
+            "description": "Pages to fit the height into; 0 means unrestricted.",
+            "maximum": 32767,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fit_to_width": {
+            "description": "Pages to fit the width into; 0 means unrestricted.",
+            "maximum": 32767,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "header_footer": {
+            "additionalProperties": false,
+            "description": "Header and footer strings, using Excel's formatting codes such as \"&P\" for the page number.",
+            "properties": {
+              "different_first": {
+                "description": "Use the first-page strings.",
+                "type": "boolean"
+              },
+              "different_odd_even": {
+                "description": "Use the even-page strings.",
+                "type": "boolean"
+              },
+              "even_footer": {
+                "description": "Footer of even pages.",
+                "type": "string"
+              },
+              "even_header": {
+                "description": "Header of even pages.",
+                "type": "string"
+              },
+              "first_footer": {
+                "description": "Footer of the first page.",
+                "type": "string"
+              },
+              "first_header": {
+                "description": "Header of the first page.",
+                "type": "string"
+              },
+              "odd_footer": {
+                "description": "Footer of every page, or of odd pages.",
+                "type": "string"
+              },
+              "odd_header": {
+                "description": "Header of every page, or of odd pages.",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "margins": {
+            "additionalProperties": false,
+            "description": "Page margins; omitted members keep their current value.",
+            "properties": {
+              "bottom": {
+                "description": "Bottom margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "footer": {
+                "description": "Footer margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "header": {
+                "description": "Header margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "left": {
+                "description": "Left margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "right": {
+                "description": "Right margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "top": {
+                "description": "Top margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "options": {
+            "additionalProperties": false,
+            "description": "Print decorations and alignment.",
+            "properties": {
+              "grid_lines": {
+                "description": "Print grid lines.",
+                "type": "boolean"
+              },
+              "headings": {
+                "description": "Print row and column headings.",
+                "type": "boolean"
+              },
+              "horizontal_centered": {
+                "description": "Center the page horizontally.",
+                "type": "boolean"
+              },
+              "vertical_centered": {
+                "description": "Center the page vertically.",
+                "type": "boolean"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "orientation": {
+            "description": "Page orientation.",
+            "enum": [
+              "portrait",
+              "landscape"
+            ],
+            "type": "string"
+          },
+          "paper_size": {
+            "description": "Paper size.",
+            "enum": [
+              "letter",
+              "letter_small",
+              "tabloid",
+              "ledger",
+              "legal",
+              "statement",
+              "executive",
+              "a3",
+              "a4",
+              "a4_small",
+              "a5",
+              "b4",
+              "b5",
+              "folio"
+            ],
+            "type": "string"
+          },
+          "print_area": {
+            "description": "A1 ranges printed from this sheet; an empty array clears the print area.",
+            "items": {
+              "description": "One A1 range.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "repeat_columns": {
+            "description": "Column band repeated on every page, such as \"A:B\"; an empty string clears it.",
+            "type": "string"
+          },
+          "repeat_rows": {
+            "description": "Row band repeated on every page, such as \"1:2\"; an empty string clears it.",
+            "type": "string"
+          },
+          "scale": {
+            "description": "Print scale in percent; ignored when a fit-to-page value is set.",
+            "maximum": 400,
+            "minimum": 10,
+            "type": "integer"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "set_print_setup",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Effective print setup.",
+            "properties": {
+              "orientation": {
+                "description": "Page orientation.",
+                "type": "string"
+              },
+              "paperSize": {
+                "description": "Paper size token.",
+                "type": "string"
+              },
+              "printArea": {
+                "description": "A1 ranges printed from this sheet.",
+                "items": {
+                  "description": "One A1 range.",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "sheet": {
+                "description": "Worksheet name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "sheet"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set print setup"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Place a picture on the worksheet, anchored to a cell rectangle. PNG, JPEG, GIF, BMP, and TIFF payloads are accepted.",
+      "example": {
+        "anchor_cell": "D2",
+        "documentId": "doc-1",
+        "path": "logo.png"
+      },
+      "group": "media",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_image.",
+        "properties": {
+          "alt": {
+            "description": "Alternative text for accessibility.",
+            "type": "string"
+          },
+          "anchor_cell": {
+            "description": "A1 cell the image's top-left corner sits on.",
+            "type": "string"
+          },
+          "contentType": {
+            "description": "Media type; detected when omitted.",
+            "type": "string"
+          },
+          "dataBase64": {
+            "description": "Base64 image payload; mutually exclusive with path.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "height": {
+            "description": "Image height; defaults to about 7.5 cm.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "name": {
+            "description": "Non-visual drawing name.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative image file; mutually exclusive with dataBase64.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "width": {
+            "description": "Image width; defaults to about 10 cm.",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "documentId",
+          "anchor_cell"
+        ],
+        "type": "object"
+      },
+      "name": "add_image",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New image.",
+            "properties": {
+              "anchor": {
+                "description": "A1 anchor cell.",
+                "type": "string"
+              },
+              "contentType": {
+                "description": "Media type that was stored.",
+                "type": "string"
+              },
+              "imageId": {
+                "description": "Drawing object identifier.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "imageId"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add image"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Attach a comment to a cell, as a threaded comment or as a plain note. Pass reply_to to answer an existing thread entry.",
+      "example": {
+        "cell": "B4",
+        "documentId": "doc-1",
+        "text": "Check this number."
+      },
+      "group": "review",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_comment.",
+        "properties": {
+          "author": {
+            "default": "ExyokiOffice",
+            "description": "Author display name.",
+            "type": "string"
+          },
+          "cell": {
+            "description": "A1 address of the annotated cell.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "reply_to": {
+            "description": "Identifier of the thread entry this one replies to; implies a threaded comment.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "text": {
+            "description": "Comment text.",
+            "type": "string"
+          },
+          "threaded": {
+            "default": true,
+            "description": "Address the modern threaded comment model rather than the plain note model.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documentId",
+          "cell",
+          "text"
+        ],
+        "type": "object"
+      },
+      "name": "add_comment",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New comment.",
+            "properties": {
+              "cell": {
+                "description": "A1 address.",
+                "type": "string"
+              },
+              "commentId": {
+                "description": "Thread entry identifier; empty for a plain note.",
+                "type": "string"
+              },
+              "threaded": {
+                "description": "True for a threaded comment.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "cell"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add comment"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Remove one comment: a thread entry by its identifier, or the plain note of a cell. Pass exactly one of comment_id and cell.",
+      "example": {
+        "cell": "B4",
+        "documentId": "doc-1"
+      },
+      "group": "review",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of delete_comment.",
+        "properties": {
+          "cell": {
+            "description": "A1 address whose plain note is removed.",
+            "type": "string"
+          },
+          "comment_id": {
+            "description": "Thread entry identifier reported by list_comments.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "delete_comment",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Deleted comment.",
+            "properties": {
+              "cell": {
+                "description": "A1 address, when one was named.",
+                "type": "string"
+              },
+              "commentId": {
+                "description": "Identifier, when one was named.",
+                "type": "string"
+              },
+              "removed": {
+                "description": "True when a comment was removed.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "removed"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Delete comment"
     },
     {
       "annotations": {

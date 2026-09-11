@@ -8,6 +8,8 @@
 #include "SharedToolset.hpp"
 #include "Units.hpp"
 
+#include "AsciiText.hpp"
+
 #include "ExyokiOffice/Tools/DocumentModelIO.hpp"
 #include "ExyokiOffice/Guid.hpp"
 
@@ -18,6 +20,7 @@ namespace ExyokiOffice::Mcp
 {
 
 namespace P = ExyokiOffice::DocumentFormat::OpenXml::Presentation;
+namespace Drawing = ExyokiOffice::DocumentFormat::OpenXml::Drawing;
 
 /// Open settings that carry the configured safety limits and nothing else.
 static Packaging::OpenSettings SettingsWithLimits(const OpenXmlPackageLimits& limits)
@@ -200,6 +203,8 @@ public:
         RegisterSetSlideHidden(registry);
         RegisterSetPlaceholderText(registry);
         RegisterAddTextBox(registry);
+        RegisterAddShape(registry);
+        RegisterFormatShape(registry);
         RegisterEditTextFrame(registry);
         RegisterDeleteShape(registry);
         RegisterSetShapeTransform(registry);
@@ -1636,6 +1641,631 @@ private:
         data["shape"] = path;
 
         return ResultBuilder("Deleted shape " + path + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    /**
+     * @brief Resolves a DrawingML preset name such as `roundRect`.
+     *
+     * The preset list is the schema's, not this server's: there are 187 of
+     * them, and publishing an enumeration of that size in the catalog would
+     * cost every client more context than the whole rest of the tool. The name
+     * is therefore a string, resolved through the generated enumeration's own
+     * table, and matched loosely — case and separators are ignored — because an
+     * agent writes `round_rect` as readily as `roundRect`.
+     */
+    static std::optional<Drawing::ShapeTypeValues::Value> ParsePreset(const std::string& token)
+    {
+        const auto normalize = [](std::string_view text)
+        {
+            std::string result;
+            for (const char character : text)
+            {
+                if (character != '_' && character != '-' && character != ' ')
+                {
+                    result.push_back(AsciiText::ToLower(character));
+                }
+            }
+
+            return result;
+        };
+
+        const auto* meta = Drawing::ShapeTypeValues::GetMetaEnum();
+        if (meta == nullptr)
+        {
+            return std::nullopt;
+        }
+
+        // The exact spelling is by far the common case, so it is tried first
+        // and the normalized walk is only the fallback.
+        const auto exact = meta->FromString(token);
+        if (exact != Drawing::ShapeTypeValues::NotDefinedEnumValue &&
+            exact != Drawing::ShapeTypeValues::InvalidEnumValue)
+        {
+            return static_cast<Drawing::ShapeTypeValues::Value>(exact);
+        }
+
+        const auto wanted = normalize(token);
+        for (UInt32 raw = Drawing::ShapeTypeValues::Line; raw <= Drawing::ShapeTypeValues::ChartPlus; ++raw)
+        {
+            if (normalize(meta->ToString(raw)) == wanted)
+            {
+                return static_cast<Drawing::ShapeTypeValues::Value>(raw);
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    static std::string PresetToken(Drawing::ShapeTypeValues::Value preset)
+    {
+        const auto* meta = Drawing::ShapeTypeValues::GetMetaEnum();
+        return meta == nullptr ? std::string() : std::string(meta->ToString(static_cast<UInt32>(preset)));
+    }
+
+    /// Schema of the `fill` argument, shared by the shape tools.
+    static nlohmann::json FillSchema()
+    {
+        nlohmann::json stop =
+            Schema::Object("One gradient stop.", {"color", "position"},
+                           nlohmann::json{{"color", Schema::String("Stop color as \"#RRGGBB\".")},
+                                          {"position", Schema::Number("Stop position from 0 through 100.")}});
+
+        return Schema::Object(
+            "Shape fill. Omit to leave the fill alone; \"inherited\" removes an explicit fill so theme and "
+            "placeholder inheritance applies again.",
+            {"kind"},
+            nlohmann::json{{"kind", Schema::Enumeration("Fill model.", {"inherited", "none", "solid", "gradient"})},
+                           {"color", Schema::String("Solid fill color as \"#RRGGBB\".")},
+                           {"gradient_stops", Schema::Array("At least two stops.", std::move(stop))},
+                           {"gradient_angle", Schema::Number("Linear sweep direction in degrees.")}});
+    }
+
+    /// Schema of the `outline` argument, shared by the shape tools.
+    static nlohmann::json OutlineSchema()
+    {
+        return Schema::Object(
+            "Shape outline. Omit to leave the outline alone. A gradient outline is not representable and is "
+            "refused.",
+            {"kind"},
+            nlohmann::json{
+                {"kind", Schema::Enumeration("Outline color model.", {"inherited", "none", "solid"})},
+                {"color", Schema::String("Solid outline color as \"#RRGGBB\".")},
+                {"width", Schema::Length("Line width.")},
+                {"dash", Schema::Enumeration("Dash pattern.",
+                                             {"solid", "dot", "dash", "lgDash", "dashDot", "lgDashDot",
+                                              "lgDashDotDot", "sysDash", "sysDot", "sysDashDot", "sysDashDotDot"})},
+                {"cap", Schema::Enumeration("Line-end cap.", {"rnd", "sq", "flat"})},
+                {"compound", Schema::Enumeration("Compound line type.",
+                                                 {"sng", "dbl", "thickThin", "thinThick", "tri"})}});
+    }
+
+    static PowerPoint::PresentationFillKind ParseFillKind(const std::string& token)
+    {
+        if (token == "none")
+        {
+            return PowerPoint::PresentationFillKind::None;
+        }
+
+        if (token == "solid")
+        {
+            return PowerPoint::PresentationFillKind::Solid;
+        }
+
+        if (token == "gradient")
+        {
+            return PowerPoint::PresentationFillKind::Gradient;
+        }
+
+        return PowerPoint::PresentationFillKind::Inherited;
+    }
+
+    /// Reads the `fill` argument; false leaves @p failure set.
+    static bool ReadFill(const nlohmann::json& source, PowerPoint::PresentationShapeFill& fill,
+                         ToolOutcome& failure)
+    {
+        fill.Kind = ParseFillKind(source.value("kind", std::string("inherited")));
+
+        if (fill.Kind == PowerPoint::PresentationFillKind::Solid)
+        {
+            const auto color = ParseColor(source.value("color", std::string()));
+            if (!color.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "A solid fill needs a \"#RRGGBB\" color.", "fill.color");
+                return false;
+            }
+
+            fill.ColorValue = *color;
+            return true;
+        }
+
+        if (fill.Kind != PowerPoint::PresentationFillKind::Gradient)
+        {
+            return true;
+        }
+
+        const auto stops = source.find("gradient_stops");
+        if (stops == source.end() || stops->size() < 2)
+        {
+            failure = MakeError(ErrorCode::InputInvalid, "A gradient fill needs at least two stops.",
+                                "fill.gradient_stops");
+            return false;
+        }
+
+        for (const auto& entry : *stops)
+        {
+            const auto color = ParseColor(entry.value("color", std::string()));
+            if (!color.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "A gradient stop needs a \"#RRGGBB\" color.",
+                                    "fill.gradient_stops");
+                return false;
+            }
+
+            const auto position = entry.value("position", -1.0);
+            if (position < 0.0 || position > 100.0)
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "A gradient stop position runs from 0 through 100.",
+                                    "fill.gradient_stops");
+                return false;
+            }
+
+            fill.GradientStops.push_back(PowerPoint::PresentationGradientStop{*color, position});
+        }
+
+        fill.GradientAngle = MeasuringAngle{source.value("gradient_angle", 0.0), AngleUnit::Degree};
+        return true;
+    }
+
+    /// Reads the `outline` argument; false leaves @p failure set.
+    static bool ReadOutline(const nlohmann::json& source, PowerPoint::PresentationShapeOutline& outline,
+                            ToolOutcome& failure)
+    {
+        // DrawingML has no gradient outline, and the schema's enumeration says
+        // so: the three tokens it publishes are the three that exist, which
+        // refuses a gradient before the call is made rather than after.
+        outline.Fill = ParseFillKind(source.value("kind", std::string("inherited")));
+
+        if (outline.Fill == PowerPoint::PresentationFillKind::Solid)
+        {
+            const auto color = ParseColor(source.value("color", std::string()));
+            if (!color.has_value())
+            {
+                failure =
+                    MakeError(ErrorCode::InputInvalid, "A solid outline needs a \"#RRGGBB\" color.", "outline.color");
+                return false;
+            }
+
+            outline.ColorValue = *color;
+        }
+
+        if (const auto width = source.find("width"); width != source.end())
+        {
+            const auto parsed = ParseLength(*width);
+            if (!parsed.has_value() || ToPointValue(*parsed) < 0.0)
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "The outline width is not a non-negative length.",
+                                    "outline.width");
+                return false;
+            }
+
+            outline.Width = *parsed;
+        }
+
+        // The three remaining attributes are plain enumeration tokens the
+        // schema already bounded, so a value that arrives here is known good.
+        if (const auto dash = source.find("dash"); dash != source.end())
+        {
+            outline.Dash = static_cast<Drawing::PresetLineDashValues::Value>(
+                Drawing::PresetLineDashValues::GetMetaEnum()->FromString(dash->get<std::string>()));
+        }
+
+        if (const auto cap = source.find("cap"); cap != source.end())
+        {
+            outline.Cap = static_cast<Drawing::LineCapValues::Value>(
+                Drawing::LineCapValues::GetMetaEnum()->FromString(cap->get<std::string>()));
+        }
+
+        if (const auto compound = source.find("compound"); compound != source.end())
+        {
+            outline.Compound = static_cast<Drawing::CompoundLineValues::Value>(
+                Drawing::CompoundLineValues::GetMetaEnum()->FromString(compound->get<std::string>()));
+        }
+
+        return true;
+    }
+
+    /**
+     * @brief Spans a connector across the two shapes it joins.
+     *
+     * A connection records which shapes a connector belongs to; it does not
+     * place it. PowerPoint re-routes a connected connector when either shape
+     * moves, but what it draws when the file is opened is the stored geometry,
+     * so a connector left at the default zero extent is invisible. Spanning the
+     * centres of the two shapes puts it where the caller plainly meant it,
+     * and an explicit width or height still wins.
+     */
+    static void SpanConnector(const PowerPoint::PresentationShape& from, const PowerPoint::PresentationShape& to,
+                              PowerPoint::PresentationShapeTransform& transform)
+    {
+        const auto first = from.GetTransform();
+        const auto second = to.GetTransform();
+        if (!first.has_value() || !second.has_value())
+        {
+            return;
+        }
+
+        const auto centre = [](const PowerPoint::PresentationShapeTransform& shape)
+        {
+            return std::pair<Int64, Int64>{ToEmuValue(shape.Position.X) + ToEmuValue(shape.Size.Width) / 2,
+                                           ToEmuValue(shape.Position.Y) + ToEmuValue(shape.Size.Height) / 2};
+        };
+
+        const auto [fromX, fromY] = centre(*first);
+        const auto [toX, toY] = centre(*second);
+
+        transform.Position = PowerPoint::PresentationPoint{std::min(fromX, toX), std::min(fromY, toY)};
+        transform.Size = PowerPoint::PresentationSize{std::abs(toX - fromX), std::abs(toY - fromY)};
+
+        // A connector drawn right to left, or bottom to top, is expressed as a
+        // flip rather than as a negative extent, which OOXML has no room for.
+        transform.FlipHorizontal = toX < fromX;
+        transform.FlipVertical = toY < fromY;
+    }
+
+    /// Resolves one `{shape, site}` connector endpoint against the slide.
+    static bool ReadEndpoint(const PowerPoint::PresentationSlide& slide, const nlohmann::json& source,
+                             PowerPoint::PresentationConnectorEndpoint& endpoint,
+                             PowerPoint::PresentationShape::Ptr& target, ToolOutcome& failure)
+    {
+        const auto path = source.value("shape", std::string());
+        target = PptAddressing::FindShape(slide, path, failure);
+        if (target == nullptr)
+        {
+            return false;
+        }
+
+        // A shape with no non-visual identity cannot be the target of a
+        // connection, and writing zero would silently produce a connector
+        // attached to nothing.
+        const auto id = target->Id();
+        if (id == 0)
+        {
+            failure = MakeError(ErrorCode::ShapeNotFound, "The shape has no identifier to connect to.", path);
+            return false;
+        }
+
+        endpoint.ShapeId = id;
+        endpoint.SiteIndex = source.value("site", static_cast<UInt32>(0));
+        return true;
+    }
+
+    static nlohmann::json EndpointSchema(std::string description)
+    {
+        return Schema::Object(std::move(description), {"shape"},
+                              nlohmann::json{{"shape", Schema::String("Shape path from get_slide.")},
+                                             {"site", Schema::IntegerWithDefault("Connection-site index on that "
+                                                                                 "shape.",
+                                                                                 0, 0)}});
+    }
+
+    static void RegisterAddShape(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["preset"] = Schema::StringWithDefault(
+            "DrawingML preset geometry name, such as \"rect\", \"roundRect\", \"ellipse\", \"triangle\", "
+            "\"diamond\", \"rightArrow\", \"flowChartDecision\", \"star5\", or \"wedgeRectCallout\". Underscores "
+            "and case are ignored. A connector takes a connector preset such as \"straightConnector1\" or "
+            "\"bentConnector3\".",
+            "rect");
+        properties["x"] = Schema::Length("Distance from the left edge.");
+        properties["y"] = Schema::Length("Distance from the top edge.");
+        properties["width"] = Schema::Length("Shape width.");
+        properties["height"] = Schema::Length("Shape height.");
+        properties["rotation"] = PptAddressing::RotationSchema();
+        properties["text"] = Schema::String("Text placed in the shape.");
+        properties["paragraphs"] = PptAddressing::ParagraphsSchema();
+        properties["bullets"] = Schema::Array("Bullet lines placed in the shape.", Schema::String("One line."));
+        properties["fill"] = FillSchema();
+        properties["outline"] = OutlineSchema();
+        properties["connect_from"] = EndpointSchema("Shape the connector starts at; makes this a connector.");
+        properties["connect_to"] = EndpointSchema("Shape the connector ends at; makes this a connector.");
+        properties["name"] = Schema::String("Non-visual shape name.");
+
+        auto definition =
+            MakeDefinition("add_shape", "Add shape",
+                           "Add a shape with preset geometry, optionally carrying text, a fill, and an outline. "
+                           "Passing connect_from or connect_to makes it a connector between two shapes.",
+                           "content");
+        definition.InputSchema = Schema::Object("Arguments of add_shape.", {"documentId", "slide", "x", "y"},
+                                                std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New shape.", {"shape"},
+                           nlohmann::json{{"shape", Schema::String("Shape path of the new shape.")},
+                                          {"preset", Schema::String("Preset geometry that was written.")},
+                                          {"connector", Schema::Boolean("True when a connector was added.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"slide", 1},   {"preset", "roundRect"},
+                                            {"x", "2cm"},           {"y", "3cm"},   {"width", "6cm"},
+                                            {"height", "2cm"},      {"text", "Start"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddShape(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome AddShape(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const auto presetToken = arguments.value("preset", std::string("rect"));
+        const auto preset = ParsePreset(presetToken);
+        if (!preset.has_value())
+        {
+            return MakeError(ErrorCode::InputInvalid, "No preset geometry has that name.", presetToken);
+        }
+
+        const bool connector = arguments.contains("connect_from") || arguments.contains("connect_to");
+
+        PowerPoint::PresentationShapeTransform transform;
+        // A connector between two shapes gets its extent from where they sit,
+        // so only a plain shape has to be given a size.
+        if (!PptAddressing::ReadTransform(arguments, transform, !connector, failure))
+        {
+            return failure;
+        }
+
+        PowerPoint::PresentationShapeFill fill;
+        const bool hasFill = arguments.contains("fill");
+        if (hasFill && !ReadFill(arguments["fill"], fill, failure))
+        {
+            return failure;
+        }
+
+        PowerPoint::PresentationShapeOutline outline;
+        bool hasOutline = arguments.contains("outline");
+        if (hasOutline && !ReadOutline(arguments["outline"], outline, failure))
+        {
+            return failure;
+        }
+
+        // A new shape is a bare p:sp with no style reference, so nothing is
+        // inherited and a shape given neither a fill nor an outline draws
+        // nothing at all - PowerPoint shows its text floating over the slide,
+        // and a connector disappears entirely. Supplying an outline in that
+        // case is what makes the geometry the caller asked for visible; naming
+        // either one is taken as knowing what the shape should look like.
+        if (!hasFill && !hasOutline)
+        {
+            outline.Fill = PowerPoint::PresentationFillKind::Solid;
+            outline.ColorValue = Color(0x40, 0x40, 0x40);
+            outline.Width = MeasuringUnits{1.0, MeasurementUnit::Point};
+            hasOutline = true;
+        }
+
+        PowerPoint::PresentationTextFrame frame;
+        const bool hasText = PptAddressing::HasText(arguments);
+        if (hasText && !PptAddressing::ReadTextFrame(arguments, frame, failure))
+        {
+            return failure;
+        }
+
+        std::optional<PowerPoint::PresentationConnectorEndpoint> start;
+        std::optional<PowerPoint::PresentationConnectorEndpoint> end;
+        PowerPoint::PresentationShape::Ptr fromShape;
+        PowerPoint::PresentationShape::Ptr toShape;
+        if (const auto from = arguments.find("connect_from"); from != arguments.end())
+        {
+            PowerPoint::PresentationConnectorEndpoint endpoint;
+            if (!ReadEndpoint(*slide, *from, endpoint, fromShape, failure))
+            {
+                return failure;
+            }
+
+            start = endpoint;
+        }
+
+        if (const auto to = arguments.find("connect_to"); to != arguments.end())
+        {
+            PowerPoint::PresentationConnectorEndpoint endpoint;
+            if (!ReadEndpoint(*slide, *to, endpoint, toShape, failure))
+            {
+                return failure;
+            }
+
+            end = endpoint;
+        }
+
+        // Only a connector that joins two shapes and was given no size of its
+        // own has anything to derive.
+        if (fromShape != nullptr && toShape != nullptr && !arguments.contains("width") &&
+            !arguments.contains("height"))
+        {
+            SpanConnector(*fromShape, *toShape, transform);
+        }
+
+        MutationGuard guard(session.Session());
+
+        auto tree = slide->ShapeTree();
+        if (tree == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The slide has no shape tree.");
+        }
+
+        const auto name = arguments.value("name", std::string());
+        auto shape = connector ? tree->AddConnector(name) : tree->AddShape(name);
+        if (shape == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The shape could not be added.");
+        }
+
+        if (!shape->SetPresetGeometry(*preset))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The preset geometry could not be written.", presetToken);
+        }
+
+        shape->SetTransform(transform);
+
+        if (hasFill && !shape->SetFill(fill))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The fill could not be written.");
+        }
+
+        if (hasOutline && !shape->SetOutline(outline))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The outline could not be written.");
+        }
+
+        if (hasText && !shape->SetTextFrame(frame))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The text could not be written into the new shape.");
+        }
+
+        if (connector && !shape->SetConnectorEndpoints(start, end))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The connector endpoints could not be written.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["shape"] = std::to_string(tree->Count());
+        data["preset"] = PresetToken(*preset);
+        data["connector"] = connector;
+
+        return ResultBuilder("Added a shape to slide " + std::to_string(arguments.value("slide", 0)) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterFormatShape(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["shape"] = Schema::String("Shape path from get_slide.");
+        properties["preset"] = Schema::String("Replace the preset geometry; see add_shape for the names.");
+        properties["fill"] = FillSchema();
+        properties["outline"] = OutlineSchema();
+
+        auto definition = MakeDefinition("format_shape", "Format shape",
+                                         "Change the fill, the outline, or the preset geometry of a shape that is "
+                                         "already on the slide. Omitted members are left alone.",
+                                         "content");
+        definition.InputSchema =
+            Schema::Object("Arguments of format_shape.", {"documentId", "slide", "shape"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Formatted shape.", {"shape"},
+                           nlohmann::json{{"shape", Schema::String("Shape path.")},
+                                          {"preset", Schema::String("Effective preset geometry, when it has "
+                                                                    "one.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"slide", 1},
+                                            {"shape", "2"},
+                                            {"fill", nlohmann::json{{"kind", "solid"}, {"color", "#2F6FED"}}}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return FormatShape(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome FormatShape(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const auto path = arguments.value("shape", std::string());
+        auto shape = PptAddressing::FindShape(*slide, path, failure);
+        if (shape == nullptr)
+        {
+            return failure;
+        }
+
+        // Nothing to do is a mistake worth reporting: the caller believes it
+        // asked for a change, and a silent success would hide the typo.
+        const bool hasPreset = arguments.contains("preset");
+        const bool hasFill = arguments.contains("fill");
+        const bool hasOutline = arguments.contains("outline");
+        if (!hasPreset && !hasFill && !hasOutline)
+        {
+            return MakeError(ErrorCode::InputInvalid, "Pass at least one of preset, fill, and outline.", path);
+        }
+
+        std::optional<Drawing::ShapeTypeValues::Value> preset;
+        if (hasPreset)
+        {
+            const auto token = arguments.value("preset", std::string());
+            preset = ParsePreset(token);
+            if (!preset.has_value())
+            {
+                return MakeError(ErrorCode::InputInvalid, "No preset geometry has that name.", token);
+            }
+        }
+
+        PowerPoint::PresentationShapeFill fill;
+        if (hasFill && !ReadFill(arguments["fill"], fill, failure))
+        {
+            return failure;
+        }
+
+        PowerPoint::PresentationShapeOutline outline;
+        if (hasOutline && !ReadOutline(arguments["outline"], outline, failure))
+        {
+            return failure;
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (preset.has_value() && !shape->SetPresetGeometry(*preset))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The preset geometry could not be written.", path);
+        }
+
+        if (hasFill && !shape->SetFill(fill))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The fill could not be written.", path);
+        }
+
+        if (hasOutline && !shape->SetOutline(outline))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The outline could not be written.", path);
+        }
+
+        guard.Commit();
+
+        const auto effective = shape->GetPresetGeometry();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["shape"] = path;
+        data["preset"] = effective.has_value() ? PresetToken(*effective) : std::string();
+
+        return ResultBuilder("Formatted shape " + path + ".")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();

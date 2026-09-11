@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-power-point",
   "title": "ExyokiOffice PowerPoint MCP Server",
-  "toolCount": 50,
+  "toolCount": 52,
   "tools": [
     {
       "annotations": {
@@ -5167,6 +5167,724 @@
         "type": "object"
       },
       "title": "Add text box"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Add a shape with preset geometry, optionally carrying text, a fill, and an outline. Passing connect_from or connect_to makes it a connector between two shapes.",
+      "example": {
+        "documentId": "doc-1",
+        "height": "2cm",
+        "preset": "roundRect",
+        "slide": 1,
+        "text": "Start",
+        "width": "6cm",
+        "x": "2cm",
+        "y": "3cm"
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_shape.",
+        "properties": {
+          "bullets": {
+            "description": "Bullet lines placed in the shape.",
+            "items": {
+              "description": "One line.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "connect_from": {
+            "additionalProperties": false,
+            "description": "Shape the connector starts at; makes this a connector.",
+            "properties": {
+              "shape": {
+                "description": "Shape path from get_slide.",
+                "type": "string"
+              },
+              "site": {
+                "default": 0,
+                "description": "Connection-site index on that shape.",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "shape"
+            ],
+            "type": "object"
+          },
+          "connect_to": {
+            "additionalProperties": false,
+            "description": "Shape the connector ends at; makes this a connector.",
+            "properties": {
+              "shape": {
+                "description": "Shape path from get_slide.",
+                "type": "string"
+              },
+              "site": {
+                "default": 0,
+                "description": "Connection-site index on that shape.",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "shape"
+            ],
+            "type": "object"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "fill": {
+            "additionalProperties": false,
+            "description": "Shape fill. Omit to leave the fill alone; \"inherited\" removes an explicit fill so theme and placeholder inheritance applies again.",
+            "properties": {
+              "color": {
+                "description": "Solid fill color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "gradient_angle": {
+                "description": "Linear sweep direction in degrees.",
+                "type": "number"
+              },
+              "gradient_stops": {
+                "description": "At least two stops.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One gradient stop.",
+                  "properties": {
+                    "color": {
+                      "description": "Stop color as \"#RRGGBB\".",
+                      "type": "string"
+                    },
+                    "position": {
+                      "description": "Stop position from 0 through 100.",
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "color",
+                    "position"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "kind": {
+                "description": "Fill model.",
+                "enum": [
+                  "inherited",
+                  "none",
+                  "solid",
+                  "gradient"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          "height": {
+            "description": "Shape height.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "name": {
+            "description": "Non-visual shape name.",
+            "type": "string"
+          },
+          "outline": {
+            "additionalProperties": false,
+            "description": "Shape outline. Omit to leave the outline alone. A gradient outline is not representable and is refused.",
+            "properties": {
+              "cap": {
+                "description": "Line-end cap.",
+                "enum": [
+                  "rnd",
+                  "sq",
+                  "flat"
+                ],
+                "type": "string"
+              },
+              "color": {
+                "description": "Solid outline color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "compound": {
+                "description": "Compound line type.",
+                "enum": [
+                  "sng",
+                  "dbl",
+                  "thickThin",
+                  "thinThick",
+                  "tri"
+                ],
+                "type": "string"
+              },
+              "dash": {
+                "description": "Dash pattern.",
+                "enum": [
+                  "solid",
+                  "dot",
+                  "dash",
+                  "lgDash",
+                  "dashDot",
+                  "lgDashDot",
+                  "lgDashDotDot",
+                  "sysDash",
+                  "sysDot",
+                  "sysDashDot",
+                  "sysDashDotDot"
+                ],
+                "type": "string"
+              },
+              "kind": {
+                "description": "Outline color model.",
+                "enum": [
+                  "inherited",
+                  "none",
+                  "solid"
+                ],
+                "type": "string"
+              },
+              "width": {
+                "description": "Line width.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          "paragraphs": {
+            "description": "Paragraphs of the text frame.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One paragraph.",
+              "properties": {
+                "level": {
+                  "description": "Outline level, 0 through 8.",
+                  "maximum": 8,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "runs": {
+                  "description": "Formatted runs.",
+                  "items": {
+                    "additionalProperties": false,
+                    "description": "One text run.",
+                    "properties": {
+                      "bold": {
+                        "description": "Bold text.",
+                        "type": "boolean"
+                      },
+                      "color": {
+                        "description": "Font color as \"#RRGGBB\".",
+                        "type": "string"
+                      },
+                      "italic": {
+                        "description": "Italic text.",
+                        "type": "boolean"
+                      },
+                      "link": {
+                        "description": "External hyperlink target.",
+                        "type": "string"
+                      },
+                      "sizePt": {
+                        "description": "Font size in points.",
+                        "type": "number"
+                      },
+                      "text": {
+                        "description": "Run text.",
+                        "type": "string"
+                      },
+                      "underline": {
+                        "description": "Single underline.",
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "text": {
+                  "description": "Plain text shorthand for a single run.",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "preset": {
+            "default": "rect",
+            "description": "DrawingML preset geometry name, such as \"rect\", \"roundRect\", \"ellipse\", \"triangle\", \"diamond\", \"rightArrow\", \"flowChartDecision\", \"star5\", or \"wedgeRectCallout\". Underscores and case are ignored. A connector takes a connector preset such as \"straightConnector1\" or \"bentConnector3\".",
+            "type": "string"
+          },
+          "rotation": {
+            "description": "Clockwise rotation in degrees: a number such as 45 or -12.5, or a string with an explicit unit such as \"45deg\" or \"0.5rad\".",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "slide": {
+            "description": "1-based slide index.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "text": {
+            "description": "Text placed in the shape.",
+            "type": "string"
+          },
+          "width": {
+            "description": "Shape width.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "x": {
+            "description": "Distance from the left edge.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "y": {
+            "description": "Distance from the top edge.",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "documentId",
+          "slide",
+          "x",
+          "y"
+        ],
+        "type": "object"
+      },
+      "name": "add_shape",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New shape.",
+            "properties": {
+              "connector": {
+                "description": "True when a connector was added.",
+                "type": "boolean"
+              },
+              "preset": {
+                "description": "Preset geometry that was written.",
+                "type": "string"
+              },
+              "shape": {
+                "description": "Shape path of the new shape.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "shape"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add shape"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Change the fill, the outline, or the preset geometry of a shape that is already on the slide. Omitted members are left alone.",
+      "example": {
+        "documentId": "doc-1",
+        "fill": {
+          "color": "#2F6FED",
+          "kind": "solid"
+        },
+        "shape": "2",
+        "slide": 1
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of format_shape.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "fill": {
+            "additionalProperties": false,
+            "description": "Shape fill. Omit to leave the fill alone; \"inherited\" removes an explicit fill so theme and placeholder inheritance applies again.",
+            "properties": {
+              "color": {
+                "description": "Solid fill color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "gradient_angle": {
+                "description": "Linear sweep direction in degrees.",
+                "type": "number"
+              },
+              "gradient_stops": {
+                "description": "At least two stops.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One gradient stop.",
+                  "properties": {
+                    "color": {
+                      "description": "Stop color as \"#RRGGBB\".",
+                      "type": "string"
+                    },
+                    "position": {
+                      "description": "Stop position from 0 through 100.",
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "color",
+                    "position"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "kind": {
+                "description": "Fill model.",
+                "enum": [
+                  "inherited",
+                  "none",
+                  "solid",
+                  "gradient"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          "outline": {
+            "additionalProperties": false,
+            "description": "Shape outline. Omit to leave the outline alone. A gradient outline is not representable and is refused.",
+            "properties": {
+              "cap": {
+                "description": "Line-end cap.",
+                "enum": [
+                  "rnd",
+                  "sq",
+                  "flat"
+                ],
+                "type": "string"
+              },
+              "color": {
+                "description": "Solid outline color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "compound": {
+                "description": "Compound line type.",
+                "enum": [
+                  "sng",
+                  "dbl",
+                  "thickThin",
+                  "thinThick",
+                  "tri"
+                ],
+                "type": "string"
+              },
+              "dash": {
+                "description": "Dash pattern.",
+                "enum": [
+                  "solid",
+                  "dot",
+                  "dash",
+                  "lgDash",
+                  "dashDot",
+                  "lgDashDot",
+                  "lgDashDotDot",
+                  "sysDash",
+                  "sysDot",
+                  "sysDashDot",
+                  "sysDashDotDot"
+                ],
+                "type": "string"
+              },
+              "kind": {
+                "description": "Outline color model.",
+                "enum": [
+                  "inherited",
+                  "none",
+                  "solid"
+                ],
+                "type": "string"
+              },
+              "width": {
+                "description": "Line width.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          "preset": {
+            "description": "Replace the preset geometry; see add_shape for the names.",
+            "type": "string"
+          },
+          "shape": {
+            "description": "Shape path from get_slide.",
+            "type": "string"
+          },
+          "slide": {
+            "description": "1-based slide index.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documentId",
+          "slide",
+          "shape"
+        ],
+        "type": "object"
+      },
+      "name": "format_shape",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Formatted shape.",
+            "properties": {
+              "preset": {
+                "description": "Effective preset geometry, when it has one.",
+                "type": "string"
+              },
+              "shape": {
+                "description": "Shape path.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "shape"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Format shape"
     },
     {
       "annotations": {

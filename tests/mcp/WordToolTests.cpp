@@ -5,6 +5,7 @@
 #include "McpTestSupport.hpp"
 
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Wordprocessing.hpp"
+#include "ExyokiOffice/Packaging/GeneratedParts.hpp"
 #include "ExyokiOffice/Tools/ValidationRunner.hpp"
 #include "ExyokiOffice/Word/WordDocument.hpp"
 
@@ -1059,4 +1060,350 @@ TEST_CASE("two documents are compared into a tracked-revision result [mcp-word]"
     REQUIRE(compared["ok"] == true);
     CHECK(compared["data"]["identical"] == false);
     CHECK(std::filesystem::exists(server->Path("compared.docx")));
+}
+
+TEST_CASE("a table is formatted down to the individual cell [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "grid.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto inserted = server->Call(
+        "insert_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"rows", 3},
+                       {"cols", 2},
+                       {"header_row", true},
+                       {"data", nlohmann::json::array({nlohmann::json::array({"Region", "Revenue"}),
+                                                       nlohmann::json::array({"North", "1200"}),
+                                                       nlohmann::json::array({"South", "900"})})}});
+    REQUIRE(inserted["ok"] == true);
+    const auto block = inserted["data"]["block"].get<int>();
+
+    const auto formatted = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"width", "14cm"},
+                       {"alignment", "center"},
+                       {"borders", nlohmann::json{{"style", "single"}, {"width", "1pt"}, {"color", "#808080"}}},
+                       {"cell_margins", nlohmann::json{{"left", "0.2cm"}, {"right", "0.2cm"}}},
+                       {"column_widths", nlohmann::json::array({"9cm", "5cm"})},
+                       {"cells", nlohmann::json::array(
+                                     {nlohmann::json{{"row", 1},
+                                                     {"col", 1},
+                                                     {"background", "#EFEFEF"},
+                                                     {"align", "center"},
+                                                     {"valign", "center"}},
+                                      nlohmann::json{{"row", 1}, {"col", 2}, {"background", "#EFEFEF"}},
+                                      nlohmann::json{{"row", 2},
+                                                     {"col", 2},
+                                                     {"align", "right"},
+                                                     {"borders", nlohmann::json{{"style", "double"}}}}})}});
+    REQUIRE(formatted["ok"] == true);
+    CHECK(formatted["data"]["rows"] == 3);
+    CHECK(formatted["data"]["columns"] == 2);
+    CHECK(formatted["data"]["cellsFormatted"] == 3);
+
+    // Omitted members leave the rest of the table alone, so a second call can
+    // adjust one thing without restating the first.
+    const auto again = server->Call(
+        "format_table", nlohmann::json{{"documentId", documentId}, {"block", block}, {"alignment", "left"}});
+    REQUIRE(again["ok"] == true);
+    CHECK(again["data"]["cellsFormatted"] == 0);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("grid.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("format_table refuses what it cannot apply [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json::object());
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto inserted = server->Call("insert_table", nlohmann::json{{"documentId", documentId},
+                                                                      {"anchor", nlohmann::json{{"position", "end"}}},
+                                                                      {"rows", 2},
+                                                                      {"cols", 2}});
+    REQUIRE(inserted["ok"] == true);
+    const auto block = inserted["data"]["block"].get<int>();
+
+    const auto noTable =
+        server->Call("format_table", nlohmann::json{{"documentId", documentId}, {"block", 99}, {"width", "10cm"}});
+    CHECK(noTable["ok"] == false);
+
+    const auto badWidth = server->Call(
+        "format_table", nlohmann::json{{"documentId", documentId}, {"block", block}, {"width", "0cm"}});
+    CHECK(badWidth["ok"] == false);
+    CHECK(badWidth["error"]["code"] == "input_invalid");
+
+    const auto badBorderColor = server->Call(
+        "format_table", nlohmann::json{{"documentId", documentId},
+                                       {"block", block},
+                                       {"borders", nlohmann::json{{"style", "single"}, {"color", "puce"}}}});
+    CHECK(badBorderColor["ok"] == false);
+    CHECK(badBorderColor["error"]["code"] == "input_invalid");
+
+    const auto negativeMargin =
+        server->Call("format_table", nlohmann::json{{"documentId", documentId},
+                                                    {"block", block},
+                                                    {"cell_margins", nlohmann::json{{"left", "-1cm"}}}});
+    CHECK(negativeMargin["ok"] == false);
+    CHECK(negativeMargin["error"]["code"] == "input_invalid");
+
+    const auto outsideGrid = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array({nlohmann::json{{"row", 5}, {"col", 1}}})}});
+    CHECK(outsideGrid["ok"] == false);
+    CHECK(outsideGrid["error"]["code"] == "anchor_invalid");
+
+    // A row index below one is bounded by the schema, so it never reaches the
+    // handler and comes back as a schema violation rather than a bad anchor.
+    const auto zeroRow = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array({nlohmann::json{{"row", 0}, {"col", 1}}})}});
+    CHECK(zeroRow["ok"] == false);
+    CHECK(zeroRow["error"]["code"] == "input_invalid");
+
+    const auto badCellColor = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array(
+                                     {nlohmann::json{{"row", 1}, {"col", 1}, {"background", "#GGGGGG"}}})}});
+    CHECK(badCellColor["ok"] == false);
+    CHECK(badCellColor["error"]["code"] == "input_invalid");
+
+    // A merge leaves covered positions that render nothing of their own, and
+    // formatting one of those would write properties no reader ever shows.
+    const auto merged = server->Call(
+        "modify_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"operation", "merge_cells"},
+                       {"range", nlohmann::json{{"row", 1}, {"col", 1}, {"rowSpan", 1}, {"colSpan", 2}}}});
+    REQUIRE(merged["ok"] == true);
+
+    const auto covered = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array(
+                                     {nlohmann::json{{"row", 1}, {"col", 2}, {"background", "#EEEEEE"}}})}});
+    CHECK(covered["ok"] == false);
+    CHECK(covered["error"]["code"] == "anchor_invalid");
+
+    // The anchor of that same merge is still formattable.
+    const auto anchor = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array(
+                                     {nlohmann::json{{"row", 1}, {"col", 1}, {"background", "#EEEEEE"}}})}});
+    CHECK(anchor["ok"] == true);
+}
+
+/// Writes a document carrying one column chart, which no helper can author.
+static bool WriteChartCarrier(const std::filesystem::path& path)
+{
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::CreateNew();
+    if (editor == nullptr || editor->AddParagraph("Chart carrier") == nullptr)
+    {
+        return false;
+    }
+
+    auto mainPart = editor->GetDocument()->GetMainDocumentPart();
+    if (mainPart == nullptr)
+    {
+        return false;
+    }
+
+    auto chartPart = mainPart->AddChartPart();
+    if (chartPart == nullptr)
+    {
+        return false;
+    }
+
+    chartPart->SetXmlString(
+        R"(<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart")"
+        R"( xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">)"
+        R"(<c:chart><c:plotArea><c:layout/><c:barChart><c:barDir val="col"/>)"
+        R"(<c:grouping val="clustered"/><c:varyColors val="0"/>)"
+        R"(<c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>North</c:v></c:tx>)"
+        R"(<c:val><c:numRef><c:f>Sheet1!$B$1:$B$2</c:f><c:numCache>)"
+        R"(<c:formatCode>General</c:formatCode><c:ptCount val="2"/>)"
+        R"(<c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>2</c:v></c:pt>)"
+        R"(</c:numCache></c:numRef></c:val></c:ser>)"
+        R"(<c:axId val="1"/><c:axId val="2"/></c:barChart>)"
+        R"(<c:catAx><c:axId val="1"/><c:scaling><c:orientation val="minMax"/></c:scaling>)"
+        R"(<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="2"/></c:catAx>)"
+        R"(<c:valAx><c:axId val="2"/><c:scaling><c:orientation val="minMax"/></c:scaling>)"
+        R"(<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="1"/></c:valAx>)"
+        R"(</c:plotArea></c:chart></c:chartSpace>)");
+
+    // A chart part on its own is not a chart in the document; the body has to
+    // reference it through a drawing.
+    auto documentXml = mainPart->GetXmlString();
+    const auto bodyEnd = documentXml.find("</w:body>");
+    if (bodyEnd == std::string::npos)
+    {
+        return false;
+    }
+
+    documentXml.insert(
+        bodyEnd,
+        R"(<w:p><w:r><w:drawing>)"
+        R"(<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">)"
+        R"(<wp:extent cx="5486400" cy="3200400"/><wp:docPr id="1" name="Chart 1"/>)"
+        R"(<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">)"
+        R"(<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">)"
+        R"(<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart")"
+        R"( xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id=")" +
+            chartPart->RelationshipId() +
+            R"("/></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>)");
+    mainPart->SetXmlString(documentXml);
+
+    return editor->SaveToFile(path);
+}
+
+TEST_CASE("an embedded chart is listed and its series rewritten [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    REQUIRE(WriteChartCarrier(server->Path("charted.docx")));
+
+    const auto opened = server->Call("open_document", nlohmann::json{{"path", "charted.docx"}});
+    REQUIRE(opened["ok"] == true);
+    const auto documentId = opened["data"]["documentId"].get<std::string>();
+
+    const auto listed = server->Call("list_charts", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    REQUIRE(listed["data"]["charts"].size() == 1);
+
+    const auto& chart = listed["data"]["charts"][0];
+    CHECK(chart["chart"] == 1);
+    CHECK(chart["type"] == "column");
+    CHECK_FALSE(chart["relationshipId"].get<std::string>().empty());
+    REQUIRE(chart["series"].size() == 1);
+    CHECK(chart["series"][0]["name"] == "North");
+    CHECK(chart["series"][0]["values"].size() == 2);
+
+    const auto updated = server->Call(
+        "update_chart",
+        nlohmann::json{{"documentId", documentId},
+                       {"chart", 1},
+                       {"title", "Q3 results"},
+                       {"series", nlohmann::json::array(
+                                      {nlohmann::json{{"name", "Actuals"},
+                                                      {"values", nlohmann::json::array({12, 18, 9})},
+                                                      {"categories", nlohmann::json::array({"Jul", "Aug", "Sep"})}},
+                                       nlohmann::json{{"name", "Forecast"},
+                                                      {"values", nlohmann::json::array({10, 20, 15})}}})}});
+    REQUIRE(updated["ok"] == true);
+    CHECK(updated["data"]["seriesCount"] == 2);
+    CHECK(updated["data"]["chart"] == 1);
+
+    // The same chart is addressable by its relationship id, which survives a
+    // reordering that would move the index.
+    const auto relationshipId = chart["relationshipId"].get<std::string>();
+    const auto byId = server->Call(
+        "update_chart",
+        nlohmann::json{{"documentId", documentId},
+                       {"relationship_id", relationshipId},
+                       {"series", nlohmann::json::array({nlohmann::json{
+                           {"name", "Only"}, {"values", nlohmann::json::array({1, 2, 3})}}})}});
+    REQUIRE(byId["ok"] == true);
+    CHECK(byId["data"]["seriesCount"] == 1);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("charted.docx"));
+    REQUIRE(editor != nullptr);
+    const auto charts = editor->Charts();
+    REQUIRE(charts.size() == 1);
+    REQUIRE(charts.front().Series.size() == 1);
+    CHECK(charts.front().Series.front().Name == "Only");
+    CHECK(charts.front().Title == "Q3 results");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("charted.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("update_chart refuses what it cannot plot [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "plain.docx"}});
+    const auto plainId = created["data"]["documentId"].get<std::string>();
+
+    // A document with no chart cannot grow one: this version updates charts, it
+    // does not anchor them, and saying so is more use than a bare failure.
+    const auto none = server->Call(
+        "update_chart", nlohmann::json{{"documentId", plainId},
+                                       {"series", nlohmann::json::array({nlohmann::json{
+                                           {"name", "A"}, {"values", nlohmann::json::array({1})}}})}});
+    CHECK(none["ok"] == false);
+    CHECK(none["error"]["code"] == "unsupported");
+
+    const auto empty = server->Call("list_charts", nlohmann::json{{"documentId", plainId}});
+    REQUIRE(empty["ok"] == true);
+    CHECK(empty["data"]["charts"].empty());
+
+    REQUIRE(WriteChartCarrier(server->Path("charted2.docx")));
+    const auto opened = server->Call("open_document", nlohmann::json{{"path", "charted2.docx"}});
+    REQUIRE(opened["ok"] == true);
+    const auto documentId = opened["data"]["documentId"].get<std::string>();
+
+    const auto series = nlohmann::json::array(
+        {nlohmann::json{{"name", "A"}, {"values", nlohmann::json::array({1, 2})}}});
+
+    const auto outOfRange = server->Call(
+        "update_chart", nlohmann::json{{"documentId", documentId}, {"chart", 7}, {"series", series}});
+    CHECK(outOfRange["ok"] == false);
+    CHECK(outOfRange["error"]["code"] == "media_not_found");
+
+    const auto unknownId = server->Call(
+        "update_chart",
+        nlohmann::json{{"documentId", documentId}, {"relationship_id", "rIdNope"}, {"series", series}});
+    CHECK(unknownId["ok"] == false);
+    CHECK(unknownId["error"]["code"] == "media_not_found");
+
+    const auto noSeries =
+        server->Call("update_chart", nlohmann::json{{"documentId", documentId},
+                                                    {"chart", 1},
+                                                    {"series", nlohmann::json::array()}});
+    CHECK(noSeries["ok"] == false);
+    CHECK(noSeries["error"]["code"] == "input_invalid");
+
+    // Category labels that do not line up with the values would mislabel every
+    // point after the mismatch.
+    const auto mismatched = server->Call(
+        "update_chart",
+        nlohmann::json{{"documentId", documentId},
+                       {"chart", 1},
+                       {"series", nlohmann::json::array({nlohmann::json{
+                           {"name", "A"},
+                           {"values", nlohmann::json::array({1, 2, 3})},
+                           {"categories", nlohmann::json::array({"Jan", "Feb"})}}})}});
+    CHECK(mismatched["ok"] == false);
+    CHECK(mismatched["error"]["code"] == "input_invalid");
+
+    // Every refusal left the chart as it was.
+    const auto still = server->Call("list_charts", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(still["data"]["charts"].size() == 1);
+    CHECK(still["data"]["charts"][0]["series"][0]["name"] == "North");
 }

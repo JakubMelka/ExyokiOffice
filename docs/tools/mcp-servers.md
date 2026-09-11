@@ -734,6 +734,8 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `get_outline` | content | R I | Headings and bookmarks with their block indices |
 | `read_blocks` | content | R I | A window of body blocks, as a model, Markdown, or text |
 | `list_styles` | content | R I | The style catalog of the document |
+| `list_charts` | content | R I | Embedded charts with their cached series |
+| `update_chart` | content | M | Rewrite the series and title of a chart already in the document |
 | `insert_paragraph` | content | M | Insert one paragraph at an anchor |
 | `insert_list` | content | M | Insert a bulleted or numbered list |
 | `edit_paragraph` | content | M | Rewrite one paragraph |
@@ -744,6 +746,7 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `insert_table` | tables | M | Insert a table, optionally filled |
 | `edit_table_cell` | tables | M | Rewrite one table cell |
 | `modify_table` | tables | D | Add or delete rows and columns, or merge cells |
+| `format_table` | tables | M I | Table width, alignment, borders, cell padding, column widths, and per-cell shading, alignment and borders |
 | `set_header_footer` | layout | M I | Replace a header or footer, including fields such as PAGE |
 | `set_section` | layout | M I | Page size, orientation, and margins |
 | `set_tracked_changes` | review | M I | Turn the revision-tracking flag on or off |
@@ -755,6 +758,11 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `add_note` | review | M | Add a footnote or endnote |
 | `fill_template` | automation | M | Fill MERGEFIELD, bookmark, and repeating-region placeholders in a session or a file |
 | `compare_documents` | automation | M | Write a tracked-revision comparison of two files |
+
+`update_chart` rewrites a chart the document already carries; it cannot anchor
+a new one, because the library has no helper for that — see
+[Embedded charts](../word/charts.md). Rebuilding a series drops the per-series
+styling it had, which mirrors what writing a chart produces in the first place.
 
 `set_tracked_changes` writes the document's tracking flag, which governs
 editors that open the file. The tools of this server write content directly and
@@ -787,6 +795,17 @@ tracked differences.
 | `add_conditional_formatting` | analysis | M | Add a conditional formatting rule |
 | `add_chart` | analysis | M | Add a chart anchored on the sheet, one series per column or row |
 | `add_pivot_table` | analysis | M | Build a pivot report from a source range |
+| `set_print_setup` | layout | M I | Orientation, paper, scaling, margins, print area, repeated titles, header and footer |
+| `add_image` | media | M | Place a picture, anchored to a cell rectangle |
+| `list_comments` | review | R I | List the comments of the workbook, threaded and plain alike |
+| `add_comment` | review | M | Comment a cell, or reply to a thread entry |
+| `delete_comment` | review | D | Remove one thread entry, or the plain note of a cell |
+
+SpreadsheetML carries two unrelated comment models, and the `threaded` flag
+says which one a call means rather than leaving it to be guessed: a plain note
+is addressed by its cell, a threaded comment by the identifier `add_comment`
+returns, and one cell can hold both. `reply_to` implies a threaded comment,
+since a plain note has no parent to point at.
 
 CSV import and export run through `convert_document`, which takes
 `csv_separator` and `sheet` on this server.
@@ -806,6 +825,8 @@ CSV import and export run through `convert_document`, which takes
 | `set_slide_hidden` | slides | M I | Show or hide a slide in a show |
 | `set_placeholder_text` | content | M I | Write text into a layout placeholder |
 | `add_text_box` | content | M | Add a free-floating text box |
+| `add_shape` | content | M | Add a shape with preset geometry, text, fill, and outline, or a connector between two shapes |
+| `format_shape` | content | M I | Change the fill, outline, or preset geometry of a shape |
 | `edit_text_frame` | content | M | Rewrite the text of a shape |
 | `delete_shape` | content | D | Remove a shape |
 | `set_shape_transform` | content | M I | Move, resize, or rotate a shape; rotation is in degrees |
@@ -819,6 +840,15 @@ CSV import and export run through `convert_document`, which takes
 | `set_transition` | design | M I | Set or remove a slide transition |
 | `add_section` | design | M | Group slides into a named section |
 | `set_slide_size` | design | M I | Slide size from a preset or dimensions |
+
+A new shape carries no style reference, so nothing is inherited: a shape given
+neither `fill` nor `outline` would draw nothing at all, and PowerPoint would
+show its text floating over the slide. `add_shape` therefore supplies a thin
+outline in that case, and naming either one is taken as knowing what the shape
+should look like. A connector joining two shapes is spanned across them unless
+a width or height says otherwise — a connection records which shapes a
+connector belongs to, but it does not place it, and one left at the default
+extent opens as nothing.
 
 `add_slide` writes the title and the bullets into real placeholders, not into
 plain text boxes, so the layout's formatting applies and the outline view sees

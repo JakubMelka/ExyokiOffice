@@ -15,6 +15,19 @@ in [docs/](docs/README.md).
 
 - `examples/ExampleWordDemo`, a one-page Word showcase document built with
   `Word::WordDocumentEditor`, enabled by `EXYOKIOFFICE_BUILD_EXAMPLE_WORD_DEMO`.
+- Ten MCP tools, closing the gaps between what the compatibility matrix grades
+  as supported and what the servers reach. See
+  [MCP servers](docs/tools/mcp-servers.md#tool-catalog).
+  - Word `format_table`: width, alignment, borders, cell padding, column
+    widths, and per-cell shading, alignment and borders.
+  - Word `list_charts` and `update_chart`: read and rewrite the series and
+    title of a chart the document already carries.
+  - Excel `add_comment`, `list_comments` and `delete_comment`, covering both
+    threaded comments and plain notes.
+  - Excel `add_image` and `set_print_setup`, the latter covering page setup,
+    margins, print area, repeated titles, and headers and footers.
+  - PowerPoint `add_shape` and `format_shape`: preset geometry, connectors,
+    fills and outlines.
 
 ## [1.1.0] - 2026-08-20
 

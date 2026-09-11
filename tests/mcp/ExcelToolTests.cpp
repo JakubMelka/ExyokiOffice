@@ -904,3 +904,382 @@ TEST_CASE("a multi-column data range becomes one chart series per column [mcp-ex
     REQUIRE(sheet != nullptr);
     CHECK(sheet->Charts().size() == 4);
 }
+
+TEST_CASE("the print setup is written and reaches the saved worksheet [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "printing.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto applied = server->Call(
+        "set_print_setup",
+        nlohmann::json{{"documentId", documentId},
+                       {"orientation", "landscape"},
+                       {"paper_size", "a4"},
+                       {"fit_to_width", 1},
+                       {"fit_to_height", 0},
+                       {"margins", nlohmann::json{{"left", "1cm"}, {"right", "1cm"}, {"header", "0.5cm"}}},
+                       {"print_area", nlohmann::json::array({"A1:D20"})},
+                       {"repeat_rows", "1:2"},
+                       {"repeat_columns", "A"},
+                       {"header_footer", nlohmann::json{{"odd_header", "&CQuarterly report"},
+                                                        {"odd_footer", "&RPage &P of &N"}}},
+                       {"options", nlohmann::json{{"grid_lines", true}, {"horizontal_centered", true}}}});
+    REQUIRE(applied["ok"] == true);
+    CHECK(applied["data"]["orientation"] == "landscape");
+    CHECK(applied["data"]["paperSize"] == "a4");
+    REQUIRE(applied["data"]["printArea"].size() == 1);
+    CHECK(applied["data"]["printArea"][0] == "A1:D20");
+
+    // Omitted members keep what the previous call set, which is what makes the
+    // tool usable as a series of small adjustments.
+    const auto adjusted =
+        server->Call("set_print_setup", nlohmann::json{{"documentId", documentId}, {"scale", 80}});
+    REQUIRE(adjusted["ok"] == true);
+    CHECK(adjusted["data"]["orientation"] == "landscape");
+    CHECK(adjusted["data"]["paperSize"] == "a4");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("printing.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+
+    const auto setup = sheet->GetPageSetup();
+    CHECK(setup.Orientation == ExyokiOffice::Excel::PageOrientation::Landscape);
+    REQUIRE(setup.PaperSize.has_value());
+    CHECK(*setup.PaperSize == ExyokiOffice::Excel::PaperSize::A4);
+    REQUIRE(setup.FitToWidth.has_value());
+    CHECK(*setup.FitToWidth == 1);
+
+    const auto titles = sheet->GetPrintTitles();
+    REQUIRE(titles.Rows.has_value());
+    CHECK(titles.Rows->first == 1);
+    CHECK(titles.Rows->second == 2);
+    REQUIRE(titles.Columns.has_value());
+    CHECK(titles.Columns->first == 1);
+    CHECK(titles.Columns->second == 1);
+
+    CHECK(sheet->GetPrintArea().size() == 1);
+    CHECK(sheet->GetHeaderFooter().OddHeader == "&CQuarterly report");
+    CHECK(sheet->GetPrintOptions().GridLines);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("printing.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("set_print_setup refuses a setting it cannot write [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json::object());
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto badRows =
+        server->Call("set_print_setup", nlohmann::json{{"documentId", documentId}, {"repeat_rows", "top:two"}});
+    CHECK(badRows["ok"] == false);
+    CHECK(badRows["error"]["code"] == "range_invalid");
+
+    const auto badColumns =
+        server->Call("set_print_setup", nlohmann::json{{"documentId", documentId}, {"repeat_columns", "1:2"}});
+    CHECK(badColumns["ok"] == false);
+    CHECK(badColumns["error"]["code"] == "range_invalid");
+
+    const auto badArea = server->Call(
+        "set_print_setup",
+        nlohmann::json{{"documentId", documentId}, {"print_area", nlohmann::json::array({"A1:D20", "nonsense"})}});
+    CHECK(badArea["ok"] == false);
+    CHECK(badArea["error"]["code"] == "range_invalid");
+
+    const auto negative = server->Call(
+        "set_print_setup",
+        nlohmann::json{{"documentId", documentId}, {"margins", nlohmann::json{{"left", "-2cm"}}}});
+    CHECK(negative["ok"] == false);
+    CHECK(negative["error"]["code"] == "input_invalid");
+
+    const auto notALength = server->Call(
+        "set_print_setup",
+        nlohmann::json{{"documentId", documentId}, {"margins", nlohmann::json{{"top", "wide"}}}});
+    CHECK(notALength["ok"] == false);
+    CHECK(notALength["error"]["code"] == "input_invalid");
+
+    // The schema bounds the scale, so an out-of-range value never reaches the
+    // handler at all.
+    const auto badScale =
+        server->Call("set_print_setup", nlohmann::json{{"documentId", documentId}, {"scale", 5}});
+    CHECK(badScale["ok"] == false);
+    CHECK(badScale["error"]["code"] == "input_invalid");
+
+    const auto missingSheet = server->Call(
+        "set_print_setup", nlohmann::json{{"documentId", documentId}, {"sheet", "Nowhere"}, {"scale", 90}});
+    CHECK(missingSheet["ok"] == false);
+    CHECK(missingSheet["error"]["code"] == "sheet_not_found");
+
+    // Nothing above may have been written, so the document is still clean.
+    const auto documents = server->Call("list_documents", nlohmann::json::object());
+    REQUIRE(documents["ok"] == true);
+    REQUIRE(documents["data"]["documents"].size() == 1);
+    CHECK(documents["data"]["documents"][0]["dirty"] == false);
+}
+
+TEST_CASE("an image is anchored on the worksheet [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "picture.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const std::string png =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+    const auto placed = server->Call("add_image", nlohmann::json{{"documentId", documentId},
+                                                                 {"anchor_cell", "D2"},
+                                                                 {"dataBase64", png},
+                                                                 {"alt", "A dot."},
+                                                                 {"width", "4cm"},
+                                                                 {"height", "3cm"}});
+    REQUIRE(placed["ok"] == true);
+    CHECK(placed["data"]["contentType"] == "image/png");
+    CHECK(placed["data"]["anchor"] == "D2");
+
+    const auto broken = server->Call("add_image", nlohmann::json{{"documentId", documentId},
+                                                                 {"anchor_cell", "D2"},
+                                                                 {"dataBase64", "not base64 at all!!"}});
+    CHECK(broken["ok"] == false);
+
+    // A payload SpreadsheetML has no enumeration value for is refused rather
+    // than stored under a format it is not.
+    const auto unsupported = server->Call("add_image", nlohmann::json{{"documentId", documentId},
+                                                                      {"anchor_cell", "D2"},
+                                                                      {"dataBase64", png},
+                                                                      {"contentType", "image/svg+xml"}});
+    CHECK(unsupported["ok"] == false);
+    CHECK(unsupported["error"]["code"] == "unsupported");
+
+    const auto badAnchor = server->Call("add_image", nlohmann::json{{"documentId", documentId},
+                                                                    {"anchor_cell", "not-a-cell"},
+                                                                    {"dataBase64", png}});
+    CHECK(badAnchor["ok"] == false);
+    CHECK(badAnchor["error"]["code"] == "range_invalid");
+
+    const auto missingSheet = server->Call("add_image", nlohmann::json{{"documentId", documentId},
+                                                                       {"sheet", "Nowhere"},
+                                                                       {"anchor_cell", "D2"},
+                                                                       {"dataBase64", png}});
+    CHECK(missingSheet["ok"] == false);
+    CHECK(missingSheet["error"]["code"] == "sheet_not_found");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("picture.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+    // Only the one accepted call may have reached the worksheet.
+    REQUIRE(sheet->Images().size() == 1);
+    CHECK(sheet->Images()[0].Description == "A dot.");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("picture.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("cell comments survive a round trip in both models [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "comments.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto threaded = server->Call("add_comment", nlohmann::json{{"documentId", documentId},
+                                                                     {"cell", "B4"},
+                                                                     {"text", "Check this number."},
+                                                                     {"author", "Jakub"}});
+    REQUIRE(threaded["ok"] == true);
+    CHECK(threaded["data"]["threaded"] == true);
+    CHECK(threaded["data"]["cell"] == "B4");
+    // A threaded entry is addressed by its identifier afterwards, so the tool
+    // has to hand one back; a plain note has nothing to hand back.
+    CHECK_FALSE(threaded["data"]["commentId"].get<std::string>().empty());
+
+    const auto plain = server->Call("add_comment", nlohmann::json{{"documentId", documentId},
+                                                                  {"cell", "C5"},
+                                                                  {"text", "A plain note."},
+                                                                  {"threaded", false}});
+    REQUIRE(plain["ok"] == true);
+    CHECK(plain["data"]["threaded"] == false);
+    CHECK(plain["data"]["commentId"] == "");
+
+    const auto listed = server->Call("list_comments", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    REQUIRE(listed["data"]["comments"].size() == 2);
+
+    bool sawPlain = false;
+    bool sawThreaded = false;
+    for (const auto& comment : listed["data"]["comments"])
+    {
+        if (comment["threaded"] == true)
+        {
+            sawThreaded = true;
+            CHECK(comment["cell"] == "B4");
+            CHECK(comment["author"] == "Jakub");
+            CHECK(comment["text"] == "Check this number.");
+        }
+        else
+        {
+            sawPlain = true;
+            CHECK(comment["cell"] == "C5");
+            CHECK(comment["text"] == "A plain note.");
+        }
+    }
+
+    CHECK(sawThreaded);
+    CHECK(sawPlain);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("comments.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+    REQUIRE(sheet->Comments().size() == 1);
+    CHECK(sheet->Comments()[0].Text == "A plain note.");
+    REQUIRE(sheet->ThreadedComments().size() == 1);
+    CHECK(sheet->ThreadedComments()[0].Text == "Check this number.");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("comments.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a threaded reply names the entry it answers [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json::object());
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto root = server->Call("add_comment",
+                                   nlohmann::json{{"documentId", documentId}, {"cell", "A1"}, {"text", "Why?"}});
+    REQUIRE(root["ok"] == true);
+    const auto rootId = root["data"]["commentId"].get<std::string>();
+
+    const auto reply = server->Call("add_comment", nlohmann::json{{"documentId", documentId},
+                                                                  {"cell", "A1"},
+                                                                  {"text", "Because."},
+                                                                  {"reply_to", rootId}});
+    REQUIRE(reply["ok"] == true);
+    // reply_to implies a threaded comment even though `threaded` was not given:
+    // a plain note has no parent to point at.
+    CHECK(reply["data"]["threaded"] == true);
+
+    const auto listed = server->Call("list_comments", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    REQUIRE(listed["data"]["comments"].size() == 2);
+
+    ExyokiOffice::Size replies = 0;
+    for (const auto& comment : listed["data"]["comments"])
+    {
+        if (comment["parentId"] == rootId)
+        {
+            ++replies;
+            CHECK(comment["text"] == "Because.");
+        }
+    }
+
+    CHECK(replies == 1);
+
+    // Removing the reply leaves the root, so the identifier really addresses
+    // one entry rather than the whole thread.
+    const auto replyId = server->Call("list_comments", nlohmann::json{{"documentId", documentId}});
+    std::string toRemove;
+    for (const auto& comment : replyId["data"]["comments"])
+    {
+        if (comment["parentId"] == rootId)
+        {
+            toRemove = comment["id"].get<std::string>();
+        }
+    }
+
+    REQUIRE_FALSE(toRemove.empty());
+    const auto removed =
+        server->Call("delete_comment", nlohmann::json{{"documentId", documentId}, {"comment_id", toRemove}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["removed"] == true);
+
+    const auto remaining = server->Call("list_comments", nlohmann::json{{"documentId", documentId}});
+    CHECK(remaining["data"]["comments"].size() == 1);
+}
+
+TEST_CASE("the comment tools refuse input that names nothing [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json::object());
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    // A comment without text would be written out as an empty annotation, which
+    // no reader can distinguish from a defect.
+    const auto empty =
+        server->Call("add_comment", nlohmann::json{{"documentId", documentId}, {"cell", "A1"}, {"text", ""}});
+    CHECK(empty["ok"] == false);
+    CHECK(empty["error"]["code"] == "input_invalid");
+
+    const auto malformed = server->Call(
+        "add_comment", nlohmann::json{{"documentId", documentId}, {"cell", "A0"}, {"text", "Hello."}});
+    CHECK(malformed["ok"] == false);
+    CHECK(malformed["error"]["code"] == "range_invalid");
+
+    const auto missingSheet = server->Call("add_comment", nlohmann::json{{"documentId", documentId},
+                                                                         {"sheet", "Nowhere"},
+                                                                         {"cell", "A1"},
+                                                                         {"text", "Hello."}});
+    CHECK(missingSheet["ok"] == false);
+    CHECK(missingSheet["error"]["code"] == "sheet_not_found");
+
+    const auto orphan = server->Call("add_comment", nlohmann::json{{"documentId", documentId},
+                                                                   {"cell", "A1"},
+                                                                   {"text", "Answer."},
+                                                                   {"reply_to", "no-such-entry"}});
+    CHECK(orphan["ok"] == false);
+    CHECK(orphan["error"]["code"] == "comment_not_found");
+
+    // delete_comment takes one of two addressing modes, and both the empty and
+    // the doubled form have to be refused rather than silently resolved.
+    const auto neither = server->Call("delete_comment", nlohmann::json{{"documentId", documentId}});
+    CHECK(neither["ok"] == false);
+    CHECK(neither["error"]["code"] == "input_invalid");
+
+    const auto both = server->Call("delete_comment", nlohmann::json{{"documentId", documentId},
+                                                                    {"cell", "A1"},
+                                                                    {"comment_id", "something"}});
+    CHECK(both["ok"] == false);
+    CHECK(both["error"]["code"] == "input_invalid");
+
+    const auto unknownId =
+        server->Call("delete_comment", nlohmann::json{{"documentId", documentId}, {"comment_id", "no-such-entry"}});
+    CHECK(unknownId["ok"] == false);
+    CHECK(unknownId["error"]["code"] == "comment_not_found");
+
+    const auto bareCell =
+        server->Call("delete_comment", nlohmann::json{{"documentId", documentId}, {"cell", "Z9"}});
+    CHECK(bareCell["ok"] == false);
+    CHECK(bareCell["error"]["code"] == "comment_not_found");
+
+    // A failed delete must not count as a mutation; the document is still clean.
+    const auto documents = server->Call("list_documents", nlohmann::json::object());
+    REQUIRE(documents["ok"] == true);
+    REQUIRE(documents["data"]["documents"].size() == 1);
+    CHECK(documents["data"]["documents"][0]["dirty"] == false);
+
+    const auto listedElsewhere =
+        server->Call("list_comments", nlohmann::json{{"documentId", documentId}, {"sheet", "Nowhere"}});
+    CHECK(listedElsewhere["ok"] == false);
+    CHECK(listedElsewhere["error"]["code"] == "sheet_not_found");
+}

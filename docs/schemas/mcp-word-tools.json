@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-word",
   "title": "ExyokiOffice Word MCP Server",
-  "toolCount": 50,
+  "toolCount": 53,
   "tools": [
     {
       "annotations": {
@@ -3074,6 +3074,200 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
+      "description": "List the charts embedded in the document with their cached series, so update_chart can rewrite one. A chart whose plot type this version does not classify is listed as \"unknown\" with no series.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_charts.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_charts",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Charts.",
+            "properties": {
+              "charts": {
+                "description": "Charts.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One embedded chart.",
+                  "properties": {
+                    "chart": {
+                      "description": "1-based chart index, as update_chart takes it.",
+                      "type": "integer"
+                    },
+                    "hasEmbeddedWorkbook": {
+                      "description": "True when the chart carries its own workbook.",
+                      "type": "boolean"
+                    },
+                    "relationshipId": {
+                      "description": "Relationship id of the chart part.",
+                      "type": "string"
+                    },
+                    "series": {
+                      "description": "Series read from the chart's cached values.",
+                      "items": {
+                        "additionalProperties": false,
+                        "description": "One plotted series.",
+                        "properties": {
+                          "categories": {
+                            "description": "Category labels in point order.",
+                            "items": {
+                              "description": "One label.",
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "name": {
+                            "description": "Series name shown in the legend.",
+                            "type": "string"
+                          },
+                          "values": {
+                            "description": "Numeric values in point order.",
+                            "items": {
+                              "description": "One value.",
+                              "type": "number"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "values"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "title": {
+                      "description": "Chart title, or empty when it has none.",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Plot type, or \"unknown\" for one this version does not classify.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "chart",
+                    "type"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "charts"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List charts"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
       "description": "List the tracked revisions of the document so they can be reviewed before resolve_revisions accepts or rejects them.",
       "example": {
         "documentId": "doc-1"
@@ -3947,6 +4141,218 @@
         "type": "object"
       },
       "title": "Apply a batch of edits"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Rewrite the cached series and the title of a chart already in the document. Series may be added, removed, or reordered. The chart's position, its plot type, and any embedded workbook are left alone, and per-series styling is not preserved. This version cannot create a new chart.",
+      "example": {
+        "chart": 1,
+        "documentId": "doc-1",
+        "series": [
+          {
+            "categories": [
+              "Jul",
+              "Aug",
+              "Sep"
+            ],
+            "name": "Actuals",
+            "values": [
+              12,
+              18,
+              9
+            ]
+          }
+        ],
+        "title": "Q3 results"
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of update_chart.",
+        "properties": {
+          "chart": {
+            "description": "1-based chart index from list_charts.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "relationship_id": {
+            "description": "Relationship id from list_charts; an alternative to 'chart'.",
+            "type": "string"
+          },
+          "series": {
+            "description": "Replacement series; the chart is rebuilt to match exactly.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One replacement series.",
+              "properties": {
+                "categories": {
+                  "description": "Category labels in point order; the X values of a scatter or bubble chart.",
+                  "items": {
+                    "description": "One label.",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "name": {
+                  "description": "Series name shown in the legend.",
+                  "type": "string"
+                },
+                "values": {
+                  "description": "Numeric values in point order.",
+                  "items": {
+                    "description": "One value.",
+                    "type": "number"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "name",
+                "values"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "title": {
+            "description": "Replacement chart title; an empty string removes the title.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "series"
+        ],
+        "type": "object"
+      },
+      "name": "update_chart",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Updated chart.",
+            "properties": {
+              "chart": {
+                "description": "1-based chart index.",
+                "type": "integer"
+              },
+              "relationshipId": {
+                "description": "Relationship id of the chart part.",
+                "type": "string"
+              },
+              "seriesCount": {
+                "description": "Series the chart now plots.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "chart"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Update chart"
     },
     {
       "annotations": {
@@ -6604,6 +7010,413 @@
         "type": "object"
       },
       "title": "Modify table structure"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Set the width, alignment, borders, and cell padding of a table, the width of its columns, and the shading, alignment, and borders of individual cells. Every member is optional and the ones left out keep their current value.",
+      "example": {
+        "block": 4,
+        "borders": {
+          "color": "#808080",
+          "style": "single"
+        },
+        "cells": [
+          {
+            "align": "center",
+            "background": "#EFEFEF",
+            "col": 1,
+            "row": 1
+          }
+        ],
+        "documentId": "doc-1"
+      },
+      "group": "tables",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of format_table.",
+        "properties": {
+          "alignment": {
+            "description": "Horizontal alignment of the table on the page.",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "block": {
+            "description": "1-based index of the table block.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "borders": {
+            "additionalProperties": false,
+            "description": "Borders applied to every side of the table.",
+            "properties": {
+              "color": {
+                "description": "Line color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "style": {
+                "description": "Line style.",
+                "enum": [
+                  "none",
+                  "single",
+                  "thick",
+                  "double",
+                  "dotted",
+                  "dashed",
+                  "dotDash",
+                  "dotDotDash",
+                  "triple",
+                  "wave",
+                  "dashSmallGap",
+                  "threeDEmboss",
+                  "threeDEngrave",
+                  "outset",
+                  "inset"
+                ],
+                "type": "string"
+              },
+              "width": {
+                "description": "Line width; defaults to half a point.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "style"
+            ],
+            "type": "object"
+          },
+          "cell_margins": {
+            "additionalProperties": false,
+            "description": "Cell padding; omitted sides keep their current value.",
+            "properties": {
+              "bottom": {
+                "description": "Bottom padding.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "left": {
+                "description": "Left padding.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "right": {
+                "description": "Right padding.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "top": {
+                "description": "Top padding.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "cells": {
+            "description": "Individual cells to format.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One cell to format, addressed in the logical grid.",
+              "properties": {
+                "align": {
+                  "description": "Horizontal alignment of the cell text.",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right",
+                    "both"
+                  ],
+                  "type": "string"
+                },
+                "background": {
+                  "description": "Cell fill color as \"#RRGGBB\".",
+                  "type": "string"
+                },
+                "borders": {
+                  "additionalProperties": false,
+                  "description": "Borders of this cell.",
+                  "properties": {
+                    "color": {
+                      "description": "Line color as \"#RRGGBB\".",
+                      "type": "string"
+                    },
+                    "style": {
+                      "description": "Line style.",
+                      "enum": [
+                        "none",
+                        "single",
+                        "thick",
+                        "double",
+                        "dotted",
+                        "dashed",
+                        "dotDash",
+                        "dotDotDash",
+                        "triple",
+                        "wave",
+                        "dashSmallGap",
+                        "threeDEmboss",
+                        "threeDEngrave",
+                        "outset",
+                        "inset"
+                      ],
+                      "type": "string"
+                    },
+                    "width": {
+                      "description": "Line width; defaults to half a point.",
+                      "type": [
+                        "number",
+                        "string"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "style"
+                  ],
+                  "type": "object"
+                },
+                "col": {
+                  "description": "1-based column.",
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "margins": {
+                  "additionalProperties": false,
+                  "description": "Cell padding; omitted sides keep their current value.",
+                  "properties": {
+                    "bottom": {
+                      "description": "Bottom padding.",
+                      "type": [
+                        "number",
+                        "string"
+                      ]
+                    },
+                    "left": {
+                      "description": "Left padding.",
+                      "type": [
+                        "number",
+                        "string"
+                      ]
+                    },
+                    "right": {
+                      "description": "Right padding.",
+                      "type": [
+                        "number",
+                        "string"
+                      ]
+                    },
+                    "top": {
+                      "description": "Top padding.",
+                      "type": [
+                        "number",
+                        "string"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "type": "object"
+                },
+                "row": {
+                  "description": "1-based row.",
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "valign": {
+                  "description": "Vertical alignment of the cell content.",
+                  "enum": [
+                    "top",
+                    "center",
+                    "bottom"
+                  ],
+                  "type": "string"
+                },
+                "width": {
+                  "description": "Cell width.",
+                  "type": [
+                    "number",
+                    "string"
+                  ]
+                }
+              },
+              "required": [
+                "row",
+                "col"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "column_widths": {
+            "description": "Width of each column, in order; shorter arrays leave the rest alone.",
+            "items": {
+              "description": "One column width.",
+              "type": [
+                "number",
+                "string"
+              ]
+            },
+            "type": "array"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "width": {
+            "description": "Total table width.",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "documentId",
+          "block"
+        ],
+        "type": "object"
+      },
+      "name": "format_table",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Formatted table.",
+            "properties": {
+              "block": {
+                "description": "Table block index.",
+                "type": "integer"
+              },
+              "cellsFormatted": {
+                "description": "Cells the call touched.",
+                "type": "integer"
+              },
+              "columns": {
+                "description": "Columns in the logical grid.",
+                "type": "integer"
+              },
+              "rows": {
+                "description": "Rows in the table.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "block"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Format table"
     },
     {
       "annotations": {

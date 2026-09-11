@@ -195,6 +195,8 @@ public:
         RegisterGetOutline(registry);
         RegisterReadBlocks(registry);
         RegisterListStyles(registry);
+        RegisterListCharts(registry);
+        RegisterUpdateChart(registry);
         RegisterInsertParagraph(registry);
         RegisterInsertList(registry);
         RegisterEditParagraph(registry);
@@ -205,6 +207,7 @@ public:
         RegisterInsertTable(registry);
         RegisterEditTableCell(registry);
         RegisterModifyTable(registry);
+        RegisterFormatTable(registry);
         RegisterSetHeaderFooter(registry);
         RegisterSetSection(registry);
         RegisterSetTrackedChanges(registry);
@@ -607,6 +610,279 @@ private:
         rendered = format == "markdown" ? Tools::SerializeModelMarkdown(model, diagnostics)
                                         : Tools::SerializeModelText(model);
         return true;
+    }
+
+    static std::string ChartTypeToken(Word::WordChartType type)
+    {
+        switch (type)
+        {
+            case Word::WordChartType::Column:
+                return "column";
+            case Word::WordChartType::Bar:
+                return "bar";
+            case Word::WordChartType::Line:
+                return "line";
+            case Word::WordChartType::Pie:
+                return "pie";
+            case Word::WordChartType::Area:
+                return "area";
+            case Word::WordChartType::XyScatter:
+                return "scatter";
+            case Word::WordChartType::Bubble:
+                return "bubble";
+            case Word::WordChartType::Unknown:
+                break;
+        }
+
+        return "unknown";
+    }
+
+    static void RegisterListCharts(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+
+        nlohmann::json series =
+            Schema::Object("One plotted series.", {"name", "values"},
+                           nlohmann::json{{"name", Schema::String("Series name shown in the legend.")},
+                                          {"values", Schema::Array("Numeric values in point order.",
+                                                                   Schema::Number("One value."))},
+                                          {"categories", Schema::Array("Category labels in point order.",
+                                                                       Schema::String("One label."))}});
+
+        nlohmann::json chart = Schema::Object(
+            "One embedded chart.", {"chart", "type"},
+            nlohmann::json{{"chart", Schema::Integer("1-based chart index, as update_chart takes it.")},
+                           {"relationshipId", Schema::String("Relationship id of the chart part.")},
+                           {"title", Schema::String("Chart title, or empty when it has none.")},
+                           {"type", Schema::String("Plot type, or \"unknown\" for one this version does not "
+                                                   "classify.")},
+                           {"hasEmbeddedWorkbook", Schema::Boolean("True when the chart carries its own "
+                                                                   "workbook.")},
+                           {"series", Schema::Array("Series read from the chart's cached values.",
+                                                    std::move(series))}});
+
+        auto definition = MakeDefinition("list_charts", "List charts",
+                                         "List the charts embedded in the document with their cached series, so "
+                                         "update_chart can rewrite one. A chart whose plot type this version does "
+                                         "not classify is listed as \"unknown\" with no series.",
+                                         "content");
+        definition.InputSchema = Schema::Object("Arguments of list_charts.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Charts.", {"charts"},
+                           nlohmann::json{{"charts", Schema::Array("Charts.", std::move(chart))}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListCharts(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListCharts(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        nlohmann::json charts = nlohmann::json::array();
+        const auto embedded = reader.Editor().Charts();
+        for (Size index = 0; index < embedded.size(); ++index)
+        {
+            const auto& chart = embedded[index];
+
+            nlohmann::json series = nlohmann::json::array();
+            for (const auto& entry : chart.Series)
+            {
+                nlohmann::json one = nlohmann::json::object();
+                one["name"] = entry.Name;
+                one["values"] = entry.Values;
+                if (entry.Categories.has_value())
+                {
+                    one["categories"] = *entry.Categories;
+                }
+
+                series.push_back(std::move(one));
+            }
+
+            nlohmann::json record = nlohmann::json::object();
+            record["chart"] = static_cast<UInt64>(index + 1);
+            record["relationshipId"] = chart.RelationshipId;
+            record["title"] = chart.Title;
+            record["type"] = ChartTypeToken(chart.Type);
+            record["hasEmbeddedWorkbook"] = chart.HasEmbeddedWorkbook;
+            record["series"] = std::move(series);
+            charts.push_back(std::move(record));
+        }
+
+        const bool truncated = TruncateArrayToBudget(charts);
+
+        nlohmann::json data = nlohmann::json::object();
+        const auto count = charts.size();
+        data["charts"] = std::move(charts);
+
+        return ResultBuilder("The document holds " + std::to_string(count) + " chart(s).")
+            .WithData(std::move(data))
+            .WithTruncated(truncated)
+            .Build();
+    }
+
+    static void RegisterUpdateChart(ToolRegistry& registry)
+    {
+        nlohmann::json series =
+            Schema::Object("One replacement series.", {"name", "values"},
+                           nlohmann::json{{"name", Schema::String("Series name shown in the legend.")},
+                                          {"values", Schema::Array("Numeric values in point order.",
+                                                                   Schema::Number("One value."))},
+                                          {"categories", Schema::Array("Category labels in point order; the X "
+                                                                       "values of a scatter or bubble chart.",
+                                                                       Schema::String("One label."))}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["chart"] = Schema::Integer("1-based chart index from list_charts.", 1);
+        properties["relationship_id"] = Schema::String("Relationship id from list_charts; an alternative to "
+                                                       "'chart'.");
+        properties["title"] = Schema::String("Replacement chart title; an empty string removes the title.");
+        properties["series"] = Schema::Array("Replacement series; the chart is rebuilt to match exactly.",
+                                             std::move(series));
+
+        auto definition = MakeDefinition(
+            "update_chart", "Update chart",
+            "Rewrite the cached series and the title of a chart already in the document. Series may be added, "
+            "removed, or reordered. The chart's position, its plot type, and any embedded workbook are left "
+            "alone, and per-series styling is not preserved. This version cannot create a new chart.",
+            "content");
+        definition.InputSchema =
+            Schema::Object("Arguments of update_chart.", {"documentId", "series"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Updated chart.", {"chart"},
+                           nlohmann::json{{"chart", Schema::Integer("1-based chart index.")},
+                                          {"relationshipId", Schema::String("Relationship id of the chart "
+                                                                            "part.")},
+                                          {"seriesCount", Schema::Integer("Series the chart now plots.")}}),
+            true);
+        definition.Example = nlohmann::json{
+            {"documentId", "doc-1"},
+            {"chart", 1},
+            {"title", "Q3 results"},
+            {"series", nlohmann::json::array({nlohmann::json{
+                {"name", "Actuals"},
+                {"values", nlohmann::json::array({12, 18, 9})},
+                {"categories", nlohmann::json::array({"Jul", "Aug", "Sep"})}}})}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return UpdateChart(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome UpdateChart(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto charts = session.Editor().Charts();
+        if (charts.empty())
+        {
+            return MakeError(ErrorCode::Unsupported,
+                             "The document holds no chart to update, and this version cannot create one.",
+                             std::string(), "Start from a template that already carries the chart.");
+        }
+
+        // A chart is nameable either way: the index is what an agent reads off
+        // list_charts, the relationship id is what survives a reordering.
+        const auto relationshipId = arguments.value("relationship_id", std::string());
+        Size position = 0;
+        if (!relationshipId.empty())
+        {
+            const auto match = std::find_if(charts.begin(), charts.end(),
+                                            [&relationshipId](const Word::WordChartInfo& info)
+                                            { return info.RelationshipId == relationshipId; });
+            if (match == charts.end())
+            {
+                return MakeError(ErrorCode::MediaNotFound, "No chart has that relationship id.", relationshipId);
+            }
+
+            position = static_cast<Size>(std::distance(charts.begin(), match));
+        }
+        else
+        {
+            const Size index = arguments.value("chart", static_cast<Size>(1));
+            if (index == 0 || index > charts.size())
+            {
+                return MakeError(ErrorCode::MediaNotFound,
+                                 "The document holds " + std::to_string(charts.size()) + " chart(s).",
+                                 std::to_string(index), "Call list_charts to see them.");
+            }
+
+            position = index - 1;
+        }
+
+        const auto& target = charts[position];
+
+        const auto series = arguments.find("series");
+        if (series == arguments.end() || series->empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A chart needs at least one series.", "series");
+        }
+
+        std::vector<Word::WordChartSeries> replacement;
+        for (const auto& entry : *series)
+        {
+            Word::WordChartSeries one;
+            one.Name = entry.value("name", std::string());
+            one.Values = entry.value("values", std::vector<Real>());
+
+            if (const auto categories = entry.find("categories"); categories != entry.end())
+            {
+                one.Categories = categories->get<std::vector<std::string>>();
+
+                // A category list of a different length than the values would
+                // silently mislabel points, which is worse than refusing it.
+                if (one.Categories->size() != one.Values.size())
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "A series has " + std::to_string(one.Values.size()) + " value(s) but " +
+                                         std::to_string(one.Categories->size()) + " category label(s).",
+                                     one.Name);
+                }
+            }
+
+            replacement.push_back(std::move(one));
+        }
+
+        std::optional<std::string> title;
+        if (const auto value = arguments.find("title"); value != arguments.end())
+        {
+            title = value->get<std::string>();
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!session.Editor().UpdateChartData(target.RelationshipId, replacement, title))
+        {
+            return MakeError(ErrorCode::OperationFailed,
+                             "The chart could not be updated; its plot type may be one this version does not "
+                             "classify.",
+                             target.RelationshipId);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["chart"] = static_cast<UInt64>(position + 1);
+        data["relationshipId"] = target.RelationshipId;
+        data["seriesCount"] = static_cast<UInt64>(replacement.size());
+
+        return ResultBuilder("Updated chart " + std::to_string(position + 1) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
     }
 
     static void RegisterListStyles(ToolRegistry& registry)
@@ -1586,6 +1862,388 @@ private:
         }
 
         return paragraphs;
+    }
+
+    /**
+     * @brief The border styles a table is worth offering.
+     *
+     * `BorderValues` carries more than two hundred values, most of them the
+     * decorative art borders Word draws around a page — apples, balloons,
+     * pacifiers. Publishing those in the catalog would cost every client more
+     * context than the rest of the tool, and none of them belongs on a table,
+     * so the enumeration here is the set of line styles that does.
+     */
+    static nlohmann::json BorderStyleSchema(std::string description)
+    {
+        return Schema::Enumeration(std::move(description),
+                                   {"none", "single", "thick", "double", "dotted", "dashed", "dotDash",
+                                    "dotDotDash", "triple", "wave", "dashSmallGap", "threeDEmboss",
+                                    "threeDEngrave", "outset", "inset"});
+    }
+
+    static W::BorderValues ParseBorderStyle(const std::string& token)
+    {
+        const auto* meta = W::BorderValues::GetMetaEnum();
+        if (meta == nullptr)
+        {
+            return W::BorderValues::Single;
+        }
+
+        const auto raw = meta->FromString(token);
+        return raw == W::BorderValues::NotDefinedEnumValue
+                   ? W::BorderValues::Single
+                   : static_cast<W::BorderValues::Value>(raw);
+    }
+
+    /// Schema of a border specification, shared by the table and the cells.
+    static nlohmann::json BorderSchema(std::string description)
+    {
+        return Schema::Object(std::move(description), {"style"},
+                              nlohmann::json{{"style", BorderStyleSchema("Line style.")},
+                                             {"width", Schema::Length("Line width; defaults to half a point.")},
+                                             {"color", Schema::String("Line color as \"#RRGGBB\".")}});
+    }
+
+    /// Reads one border specification into its three library arguments.
+    static bool ReadBorder(const nlohmann::json& source, W::BorderValues& style,
+                           MeasuringUnits& width, Color& color, ToolOutcome& failure)
+    {
+        style = ParseBorderStyle(source.value("style", std::string("single")));
+
+        width = MeasuringUnits{0.5, MeasurementUnit::Point};
+        if (const auto value = source.find("width"); value != source.end())
+        {
+            const auto parsed = ParseLength(*value);
+            if (!parsed.has_value() || ToPointValue(*parsed) < 0.0)
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "The border width is not a non-negative length.",
+                                    "width");
+                return false;
+            }
+
+            width = *parsed;
+        }
+
+        color = Color(0, 0, 0);
+        if (const auto value = source.find("color"); value != source.end())
+        {
+            const auto parsed = ParseColor(value->get<std::string>());
+            if (!parsed.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "The border color is not \"#RRGGBB\".", "color");
+                return false;
+            }
+
+            color = *parsed;
+        }
+
+        return true;
+    }
+
+    /// Reads the four members of a margin box, any of which may be absent.
+    static bool ReadMarginBox(const nlohmann::json& source, MeasuringUnits& left, MeasuringUnits& top,
+                              MeasuringUnits& right, MeasuringUnits& bottom, ToolOutcome& failure)
+    {
+        const auto read = [&source, &failure](const char* name, MeasuringUnits& target)
+        {
+            const auto value = source.find(name);
+            if (value == source.end())
+            {
+                return true;
+            }
+
+            const auto parsed = ParseLength(*value);
+            if (!parsed.has_value() || ToPointValue(*parsed) < 0.0)
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "The margin is not a non-negative length.", name);
+                return false;
+            }
+
+            target = *parsed;
+            return true;
+        };
+
+        return read("left", left) && read("top", top) && read("right", right) && read("bottom", bottom);
+    }
+
+    static void RegisterFormatTable(ToolRegistry& registry)
+    {
+        nlohmann::json marginBox =
+            Schema::Object("Cell padding; omitted sides keep their current value.", {},
+                           nlohmann::json{{"left", Schema::Length("Left padding.")},
+                                          {"top", Schema::Length("Top padding.")},
+                                          {"right", Schema::Length("Right padding.")},
+                                          {"bottom", Schema::Length("Bottom padding.")}});
+
+        nlohmann::json cell = Schema::Object(
+            "One cell to format, addressed in the logical grid.", {"row", "col"},
+            nlohmann::json{{"row", Schema::Integer("1-based row.", 1)},
+                           {"col", Schema::Integer("1-based column.", 1)},
+                           {"background", Schema::String("Cell fill color as \"#RRGGBB\".")},
+                           {"width", Schema::Length("Cell width.")},
+                           {"align", Schema::Enumeration("Horizontal alignment of the cell text.",
+                                                         {"left", "center", "right", "both"})},
+                           {"valign", Schema::Enumeration("Vertical alignment of the cell content.",
+                                                          {"top", "center", "bottom"})},
+                           {"borders", BorderSchema("Borders of this cell.")},
+                           {"margins", marginBox}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["block"] = Schema::Integer("1-based index of the table block.", 1);
+        properties["width"] = Schema::Length("Total table width.");
+        properties["alignment"] = Schema::Enumeration("Horizontal alignment of the table on the page.",
+                                                      {"left", "center", "right"});
+        properties["borders"] = BorderSchema("Borders applied to every side of the table.");
+        properties["cell_margins"] = marginBox;
+        properties["column_widths"] =
+            Schema::Array("Width of each column, in order; shorter arrays leave the rest alone.",
+                          Schema::Length("One column width."));
+        properties["cells"] = Schema::Array("Individual cells to format.", std::move(cell));
+
+        auto definition =
+            MakeDefinition("format_table", "Format table",
+                           "Set the width, alignment, borders, and cell padding of a table, the width of its "
+                           "columns, and the shading, alignment, and borders of individual cells. Every member is "
+                           "optional and the ones left out keep their current value.",
+                           "tables");
+        definition.InputSchema =
+            Schema::Object("Arguments of format_table.", {"documentId", "block"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Formatted table.", {"block"},
+                           nlohmann::json{{"block", Schema::Integer("Table block index.")},
+                                          {"rows", Schema::Integer("Rows in the table.")},
+                                          {"columns", Schema::Integer("Columns in the logical grid.")},
+                                          {"cellsFormatted", Schema::Integer("Cells the call touched.")}}),
+            true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"},
+                           {"block", 4},
+                           {"borders", nlohmann::json{{"style", "single"}, {"color", "#808080"}}},
+                           {"cells", nlohmann::json::array({nlohmann::json{
+                               {"row", 1}, {"col", 1}, {"background", "#EFEFEF"}, {"align", "center"}}})}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return FormatTable(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome FormatTable(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const Size block = arguments.value("block", static_cast<Size>(0));
+
+        MutationGuard guard(session.Session());
+
+        ToolOutcome failure;
+        auto table = WordAddressing::TableAt(session.Editor(), block, failure);
+        if (table == nullptr)
+        {
+            return failure;
+        }
+
+        const auto rows = table->GetRowCount();
+        const auto columns = table->GetLogicalColumnCount();
+
+        if (const auto width = arguments.find("width"); width != arguments.end())
+        {
+            const auto parsed = ParseLength(*width);
+            if (!parsed.has_value() || ToPointValue(*parsed) <= 0.0)
+            {
+                return MakeError(ErrorCode::InputInvalid, "The table width is not a positive length.", "width");
+            }
+
+            table->SetWidth(*parsed);
+        }
+
+        if (const auto alignment = arguments.find("alignment"); alignment != arguments.end())
+        {
+            const auto token = alignment->get<std::string>();
+            table->SetAlignment(token == "center"  ? W::TableRowAlignmentValues::center
+                                : token == "right" ? W::TableRowAlignmentValues::right
+                                                   : W::TableRowAlignmentValues::left);
+        }
+
+        if (const auto borders = arguments.find("borders"); borders != arguments.end())
+        {
+            W::BorderValues style{};
+            MeasuringUnits width;
+            Color color;
+            if (!ReadBorder(*borders, style, width, color, failure))
+            {
+                return failure;
+            }
+
+            table->SetBorders(style, width, color);
+        }
+
+        if (const auto margins = arguments.find("cell_margins"); margins != arguments.end())
+        {
+            // The library writes all four at once, so the sides the caller left
+            // out have to start from Word's own defaults rather than from zero.
+            MeasuringUnits left{0.08, MeasurementUnit::Inch};
+            MeasuringUnits top{0.0, MeasurementUnit::Inch};
+            MeasuringUnits right{0.08, MeasurementUnit::Inch};
+            MeasuringUnits bottom{0.0, MeasurementUnit::Inch};
+            if (!ReadMarginBox(*margins, left, top, right, bottom, failure))
+            {
+                return failure;
+            }
+
+            table->SetDefaultCellMargins(left, top, right, bottom);
+        }
+
+        if (const auto widths = arguments.find("column_widths"); widths != arguments.end())
+        {
+            Size column = 0;
+            for (const auto& entry : *widths)
+            {
+                if (column >= columns)
+                {
+                    break;
+                }
+
+                const auto parsed = ParseLength(entry);
+                if (!parsed.has_value() || ToPointValue(*parsed) <= 0.0)
+                {
+                    return MakeError(ErrorCode::InputInvalid, "A column width is not a positive length.",
+                                     "column_widths");
+                }
+
+                // A column width is a property of every cell in that column;
+                // Word has no single place to record it.
+                for (Size row = 0; row < rows; ++row)
+                {
+                    table->SetCellWidth(row, column, *parsed);
+                }
+
+                ++column;
+            }
+        }
+
+        Size formatted = 0;
+        if (const auto cells = arguments.find("cells"); cells != arguments.end())
+        {
+            const auto grid = table->GetLogicalGrid();
+            for (const auto& entry : *cells)
+            {
+                const Size row = entry.value("row", static_cast<Size>(0));
+                const Size column = entry.value("col", static_cast<Size>(0));
+                if (row == 0 || column == 0 || row > rows || column > columns)
+                {
+                    return MakeError(ErrorCode::AnchorInvalid,
+                                     "The table has " + std::to_string(rows) + " row(s) and " +
+                                         std::to_string(columns) + " column(s).",
+                                     std::to_string(row) + "," + std::to_string(column),
+                                     "Call read_blocks to see the table dimensions.");
+                }
+
+                // Formatting a position a merge covers would write cell
+                // properties nothing renders, so it is refused the same way
+                // edit_table_cell refuses to write text there.
+                if (row - 1 < grid.size() && column - 1 < grid[row - 1].size() &&
+                    !grid[row - 1][column - 1].IsOrigin)
+                {
+                    return MakeError(ErrorCode::AnchorInvalid,
+                                     "The addressed cell is covered by a merge and carries no formatting of its "
+                                     "own.",
+                                     std::to_string(row) + "," + std::to_string(column),
+                                     "Address the anchor cell of the merged region instead.");
+                }
+
+                if (const auto background = entry.find("background"); background != entry.end())
+                {
+                    const auto color = ParseColor(background->get<std::string>());
+                    if (!color.has_value())
+                    {
+                        return MakeError(ErrorCode::InputInvalid, "The cell background is not \"#RRGGBB\".",
+                                         "background");
+                    }
+
+                    table->SetCellBackgroundColor(row - 1, column - 1, *color);
+                }
+
+                if (const auto width = entry.find("width"); width != entry.end())
+                {
+                    const auto parsed = ParseLength(*width);
+                    if (!parsed.has_value() || ToPointValue(*parsed) <= 0.0)
+                    {
+                        return MakeError(ErrorCode::InputInvalid, "A cell width is not a positive length.",
+                                         "width");
+                    }
+
+                    table->SetCellWidth(row - 1, column - 1, *parsed);
+                }
+
+                if (const auto align = entry.find("align"); align != entry.end())
+                {
+                    const auto token = align->get<std::string>();
+                    table->SetCellHorizontalAlignment(
+                        row - 1, column - 1,
+                        token == "center" ? W::JustificationValues::Center
+                        : token == "right" ? W::JustificationValues::Right
+                        : token == "both"  ? W::JustificationValues::Both
+                                           : W::JustificationValues::Left);
+                }
+
+                if (const auto valign = entry.find("valign"); valign != entry.end())
+                {
+                    const auto token = valign->get<std::string>();
+                    table->SetCellVerticalAlignment(
+                        row - 1, column - 1,
+                        token == "center"   ? W::TableVerticalAlignmentValues::center
+                        : token == "bottom" ? W::TableVerticalAlignmentValues::bottom
+                                            : W::TableVerticalAlignmentValues::top);
+                }
+
+                if (const auto borders = entry.find("borders"); borders != entry.end())
+                {
+                    W::BorderValues style{};
+                    MeasuringUnits width;
+                    Color color;
+                    if (!ReadBorder(*borders, style, width, color, failure))
+                    {
+                        return failure;
+                    }
+
+                    table->SetCellBorders(row - 1, column - 1, style, width, color);
+                }
+
+                if (const auto margins = entry.find("margins"); margins != entry.end())
+                {
+                    MeasuringUnits left{0.08, MeasurementUnit::Inch};
+                    MeasuringUnits top{0.0, MeasurementUnit::Inch};
+                    MeasuringUnits right{0.08, MeasurementUnit::Inch};
+                    MeasuringUnits bottom{0.0, MeasurementUnit::Inch};
+                    if (!ReadMarginBox(*margins, left, top, right, bottom, failure))
+                    {
+                        return failure;
+                    }
+
+                    table->SetCellMargins(row - 1, column - 1, left, top, right, bottom);
+                }
+
+                ++formatted;
+            }
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["block"] = static_cast<UInt64>(block);
+        data["rows"] = static_cast<UInt64>(rows);
+        data["columns"] = static_cast<UInt64>(columns);
+        data["cellsFormatted"] = static_cast<UInt64>(formatted);
+
+        return ResultBuilder("Formatted the table in block " + std::to_string(block) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
     }
 
     static void RegisterModifyTable(ToolRegistry& registry)

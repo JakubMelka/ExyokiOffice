@@ -207,19 +207,21 @@ TEST_CASE("every registered tool has an explicit behavioral test commitment [mcp
     const std::set<std::string> word{
         "get_outline", "read_blocks", "list_styles", "list_revisions", "list_comments", "insert_paragraph",
         "insert_list", "edit_paragraph", "delete_blocks", "apply_style", "insert_image", "add_bookmark",
-        "insert_table", "edit_table_cell", "modify_table", "set_header_footer", "set_section",
+        "insert_table", "edit_table_cell", "modify_table", "format_table", "set_header_footer", "set_section",
         "set_tracked_changes", "resolve_revisions", "add_comment", "delete_comment", "add_note", "fill_template",
-        "compare_documents"};
+        "compare_documents", "list_charts", "update_chart"};
     const std::set<std::string> excel{
         "list_sheets", "read_range", "add_sheet", "rename_sheet", "delete_sheet", "write_cells", "write_range",
         "clear_range", "modify_sheet_structure", "set_hyperlink", "recalculate", "merge_cells", "format_range",
         "set_column_width", "set_row_height", "freeze_panes", "add_table", "add_named_range",
-        "add_data_validation", "add_conditional_formatting", "add_chart", "add_pivot_table"};
+        "add_data_validation", "add_conditional_formatting", "add_chart", "add_pivot_table", "add_comment",
+        "list_comments", "delete_comment", "add_image", "set_print_setup"};
     const std::set<std::string> powerPoint{
         "list_slides", "get_slide", "list_layouts", "list_comments", "add_slide", "delete_slide", "move_slide",
         "duplicate_slide", "copy_slide_from", "set_slide_hidden", "set_placeholder_text", "add_text_box",
         "edit_text_frame", "delete_shape", "set_shape_transform", "add_image", "add_table", "edit_table_cell",
-        "add_chart", "set_notes", "add_comment", "set_transition", "add_section", "set_slide_size"};
+        "add_chart", "set_notes", "add_comment", "set_transition", "add_section", "set_slide_size", "add_shape",
+        "format_shape"};
 
     const auto check = [&shared](const McpTestServer& server, const std::set<std::string>& family)
     {
