@@ -798,6 +798,9 @@ tracked differences.
 | `add_conditional_formatting` | analysis | M | Add a conditional formatting rule |
 | `add_chart` | analysis | M | Add a chart anchored on the sheet, one series per column or row |
 | `add_pivot_table` | analysis | M | Build a pivot report from a source range |
+| `add_slicer` | analysis | M | Add a slicer filtering a pivot table or a worksheet table |
+| `list_slicers` | analysis | R I | Slicers with their buttons and which are selected |
+| `set_slicer_selection` | analysis | M I | Choose which of a slicer's buttons are selected |
 | `set_print_setup` | layout | M I | Orientation, paper, scaling, margins, print area, repeated titles, header and footer |
 | `set_protection` | layout | M I | Protect a worksheet or the workbook structure, or lift it |
 | `add_image` | media | M | Place a picture, anchored to a cell rectangle |
@@ -810,6 +813,15 @@ says which one a call means rather than leaving it to be guessed: a plain note
 is addressed by its cell, a threaded comment by the identifier `add_comment`
 returns, and one cell can hold both. `reply_to` implies a threaded comment,
 since a plain note has no parent to point at.
+
+The flag defaults to the plain note, which is the older model and not the one
+Excel writes today. That is deliberate: **Excel currently discards a threaded
+comment this library produces**, dropping the whole `xl/threadedcomments` part
+on open, while a plain note survives and is shown. **A slicer is discarded the
+same way** — its cache part and drawing go, leaving the slicer part orphaned —
+so `add_slicer` reports a success no spreadsheet application will display.
+Both constructs round-trip through the library and validate; only a real Excel
+shows the difference.
 
 CSV import and export run through `convert_document`, which takes
 `csv_separator` and `sheet` on this server.

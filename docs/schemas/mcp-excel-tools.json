@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-excel",
   "title": "ExyokiOffice Excel MCP Server",
-  "toolCount": 57,
+  "toolCount": 60,
   "tools": [
     {
       "annotations": {
@@ -3060,6 +3060,219 @@
         "type": "object"
       },
       "title": "List comments"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the slicers of the workbook with their buttons and which of them are selected.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_slicers.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_slicers",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Slicers.",
+            "properties": {
+              "slicers": {
+                "description": "Slicers.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One slicer.",
+                  "properties": {
+                    "anchor": {
+                      "description": "A1 anchor cell.",
+                      "type": "string"
+                    },
+                    "caption": {
+                      "description": "Header caption.",
+                      "type": "string"
+                    },
+                    "columns": {
+                      "description": "Button columns.",
+                      "type": "integer"
+                    },
+                    "field": {
+                      "description": "Source column.",
+                      "type": "string"
+                    },
+                    "items": {
+                      "description": "Buttons.",
+                      "items": {
+                        "additionalProperties": false,
+                        "description": "One slicer button.",
+                        "properties": {
+                          "caption": {
+                            "description": "Button caption.",
+                            "type": "string"
+                          },
+                          "hasNoData": {
+                            "description": "True when no source row matches.",
+                            "type": "boolean"
+                          },
+                          "selected": {
+                            "description": "True when the item is not filtered out.",
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "caption",
+                          "selected"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "description": "Slicer name.",
+                      "type": "string"
+                    },
+                    "sheet": {
+                      "description": "Worksheet that hosts it.",
+                      "type": "string"
+                    },
+                    "sortOrder": {
+                      "description": "ascending or descending.",
+                      "type": "string"
+                    },
+                    "source": {
+                      "description": "Name of the filtered object.",
+                      "type": "string"
+                    },
+                    "sourceKind": {
+                      "description": "pivot_table or table.",
+                      "type": "string"
+                    },
+                    "style": {
+                      "description": "Slicer style name.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "sheet"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "slicers"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List slicers"
     },
     {
       "annotations": {
@@ -6209,7 +6422,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Attach a comment to a cell, as a threaded comment or as a plain note. Pass reply_to to answer an existing thread entry.",
+      "description": "Attach a comment to a cell, as a plain note by default or as a threaded comment. Pass reply_to to answer an existing thread entry.",
       "example": {
         "cell": "B4",
         "documentId": "doc-1",
@@ -6249,8 +6462,8 @@
             "type": "string"
           },
           "threaded": {
-            "default": true,
-            "description": "Address the modern threaded comment model rather than the plain note model.",
+            "default": false,
+            "description": "Address the modern threaded comment model rather than the plain note model. Excel currently discards a threaded comment written by this library; a plain note survives.",
             "type": "boolean"
           }
         },
@@ -8861,6 +9074,398 @@
         "type": "object"
       },
       "title": "Add pivot table"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Add a slicer filtering a pivot table or a worksheet table by one of its columns. The source has to exist already; build it with add_pivot_table or add_table first.",
+      "example": {
+        "anchor_cell": "F2",
+        "documentId": "doc-1",
+        "field": "Region",
+        "source": "SalesByRegion"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_slicer.",
+        "properties": {
+          "anchor_cell": {
+            "description": "A1 cell the slicer's top-left corner sits on.",
+            "type": "string"
+          },
+          "caption": {
+            "description": "Header caption; the field name is used when omitted.",
+            "type": "string"
+          },
+          "columns": {
+            "description": "Number of button columns.",
+            "maximum": 20000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "field": {
+            "description": "Source column the buttons come from, matched case-insensitively.",
+            "type": "string"
+          },
+          "height": {
+            "description": "Slicer height; defaults to about 5 cm.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "name": {
+            "description": "Slicer name, unique in the workbook; generated when omitted.",
+            "type": "string"
+          },
+          "selected": {
+            "description": "Captions of the selected items; an empty list selects everything.",
+            "items": {
+              "description": "One item caption.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "sort_order": {
+            "default": "ascending",
+            "description": "Button order.",
+            "enum": [
+              "ascending",
+              "descending"
+            ],
+            "type": "string"
+          },
+          "source": {
+            "description": "Name of the pivot table or worksheet table to filter. A pivot table may live on any sheet of the workbook.",
+            "type": "string"
+          },
+          "source_kind": {
+            "default": "pivot_table",
+            "description": "What the slicer filters.",
+            "enum": [
+              "pivot_table",
+              "table"
+            ],
+            "type": "string"
+          },
+          "style": {
+            "default": "SlicerStyleLight1",
+            "description": "Slicer style name.",
+            "type": "string"
+          },
+          "width": {
+            "description": "Slicer width; defaults to about 4 cm.",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "documentId",
+          "source",
+          "field",
+          "anchor_cell"
+        ],
+        "type": "object"
+      },
+      "name": "add_slicer",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New slicer.",
+            "properties": {
+              "anchor": {
+                "description": "A1 anchor cell.",
+                "type": "string"
+              },
+              "itemCount": {
+                "description": "Buttons the slicer offers.",
+                "type": "integer"
+              },
+              "name": {
+                "description": "Slicer name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add slicer"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Choose which of a slicer's buttons are selected, which is what the slicer filters its source down to. Items are named by caption, because cache indexes move when the source is refreshed.",
+      "example": {
+        "documentId": "doc-1",
+        "selected": [
+          "North",
+          "South"
+        ],
+        "slicer": "Slicer1"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_slicer_selection.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "selected": {
+            "description": "Captions to select; an empty list selects everything, which is what clearing the filter means.",
+            "items": {
+              "description": "One item caption.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "slicer": {
+            "description": "Slicer name from list_slicers.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "slicer",
+          "selected"
+        ],
+        "type": "object"
+      },
+      "name": "set_slicer_selection",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Selection.",
+            "properties": {
+              "name": {
+                "description": "Slicer name.",
+                "type": "string"
+              },
+              "selectedCount": {
+                "description": "Items now selected.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "selectedCount"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set slicer selection"
     },
     {
       "annotations": {

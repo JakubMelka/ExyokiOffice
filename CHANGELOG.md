@@ -33,6 +33,8 @@ in [docs/](docs/README.md).
     effects with their triggers and timing.
   - Excel `move_sheet`, `copy_sheet` (including from another workbook),
     `copy_range` and `set_protection`.
+  - Excel `add_slicer`, `list_slicers` and `set_slicer_selection`, over pivot
+    tables and worksheet tables.
 
 ## [1.1.0] - 2026-08-20
 

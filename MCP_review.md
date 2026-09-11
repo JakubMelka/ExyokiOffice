@@ -15,6 +15,7 @@ catalog now stands at 158 (Word 53, Excel 53, PowerPoint 52).
 ## Contents
 
 - [Test coverage](#test-coverage)
+- [Library defects the oracle found](#library-defects-the-oracle-found)
 - [Gap A: asymmetries between the three servers](#gap-a-asymmetries-between-the-three-servers)
 - [Gap B: library areas with no tool at all](#gap-b-library-areas-with-no-tool-at-all)
 - [Gap C: tools shallower than the library](#gap-c-tools-shallower-than-the-library)
@@ -50,8 +51,10 @@ Two weaknesses:
   suites validate OPC structure and markup schema, which is not the same thing.
   A COM oracle gate belongs in the release checklist.
 
-  Running that gate by hand against the P0 work found two defects nothing else
-  could have caught, in files that were valid throughout: a shape given neither
+  Running that gate by hand found four defects nothing else could have caught,
+  in files that were valid throughout. Two are recorded under
+  [Library defects the oracle found](#library-defects-the-oracle-found) because
+  they are the library's, not the servers'; the other two were the servers': a shape given neither
   a fill nor an outline drew nothing at all, because a new `p:sp` carries no
   style reference to inherit from, and PowerPoint showed only its text floating
   over the slide; and a connector bound to two shapes was invisible too,
@@ -62,6 +65,33 @@ Two weaknesses:
 
 Every tool added by this review is expected to arrive with both the happy path
 and its invalid-input cases covered.
+
+## Library defects the oracle found
+
+**These block a release, and neither is an MCP defect.** Both constructs are
+graded `Yes` in the compatibility matrix, both round-trip through the library's
+own tests, both validate as OPC and against the schema — and Excel discards
+them. Each was confirmed twice: Excel reports the object as absent through its
+object model, and re-saving the file from Excel drops the parts.
+
+| Construct | Matrix | What Excel does |
+| --- | --- | --- |
+| Threaded comments (`excel-layout`) | Yes | Drops `xl/threadedcomments/*` entirely; `CommentsThreaded.Count` is 0 and the persons part is left an empty shell |
+| Table slicers (`excel-slicers`) | Yes | Drops `xl/slicerCaches/*` and the drawing, leaving an orphaned `xl/slicers/slicer1.xml`; `SlicerCaches.Count` and `Shapes.Count` are both 0 |
+
+Isolated to one construct per file, so neither is a side effect of the other.
+A plain note written by the same `add_comment` tool survives and is shown, which
+is why that is now its default.
+
+Until the markup is accepted, `add_slicer` reports success for a slicer no
+spreadsheet application will show. That is worse than not having the tool, and
+it is a decision to take deliberately rather than to discover after the
+announcement.
+
+Note for anyone running the gate: **Excel with `DisplayAlerts = $false` repairs
+silently**, where PowerPoint with alerts off refuses the file outright. An Excel
+workbook that opens is therefore not evidence of anything; ask the object model
+what it sees, or have Excel re-save the file and compare the parts.
 
 ## Gap A: asymmetries between the three servers
 
@@ -140,7 +170,7 @@ Word, rich-text cell content in Excel, OOXML package encryption.
 - [x] PowerPoint animations
 - [ ] PowerPoint masters and layouts, write side
 - [ ] PowerPoint custom shows; audio and video
-- [ ] Excel slicers
+- [x] Excel slicers
 - [x] Excel sheet move, copy, protection; range copy and move
 - [ ] Excel auto-filter and sort; colour scales and data bars
 - [ ] Excel VBA extract, replace, remove

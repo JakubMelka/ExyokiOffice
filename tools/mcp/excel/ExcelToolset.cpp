@@ -11,6 +11,7 @@
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Spreadsheet.hpp"
 #include "ExyokiOffice/Excel/ExcelFormulaEngine.hpp"
 #include "ExyokiOffice/Excel/ExcelNamedRange.hpp"
+#include "ExyokiOffice/Excel/ExcelSlicer.hpp"
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
 #include "ExyokiOffice/Tools/DocumentModelIO.hpp"
 
@@ -228,6 +229,9 @@ public:
         RegisterAddConditionalFormatting(registry);
         RegisterAddChart(registry);
         RegisterAddPivotTable(registry);
+        RegisterAddSlicer(registry);
+        RegisterListSlicers(registry);
+        RegisterSetSlicerSelection(registry);
     }
 
 private:
@@ -1838,14 +1842,22 @@ private:
      * SpreadsheetML carries two unrelated comment models, and which one a call
      * means cannot be inferred from the arguments: a plain comment is keyed by
      * its cell, a threaded one by an identifier, and a cell can hold both. The
-     * flag is therefore explicit everywhere rather than guessed, and defaults
-     * to the model Excel itself writes today.
+     * flag is therefore explicit everywhere rather than guessed.
+     *
+     * It defaults to the plain note, which is the older of the two models and
+     * not the one Excel writes today. That is deliberate: a threaded comment
+     * this library produces is discarded by Excel on open - the whole
+     * `xl/threadedcomments` part goes - while a plain note survives and is
+     * shown. Defaulting to the model that reaches the reader beats defaulting
+     * to the modern one that does not. Revisit when the library's threaded
+     * markup is accepted.
      */
     static nlohmann::json ThreadedProperty()
     {
         return Schema::BooleanWithDefault("Address the modern threaded comment model rather than the plain "
-                                          "note model.",
-                                          true);
+                                          "note model. Excel currently discards a threaded comment written by "
+                                          "this library; a plain note survives.",
+                                          false);
     }
 
     /// The paper sizes SpreadsheetML names, as the tokens the schema publishes.
@@ -2341,8 +2353,8 @@ private:
             Schema::String("Identifier of the thread entry this one replies to; implies a threaded comment.");
 
         auto definition = MakeDefinition("add_comment", "Add comment",
-                                         "Attach a comment to a cell, as a threaded comment or as a plain note. "
-                                         "Pass reply_to to answer an existing thread entry.",
+                                         "Attach a comment to a cell, as a plain note by default or as a "
+                                         "threaded comment. Pass reply_to to answer an existing thread entry.",
                                          "review");
         definition.InputSchema =
             Schema::Object("Arguments of add_comment.", {"documentId", "cell", "text"}, std::move(properties));
@@ -2389,7 +2401,9 @@ private:
         }
 
         const auto replyTo = arguments.value("reply_to", std::string());
-        const bool threaded = !replyTo.empty() || arguments.value("threaded", true);
+        // The fallback here has to match the schema's published default: the
+        // schema documents the default, it does not fill it in.
+        const bool threaded = !replyTo.empty() || arguments.value("threaded", false);
 
         // A reply has to name an entry that exists. Without the check the
         // orphaned parent identifier would be written out and Excel would drop
@@ -4402,6 +4416,350 @@ private:
         }
 
         return builder.Build();
+    }
+
+    static std::string SlicerSortToken(Excel::SlicerSortOrder value)
+    {
+        return value == Excel::SlicerSortOrder::Descending ? "descending" : "ascending";
+    }
+
+    static void RegisterAddSlicer(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["source_kind"] =
+            Schema::EnumerationWithDefault("What the slicer filters.", {"pivot_table", "table"}, "pivot_table");
+        properties["source"] = Schema::String("Name of the pivot table or worksheet table to filter. A pivot "
+                                              "table may live on any sheet of the workbook.");
+        properties["field"] = Schema::String("Source column the buttons come from, matched case-insensitively.");
+        properties["anchor_cell"] = Schema::String("A1 cell the slicer's top-left corner sits on.");
+        properties["width"] = Schema::Length("Slicer width; defaults to about 4 cm.");
+        properties["height"] = Schema::Length("Slicer height; defaults to about 5 cm.");
+        properties["name"] = Schema::String("Slicer name, unique in the workbook; generated when omitted.");
+        properties["caption"] = Schema::String("Header caption; the field name is used when omitted.");
+        properties["columns"] = Schema::Integer("Number of button columns.", 1, 20000);
+        properties["style"] = Schema::StringWithDefault("Slicer style name.", "SlicerStyleLight1");
+        properties["sort_order"] =
+            Schema::EnumerationWithDefault("Button order.", {"ascending", "descending"}, "ascending");
+        properties["selected"] =
+            Schema::Array("Captions of the selected items; an empty list selects everything.",
+                          Schema::String("One item caption."));
+
+        auto definition = MakeDefinition(
+            "add_slicer", "Add slicer",
+            "Add a slicer filtering a pivot table or a worksheet table by one of its columns. The source has "
+            "to exist already; build it with add_pivot_table or add_table first.",
+            "analysis");
+        definition.InputSchema = Schema::Object("Arguments of add_slicer.",
+                                                {"documentId", "source", "field", "anchor_cell"},
+                                                std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("New slicer.", {"name"},
+                                            nlohmann::json{{"name", Schema::String("Slicer name.")},
+                                                           {"anchor", Schema::String("A1 anchor cell.")},
+                                                           {"itemCount", Schema::Integer("Buttons the slicer "
+                                                                                         "offers.")}}),
+                             true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"source", "SalesByRegion"},
+                                            {"field", "Region"},
+                                            {"anchor_cell", "F2"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddSlicer(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome AddSlicer(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        const auto anchorText = arguments.value("anchor_cell", std::string());
+        const auto anchor = ExcelAddressing::ParseCell(anchorText, failure);
+        if (!anchor.has_value())
+        {
+            return failure;
+        }
+
+        Excel::ExcelSlicerDefinition slicer;
+        slicer.Name = arguments.value("name", std::string());
+        slicer.Caption = arguments.value("caption", std::string());
+        slicer.SourceField = arguments.value("field", std::string());
+        slicer.From = *anchor;
+        slicer.To = AnchorEnd(*anchor, arguments, 113.0, 142.0);
+        slicer.ColumnCount = arguments.value("columns", 1U);
+        slicer.Style = arguments.value("style", std::string("SlicerStyleLight1"));
+        slicer.SortOrder = arguments.value("sort_order", std::string("ascending")) == "descending"
+                               ? Excel::SlicerSortOrder::Descending
+                               : Excel::SlicerSortOrder::Ascending;
+
+        const auto source = arguments.value("source", std::string());
+        if (arguments.value("source_kind", std::string("pivot_table")) == "table")
+        {
+            slicer.SourceKind = Excel::SlicerSourceKind::Table;
+            slicer.TableName = source;
+        }
+        else
+        {
+            slicer.SourceKind = Excel::SlicerSourceKind::PivotTable;
+            slicer.PivotTableName = source;
+        }
+
+        if (const auto selected = arguments.find("selected"); selected != arguments.end())
+        {
+            slicer.SelectedItems = selected->get<std::vector<std::string>>();
+        }
+
+        MutationGuard guard(session.Session());
+
+        const auto result = sheet->CreateSlicer(slicer);
+        if (result.Status.Error != Excel::SlicerError::None || result.Slicer == nullptr)
+        {
+            // The library distinguishes an unknown source from an unknown field
+            // and from a bad anchor, and the difference is exactly what tells an
+            // agent whether to build the pivot table or to fix the column name.
+            return MakeError(ErrorCode::OperationFailed,
+                             result.Status.Message.empty() ? "The slicer could not be created."
+                                                           : result.Status.Message,
+                             source + "." + slicer.SourceField,
+                             "The pivot table or table has to exist in the workbook, and the field has to be "
+                             "one of its columns.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = result.Slicer->Name();
+        data["anchor"] = anchor->ToA1();
+        data["itemCount"] = static_cast<UInt64>(result.Slicer->Items().size());
+
+        return ResultBuilder("Added slicer " + result.Slicer->Name() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterListSlicers(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        properties["sheet"] = SheetReferenceProperty(
+            "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.");
+
+        nlohmann::json item =
+            Schema::Object("One slicer button.", {"caption", "selected"},
+                           nlohmann::json{{"caption", Schema::String("Button caption.")},
+                                          {"selected", Schema::Boolean("True when the item is not filtered "
+                                                                       "out.")},
+                                          {"hasNoData", Schema::Boolean("True when no source row matches.")}});
+
+        nlohmann::json slicer =
+            Schema::Object("One slicer.", {"name", "sheet"},
+                           nlohmann::json{{"name", Schema::String("Slicer name.")},
+                                          {"sheet", Schema::String("Worksheet that hosts it.")},
+                                          {"caption", Schema::String("Header caption.")},
+                                          {"sourceKind", Schema::String("pivot_table or table.")},
+                                          {"source", Schema::String("Name of the filtered object.")},
+                                          {"field", Schema::String("Source column.")},
+                                          {"anchor", Schema::String("A1 anchor cell.")},
+                                          {"columns", Schema::Integer("Button columns.")},
+                                          {"style", Schema::String("Slicer style name.")},
+                                          {"sortOrder", Schema::String("ascending or descending.")},
+                                          {"items", Schema::Array("Buttons.", std::move(item))}});
+
+        auto definition = MakeDefinition("list_slicers", "List slicers",
+                                         "List the slicers of the workbook with their buttons and which of "
+                                         "them are selected.",
+                                         "analysis");
+        definition.InputSchema = Schema::Object("Arguments of list_slicers.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Slicers.", {"slicers"},
+                           nlohmann::json{{"slicers", Schema::Array("Slicers.", std::move(slicer))}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListSlicers(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListSlicers(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        std::string only;
+        if (arguments.contains("sheet"))
+        {
+            ToolOutcome failure;
+            auto sheet = ExcelAddressing::FindSheet(reader.Editor(), arguments, failure);
+            if (sheet == nullptr)
+            {
+                return failure;
+            }
+
+            only = sheet->Name();
+        }
+
+        nlohmann::json slicers = nlohmann::json::array();
+        for (const auto& sheet : reader.Editor().Worksheets())
+        {
+            if (sheet == nullptr || (!only.empty() && sheet->Name() != only))
+            {
+                continue;
+            }
+
+            for (const auto& slicer : sheet->Slicers())
+            {
+                if (slicer == nullptr)
+                {
+                    continue;
+                }
+
+                nlohmann::json items = nlohmann::json::array();
+                for (const auto& item : slicer->Items())
+                {
+                    items.push_back(nlohmann::json{{"caption", item.Caption},
+                                                   {"selected", item.Selected},
+                                                   {"hasNoData", item.HasNoData}});
+                }
+
+                const auto anchor = slicer->Anchor();
+
+                nlohmann::json entry = nlohmann::json::object();
+                entry["name"] = slicer->Name();
+                entry["sheet"] = sheet->Name();
+                entry["caption"] = slicer->Caption();
+                entry["sourceKind"] =
+                    slicer->SourceKind() == Excel::SlicerSourceKind::Table ? "table" : "pivot_table";
+                entry["source"] = slicer->SourceObjectName();
+                entry["field"] = slicer->SourceField();
+                entry["anchor"] = anchor.has_value() ? anchor->first.ToA1() : std::string();
+                entry["columns"] = static_cast<UInt64>(slicer->ColumnCount());
+                entry["style"] = slicer->Style();
+                entry["sortOrder"] = SlicerSortToken(slicer->SortOrder());
+                entry["items"] = std::move(items);
+                slicers.push_back(std::move(entry));
+            }
+        }
+
+        const bool truncated = TruncateArrayToBudget(slicers);
+
+        nlohmann::json data = nlohmann::json::object();
+        const auto count = slicers.size();
+        data["slicers"] = std::move(slicers);
+
+        return ResultBuilder("The workbook holds " + std::to_string(count) + " slicer(s).")
+            .WithData(std::move(data))
+            .WithTruncated(truncated)
+            .Build();
+    }
+
+    static void RegisterSetSlicerSelection(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slicer"] = Schema::String("Slicer name from list_slicers.");
+        properties["selected"] =
+            Schema::Array("Captions to select; an empty list selects everything, which is what clearing the "
+                          "filter means.",
+                          Schema::String("One item caption."));
+
+        auto definition = MakeDefinition(
+            "set_slicer_selection", "Set slicer selection",
+            "Choose which of a slicer's buttons are selected, which is what the slicer filters its source "
+            "down to. Items are named by caption, because cache indexes move when the source is refreshed.",
+            "analysis");
+        definition.InputSchema = Schema::Object("Arguments of set_slicer_selection.",
+                                                {"documentId", "slicer", "selected"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Selection.", {"name", "selectedCount"},
+                                            nlohmann::json{{"name", Schema::String("Slicer name.")},
+                                                           {"selectedCount", Schema::Integer("Items now "
+                                                                                             "selected.")}}),
+                             true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"slicer", "Slicer1"},
+                                            {"selected", nlohmann::json::array({"North", "South"})}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetSlicerSelection(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome SetSlicerSelection(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto name = arguments.value("slicer", std::string());
+
+        // A slicer name is unique workbook-wide, so it is looked up across every
+        // sheet rather than needing the caller to remember where it sits.
+        Excel::ExcelSlicer::Ptr target;
+        for (const auto& sheet : session.Editor().Worksheets())
+        {
+            if (sheet == nullptr)
+            {
+                continue;
+            }
+
+            for (const auto& slicer : sheet->Slicers())
+            {
+                if (slicer != nullptr && AsciiText::EqualsIgnoreCase(slicer->Name(), name))
+                {
+                    target = slicer;
+                    break;
+                }
+            }
+        }
+
+        if (target == nullptr)
+        {
+            return MakeError(ErrorCode::MediaNotFound, "No slicer has that name.", name,
+                             "Call list_slicers to see them.");
+        }
+
+        const auto selected = arguments.value("selected", std::vector<std::string>());
+
+        MutationGuard guard(session.Session());
+
+        const auto result = target->SelectItems(selected);
+        if (result.Error != Excel::SlicerError::None)
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             result.Message.empty() ? "The selection could not be written." : result.Message,
+                             name, "Every caption has to be one the slicer offers; list_slicers reports them.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = target->Name();
+        data["selectedCount"] = static_cast<UInt64>(selected.size());
+
+        return ResultBuilder("Set the selection of " + target->Name() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
     }
 
     static void RegisterAddPivotTable(ToolRegistry& registry)

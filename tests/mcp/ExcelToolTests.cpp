@@ -1099,7 +1099,8 @@ TEST_CASE("cell comments survive a round trip in both models [mcp-excel]")
     const auto threaded = server->Call("add_comment", nlohmann::json{{"documentId", documentId},
                                                                      {"cell", "B4"},
                                                                      {"text", "Check this number."},
-                                                                     {"author", "Jakub"}});
+                                                                     {"author", "Jakub"},
+                                                                     {"threaded", true}});
     REQUIRE(threaded["ok"] == true);
     CHECK(threaded["data"]["threaded"] == true);
     CHECK(threaded["data"]["cell"] == "B4");
@@ -1107,10 +1108,11 @@ TEST_CASE("cell comments survive a round trip in both models [mcp-excel]")
     // has to hand one back; a plain note has nothing to hand back.
     CHECK_FALSE(threaded["data"]["commentId"].get<std::string>().empty());
 
+    // The default is the plain note, because that is the model Excel reads
+    // back; a threaded comment has to be asked for.
     const auto plain = server->Call("add_comment", nlohmann::json{{"documentId", documentId},
                                                                   {"cell", "C5"},
-                                                                  {"text", "A plain note."},
-                                                                  {"threaded", false}});
+                                                                  {"text", "A plain note."}});
     REQUIRE(plain["ok"] == true);
     CHECK(plain["data"]["threaded"] == false);
     CHECK(plain["data"]["commentId"] == "");
@@ -1164,8 +1166,9 @@ TEST_CASE("a threaded reply names the entry it answers [mcp-excel]")
     const auto created = server->Call("create_document", nlohmann::json::object());
     const auto documentId = created["data"]["documentId"].get<std::string>();
 
-    const auto root = server->Call("add_comment",
-                                   nlohmann::json{{"documentId", documentId}, {"cell", "A1"}, {"text", "Why?"}});
+    const auto root = server->Call(
+        "add_comment",
+        nlohmann::json{{"documentId", documentId}, {"cell", "A1"}, {"text", "Why?"}, {"threaded", true}});
     REQUIRE(root["ok"] == true);
     const auto rootId = root["data"]["commentId"].get<std::string>();
 
@@ -1499,4 +1502,172 @@ TEST_CASE("move_sheet and copy_sheet refuse what they cannot do [mcp-excel]")
     // Nothing above may have changed the workbook.
     const auto sheets = server->Call("list_sheets", nlohmann::json{{"documentId", documentId}});
     CHECK(sheets["data"]["sheets"].size() == 2);
+}
+
+/// A workbook with a source range and a table over it, which slicers filter.
+static std::string MakeSlicerWorkbook(McpTestServer& server, const std::string& path)
+{
+    const auto created = server.Call("create_document", nlohmann::json{{"path", path}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server.Call("write_range",
+                        nlohmann::json{{"documentId", documentId},
+                                       {"origin", "A1"},
+                                       {"values", nlohmann::json::array({
+                                           nlohmann::json::array({"Region", "Revenue"}),
+                                           nlohmann::json::array({"North", 1200}),
+                                           nlohmann::json::array({"South", 900}),
+                                           nlohmann::json::array({"East", 700}),
+                                           nlohmann::json::array({"North", 300})})}})["ok"] == true);
+
+    REQUIRE(server.Call("add_table", nlohmann::json{{"documentId", documentId},
+                                                    {"range", "A1:B5"},
+                                                    {"name", "Sales"}})["ok"] == true);
+    return documentId;
+}
+
+TEST_CASE("a slicer filters a worksheet table and reports its buttons [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto documentId = MakeSlicerWorkbook(*server, "sliced.xlsx");
+
+    const auto added = server->Call("add_slicer", nlohmann::json{{"documentId", documentId},
+                                                                 {"source_kind", "table"},
+                                                                 {"source", "Sales"},
+                                                                 {"field", "Region"},
+                                                                 {"anchor_cell", "D2"},
+                                                                 {"name", "RegionSlicer"},
+                                                                 {"caption", "Pick a region"},
+                                                                 {"columns", 2}});
+    REQUIRE(added["ok"] == true);
+    CHECK(added["data"]["name"] == "RegionSlicer");
+    CHECK(added["data"]["anchor"] == "D2");
+    // North appears twice in the source but is one button.
+    CHECK(added["data"]["itemCount"] == 3);
+
+    const auto listed = server->Call("list_slicers", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    REQUIRE(listed["data"]["slicers"].size() == 1);
+
+    const auto& slicer = listed["data"]["slicers"][0];
+    CHECK(slicer["name"] == "RegionSlicer");
+    CHECK(slicer["caption"] == "Pick a region");
+    CHECK(slicer["sourceKind"] == "table");
+    CHECK(slicer["source"] == "Sales");
+    CHECK(slicer["field"] == "Region");
+    CHECK(slicer["columns"] == 2);
+    REQUIRE(slicer["items"].size() == 3);
+    for (const auto& item : slicer["items"])
+    {
+        CHECK(item["selected"] == true);
+    }
+
+    const auto selected = server->Call(
+        "set_slicer_selection",
+        nlohmann::json{{"documentId", documentId},
+                       {"slicer", "RegionSlicer"},
+                       {"selected", nlohmann::json::array({"North", "South"})}});
+    REQUIRE(selected["ok"] == true);
+    CHECK(selected["data"]["selectedCount"] == 2);
+
+    const auto afterSelect = server->Call("list_slicers", nlohmann::json{{"documentId", documentId}});
+    ExyokiOffice::Size chosen = 0;
+    for (const auto& item : afterSelect["data"]["slicers"][0]["items"])
+    {
+        if (item["selected"] == true)
+        {
+            ++chosen;
+            CHECK(item["caption"] != "East");
+        }
+    }
+
+    CHECK(chosen == 2);
+
+    // An empty list is how a filter is cleared, not an error.
+    const auto cleared = server->Call("set_slicer_selection",
+                                      nlohmann::json{{"documentId", documentId},
+                                                     {"slicer", "RegionSlicer"},
+                                                     {"selected", nlohmann::json::array()}});
+    REQUIRE(cleared["ok"] == true);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("sliced.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+    CHECK(sheet->Slicers().size() == 1);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("sliced.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("the slicer tools refuse a source or a caption that does not exist [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto documentId = MakeSlicerWorkbook(*server, "sliced2.xlsx");
+
+    const auto unknownTable = server->Call("add_slicer", nlohmann::json{{"documentId", documentId},
+                                                                        {"source_kind", "table"},
+                                                                        {"source", "NoSuchTable"},
+                                                                        {"field", "Region"},
+                                                                        {"anchor_cell", "D2"}});
+    CHECK(unknownTable["ok"] == false);
+    CHECK(unknownTable["error"]["code"] == "operation_failed");
+
+    const auto unknownField = server->Call("add_slicer", nlohmann::json{{"documentId", documentId},
+                                                                        {"source_kind", "table"},
+                                                                        {"source", "Sales"},
+                                                                        {"field", "NoSuchColumn"},
+                                                                        {"anchor_cell", "D2"}});
+    CHECK(unknownField["ok"] == false);
+    CHECK(unknownField["error"]["code"] == "operation_failed");
+
+    const auto badAnchor = server->Call("add_slicer", nlohmann::json{{"documentId", documentId},
+                                                                     {"source_kind", "table"},
+                                                                     {"source", "Sales"},
+                                                                     {"field", "Region"},
+                                                                     {"anchor_cell", "A0"}});
+    CHECK(badAnchor["ok"] == false);
+    CHECK(badAnchor["error"]["code"] == "range_invalid");
+
+    // A pivot slicer over a table name finds no pivot table of that name.
+    const auto wrongKind = server->Call("add_slicer", nlohmann::json{{"documentId", documentId},
+                                                                     {"source_kind", "pivot_table"},
+                                                                     {"source", "Sales"},
+                                                                     {"field", "Region"},
+                                                                     {"anchor_cell", "D2"}});
+    CHECK(wrongKind["ok"] == false);
+
+    const auto noSlicers = server->Call("list_slicers", nlohmann::json{{"documentId", documentId}});
+    CHECK(noSlicers["data"]["slicers"].empty());
+
+    const auto unknownSlicer = server->Call(
+        "set_slicer_selection",
+        nlohmann::json{{"documentId", documentId},
+                       {"slicer", "Nothing"},
+                       {"selected", nlohmann::json::array({"North"})}});
+    CHECK(unknownSlicer["ok"] == false);
+    CHECK(unknownSlicer["error"]["code"] == "media_not_found");
+
+    REQUIRE(server->Call("add_slicer", nlohmann::json{{"documentId", documentId},
+                                                      {"source_kind", "table"},
+                                                      {"source", "Sales"},
+                                                      {"field", "Region"},
+                                                      {"anchor_cell", "D2"},
+                                                      {"name", "Region"}})["ok"] == true);
+
+    // A caption the slicer does not offer is refused rather than ignored, so a
+    // typo cannot quietly produce a filter nobody asked for.
+    const auto unknownCaption = server->Call(
+        "set_slicer_selection",
+        nlohmann::json{{"documentId", documentId},
+                       {"slicer", "Region"},
+                       {"selected", nlohmann::json::array({"West"})}});
+    CHECK(unknownCaption["ok"] == false);
+    CHECK(unknownCaption["error"]["code"] == "input_invalid");
 }

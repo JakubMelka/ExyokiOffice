@@ -216,7 +216,7 @@ TEST_CASE("every registered tool has an explicit behavioral test commitment [mcp
         "set_column_width", "set_row_height", "freeze_panes", "add_table", "add_named_range",
         "add_data_validation", "add_conditional_formatting", "add_chart", "add_pivot_table", "add_comment",
         "list_comments", "delete_comment", "add_image", "set_print_setup", "move_sheet", "copy_sheet",
-        "copy_range", "set_protection"};
+        "copy_range", "set_protection", "add_slicer", "list_slicers", "set_slicer_selection"};
     const std::set<std::string> powerPoint{
         "list_slides", "get_slide", "list_layouts", "list_comments", "add_slide", "delete_slide", "move_slide",
         "duplicate_slide", "copy_slide_from", "set_slide_hidden", "set_placeholder_text", "add_text_box",
