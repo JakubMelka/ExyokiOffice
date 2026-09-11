@@ -68,7 +68,7 @@ and its invalid-input cases covered.
 
 ## Library defects the oracle found
 
-**Four defects, all in the library rather than in the servers, all now fixed.**
+**Five defects, all in the library rather than in the servers, all now fixed.**
 Every one of them produced a file that round-tripped through the library's own
 tests and validated as OPC and against the schema, while Excel threw the feature
 away. Each construct is graded `Yes` in the compatibility matrix, so the matrix
@@ -80,6 +80,7 @@ was overstating what shipped.
 | Table slicers (`excel-slicers`) | Yes | Dropped the cache and the drawing, leaving an orphaned `xl/slicers/slicer1.xml` | Two causes at once: the worksheet `slicerList` extension URI was wrong, and the cache had no workbook defined name | Table slicers register under `{3A4CF648-…}`; every slicer cache gets a `#N/A` defined name |
 | Pivot slicers (`excel-slicers`) | Yes | Refused to open the workbook at all, then discarded the slicer once it opened | Three causes: the pivot `slicerList` URI was wrong in its last segment, the slicer cache named a `pivotCacheId` no extension declared, and the pivot table still claimed the Excel 2007 feature version | Pivot slicers register under `{A8765BA9-…-ACF838C121DE}`; the pivot cache declares its identifier; hosting a slicer raises `updatedVersion` to 4 |
 | Pivot slicers on a reordered workbook (`excel-slicers`) | Yes | Discarded the slicer whenever a sheet's position and its `sheetId` differed | The cache's `tabId` was written as the tab position; Excel reads it as the `sheetId` | `SheetTabId` reads the `sheetId` off the workbook sheet list |
+| Table totals row (`excel-tables`) | Yes | Refused to open the workbook | `SetTotalsRowShown` flipped two attributes without growing the table, which left the auto-filter covering the totals row | The table reference grows by a row and the auto-filter stays below it; `Resize` and `SetAutoFilterEnabled` hold the same invariant |
 
 Each cause was isolated by bisecting against a file Excel itself wrote: our
 parts were swapped into a working reference one at a time until it broke, then
@@ -152,8 +153,8 @@ Each row is graded supported in the compatibility matrix and has zero tools.
 | Word `apply_style` | character styles; only paragraph styles are applied |
 | Excel `add_sheet` family | move, copy (including across workbooks), sheet protection |
 | Excel ranges | copy and move a range |
-| Excel `add_conditional_formatting` | colour scales and data bars |
-| Excel `add_table` | auto-filter and sort state |
+| Excel `add_conditional_formatting` | ~~the ranking and average rule kinds, several ranges per rule~~ done |
+| Excel `add_table` | ~~listing tables, auto-filter, column filters, totals row~~ done |
 | Excel `add_chart` | cross-sheet sources, secondary axis, combined types |
 | PowerPoint `list_layouts` | creating, removing, assigning masters and layouts, adding placeholders |
 | PowerPoint `add_image` | embedded audio and video |
@@ -165,6 +166,15 @@ Out of scope for this review; a tool cannot be written for these until the
 library grows one. Recorded so the list is not mistaken for an MCP gap:
 SmartArt (all families), Word text boxes and equations, a *new* chart anchor in
 Word, rich-text cell content in Excel, OOXML package encryption.
+
+Three more were found while working through P1, and two of them are worth a
+decision before the announcement rather than after it:
+
+| Missing | Consequence |
+| --- | --- |
+| **Differential formats (`dxfs`)** | `ExcelConditionalFormattingDefinition` carries a `DifferentialFormatId` but nothing can create the format it points at. Every rule the server writes is therefore invisible: Excel keeps it, matches it, and shows no difference. Confirmed through the object model — the rule is present and its `Interior` and `Font` are empty. A conditional formatting tool that cannot change an appearance is a thin thing to announce. |
+| **Colour scales, data bars, icon sets** | Absent from the library, present only in the generated DOM. This was recorded under Gap C as a tool gap; it is not one. |
+| **Table sort state** | `SortState` exists only in the generated DOM. Also recorded under Gap C by mistake. |
 
 ## Backlog
 
@@ -184,7 +194,9 @@ Word, rich-text cell content in Excel, OOXML package encryption.
 - [ ] PowerPoint custom shows; audio and video
 - [x] Excel slicers
 - [x] Excel sheet move, copy, protection; range copy and move
-- [ ] Excel auto-filter and sort; colour scales and data bars
+- [x] Excel table listing, auto-filter and column filters; the ranking and
+      average conditional-format rules. Sort state, colour scales and data bars
+      turned out to be Gap D rather than Gap C — see above
 - [ ] Excel VBA extract, replace, remove
 - [ ] Word style definitions and numbering
 - [ ] Word floating images with wrapping; section columns; character styles

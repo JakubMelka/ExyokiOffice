@@ -224,6 +224,8 @@ public:
         RegisterSetRowHeight(registry);
         RegisterFreezePanes(registry);
         RegisterAddTable(registry);
+        RegisterListTables(registry);
+        RegisterUpdateTable(registry);
         RegisterAddNamedRange(registry);
         RegisterAddDataValidation(registry);
         RegisterAddConditionalFormatting(registry);
@@ -319,6 +321,22 @@ private:
         nlohmann::json schema = nlohmann::json::object();
         schema["description"] = std::move(description);
         schema["type"] = nlohmann::json::array({"string", "integer"});
+        return schema;
+    }
+
+    /**
+     * @brief A range argument that takes one rectangle or several.
+     *
+     * A conditional format applies to a set of rectangles, not only to one, and
+     * a rule repeated per rectangle is not the same thing: rules that rank or
+     * average read their population from the whole set.
+     */
+    static nlohmann::json RangeListProperty()
+    {
+        nlohmann::json schema = nlohmann::json::object();
+        schema["description"] = "A1 range the rule applies to, or a list of them evaluated as one population.";
+        schema["type"] = nlohmann::json::array({"string", "array"});
+        schema["items"] = Schema::String("One A1 range.");
         return schema;
     }
 
@@ -3485,6 +3503,452 @@ private:
 
     // --- analysis -----------------------------------------------------------
 
+    /**
+     * @brief Finds a table of the workbook by name, and the sheet that owns it.
+     *
+     * Table names are unique workbook-wide, so a `sheet` argument only narrows
+     * the search; a name that exists on another sheet is then not found, which
+     * is what makes a mistaken sheet report itself rather than land elsewhere.
+     */
+    static Excel::ExcelTable::Ptr FindTable(Excel::ExcelDocumentEditor& editor, const std::string& name,
+                                            const std::string& only, std::string& hostSheet)
+    {
+        for (const auto& sheet : editor.Worksheets())
+        {
+            if (sheet == nullptr || (!only.empty() && sheet->Name() != only))
+            {
+                continue;
+            }
+
+            for (const auto& table : sheet->Tables())
+            {
+                if (table != nullptr && AsciiText::EqualsIgnoreCase(table->Name(), name))
+                {
+                    hostSheet = sheet->Name();
+                    return table;
+                }
+            }
+        }
+
+        return nullptr;
+    }
+
+    /// Reports one table the way both table tools describe it.
+    static nlohmann::json DescribeTable(const Excel::ExcelTable::Ptr& table, const std::string& sheetName)
+    {
+        const auto columns = table->Columns();
+
+        nlohmann::json columnList = nlohmann::json::array();
+        for (const auto& column : columns)
+        {
+            nlohmann::json entry = nlohmann::json::object();
+            entry["name"] = column.Name;
+            entry["id"] = column.Id;
+            if (column.TotalsRowLabel.has_value())
+            {
+                entry["totalsLabel"] = *column.TotalsRowLabel;
+            }
+
+            columnList.push_back(std::move(entry));
+        }
+
+        nlohmann::json filters = nlohmann::json::array();
+        for (const auto& filter : table->ValueFilters())
+        {
+            nlohmann::json entry = nlohmann::json::object();
+            entry["column"] = filter.ColumnIndex < columns.size() ? columns[filter.ColumnIndex].Name : std::string();
+            entry["columnIndex"] = filter.ColumnIndex + 1;
+            entry["values"] = filter.Values;
+            entry["includeBlank"] = filter.IncludeBlank;
+            filters.push_back(std::move(entry));
+        }
+
+        const auto range = table->Range();
+
+        nlohmann::json entry = nlohmann::json::object();
+        entry["name"] = table->Name();
+        entry["sheet"] = sheetName;
+        entry["range"] = range.has_value() ? range->ToA1() : std::string();
+        entry["autoFilter"] = table->AutoFilterEnabled();
+        entry["totalsRow"] = table->TotalsRowShown();
+        entry["columns"] = std::move(columnList);
+        entry["filters"] = std::move(filters);
+        return entry;
+    }
+
+    /**
+     * @brief Hides the table rows its value filters exclude, and shows the rest.
+     *
+     * The filter criteria and the hidden rows are two separate things in the
+     * file: the criteria say what the funnel button offers, the `hidden` flag on
+     * each row is what a reader actually sees. Excel writes both and recomputes
+     * neither on open, so a file carrying criteria alone shows a column marked
+     * as filtered with every row still in view.
+     */
+    static void ApplyTableFilters(const Excel::Worksheet::Ptr& sheet, const Excel::ExcelTable::Ptr& table,
+                                  const Excel::SharedStringTableService& sharedStrings)
+    {
+        const auto range = table->Range();
+        if (sheet == nullptr || !range.has_value())
+        {
+            return;
+        }
+
+        const auto filters = table->ValueFilters();
+        const auto firstColumn = range->First().Column().Value();
+        const auto firstRow = range->First().Row().Value() + 1;
+        const auto lastRow = range->Last().Row().Value() - (table->TotalsRowShown() ? 1 : 0);
+
+        for (auto row = firstRow; row <= lastRow; ++row)
+        {
+            bool visible = true;
+            for (const auto& filter : filters)
+            {
+                const auto value = sheet->GetCellValue(row, firstColumn + filter.ColumnIndex);
+                const auto text = value.has_value()
+                                      ? ExcelAddressing::CellValueToText(*value, sharedStrings)
+                                      : std::string();
+                if (text.empty())
+                {
+                    visible = filter.IncludeBlank;
+                }
+                else
+                {
+                    visible = std::find(filter.Values.begin(), filter.Values.end(), text) != filter.Values.end();
+                }
+
+                if (!visible)
+                {
+                    break;
+                }
+            }
+
+            auto dimension = sheet->GetRowDimension(row).value_or(Excel::RowDimension{});
+            if (dimension.Hidden == !visible)
+            {
+                continue;
+            }
+
+            dimension.Hidden = !visible;
+            sheet->SetRowDimension(row, dimension);
+        }
+    }
+
+    static void RegisterListTables(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        properties["sheet"] = SheetReferenceProperty(
+            "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.");
+
+        nlohmann::json column =
+            Schema::Object("One table column.", {"name"},
+                           nlohmann::json{{"name", Schema::String("Column name.")},
+                                          {"id", Schema::Integer("Stable column identifier.")},
+                                          {"totalsLabel", Schema::String("Label shown in the totals row.")}});
+
+        nlohmann::json filter = Schema::Object(
+            "One column filter.", {"column", "values"},
+            nlohmann::json{{"column", Schema::String("Filtered column.")},
+                           {"columnIndex", Schema::Integer("1-based column position.")},
+                           {"values", Schema::Array("Values kept visible.", Schema::String("One value."))},
+                           {"includeBlank", Schema::Boolean("Blank cells are kept too.")}});
+
+        nlohmann::json table = Schema::Object(
+            "One table.", {"name", "sheet", "range"},
+            nlohmann::json{{"name", Schema::String("Table name.")},
+                           {"sheet", Schema::String("Worksheet that holds it.")},
+                           {"range", Schema::String("A1 range, header and totals rows included.")},
+                           {"autoFilter", Schema::Boolean("The table carries filter buttons.")},
+                           {"totalsRow", Schema::Boolean("The totals row is visible.")},
+                           {"columns", Schema::Array("Columns in worksheet order.", std::move(column))},
+                           {"filters", Schema::Array("Active column filters.", std::move(filter))}});
+
+        auto definition = MakeDefinition("list_tables", "List tables",
+                                         "List the structured tables of the workbook with their columns and the "
+                                         "filters currently applied to them.",
+                                         "analysis");
+        definition.InputSchema = Schema::Object("Arguments of list_tables.", {}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Tables.", {"tables"},
+                                            nlohmann::json{{"tables", Schema::Array("Tables.", std::move(table))}}),
+                             false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListTables(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListTables(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        std::string only;
+        if (arguments.contains("sheet"))
+        {
+            ToolOutcome failure;
+            auto sheet = ExcelAddressing::FindSheet(reader.Editor(), arguments, failure);
+            if (sheet == nullptr)
+            {
+                return failure;
+            }
+
+            only = sheet->Name();
+        }
+
+        nlohmann::json tables = nlohmann::json::array();
+        for (const auto& sheet : reader.Editor().Worksheets())
+        {
+            if (sheet == nullptr || (!only.empty() && sheet->Name() != only))
+            {
+                continue;
+            }
+
+            for (const auto& table : sheet->Tables())
+            {
+                if (table != nullptr)
+                {
+                    tables.push_back(DescribeTable(table, sheet->Name()));
+                }
+            }
+        }
+
+        const auto count = tables.size();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["tables"] = std::move(tables);
+
+        return ResultBuilder("Listed " + std::to_string(count) + " table(s).").WithData(std::move(data)).Build();
+    }
+
+    static void RegisterUpdateTable(ToolRegistry& registry)
+    {
+        nlohmann::json filter = Schema::Object(
+            "One column filter.", {"column"},
+            nlohmann::json{
+                {"column", SheetReferenceProperty("Column name (case-insensitive) or 1-based position.")},
+                {"values", Schema::Array("Values to keep visible; the others are hidden.",
+                                         Schema::String("One value, as it is written in the cell."))},
+                {"include_blank", Schema::BooleanWithDefault("Keep blank cells visible as well.", false)},
+                {"clear", Schema::BooleanWithDefault("Drop this column's filter instead of setting one.", false)}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetReferenceProperty(
+            "Worksheet holding the table, by name or 1-based index; omit to search the whole workbook.");
+        properties["table"] = Schema::String("Name of the table to update, matched case-insensitively.");
+        properties["name"] = Schema::String("New table name.");
+        properties["auto_filter"] = Schema::Boolean("Show or hide the column filter buttons.");
+        properties["totals_row"] = Schema::Boolean("Show or hide the totals row; showing it needs two data rows.");
+        properties["filters"] = Schema::Array("Column filters to set or drop.", std::move(filter));
+        properties["clear_filters"] = Schema::BooleanWithDefault("Drop every column filter first.", false);
+
+        auto definition = MakeDefinition(
+            "update_table", "Update table",
+            "Rename a table, show or hide its filter buttons and totals row, and set which values each column "
+            "keeps visible. Rows the filters exclude are hidden, not deleted; clearing the filters brings them "
+            "back.",
+            "analysis");
+        definition.InputSchema =
+            Schema::Object("Arguments of update_table.", {"documentId", "table"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Updated table.", {"name", "sheet"},
+                                            nlohmann::json{
+                                                {"name", Schema::String("Table name.")},
+                                                {"sheet", Schema::String("Worksheet that holds it.")},
+                                                {"range", Schema::String("A1 range of the table.")},
+                                                {"autoFilter", Schema::Boolean("Filter buttons are shown.")},
+                                                {"totalsRow", Schema::Boolean("The totals row is shown.")},
+                                                {"filterCount", Schema::Integer("Column filters now in force.")}}),
+                             true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"},
+                           {"table", "Sales"},
+                           {"filters", nlohmann::json::array({nlohmann::json{
+                                           {"column", "Region"},
+                                           {"values", nlohmann::json::array({"North", "South"})}}})}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return UpdateTable(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome UpdateTable(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        std::string only;
+        if (arguments.contains("sheet"))
+        {
+            ToolOutcome failure;
+            auto hosting = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+            if (hosting == nullptr)
+            {
+                return failure;
+            }
+
+            only = hosting->Name();
+        }
+
+        const auto tableName = arguments.value("table", std::string());
+        std::string sheetName;
+        auto table = FindTable(session.Editor(), tableName, only, sheetName);
+        if (table == nullptr)
+        {
+            return MakeError(ErrorCode::MediaNotFound, "No table named '" + tableName + "'.", tableName,
+                             "Call list_tables to see the tables the workbook holds.");
+        }
+
+        auto sheet = session.Editor().GetWorksheet(sheetName);
+        const auto columns = table->Columns();
+
+        // Every filter is resolved against the table before anything is
+        // written, so one naming a column that does not exist leaves the table
+        // exactly as it was rather than half updated.
+        struct PendingFilter
+        {
+            UInt32 Index = 0;
+            bool Clear = false;
+            Excel::ExcelTableValueFilter Filter;
+        };
+
+        std::vector<PendingFilter> pending;
+        const auto filters = arguments.find("filters");
+        if (filters != arguments.end())
+        {
+            for (const auto& entry : *filters)
+            {
+                const auto& column = entry.at("column");
+                std::optional<UInt32> index;
+                if (column.is_number_integer())
+                {
+                    const auto position = column.get<Int64>();
+                    if (position >= 1 && static_cast<Size>(position) <= columns.size())
+                    {
+                        index = static_cast<UInt32>(position - 1);
+                    }
+                }
+                else
+                {
+                    const auto wanted = column.get<std::string>();
+                    for (Size candidate = 0; candidate < columns.size(); ++candidate)
+                    {
+                        if (AsciiText::EqualsIgnoreCase(columns[candidate].Name, wanted))
+                        {
+                            index = static_cast<UInt32>(candidate);
+                            break;
+                        }
+                    }
+                }
+
+                if (!index.has_value())
+                {
+                    return MakeError(ErrorCode::InputInvalid, "The table has no column " + column.dump() + ".",
+                                     tableName, "Name a column of the table, or give its 1-based position.");
+                }
+
+                PendingFilter item;
+                item.Index = *index;
+                item.Clear = entry.value("clear", false);
+                item.Filter.ColumnIndex = *index;
+                item.Filter.IncludeBlank = entry.value("include_blank", false);
+                const auto values = entry.find("values");
+                if (values != entry.end())
+                {
+                    for (const auto& value : *values)
+                    {
+                        item.Filter.Values.push_back(value.get<std::string>());
+                    }
+                }
+
+                if (!item.Clear && item.Filter.Values.empty() && !item.Filter.IncludeBlank)
+                {
+                    return MakeError(ErrorCode::InputInvalid, "A filter needs values, include_blank, or clear.",
+                                     columns[*index].Name,
+                                     "An empty filter would hide every row; pass clear to drop the filter "
+                                     "instead.");
+                }
+
+                pending.push_back(std::move(item));
+            }
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (arguments.contains("name"))
+        {
+            const auto newName = arguments.value("name", std::string());
+            if (sheet == nullptr || !sheet->RenameTable(table, newName))
+            {
+                return MakeError(ErrorCode::OperationFailed, "The table could not be renamed to '" + newName + "'.",
+                                 newName,
+                                 "A table name is unique in the workbook, starts with a letter or an underscore, "
+                                 "and carries no spaces.");
+            }
+        }
+
+        if (arguments.contains("auto_filter") && !table->SetAutoFilterEnabled(arguments.value("auto_filter", true)))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The filter buttons could not be changed.", tableName);
+        }
+
+        if (arguments.value("clear_filters", false) && !table->ClearValueFilters())
+        {
+            return MakeError(ErrorCode::OperationFailed, "The column filters could not be cleared.", tableName);
+        }
+
+        for (const auto& item : pending)
+        {
+            if (item.Clear)
+            {
+                table->RemoveValueFilter(item.Index);
+                continue;
+            }
+
+            if (!table->SetValueFilter(item.Filter))
+            {
+                return MakeError(ErrorCode::OperationFailed,
+                                 "The filter for column " + std::to_string(item.Index + 1) + " could not be set.",
+                                 tableName,
+                                 "Values have to be distinct, and the table needs its filter buttons shown.");
+            }
+        }
+
+        if (arguments.contains("totals_row") && !table->SetTotalsRowShown(arguments.value("totals_row", false)))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The totals row could not be changed.", tableName,
+                             "Showing a totals row needs a table with at least two rows.");
+        }
+
+        ApplyTableFilters(sheet, table, session.Editor().SharedStrings());
+
+        guard.Commit();
+
+        const auto range = table->Range();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = table->Name();
+        data["sheet"] = sheetName;
+        data["range"] = range.has_value() ? range->ToA1() : std::string();
+        data["autoFilter"] = table->AutoFilterEnabled();
+        data["totalsRow"] = table->TotalsRowShown();
+        data["filterCount"] = table->ValueFilters().size();
+
+        return ResultBuilder("Updated table '" + table->Name() + "'.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
     static void RegisterAddTable(ToolRegistry& registry)
     {
         nlohmann::json properties = nlohmann::json::object();
@@ -3933,25 +4397,36 @@ private:
                 {"type", Schema::Enumeration("Rule kind.",
                                              {"cellIs", "expression", "containsText", "notContainsText",
                                               "beginsWith", "endsWith", "uniqueValues", "duplicateValues",
-                                              "containsBlanks", "notContainsBlanks"})},
+                                              "containsBlanks", "notContainsBlanks", "containsErrors",
+                                              "notContainsErrors", "top", "bottom", "aboveAverage",
+                                              "belowAverage"})},
                 {"operator", Schema::Enumeration("Comparison for cellIs rules.",
                                                  {"lessThan", "lessThanOrEqual", "equal", "notEqual",
                                                   "greaterThanOrEqual", "greaterThan", "between", "notBetween"})},
                 {"formula1", Schema::String("First formula or bound.")},
                 {"formula2", Schema::String("Second bound for between and notBetween.")},
                 {"text", Schema::String("Text for the text-matching rules.")},
+                {"rank", Schema::IntegerWithDefault("How many items a top or bottom rule selects.", 10, 1, 1000)},
+                {"percent", Schema::BooleanWithDefault(
+                                "Read 'rank' as a percentage of the range rather than a count of items.", false)},
+                {"equal_average",
+                 Schema::BooleanWithDefault("Include values equal to the average in an average rule.", false)},
+                {"standard_deviation",
+                 Schema::Integer("Shift an average rule's boundary by this many standard deviations.", 0, 3)},
                 {"stop_if_true", Schema::Boolean("Stop evaluating further rules when this one matches.")}});
 
         nlohmann::json properties = nlohmann::json::object();
         ToolSupport::AddDocumentIdProperty(properties);
         properties["sheet"] = SheetProperty();
-        properties["range"] = Schema::String("A1 range the rule applies to.");
+        properties["range"] = RangeListProperty();
         properties["rule"] = std::move(rule);
 
         auto definition = MakeDefinition(
             "add_conditional_formatting", "Add conditional formatting",
-            "Add a conditional formatting rule to a range. Color scales and data bars are not offered in this "
-            "version; use a cellIs or expression rule instead.",
+            "Add a conditional formatting rule to one or several ranges. The rule decides which cells match; it "
+            "carries no appearance of its own, because this version cannot create the differential format a rule "
+            "would point at. Color scales, data bars and icon sets are not offered either. To make a difference "
+            "visible, set it with format_range.",
             "analysis");
         definition.InputSchema = Schema::Object("Arguments of add_conditional_formatting.",
                                                 {"documentId", "range", "rule"}, std::move(properties));
@@ -4029,15 +4504,49 @@ private:
             return failure;
         }
 
-        const auto range = ExcelAddressing::ParseRange(arguments.value("range", std::string()), failure);
-        if (!range.has_value())
+        std::vector<std::string> rangeTokens;
+        const auto& rangeArgument = arguments.at("range");
+        if (rangeArgument.is_array())
         {
-            return failure;
+            for (const auto& entry : rangeArgument)
+            {
+                if (!entry.is_string())
+                {
+                    return MakeError(ErrorCode::InputInvalid, "Every entry of 'range' has to be an A1 range.",
+                                     entry.dump());
+                }
+                rangeTokens.push_back(entry.get<std::string>());
+            }
+        }
+        else
+        {
+            rangeTokens.push_back(rangeArgument.get<std::string>());
+        }
+
+        if (rangeTokens.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A rule needs at least one range.", "range");
+        }
+
+        std::vector<Excel::CellRange> ranges;
+        std::string rangeText;
+        for (const auto& token : rangeTokens)
+        {
+            const auto parsed = ExcelAddressing::ParseRange(token, failure);
+            if (!parsed.has_value())
+            {
+                return failure;
+            }
+            ranges.push_back(*parsed);
+            if (!rangeText.empty())
+            {
+                rangeText.push_back(' ');
+            }
+            rangeText.append(parsed->ToA1());
         }
 
         const auto& rule = arguments.at("rule");
         const auto type = rule.value("type", std::string());
-        const std::vector<Excel::CellRange> ranges{*range};
         const auto formula1 = rule.value("formula1", std::string());
         const auto formula2 = rule.value("formula2", std::string());
         const auto text = rule.value("text", std::string());
@@ -4100,29 +4609,69 @@ private:
         {
             definition = Excel::ExcelConditionalFormattingDefinition::NotContainsBlanks(ranges);
         }
+        else if (type == "containsErrors")
+        {
+            definition = Excel::ExcelConditionalFormattingDefinition::ContainsErrors(ranges);
+        }
+        else if (type == "notContainsErrors")
+        {
+            definition = Excel::ExcelConditionalFormattingDefinition::NotContainsErrors(ranges);
+        }
+        else if (type == "top" || type == "bottom")
+        {
+            // The schema bounds the rank, so a value outside it never arrives;
+            // the fallback only has to match the published default.
+            const auto rank = static_cast<UInt32>(rule.value("rank", 10));
+            const auto percent = rule.value("percent", false);
+            definition = type == "top" ? Excel::ExcelConditionalFormattingDefinition::Top(ranges, rank, percent)
+                                       : Excel::ExcelConditionalFormattingDefinition::Bottom(ranges, rank, percent);
+        }
+        else if (type == "aboveAverage" || type == "belowAverage")
+        {
+            const auto equalAverage = rule.value("equal_average", false);
+            std::optional<Int32> deviation;
+            if (rule.contains("standard_deviation"))
+            {
+                deviation = static_cast<Int32>(rule.value("standard_deviation", 0));
+            }
+            definition = type == "aboveAverage"
+                             ? Excel::ExcelConditionalFormattingDefinition::AboveAverage(ranges, equalAverage,
+                                                                                        deviation)
+                             : Excel::ExcelConditionalFormattingDefinition::BelowAverage(ranges, equalAverage,
+                                                                                         deviation);
+        }
         else
         {
             return MakeError(ErrorCode::Unsupported, "The rule kind '" + type + "' is not offered by this server.",
-                             type, "Use cellIs or expression, or set the formatting with format_range.");
+                             type,
+                             "Color scales, data bars and icon sets are not written by this version; use cellIs or "
+                             "expression and set the appearance with format_range.");
         }
 
         definition->StopIfTrue = rule.value("stop_if_true", false);
 
         MutationGuard guard(session.Session());
 
+        if (!Excel::IsValidExcelConditionalFormatting(*definition))
+        {
+            return MakeError(ErrorCode::InputInvalid, "The rule is incomplete for its kind.", type,
+                             "A cellIs rule needs one formula, or two for between and notBetween; a text rule "
+                             "needs 'text'; the remaining kinds take neither.");
+        }
+
         if (sheet->CreateConditionalFormatting(*definition) == nullptr)
         {
             return MakeError(ErrorCode::OperationFailed, "The conditional formatting could not be created.",
-                             range->ToA1());
+                             rangeText);
         }
 
         guard.Commit();
 
         nlohmann::json data = nlohmann::json::object();
-        data["range"] = range->ToA1();
+        data["range"] = rangeText;
         data["type"] = type;
 
-        return ResultBuilder("Added a '" + type + "' rule to " + range->ToA1() + ".")
+        return ResultBuilder("Added a '" + type + "' rule to " + rangeText + ".")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();

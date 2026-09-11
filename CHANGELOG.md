@@ -35,6 +35,12 @@ in [docs/](docs/README.md).
     `copy_range` and `set_protection`.
   - Excel `add_slicer`, `list_slicers` and `set_slicer_selection`, over pivot
     tables and worksheet tables.
+  - Excel `list_tables` and `update_table`: rename a table, toggle its filter
+    buttons and totals row, and filter a column to a set of values, hiding the
+    rows the filter excludes.
+- Excel `add_conditional_formatting` takes the `containsErrors`,
+  `notContainsErrors`, `top`, `bottom`, `aboveAverage` and `belowAverage` rule
+  kinds, and applies one rule to several ranges at once.
 
 ### Fixed
 
@@ -53,6 +59,10 @@ in [docs/](docs/README.md).
     refused the workbook; without the third it dropped the slicer.
   - A pivot slicer cache names its sheet by `sheetId` rather than by tab
     position, so a slicer survives on a workbook whose sheets were reordered.
+  - `ExcelTable::SetTotalsRowShown` grows the table reference by a row and keeps
+    the totals row outside `autoFilter`; Excel refused to open a workbook whose
+    auto-filter reached into it. `Resize` and `SetAutoFilterEnabled` hold the
+    same invariant.
 
 ## [1.1.0] - 2026-08-20
 

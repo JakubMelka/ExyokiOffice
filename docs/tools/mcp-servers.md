@@ -793,6 +793,8 @@ tracked differences.
 | `set_row_height` | formatting | M I | Row heights in points |
 | `freeze_panes` | formatting | M I | Freeze rows and columns |
 | `add_table` | analysis | M | Turn a range into a structured table |
+| `list_tables` | analysis | R I | Tables with their columns and the filters in force |
+| `update_table` | analysis | M | Rename a table, toggle its filter buttons and totals row, filter its columns |
 | `add_named_range` | analysis | M | Define a workbook or sheet name |
 | `add_data_validation` | analysis | M | Constrain what a range accepts |
 | `add_conditional_formatting` | analysis | M | Add a conditional formatting rule |
@@ -819,6 +821,15 @@ and the only one a reply can attach to. A threaded comment is written together
 with the plain note that backs it, which is what a reader too old for threads
 shows and what Excel requires before it will accept the thread at all; that
 backing note is not reported by `list_comments` as a note of its own.
+
+A table filter is two things in the file, and `update_table` writes both: the
+criteria the funnel button offers, and the `hidden` flag on each row the filter
+excludes. Excel recomputes neither on open, so a file carrying criteria alone
+would show a column marked as filtered with every row still in view. Clearing
+the filters unhides the rows again.
+
+Showing a totals row grows the table by one row, because the totals row is a row
+of the table; the filter buttons never act on it.
 
 CSV import and export run through `convert_document`, which takes
 `csv_separator` and `sheet` on this server.
@@ -989,8 +1000,13 @@ Deliberately out of scope, and rejected rather than half-implemented:
   embedded packages go to a file through `export_media`.
 - **Basic charts only.** Categories, series, and the common plot types;
   anything richer answers `unsupported` with a hint.
-- **Colour scales and data bars** are not offered by
-  `add_conditional_formatting`; use a `cellIs` or `expression` rule.
+- **A conditional formatting rule carries no appearance.** It decides which
+  cells match, and nothing more: this version cannot create the differential
+  format a rule points at, so Excel keeps the rule and shows no difference. Use
+  `format_range` to make one visible. Colour scales, data bars and icon sets are
+  not offered at all.
+- **No sort state on a table.** `update_table` filters columns; it does not
+  record a sort order.
 
 `validate_document` checks OPC structure and markup schema, which is not the
 same as full Microsoft Office compatibility — see

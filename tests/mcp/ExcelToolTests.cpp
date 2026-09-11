@@ -1673,3 +1673,316 @@ TEST_CASE("the slicer tools refuse a source or a caption that does not exist [mc
     CHECK(unknownCaption["ok"] == false);
     CHECK(unknownCaption["error"]["code"] == "input_invalid");
 }
+
+/// A workbook with a table over four data rows, which the table tools filter.
+static std::string MakeTableWorkbook(McpTestServer& server, const std::string& path)
+{
+    const auto created = server.Call("create_document", nlohmann::json{{"path", path}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server.Call("write_range",
+                        nlohmann::json{{"documentId", documentId},
+                                       {"origin", "A1"},
+                                       {"values", nlohmann::json::array({
+                                           nlohmann::json::array({"Region", "Quarter", "Amount"}),
+                                           nlohmann::json::array({"North", "Q1", 100}),
+                                           nlohmann::json::array({"South", "Q2", 200}),
+                                           nlohmann::json::array({"East", "Q1", 300}),
+                                           nlohmann::json::array({"North", "Q2", 400})})}})["ok"] == true);
+
+    REQUIRE(server.Call("add_table", nlohmann::json{{"documentId", documentId},
+                                                    {"range", "A1:C5"},
+                                                    {"name", "Sales"}})["ok"] == true);
+    return documentId;
+}
+
+TEST_CASE("tables are listed with their columns and the filters in force [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto documentId = MakeTableWorkbook(*server, "tables.xlsx");
+
+    const auto listed = server->Call("list_tables", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    REQUIRE(listed["data"]["tables"].size() == 1);
+
+    const auto& table = listed["data"]["tables"][0];
+    CHECK(table["name"] == "Sales");
+    CHECK(table["sheet"] == "Sheet1");
+    CHECK(table["range"] == "A1:C5");
+    CHECK(table["autoFilter"] == true);
+    CHECK(table["totalsRow"] == false);
+    REQUIRE(table["columns"].size() == 3);
+    CHECK(table["columns"][0]["name"] == "Region");
+    CHECK(table["filters"].empty());
+
+    const auto filtered = server->Call(
+        "update_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"table", "sales"},
+                       {"filters", nlohmann::json::array({nlohmann::json{
+                           {"column", "Region"},
+                           {"values", nlohmann::json::array({"North", "South"})}}})}});
+    REQUIRE(filtered["ok"] == true);
+    CHECK(filtered["data"]["filterCount"] == 1);
+
+    const auto afterFilter = server->Call("list_tables", nlohmann::json{{"documentId", documentId}});
+    const auto& active = afterFilter["data"]["tables"][0]["filters"];
+    REQUIRE(active.size() == 1);
+    CHECK(active[0]["column"] == "Region");
+    CHECK(active[0]["columnIndex"] == 1);
+    CHECK(active[0]["values"].size() == 2);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("tables.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+
+    // The criteria alone leave every row on screen: a reader applies no filter
+    // on open, so the excluded rows have to be hidden in the file as well.
+    const auto hidden = [&](ExyokiOffice::UInt32 row)
+    {
+        const auto dimension = sheet->GetRowDimension(row);
+        return dimension.has_value() ? dimension->Hidden : false;
+    };
+    CHECK_FALSE(hidden(2));
+    CHECK_FALSE(hidden(3));
+    CHECK(hidden(4));
+    CHECK_FALSE(hidden(5));
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("tables.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("clearing a table filter brings the hidden rows back [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto documentId = MakeTableWorkbook(*server, "unfiltered.xlsx");
+
+    REQUIRE(server->Call("update_table",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"table", "Sales"},
+                                        {"filters", nlohmann::json::array({nlohmann::json{
+                                            {"column", 1},
+                                            {"values", nlohmann::json::array({"North"})}}})}})["ok"] == true);
+
+    const auto cleared = server->Call("update_table", nlohmann::json{{"documentId", documentId},
+                                                                     {"table", "Sales"},
+                                                                     {"clear_filters", true}});
+    REQUIRE(cleared["ok"] == true);
+    CHECK(cleared["data"]["filterCount"] == 0);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("unfiltered.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    for (ExyokiOffice::UInt32 row = 2; row <= 5; ++row)
+    {
+        const auto dimension = sheet->GetRowDimension(row);
+        const bool isHidden = dimension.has_value() ? dimension->Hidden : false;
+        CHECK_FALSE(isHidden);
+    }
+}
+
+TEST_CASE("a totals row grows the table and keeps the workbook valid [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto documentId = MakeTableWorkbook(*server, "totals.xlsx");
+
+    const auto shown = server->Call(
+        "update_table", nlohmann::json{{"documentId", documentId}, {"table", "Sales"}, {"totals_row", true}});
+    REQUIRE(shown["ok"] == true);
+    CHECK(shown["data"]["totalsRow"] == true);
+    CHECK(shown["data"]["range"] == "A1:C6");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("totals.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+    REQUIRE(sheet->Tables().size() == 1);
+
+    // Excel refuses the workbook when the auto-filter reaches into the totals
+    // row, so the two rectangles have to differ.
+    const auto xml = sheet->Tables()[0]->GetPart()->GetXmlString();
+    CHECK(xml.find("ref=\"A1:C6\"") != std::string::npos);
+    CHECK(xml.find("autoFilter ref=\"A1:C5\"") != std::string::npos);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("totals.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("the table tools refuse a table, a column or a filter that makes no sense [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto documentId = MakeTableWorkbook(*server, "refused.xlsx");
+
+    const auto unknownTable = server->Call(
+        "update_table", nlohmann::json{{"documentId", documentId}, {"table", "Nowhere"}, {"auto_filter", false}});
+    CHECK(unknownTable["ok"] == false);
+    CHECK(unknownTable["error"]["code"] == "media_not_found");
+
+    const auto unknownColumn = server->Call(
+        "update_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"table", "Sales"},
+                       {"filters", nlohmann::json::array({nlohmann::json{
+                           {"column", "Nope"}, {"values", nlohmann::json::array({"North"})}}})}});
+    CHECK(unknownColumn["ok"] == false);
+    CHECK(unknownColumn["error"]["code"] == "input_invalid");
+
+    const auto pastEnd = server->Call(
+        "update_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"table", "Sales"},
+                       {"filters", nlohmann::json::array({nlohmann::json{
+                           {"column", 9}, {"values", nlohmann::json::array({"North"})}}})}});
+    CHECK(pastEnd["ok"] == false);
+    CHECK(pastEnd["error"]["code"] == "input_invalid");
+
+    // An empty filter would hide every row, which is never what was meant.
+    const auto empty = server->Call(
+        "update_table", nlohmann::json{{"documentId", documentId},
+                                       {"table", "Sales"},
+                                       {"filters", nlohmann::json::array({nlohmann::json{
+                                           {"column", "Region"},
+                                           {"values", nlohmann::json::array()}}})}});
+    CHECK(empty["ok"] == false);
+    CHECK(empty["error"]["code"] == "input_invalid");
+
+    const auto badName = server->Call(
+        "update_table", nlohmann::json{{"documentId", documentId}, {"table", "Sales"}, {"name", "not a name"}});
+    CHECK(badName["ok"] == false);
+    CHECK(badName["error"]["code"] == "operation_failed");
+
+    const auto missingSheet = server->Call(
+        "list_tables", nlohmann::json{{"documentId", documentId}, {"sheet", "Nowhere"}});
+    CHECK(missingSheet["ok"] == false);
+    CHECK(missingSheet["error"]["code"] == "sheet_not_found");
+
+    // Nothing above may have touched the table.
+    const auto listed = server->Call("list_tables", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["data"]["tables"].size() == 1);
+    CHECK(listed["data"]["tables"][0]["name"] == "Sales");
+    CHECK(listed["data"]["tables"][0]["filters"].empty());
+}
+
+TEST_CASE("conditional formatting covers the ranking and average rules [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "rules.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("write_range",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"origin", "A1"},
+                                        {"values", nlohmann::json::array({nlohmann::json::array({10}),
+                                                                          nlohmann::json::array({20}),
+                                                                          nlohmann::json::array({30}),
+                                                                          nlohmann::json::array({40})})}})
+                ["ok"] == true);
+
+    const auto top = server->Call("add_conditional_formatting",
+                                  nlohmann::json{{"documentId", documentId},
+                                                 {"range", "A1:A4"},
+                                                 {"rule", nlohmann::json{{"type", "top"}, {"rank", 2}}}});
+    REQUIRE(top["ok"] == true);
+    CHECK(top["data"]["type"] == "top");
+
+    REQUIRE(server->Call("add_conditional_formatting",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"range", "A1:A4"},
+                                        {"rule", nlohmann::json{{"type", "bottom"},
+                                                                {"rank", 25},
+                                                                {"percent", true}}}})["ok"] == true);
+
+    REQUIRE(server->Call("add_conditional_formatting",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"range", "A1:A4"},
+                                        {"rule", nlohmann::json{{"type", "aboveAverage"},
+                                                                {"equal_average", true},
+                                                                {"standard_deviation", 1}}}})["ok"] == true);
+
+    REQUIRE(server->Call("add_conditional_formatting",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"range", "A1:A4"},
+                                        {"rule", nlohmann::json{{"type", "containsErrors"}}}})["ok"] == true);
+
+    // Several rectangles are one rule over one population, not a rule each.
+    const auto several = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", nlohmann::json::array({"A1:A2", "C1:C2"})},
+                       {"rule", nlohmann::json{{"type", "belowAverage"}}}});
+    REQUIRE(several["ok"] == true);
+    CHECK(several["data"]["range"] == "A1:A2 C1:C2");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("rules.xlsx"));
+    REQUIRE(editor != nullptr);
+    CHECK(editor->FirstWorksheet()->ConditionalFormattings().size() == 5);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("rules.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a conditional formatting rule is refused when it cannot be built [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badrules.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    // Color scales and data bars are not written by this version, and the
+    // schema says so, so the call never reaches the handler.
+    const auto colorScale = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId}, {"range", "A1:A4"}, {"rule", nlohmann::json{{"type",
+                                                                                               "colorScale"}}}});
+    CHECK(colorScale["ok"] == false);
+    CHECK(colorScale["error"]["code"] == "input_invalid");
+
+    const auto missingOperator = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "A1:A4"},
+                       {"rule", nlohmann::json{{"type", "cellIs"}, {"formula1", "1"}}}});
+    CHECK(missingOperator["ok"] == false);
+    CHECK(missingOperator["error"]["code"] == "input_invalid");
+
+    // A text rule without its text builds nothing.
+    const auto missingText = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "A1:A4"},
+                       {"rule", nlohmann::json{{"type", "containsText"}}}});
+    CHECK(missingText["ok"] == false);
+    CHECK(missingText["error"]["code"] == "input_invalid");
+
+    const auto badRange = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", nlohmann::json::array({"A1:A4", "nonsense"})},
+                       {"rule", nlohmann::json{{"type", "duplicateValues"}}}});
+    CHECK(badRange["ok"] == false);
+    CHECK(badRange["error"]["code"] == "range_invalid");
+
+    // A refused rule writes nothing, so the new document is still clean.
+    const auto documents = server->Call("list_documents", nlohmann::json::object());
+    REQUIRE(documents["data"]["documents"].size() == 1);
+    CHECK(documents["data"]["documents"][0]["dirty"] == false);
+}

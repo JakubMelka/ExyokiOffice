@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-excel",
   "title": "ExyokiOffice Excel MCP Server",
-  "toolCount": 60,
+  "toolCount": 62,
   "tools": [
     {
       "annotations": {
@@ -3060,6 +3060,234 @@
         "type": "object"
       },
       "title": "List comments"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the structured tables of the workbook with their columns and the filters currently applied to them.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_tables.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_tables",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Tables.",
+            "properties": {
+              "tables": {
+                "description": "Tables.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One table.",
+                  "properties": {
+                    "autoFilter": {
+                      "description": "The table carries filter buttons.",
+                      "type": "boolean"
+                    },
+                    "columns": {
+                      "description": "Columns in worksheet order.",
+                      "items": {
+                        "additionalProperties": false,
+                        "description": "One table column.",
+                        "properties": {
+                          "id": {
+                            "description": "Stable column identifier.",
+                            "type": "integer"
+                          },
+                          "name": {
+                            "description": "Column name.",
+                            "type": "string"
+                          },
+                          "totalsLabel": {
+                            "description": "Label shown in the totals row.",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "filters": {
+                      "description": "Active column filters.",
+                      "items": {
+                        "additionalProperties": false,
+                        "description": "One column filter.",
+                        "properties": {
+                          "column": {
+                            "description": "Filtered column.",
+                            "type": "string"
+                          },
+                          "columnIndex": {
+                            "description": "1-based column position.",
+                            "type": "integer"
+                          },
+                          "includeBlank": {
+                            "description": "Blank cells are kept too.",
+                            "type": "boolean"
+                          },
+                          "values": {
+                            "description": "Values kept visible.",
+                            "items": {
+                              "description": "One value.",
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "column",
+                          "values"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "description": "Table name.",
+                      "type": "string"
+                    },
+                    "range": {
+                      "description": "A1 range, header and totals rows included.",
+                      "type": "string"
+                    },
+                    "sheet": {
+                      "description": "Worksheet that holds it.",
+                      "type": "string"
+                    },
+                    "totalsRow": {
+                      "description": "The totals row is visible.",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "sheet",
+                    "range"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "tables"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List tables"
     },
     {
       "annotations": {
@@ -8014,6 +8242,243 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
+      "description": "Rename a table, show or hide its filter buttons and totals row, and set which values each column keeps visible. Rows the filters exclude are hidden, not deleted; clearing the filters brings them back.",
+      "example": {
+        "documentId": "doc-1",
+        "filters": [
+          {
+            "column": "Region",
+            "values": [
+              "North",
+              "South"
+            ]
+          }
+        ],
+        "table": "Sales"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of update_table.",
+        "properties": {
+          "auto_filter": {
+            "description": "Show or hide the column filter buttons.",
+            "type": "boolean"
+          },
+          "clear_filters": {
+            "default": false,
+            "description": "Drop every column filter first.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "filters": {
+            "description": "Column filters to set or drop.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One column filter.",
+              "properties": {
+                "clear": {
+                  "default": false,
+                  "description": "Drop this column's filter instead of setting one.",
+                  "type": "boolean"
+                },
+                "column": {
+                  "description": "Column name (case-insensitive) or 1-based position.",
+                  "type": [
+                    "string",
+                    "integer"
+                  ]
+                },
+                "include_blank": {
+                  "default": false,
+                  "description": "Keep blank cells visible as well.",
+                  "type": "boolean"
+                },
+                "values": {
+                  "description": "Values to keep visible; the others are hidden.",
+                  "items": {
+                    "description": "One value, as it is written in the cell.",
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "column"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "New table name.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet holding the table, by name or 1-based index; omit to search the whole workbook.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "table": {
+            "description": "Name of the table to update, matched case-insensitively.",
+            "type": "string"
+          },
+          "totals_row": {
+            "description": "Show or hide the totals row; showing it needs two data rows.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documentId",
+          "table"
+        ],
+        "type": "object"
+      },
+      "name": "update_table",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Updated table.",
+            "properties": {
+              "autoFilter": {
+                "description": "Filter buttons are shown.",
+                "type": "boolean"
+              },
+              "filterCount": {
+                "description": "Column filters now in force.",
+                "type": "integer"
+              },
+              "name": {
+                "description": "Table name.",
+                "type": "string"
+              },
+              "range": {
+                "description": "A1 range of the table.",
+                "type": "string"
+              },
+              "sheet": {
+                "description": "Worksheet that holds it.",
+                "type": "string"
+              },
+              "totalsRow": {
+                "description": "The totals row is shown.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "sheet"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Update table"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
       "description": "Define a workbook or worksheet name for a range so formulas can refer to it by name.",
       "example": {
         "documentId": "doc-1",
@@ -8413,7 +8878,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Add a conditional formatting rule to a range. Color scales and data bars are not offered in this version; use a cellIs or expression rule instead.",
+      "description": "Add a conditional formatting rule to one or several ranges. The rule decides which cells match; it carries no appearance of its own, because this version cannot create the differential format a rule would point at. Color scales, data bars and icon sets are not offered either. To make a difference visible, set it with format_range.",
       "example": {
         "documentId": "doc-1",
         "range": "B2:B20",
@@ -8433,13 +8898,25 @@
             "type": "string"
           },
           "range": {
-            "description": "A1 range the rule applies to.",
-            "type": "string"
+            "description": "A1 range the rule applies to, or a list of them evaluated as one population.",
+            "items": {
+              "description": "One A1 range.",
+              "type": "string"
+            },
+            "type": [
+              "string",
+              "array"
+            ]
           },
           "rule": {
             "additionalProperties": false,
             "description": "Conditional formatting rule.",
             "properties": {
+              "equal_average": {
+                "default": false,
+                "description": "Include values equal to the average in an average rule.",
+                "type": "boolean"
+              },
               "formula1": {
                 "description": "First formula or bound.",
                 "type": "string"
@@ -8462,6 +8939,24 @@
                 ],
                 "type": "string"
               },
+              "percent": {
+                "default": false,
+                "description": "Read 'rank' as a percentage of the range rather than a count of items.",
+                "type": "boolean"
+              },
+              "rank": {
+                "default": 10,
+                "description": "How many items a top or bottom rule selects.",
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "standard_deviation": {
+                "description": "Shift an average rule's boundary by this many standard deviations.",
+                "maximum": 3,
+                "minimum": 0,
+                "type": "integer"
+              },
               "stop_if_true": {
                 "description": "Stop evaluating further rules when this one matches.",
                 "type": "boolean"
@@ -8482,7 +8977,13 @@
                   "uniqueValues",
                   "duplicateValues",
                   "containsBlanks",
-                  "notContainsBlanks"
+                  "notContainsBlanks",
+                  "containsErrors",
+                  "notContainsErrors",
+                  "top",
+                  "bottom",
+                  "aboveAverage",
+                  "belowAverage"
                 ],
                 "type": "string"
               }

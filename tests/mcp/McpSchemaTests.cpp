@@ -213,7 +213,7 @@ TEST_CASE("every registered tool has an explicit behavioral test commitment [mcp
     const std::set<std::string> excel{
         "list_sheets", "read_range", "add_sheet", "rename_sheet", "delete_sheet", "write_cells", "write_range",
         "clear_range", "modify_sheet_structure", "set_hyperlink", "recalculate", "merge_cells", "format_range",
-        "set_column_width", "set_row_height", "freeze_panes", "add_table", "add_named_range",
+        "set_column_width", "set_row_height", "freeze_panes", "add_table", "list_tables", "update_table", "add_named_range",
         "add_data_validation", "add_conditional_formatting", "add_chart", "add_pivot_table", "add_comment",
         "list_comments", "delete_comment", "add_image", "set_print_setup", "move_sheet", "copy_sheet",
         "copy_range", "set_protection", "add_slicer", "list_slicers", "set_slicer_selection"};

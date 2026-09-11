@@ -170,6 +170,45 @@ TEST_SUITE("ExcelTableTests")
         CHECK(table->Columns()[2].TotalsFunction == TableTotalsFunction::Sum);
     }
 
+    TEST_CASE("A totals row grows the table and stays outside the auto-filter "
+              "[unit] [excel] [excel-table]")
+    {
+        auto sheet = ExcelDocumentEditor::CreateNew()->FirstWorksheet();
+        REQUIRE(sheet);
+        const auto table = sheet->CreateTable("Totals", Range("A1:C5"), BasicColumns());
+        REQUIRE(table);
+
+        // The totals row is a row of the table, so the reference grows by one;
+        // the filter buttons do not act on it, so the auto-filter does not.
+        // Excel refuses to open a workbook that gets either of these wrong.
+        REQUIRE(table->SetTotalsRowShown(true));
+        REQUIRE(table->Range());
+        CHECK(table->Range()->ToA1() == "A1:C6");
+        auto xml = table->GetPart()->GetXmlString();
+        CHECK(xml.find("ref=\"A1:C6\"") != std::string::npos);
+        CHECK(xml.find("autoFilter ref=\"A1:C5\"") != std::string::npos);
+
+        // Asking again changes nothing, rather than growing the table twice.
+        REQUIRE(table->SetTotalsRowShown(true));
+        CHECK(table->Range()->ToA1() == "A1:C6");
+
+        // A resize keeps the same split between the two rectangles.
+        REQUIRE(table->Resize(Range("A1:C9")));
+        xml = table->GetPart()->GetXmlString();
+        CHECK(xml.find("ref=\"A1:C9\"") != std::string::npos);
+        CHECK(xml.find("autoFilter ref=\"A1:C8\"") != std::string::npos);
+
+        // Turning the auto-filter off and on again must not reach into the
+        // totals row either.
+        REQUIRE(table->SetAutoFilterEnabled(false));
+        REQUIRE(table->SetAutoFilterEnabled(true));
+        CHECK(table->GetPart()->GetXmlString().find("autoFilter ref=\"A1:C8\"") != std::string::npos);
+
+        REQUIRE(table->SetTotalsRowShown(false));
+        CHECK(table->Range()->ToA1() == "A1:C8");
+        CHECK(table->GetPart()->GetXmlString().find("autoFilter ref=\"A1:C8\"") != std::string::npos);
+    }
+
     TEST_CASE("Table validation rejects invalid names columns and workbook "
               "duplicates [unit] [excel] [excel-table]")
     {
