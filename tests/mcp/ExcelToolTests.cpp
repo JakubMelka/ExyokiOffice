@@ -1283,3 +1283,220 @@ TEST_CASE("the comment tools refuse input that names nothing [mcp-excel]")
     CHECK(listedElsewhere["ok"] == false);
     CHECK(listedElsewhere["error"]["code"] == "sheet_not_found");
 }
+
+TEST_CASE("worksheets are moved and copied, within a workbook and across two [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    // A separate workbook to copy from, written through the server so the
+    // cross-workbook path goes through the workspace like any other file.
+    const auto sourceDoc = server->Call("create_document", nlohmann::json{{"path", "source.xlsx"}});
+    const auto sourceId = sourceDoc["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("rename_sheet", nlohmann::json{{"documentId", sourceId},
+                                                        {"sheet", 1},
+                                                        {"new_name", "Imported"}})["ok"] == true);
+    REQUIRE(server->Call("write_cells",
+                         nlohmann::json{{"documentId", sourceId},
+                                        {"cells", nlohmann::json::array({nlohmann::json{
+                                            {"address", "A1"}, {"value", "from elsewhere"}}})}})["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", sourceId}})["ok"] == true);
+    REQUIRE(server->Call("close_document", nlohmann::json{{"documentId", sourceId}})["ok"] == true);
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "book.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_sheet", nlohmann::json{{"documentId", documentId}, {"name", "Data"}})["ok"] == true);
+    REQUIRE(server->Call("add_sheet", nlohmann::json{{"documentId", documentId}, {"name", "Notes"}})["ok"] == true);
+
+    const auto moved = server->Call(
+        "move_sheet", nlohmann::json{{"documentId", documentId}, {"sheet", "Notes"}, {"to_index", 1}});
+    REQUIRE(moved["ok"] == true);
+    CHECK(moved["data"]["name"] == "Notes");
+    CHECK(moved["data"]["index"] == 1);
+
+    const auto order = server->Call("list_sheets", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(order["data"]["sheets"].size() == 3);
+    CHECK(order["data"]["sheets"][0]["name"] == "Notes");
+
+    const auto copied = server->Call(
+        "copy_sheet",
+        nlohmann::json{{"documentId", documentId}, {"sheet", "Data"}, {"name", "Data backup"}});
+    REQUIRE(copied["ok"] == true);
+    CHECK(copied["data"]["name"] == "Data backup");
+    CHECK(copied["data"]["index"] == 4);
+
+    const auto imported = server->Call("copy_sheet", nlohmann::json{{"documentId", documentId},
+                                                                    {"source_path", "source.xlsx"},
+                                                                    {"sheet", "Imported"},
+                                                                    {"name", "From source"}});
+    REQUIRE(imported["ok"] == true);
+    CHECK(imported["data"]["index"] == 5);
+
+    const auto value = server->Call("read_range", nlohmann::json{{"documentId", documentId},
+                                                                 {"sheet", "From source"},
+                                                                 {"range", "A1:A1"}});
+    REQUIRE(value["ok"] == true);
+    CHECK(value["data"]["values"][0][0] == "from elsewhere");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("book.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a range is copied and moved on the sheet [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "ranges.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server->Call("write_range",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"origin", "A1"},
+                                        {"values", nlohmann::json::array({nlohmann::json::array({"a", 1}),
+                                                                          nlohmann::json::array({"b", 2})})}})
+                ["ok"] == true);
+
+    const auto copied = server->Call(
+        "copy_range", nlohmann::json{{"documentId", documentId}, {"source", "A1:B2"}, {"destination", "D1"}});
+    REQUIRE(copied["ok"] == true);
+    CHECK(copied["data"]["destination"] == "D1:E2");
+    CHECK(copied["data"]["moved"] == false);
+
+    const auto afterCopy = server->Call(
+        "read_range", nlohmann::json{{"documentId", documentId}, {"range", "A1:E2"}});
+    CHECK(afterCopy["data"]["values"][0][0] == "a");
+    CHECK(afterCopy["data"]["values"][0][3] == "a");
+
+    const auto moved = server->Call("copy_range", nlohmann::json{{"documentId", documentId},
+                                                                 {"source", "D1:E2"},
+                                                                 {"destination", "G1"},
+                                                                 {"move", true}});
+    REQUIRE(moved["ok"] == true);
+    CHECK(moved["data"]["moved"] == true);
+
+    // Moving clears the source, so what stood at D1 is gone.
+    const auto afterMove = server->Call(
+        "read_range", nlohmann::json{{"documentId", documentId}, {"range", "D1:H2"}});
+    CHECK(afterMove["data"]["values"][0][0].is_null());
+    CHECK(afterMove["data"]["values"][0][3] == "a");
+
+    const auto badSource = server->Call(
+        "copy_range", nlohmann::json{{"documentId", documentId}, {"source", "nonsense"}, {"destination", "A9"}});
+    CHECK(badSource["ok"] == false);
+    CHECK(badSource["error"]["code"] == "range_invalid");
+
+    const auto badDestination = server->Call(
+        "copy_range", nlohmann::json{{"documentId", documentId}, {"source", "A1:B2"}, {"destination", "A0"}});
+    CHECK(badDestination["ok"] == false);
+    CHECK(badDestination["error"]["code"] == "range_invalid");
+
+    // Overlap is supported rather than refused: the source is snapshotted
+    // before anything is written, so the result is well defined.
+    const auto overlapping = server->Call(
+        "copy_range", nlohmann::json{{"documentId", documentId}, {"source", "A1:B2"}, {"destination", "B2"}});
+    REQUIRE(overlapping["ok"] == true);
+    const auto afterOverlap = server->Call(
+        "read_range", nlohmann::json{{"documentId", documentId}, {"range", "B2:C3"}});
+    CHECK(afterOverlap["data"]["values"][0][0] == "a");
+}
+
+TEST_CASE("sheet and workbook protection are applied and lifted [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "locked.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto sheetProtected = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId},
+                       {"scope", "sheet"},
+                       {"password", "secret"},
+                       {"allow", nlohmann::json{{"sort", true}, {"format_cells", true}}}});
+    REQUIRE(sheetProtected["ok"] == true);
+    CHECK(sheetProtected["data"]["protected"] == true);
+    CHECK(sheetProtected["data"]["scope"] == "sheet");
+
+    const auto workbookProtected = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId}, {"scope", "workbook"}, {"lock_structure", true}});
+    REQUIRE(workbookProtected["ok"] == true);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("locked.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+    const auto info = sheet->GetProtection();
+    CHECK(info.has_value());
+    if (info.has_value())
+    {
+        CHECK(info->Options.AllowSort);
+        CHECK(info->Options.AllowFormatCells);
+        CHECK(info->HasPassword);
+    }
+
+    // Removing protection needs the password it was created with.
+    const auto wrongPassword = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId}, {"protect", false}, {"password", "guess"}});
+    CHECK(wrongPassword["ok"] == false);
+    CHECK(wrongPassword["error"]["code"] == "operation_failed");
+
+    const auto lifted = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId}, {"protect", false}, {"password", "secret"}});
+    REQUIRE(lifted["ok"] == true);
+    CHECK(lifted["data"]["protected"] == false);
+
+    const auto missingSheet = server->Call(
+        "set_protection", nlohmann::json{{"documentId", documentId}, {"sheet", "Nowhere"}});
+    CHECK(missingSheet["ok"] == false);
+    CHECK(missingSheet["error"]["code"] == "sheet_not_found");
+}
+
+TEST_CASE("move_sheet and copy_sheet refuse what they cannot do [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json::object());
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_sheet", nlohmann::json{{"documentId", documentId}, {"name", "Data"}})["ok"] == true);
+
+    const auto pastEnd = server->Call(
+        "move_sheet", nlohmann::json{{"documentId", documentId}, {"sheet", "Data"}, {"to_index", 9}});
+    CHECK(pastEnd["ok"] == false);
+    CHECK(pastEnd["error"]["code"] == "input_invalid");
+
+    const auto missing = server->Call(
+        "move_sheet", nlohmann::json{{"documentId", documentId}, {"sheet", "Nowhere"}, {"to_index", 1}});
+    CHECK(missing["ok"] == false);
+    CHECK(missing["error"]["code"] == "sheet_not_found");
+
+    // A copy cannot take a name another sheet already holds.
+    const auto duplicate = server->Call(
+        "copy_sheet", nlohmann::json{{"documentId", documentId}, {"sheet", "Data"}, {"name", "Data"}});
+    CHECK(duplicate["ok"] == false);
+
+    const auto noSource = server->Call("copy_sheet", nlohmann::json{{"documentId", documentId},
+                                                                    {"source_path", "absent.xlsx"},
+                                                                    {"sheet", 1}});
+    CHECK(noSource["ok"] == false);
+    CHECK(noSource["error"]["code"] == "file_not_found");
+
+    const auto outsideWorkspace = server->Call(
+        "copy_sheet",
+        nlohmann::json{{"documentId", documentId}, {"source_path", "../escape.xlsx"}, {"sheet", 1}});
+    CHECK(outsideWorkspace["ok"] == false);
+    CHECK(outsideWorkspace["error"]["code"] == "path_outside_workspace");
+
+    // Nothing above may have changed the workbook.
+    const auto sheets = server->Call("list_sheets", nlohmann::json{{"documentId", documentId}});
+    CHECK(sheets["data"]["sheets"].size() == 2);
+}

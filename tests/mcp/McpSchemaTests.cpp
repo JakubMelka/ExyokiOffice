@@ -215,13 +215,14 @@ TEST_CASE("every registered tool has an explicit behavioral test commitment [mcp
         "clear_range", "modify_sheet_structure", "set_hyperlink", "recalculate", "merge_cells", "format_range",
         "set_column_width", "set_row_height", "freeze_panes", "add_table", "add_named_range",
         "add_data_validation", "add_conditional_formatting", "add_chart", "add_pivot_table", "add_comment",
-        "list_comments", "delete_comment", "add_image", "set_print_setup"};
+        "list_comments", "delete_comment", "add_image", "set_print_setup", "move_sheet", "copy_sheet",
+        "copy_range", "set_protection"};
     const std::set<std::string> powerPoint{
         "list_slides", "get_slide", "list_layouts", "list_comments", "add_slide", "delete_slide", "move_slide",
         "duplicate_slide", "copy_slide_from", "set_slide_hidden", "set_placeholder_text", "add_text_box",
         "edit_text_frame", "delete_shape", "set_shape_transform", "add_image", "add_table", "edit_table_cell",
         "add_chart", "set_notes", "add_comment", "set_transition", "add_section", "set_slide_size", "add_shape",
-        "format_shape"};
+        "format_shape", "list_animations", "add_animation", "update_animation", "remove_animation"};
 
     const auto check = [&shared](const McpTestServer& server, const std::set<std::string>& family)
     {

@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-excel",
   "title": "ExyokiOffice Excel MCP Server",
-  "toolCount": 53,
+  "toolCount": 57,
   "tools": [
     {
       "annotations": {
@@ -4069,6 +4069,324 @@
     {
       "annotations": {
         "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Move a worksheet to another position in the workbook.",
+      "example": {
+        "documentId": "doc-1",
+        "sheet": "Data",
+        "to_index": 1
+      },
+      "group": "sheets",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of move_sheet.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "to_index": {
+            "description": "1-based position the sheet moves to.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documentId",
+          "to_index"
+        ],
+        "type": "object"
+      },
+      "name": "move_sheet",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Moved sheet.",
+            "properties": {
+              "index": {
+                "description": "New 1-based position.",
+                "type": "integer"
+              },
+              "name": {
+                "description": "Worksheet name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "index"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Move worksheet"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Copy a worksheet, either within this workbook or from another one in the workspace. The copy is appended at the end.",
+      "example": {
+        "documentId": "doc-1",
+        "name": "Data backup",
+        "sheet": "Data"
+      },
+      "group": "sheets",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of copy_sheet.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name for the copy; one is generated when omitted.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "source_path": {
+            "description": "Workspace-relative workbook to copy the sheet from; omit to copy within this one.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "copy_sheet",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New sheet.",
+            "properties": {
+              "index": {
+                "description": "1-based position.",
+                "type": "integer"
+              },
+              "name": {
+                "description": "Name of the copy.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "index"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Copy worksheet"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
         "idempotentHint": false,
         "openWorldHint": false,
         "readOnlyHint": false
@@ -4771,6 +5089,177 @@
     {
       "annotations": {
         "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Copy a rectangular range to another position on the same sheet, or move it. Source and destination may overlap. A copy writes formulas verbatim, without adjusting their references; a move retargets the local A1 references that pointed into the source and clears it.",
+      "example": {
+        "destination": "E1",
+        "documentId": "doc-1",
+        "source": "A1:C5"
+      },
+      "group": "cells",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of copy_range.",
+        "properties": {
+          "destination": {
+            "description": "A1 cell the range's top-left corner lands on.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "move": {
+            "default": false,
+            "description": "Clear the source after copying, and rewrite formulas that referred to it.",
+            "type": "boolean"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "source": {
+            "description": "A1 range to copy.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "source",
+          "destination"
+        ],
+        "type": "object"
+      },
+      "name": "copy_range",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Copied range.",
+            "properties": {
+              "destination": {
+                "description": "A1 destination range.",
+                "type": "string"
+              },
+              "moved": {
+                "description": "True when the source was cleared.",
+                "type": "boolean"
+              },
+              "source": {
+                "description": "A1 source range.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "destination"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Copy or move range"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
         "idempotentHint": true,
         "openWorldHint": false,
         "readOnlyHint": false
@@ -4935,6 +5424,250 @@
         "type": "object"
       },
       "title": "Set cell hyperlink"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Protect a worksheet or the workbook structure, or remove that protection. This is an editing restriction with a password verifier, not encryption: every part stays readable and any tool that ignores the setting can still rewrite the document.",
+      "example": {
+        "documentId": "doc-1",
+        "password": "secret",
+        "scope": "sheet"
+      },
+      "group": "layout",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_protection.",
+        "properties": {
+          "allow": {
+            "additionalProperties": false,
+            "description": "Operations that stay available while sheet protection is active.",
+            "properties": {
+              "auto_filter": {
+                "description": "Permit changing auto-filter criteria.",
+                "type": "boolean"
+              },
+              "delete_columns": {
+                "description": "Permit deleting unlocked columns.",
+                "type": "boolean"
+              },
+              "delete_rows": {
+                "description": "Permit deleting unlocked rows.",
+                "type": "boolean"
+              },
+              "format_cells": {
+                "description": "Permit changing cell formats.",
+                "type": "boolean"
+              },
+              "format_columns": {
+                "description": "Permit changing column widths and formats.",
+                "type": "boolean"
+              },
+              "format_rows": {
+                "description": "Permit changing row heights and formats.",
+                "type": "boolean"
+              },
+              "insert_columns": {
+                "description": "Permit inserting columns.",
+                "type": "boolean"
+              },
+              "insert_hyperlinks": {
+                "description": "Permit inserting hyperlinks.",
+                "type": "boolean"
+              },
+              "insert_rows": {
+                "description": "Permit inserting rows.",
+                "type": "boolean"
+              },
+              "pivot_tables": {
+                "description": "Permit interacting with pivot tables.",
+                "type": "boolean"
+              },
+              "select_locked_cells": {
+                "description": "Permit selecting locked cells.",
+                "type": "boolean"
+              },
+              "select_unlocked_cells": {
+                "description": "Permit selecting unlocked cells.",
+                "type": "boolean"
+              },
+              "sort": {
+                "description": "Permit sorting unlocked ranges.",
+                "type": "boolean"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "lock_structure": {
+            "default": true,
+            "description": "Workbook scope: prevent adding, deleting, renaming, hiding, moving and copying sheets.",
+            "type": "boolean"
+          },
+          "lock_windows": {
+            "default": false,
+            "description": "Workbook scope: prevent moving and resizing the workbook windows.",
+            "type": "boolean"
+          },
+          "password": {
+            "description": "Password; the same one is required to remove the protection.",
+            "type": "string"
+          },
+          "protect": {
+            "default": true,
+            "description": "True to apply protection, false to remove it.",
+            "type": "boolean"
+          },
+          "scope": {
+            "default": "sheet",
+            "description": "What to protect.",
+            "enum": [
+              "sheet",
+              "workbook"
+            ],
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "set_protection",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Protection state.",
+            "properties": {
+              "protected": {
+                "description": "True when protection is now active.",
+                "type": "boolean"
+              },
+              "scope": {
+                "description": "sheet or workbook.",
+                "type": "string"
+              },
+              "sheet": {
+                "description": "Worksheet name, for sheet scope.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "scope",
+              "protected"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set protection"
     },
     {
       "annotations": {

@@ -777,11 +777,14 @@ tracked differences.
 | `add_sheet` | sheets | M | Add a worksheet |
 | `rename_sheet` | sheets | M I | Rename a worksheet |
 | `delete_sheet` | sheets | D | Remove a worksheet |
+| `move_sheet` | sheets | M I | Move a worksheet to another position |
+| `copy_sheet` | sheets | M | Copy a worksheet, within this workbook or from another one |
 | `read_range` | cells | R I | Read cells as values, records, or CSV |
 | `write_cells` | cells | M | Write individually addressed cells; a null value skips the cell |
 | `write_range` | cells | M | Write a rectangular block from an origin |
 | `clear_range` | cells | D | Clear contents, formats, or both |
 | `modify_sheet_structure` | cells | D | Insert or delete rows and columns |
+| `copy_range` | cells | M | Copy a range, or move it and retarget the references into it |
 | `set_hyperlink` | cells | M I | Attach or remove a cell hyperlink |
 | `recalculate` | cells | M | Recompute formulas, rewrite cached results, and report cells left in error |
 | `merge_cells` | formatting | M | Merge or split a range |
@@ -796,6 +799,7 @@ tracked differences.
 | `add_chart` | analysis | M | Add a chart anchored on the sheet, one series per column or row |
 | `add_pivot_table` | analysis | M | Build a pivot report from a source range |
 | `set_print_setup` | layout | M I | Orientation, paper, scaling, margins, print area, repeated titles, header and footer |
+| `set_protection` | layout | M I | Protect a worksheet or the workbook structure, or lift it |
 | `add_image` | media | M | Place a picture, anchored to a cell rectangle |
 | `list_comments` | review | R I | List the comments of the workbook, threaded and plain alike |
 | `add_comment` | review | M | Comment a cell, or reply to a thread entry |
@@ -837,9 +841,23 @@ CSV import and export run through `convert_document`, which takes
 | `list_comments` | content | R I | List comments, optionally per slide |
 | `add_comment` | content | M | Attach a comment to a slide |
 | `add_image` | media | M | Place a picture on a slide |
+| `list_animations` | animation | R I | Animation effects in playback order |
+| `add_animation` | animation | M | Animate a shape, appending the effect to the playback order |
+| `update_animation` | animation | M I | Replace one effect, and optionally move it in the order |
+| `remove_animation` | animation | D | Remove one effect, or every effect on a slide |
 | `set_transition` | design | M I | Set or remove a slide transition |
 | `add_section` | design | M | Group slides into a named section |
 | `set_slide_size` | design | M I | Slide size from a preset or dimensions |
+
+An animation names its target by the shape's non-visual identifier, which is
+what PresentationML stores, but `list_animations` resolves it back to the shape
+path every other tool takes. The library validates a whole effect before writing
+any of it — the class and the effect have to form a pair PowerPoint offers, and
+the effect-specific parameter has to match the effect exactly — so an effect
+that is refused leaves the slide untouched. `update_animation` rewrites the
+whole effect rather than patching it, so a member left out falls back to its
+default rather than to what the effect carried; only the target shape is carried
+over.
 
 A new shape carries no style reference, so nothing is inherited: a shape given
 neither `fill` nor `outline` would draw nothing at all, and PowerPoint would

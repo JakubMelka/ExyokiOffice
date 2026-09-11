@@ -1250,3 +1250,244 @@ TEST_CASE("the shape tools refuse geometry and colors they cannot write [mcp-pow
     const auto slide = server->Call("get_slide", nlohmann::json{{"documentId", documentId}, {"slide", 1}});
     CHECK(slide["ok"] == true);
 }
+
+/// A deck with two shapes on one slide, which the animation tools target.
+static std::string MakeAnimationDeck(McpTestServer& server, std::string& firstShape, std::string& secondShape)
+{
+    const auto created = server.Call("create_document", nlohmann::json{{"path", "animated.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server.Call("add_slide", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    const auto first = server.Call("add_shape", nlohmann::json{{"documentId", documentId},
+                                                               {"slide", 1},
+                                                               {"preset", "rect"},
+                                                               {"x", "2cm"},
+                                                               {"y", "2cm"},
+                                                               {"width", "4cm"},
+                                                               {"height", "2cm"}});
+    REQUIRE(first["ok"] == true);
+    firstShape = first["data"]["shape"].get<std::string>();
+
+    const auto second = server.Call("add_shape", nlohmann::json{{"documentId", documentId},
+                                                                {"slide", 1},
+                                                                {"preset", "ellipse"},
+                                                                {"x", "10cm"},
+                                                                {"y", "2cm"},
+                                                                {"width", "4cm"},
+                                                                {"height", "4cm"}});
+    REQUIRE(second["ok"] == true);
+    secondShape = second["data"]["shape"].get<std::string>();
+
+    return documentId;
+}
+
+TEST_CASE("animations are added, listed, reordered, and removed [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    std::string firstShape;
+    std::string secondShape;
+    const auto documentId = MakeAnimationDeck(*server, firstShape, secondShape);
+
+    const auto fly = server->Call("add_animation", nlohmann::json{{"documentId", documentId},
+                                                                  {"slide", 1},
+                                                                  {"shape", firstShape},
+                                                                  {"effect_class", "entrance"},
+                                                                  {"effect", "fly"},
+                                                                  {"direction", "left"},
+                                                                  {"timing", nlohmann::json{{"duration", 750},
+                                                                                            {"delay", 250}}}});
+    REQUIRE(fly["ok"] == true);
+    const auto flyId = fly["data"]["animationId"].get<int>();
+    CHECK(flyId != 0);
+
+    const auto spin = server->Call("add_animation", nlohmann::json{{"documentId", documentId},
+                                                                   {"slide", 1},
+                                                                   {"shape", secondShape},
+                                                                   {"effect_class", "emphasis"},
+                                                                   {"effect", "spin"},
+                                                                   {"rotation_degrees", 360},
+                                                                   {"trigger", "after_previous"}});
+    REQUIRE(spin["ok"] == true);
+    const auto spinId = spin["data"]["animationId"].get<int>();
+
+    const auto listed = server->Call("list_animations", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    REQUIRE(listed["data"]["animations"].size() == 2);
+
+    const auto& one = listed["data"]["animations"][0];
+    CHECK(one["animationId"] == flyId);
+    CHECK(one["slide"] == 1);
+    // The effect stores a shape identifier; the listing resolves it back to the
+    // path every other tool of this server takes.
+    CHECK(one["shape"] == firstShape);
+    CHECK(one["effect"] == "fly");
+    CHECK(one["effectClass"] == "entrance");
+    CHECK(one["direction"] == "left");
+    CHECK(one["timing"]["duration"] == 750);
+    CHECK(one["timing"]["delay"] == 250);
+
+    const auto& two = listed["data"]["animations"][1];
+    CHECK(two["animationId"] == spinId);
+    CHECK(two["effect"] == "spin");
+    CHECK(two["rotationDegrees"] == 360);
+    CHECK(two["trigger"] == "after_previous");
+
+    // Moving the second effect to the front reorders playback.
+    const auto moved = server->Call("update_animation", nlohmann::json{{"documentId", documentId},
+                                                                       {"slide", 1},
+                                                                       {"animation_id", spinId},
+                                                                       {"effect_class", "emphasis"},
+                                                                       {"effect", "spin"},
+                                                                       {"rotation_degrees", 180},
+                                                                       {"index", 1}});
+    REQUIRE(moved["ok"] == true);
+    CHECK(moved["data"]["index"] == 1);
+
+    const auto reordered = server->Call("list_animations", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(reordered["data"]["animations"].size() == 2);
+    CHECK(reordered["data"]["animations"][0]["animationId"] == spinId);
+    CHECK(reordered["data"]["animations"][0]["rotationDegrees"] == 180);
+
+    const auto removed = server->Call(
+        "remove_animation",
+        nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"animation_id", spinId}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["removed"] == 1);
+
+    const auto left = server->Call("list_animations", nlohmann::json{{"documentId", documentId}});
+    CHECK(left["data"]["animations"].size() == 1);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::Open(server->Path("animated.pptx"));
+    REQUIRE(editor != nullptr);
+    const auto effects = editor->Slides()[0]->AnimationEffects();
+    REQUIRE(effects.size() == 1);
+    CHECK(effects.front().Effect == ExyokiOffice::PowerPoint::PresentationAnimationEffect::Fly);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("animated.pptx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("an interactive animation is triggered by another shape [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    std::string firstShape;
+    std::string secondShape;
+    const auto documentId = MakeAnimationDeck(*server, firstShape, secondShape);
+
+    const auto triggered = server->Call("add_animation", nlohmann::json{{"documentId", documentId},
+                                                                        {"slide", 1},
+                                                                        {"shape", secondShape},
+                                                                        {"effect_class", "entrance"},
+                                                                        {"effect", "fade"},
+                                                                        {"trigger_shape", firstShape}});
+    REQUIRE(triggered["ok"] == true);
+
+    const auto listed = server->Call("list_animations", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["data"]["animations"].size() == 1);
+    CHECK(listed["data"]["animations"][0]["triggerShape"] == firstShape);
+    CHECK(listed["data"]["animations"][0]["shape"] == secondShape);
+
+    const auto cleared = server->Call(
+        "remove_animation", nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"all", true}});
+    REQUIRE(cleared["ok"] == true);
+    CHECK(cleared["data"]["removed"] == 1);
+    CHECK(server->Call("list_animations", nlohmann::json{{"documentId", documentId}})["data"]["animations"]
+              .empty());
+}
+
+TEST_CASE("the animation tools refuse effects that cannot be written [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    std::string firstShape;
+    std::string secondShape;
+    const auto documentId = MakeAnimationDeck(*server, firstShape, secondShape);
+
+    const auto base =
+        nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"shape", firstShape}};
+
+    // Fly needs a side direction; without one the whole write is refused.
+    auto noDirection = base;
+    noDirection["effect"] = "fly";
+    const auto refusedFly = server->Call("add_animation", noDirection);
+    CHECK(refusedFly["ok"] == false);
+    CHECK(refusedFly["error"]["code"] == "input_invalid");
+
+    // Spin is an emphasis effect; asking for it as an entrance is not a pair
+    // PowerPoint offers.
+    auto wrongClass = base;
+    wrongClass["effect_class"] = "entrance";
+    wrongClass["effect"] = "spin";
+    wrongClass["rotation_degrees"] = 90;
+    const auto refusedPair = server->Call("add_animation", wrongClass);
+    CHECK(refusedPair["ok"] == false);
+    CHECK(refusedPair["error"]["code"] == "input_invalid");
+
+    // A parameter the effect does not use is as wrong as a missing one.
+    auto strayParameter = base;
+    strayParameter["effect"] = "fade";
+    strayParameter["scale_percent"] = 150;
+    const auto refusedStray = server->Call("add_animation", strayParameter);
+    CHECK(refusedStray["ok"] == false);
+
+    auto badColor = base;
+    badColor["effect_class"] = "emphasis";
+    badColor["effect"] = "change_fill_color";
+    badColor["color"] = "burgundy";
+    const auto refusedColor = server->Call("add_animation", badColor);
+    CHECK(refusedColor["ok"] == false);
+    CHECK(refusedColor["error"]["code"] == "input_invalid");
+
+    auto zeroDuration = base;
+    zeroDuration["timing"] = nlohmann::json{{"duration", 0}};
+    const auto refusedDuration = server->Call("add_animation", zeroDuration);
+    CHECK(refusedDuration["ok"] == false);
+
+    auto missingShape = base;
+    missingShape["shape"] = "999";
+    const auto refusedShape = server->Call("add_animation", missingShape);
+    CHECK(refusedShape["ok"] == false);
+    CHECK(refusedShape["error"]["code"] == "shape_not_found");
+
+    auto missingTrigger = base;
+    missingTrigger["trigger_shape"] = "999";
+    const auto refusedTrigger = server->Call("add_animation", missingTrigger);
+    CHECK(refusedTrigger["ok"] == false);
+    CHECK(refusedTrigger["error"]["code"] == "shape_not_found");
+
+    const auto unknownUpdate =
+        server->Call("update_animation", nlohmann::json{{"documentId", documentId},
+                                                        {"slide", 1},
+                                                        {"animation_id", 4242},
+                                                        {"effect", "fade"}});
+    CHECK(unknownUpdate["ok"] == false);
+    CHECK(unknownUpdate["error"]["code"] == "shape_not_found");
+
+    const auto unknownRemove = server->Call(
+        "remove_animation", nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"animation_id", 4242}});
+    CHECK(unknownRemove["ok"] == false);
+    CHECK(unknownRemove["error"]["code"] == "shape_not_found");
+
+    const auto bothModes = server->Call("remove_animation", nlohmann::json{{"documentId", documentId},
+                                                                           {"slide", 1},
+                                                                           {"animation_id", 1},
+                                                                           {"all", true}});
+    CHECK(bothModes["ok"] == false);
+    CHECK(bothModes["error"]["code"] == "input_invalid");
+
+    const auto neitherMode =
+        server->Call("remove_animation", nlohmann::json{{"documentId", documentId}, {"slide", 1}});
+    CHECK(neitherMode["ok"] == false);
+    CHECK(neitherMode["error"]["code"] == "input_invalid");
+
+    // Nothing above wrote anything, so the slide still carries no animation.
+    const auto listed = server->Call("list_animations", nlohmann::json{{"documentId", documentId}});
+    CHECK(listed["data"]["animations"].empty());
+}

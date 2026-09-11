@@ -137,17 +137,17 @@ Word, rich-text cell content in Excel, OOXML package encryption.
 
 ### P1 — the rest of Gap B and Gap C
 
-- [ ] PowerPoint animations
+- [x] PowerPoint animations
 - [ ] PowerPoint masters and layouts, write side
 - [ ] PowerPoint custom shows; audio and video
 - [ ] Excel slicers
-- [ ] Excel sheet move, copy, protection; range copy and move
+- [x] Excel sheet move, copy, protection; range copy and move
 - [ ] Excel auto-filter and sort; colour scales and data bars
 - [ ] Excel VBA extract, replace, remove
 - [ ] Word style definitions and numbering
 - [ ] Word floating images with wrapping; section columns; character styles
 - [ ] Word content controls
-- [ ] Document protection and themes, all three families
+- [ ] Themes, all three families; document protection for Word and PowerPoint
 
 ### P2 — decisions to state rather than gaps to close
 

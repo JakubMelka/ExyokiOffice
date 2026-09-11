@@ -28,6 +28,11 @@ in [docs/](docs/README.md).
     margins, print area, repeated titles, and headers and footers.
   - PowerPoint `add_shape` and `format_shape`: preset geometry, connectors,
     fills and outlines.
+  - PowerPoint `list_animations`, `add_animation`, `update_animation` and
+    `remove_animation`, covering entrance, emphasis, exit and motion-path
+    effects with their triggers and timing.
+  - Excel `move_sheet`, `copy_sheet` (including from another workbook),
+    `copy_range` and `set_protection`.
 
 ## [1.1.0] - 2026-08-20
 

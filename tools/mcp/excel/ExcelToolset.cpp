@@ -201,12 +201,16 @@ public:
         RegisterAddSheet(registry);
         RegisterRenameSheet(registry);
         RegisterDeleteSheet(registry);
+        RegisterMoveSheet(registry);
+        RegisterCopySheet(registry);
         RegisterReadRange(registry);
         RegisterWriteCells(registry);
         RegisterWriteRange(registry);
         RegisterClearRange(registry);
         RegisterModifySheetStructure(registry);
+        RegisterCopyRange(registry);
         RegisterSetHyperlink(registry);
+        RegisterSetProtection(registry);
         RegisterSetPrintSetup(registry);
         RegisterAddImage(registry);
         RegisterAddComment(registry);
@@ -1322,6 +1326,419 @@ private:
         data["affectedCells"] = static_cast<UInt64>(result.AffectedCellCount);
 
         return ResultBuilder("Applied '" + operation + "' to " + sheet->Name() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterMoveSheet(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["to_index"] = Schema::Integer("1-based position the sheet moves to.", 1);
+
+        auto definition = MakeDefinition("move_sheet", "Move worksheet",
+                                         "Move a worksheet to another position in the workbook.", "sheets");
+        definition.InputSchema =
+            Schema::Object("Arguments of move_sheet.", {"documentId", "to_index"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Moved sheet.", {"name", "index"},
+                                            nlohmann::json{{"name", Schema::String("Worksheet name.")},
+                                                           {"index", Schema::Integer("New 1-based position.")}}),
+                             true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"sheet", "Data"}, {"to_index", 1}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return MoveSheet(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome MoveSheet(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        const auto name = sheet->Name();
+        const auto from = IndexOfSheet(session.Editor(), *sheet);
+        const Size to = arguments.value("to_index", static_cast<Size>(1));
+        const auto count = session.Editor().Worksheets().size();
+        if (to == 0 || to > count)
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "The workbook has " + std::to_string(count) + " worksheet(s).", std::to_string(to));
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!session.Editor().MoveWorksheet(from, to - 1))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The worksheet could not be moved.", name);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = name;
+        data["index"] = static_cast<UInt64>(to);
+
+        return ResultBuilder("Moved " + name + " to position " + std::to_string(to) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterCopySheet(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["name"] = Schema::String("Name for the copy; one is generated when omitted.");
+        properties["source_path"] =
+            Schema::String("Workspace-relative workbook to copy the sheet from; omit to copy within this one.");
+
+        auto definition = MakeDefinition(
+            "copy_sheet", "Copy worksheet",
+            "Copy a worksheet, either within this workbook or from another one in the workspace. The copy is "
+            "appended at the end.",
+            "sheets");
+        definition.InputSchema =
+            Schema::Object("Arguments of copy_sheet.", {"documentId"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("New sheet.", {"name", "index"},
+                                            nlohmann::json{{"name", Schema::String("Name of the copy.")},
+                                                           {"index", Schema::Integer("1-based position.")}}),
+                             true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"sheet", "Data"}, {"name", "Data backup"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return CopySheet(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome CopySheet(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto name = arguments.value("name", std::string());
+        const auto sourcePath = arguments.value("source_path", std::string());
+
+        MutationGuard guard(session.Session());
+
+        Excel::Worksheet::Ptr copy;
+        if (sourcePath.empty())
+        {
+            ToolOutcome failure;
+            auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+            if (sheet == nullptr)
+            {
+                return failure;
+            }
+
+            copy = session.Editor().CopyWorksheet(IndexOfSheet(session.Editor(), *sheet), name);
+        }
+        else
+        {
+            // A source workbook is an ordinary workspace file, so it goes
+            // through the same path resolution every file-to-file tool uses.
+            ToolOutcome failure;
+            const auto resolved = ToolSupport::ResolveExistingFile(context, sourcePath, failure);
+            if (!resolved.has_value())
+            {
+                return failure;
+            }
+
+            // A source workbook is opened under the configured safety limits
+            // like any other, so a decompression bomb cannot arrive this way
+            // either.
+            auto source =
+                Excel::ExcelDocumentEditor::Open(*resolved, SettingsWithLimits(context.Options().PackageLimits));
+            if (source == nullptr)
+            {
+                return MakeError(ErrorCode::PackageLoadFailed, "The source workbook could not be opened.",
+                                 sourcePath);
+            }
+
+            ToolOutcome sourceFailure;
+            auto sheet = ExcelAddressing::FindSheet(*source, arguments, sourceFailure);
+            if (sheet == nullptr)
+            {
+                return sourceFailure;
+            }
+
+            copy = session.Editor().CopyWorksheetFrom(*source, IndexOfSheet(*source, *sheet), name);
+        }
+
+        if (copy == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed,
+                             "The worksheet could not be copied; the name may already be taken.", name);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = copy->Name();
+        data["index"] = static_cast<UInt64>(session.Editor().Worksheets().size());
+
+        return ResultBuilder("Copied the worksheet as " + copy->Name() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterCopyRange(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["source"] = Schema::String("A1 range to copy.");
+        properties["destination"] = Schema::String("A1 cell the range's top-left corner lands on.");
+        properties["move"] =
+            Schema::BooleanWithDefault("Clear the source after copying, and rewrite formulas that referred to "
+                                       "it.",
+                                       false);
+
+        auto definition = MakeDefinition(
+            "copy_range", "Copy or move range",
+            "Copy a rectangular range to another position on the same sheet, or move it. Source and "
+            "destination may overlap. A copy writes formulas verbatim, without adjusting their references; a "
+            "move retargets the local A1 references that pointed into the source and clears it.",
+            "cells");
+        definition.InputSchema = Schema::Object("Arguments of copy_range.",
+                                                {"documentId", "source", "destination"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Copied range.", {"source", "destination"},
+                                            nlohmann::json{{"source", Schema::String("A1 source range.")},
+                                                           {"destination", Schema::String("A1 destination "
+                                                                                          "range.")},
+                                                           {"moved", Schema::Boolean("True when the source was "
+                                                                                     "cleared.")}}),
+                             true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"source", "A1:C5"}, {"destination", "E1"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return CopyRange(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome CopyRange(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        const auto sourceText = arguments.value("source", std::string());
+        const auto source = ExcelAddressing::ParseRange(sourceText, failure);
+        if (!source.has_value())
+        {
+            return failure;
+        }
+
+        const auto destinationText = arguments.value("destination", std::string());
+        const auto destination = ExcelAddressing::ParseCell(destinationText, failure);
+        if (!destination.has_value())
+        {
+            return failure;
+        }
+
+        const bool move = arguments.value("move", false);
+
+        MutationGuard guard(session.Session());
+
+        const auto result = move ? sheet->MoveRange(*source, *destination)
+                                 : sheet->CopyRange(*source, *destination);
+        if (!result.Succeeded())
+        {
+            return MakeError(ErrorCode::RangeInvalid,
+                             move ? "The range could not be moved." : "The range could not be copied.",
+                             sourceText + " -> " + destinationText,
+                             "A destination that would run past the Excel grid is refused; an overlapping one "
+                             "is not.");
+        }
+
+        guard.Commit();
+
+        // The destination range is the source rectangle translated onto the new
+        // top-left corner, which is what the caller wants to address next.
+        const auto width = source->Last().Column().Value() - source->First().Column().Value();
+        const auto height = source->Last().Row().Value() - source->First().Row().Value();
+        const auto last = Excel::CellAddress::TryCreate(destination->Row().Value() + height,
+                                                        destination->Column().Value() + width);
+
+        nlohmann::json data = nlohmann::json::object();
+        data["source"] = source->ToA1();
+        data["destination"] = last.has_value() ? Excel::CellRange(*destination, *last).ToA1()
+                                               : destination->ToA1();
+        data["moved"] = move;
+
+        return ResultBuilder((move ? std::string("Moved ") : std::string("Copied ")) + source->ToA1() + " to " +
+                             destination->ToA1() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterSetProtection(ToolRegistry& registry)
+    {
+        nlohmann::json allow = Schema::Object(
+            "Operations that stay available while sheet protection is active.", {},
+            nlohmann::json{{"format_cells", Schema::Boolean("Permit changing cell formats.")},
+                           {"format_columns", Schema::Boolean("Permit changing column widths and formats.")},
+                           {"format_rows", Schema::Boolean("Permit changing row heights and formats.")},
+                           {"insert_columns", Schema::Boolean("Permit inserting columns.")},
+                           {"insert_rows", Schema::Boolean("Permit inserting rows.")},
+                           {"insert_hyperlinks", Schema::Boolean("Permit inserting hyperlinks.")},
+                           {"delete_columns", Schema::Boolean("Permit deleting unlocked columns.")},
+                           {"delete_rows", Schema::Boolean("Permit deleting unlocked rows.")},
+                           {"select_locked_cells", Schema::Boolean("Permit selecting locked cells.")},
+                           {"select_unlocked_cells", Schema::Boolean("Permit selecting unlocked cells.")},
+                           {"sort", Schema::Boolean("Permit sorting unlocked ranges.")},
+                           {"auto_filter", Schema::Boolean("Permit changing auto-filter criteria.")},
+                           {"pivot_tables", Schema::Boolean("Permit interacting with pivot tables.")}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["scope"] =
+            Schema::EnumerationWithDefault("What to protect.", {"sheet", "workbook"}, "sheet");
+        properties["sheet"] = SheetProperty();
+        properties["protect"] =
+            Schema::BooleanWithDefault("True to apply protection, false to remove it.", true);
+        properties["password"] = Schema::String("Password; the same one is required to remove the protection.");
+        properties["allow"] = std::move(allow);
+        properties["lock_structure"] = Schema::BooleanWithDefault(
+            "Workbook scope: prevent adding, deleting, renaming, hiding, moving and copying sheets.", true);
+        properties["lock_windows"] =
+            Schema::BooleanWithDefault("Workbook scope: prevent moving and resizing the workbook windows.",
+                                       false);
+
+        auto definition = MakeDefinition(
+            "set_protection", "Set protection",
+            "Protect a worksheet or the workbook structure, or remove that protection. This is an editing "
+            "restriction with a password verifier, not encryption: every part stays readable and any tool "
+            "that ignores the setting can still rewrite the document.",
+            "layout");
+        definition.InputSchema =
+            Schema::Object("Arguments of set_protection.", {"documentId"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Protection state.", {"scope", "protected"},
+                                            nlohmann::json{{"scope", Schema::String("sheet or workbook.")},
+                                                           {"protected", Schema::Boolean("True when protection "
+                                                                                         "is now active.")},
+                                                           {"sheet", Schema::String("Worksheet name, for sheet "
+                                                                                    "scope.")}}),
+                             true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"scope", "sheet"}, {"password", "secret"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetProtection(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome SetProtection(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto scope = arguments.value("scope", std::string("sheet"));
+        const bool protect = arguments.value("protect", true);
+        const auto password = arguments.value("password", std::string());
+
+        nlohmann::json data = nlohmann::json::object();
+        data["scope"] = scope;
+        data["protected"] = protect;
+        data["sheet"] = std::string();
+
+        MutationGuard guard(session.Session());
+
+        if (scope == "workbook")
+        {
+            Excel::WorkbookProtectionOptions options;
+            options.LockStructure = arguments.value("lock_structure", true);
+            options.LockWindows = arguments.value("lock_windows", false);
+
+            const auto result = protect ? session.Editor().ProtectWorkbook(options, password)
+                                        : session.Editor().UnprotectWorkbook(password);
+            if (!result.Succeeded())
+            {
+                return MakeError(ErrorCode::OperationFailed,
+                                 protect ? "The workbook protection could not be written."
+                                         : "The workbook protection could not be removed; the password may not "
+                                           "match.",
+                                 scope);
+            }
+        }
+        else
+        {
+            ToolOutcome failure;
+            auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+            if (sheet == nullptr)
+            {
+                return failure;
+            }
+
+            data["sheet"] = sheet->Name();
+
+            Excel::SheetProtectionOptions options;
+            if (const auto allow = arguments.find("allow"); allow != arguments.end())
+            {
+                options.AllowFormatCells = allow->value("format_cells", options.AllowFormatCells);
+                options.AllowFormatColumns = allow->value("format_columns", options.AllowFormatColumns);
+                options.AllowFormatRows = allow->value("format_rows", options.AllowFormatRows);
+                options.AllowInsertColumns = allow->value("insert_columns", options.AllowInsertColumns);
+                options.AllowInsertRows = allow->value("insert_rows", options.AllowInsertRows);
+                options.AllowInsertHyperlinks = allow->value("insert_hyperlinks", options.AllowInsertHyperlinks);
+                options.AllowDeleteColumns = allow->value("delete_columns", options.AllowDeleteColumns);
+                options.AllowDeleteRows = allow->value("delete_rows", options.AllowDeleteRows);
+                options.AllowSelectLockedCells =
+                    allow->value("select_locked_cells", options.AllowSelectLockedCells);
+                options.AllowSelectUnlockedCells =
+                    allow->value("select_unlocked_cells", options.AllowSelectUnlockedCells);
+                options.AllowSort = allow->value("sort", options.AllowSort);
+                options.AllowAutoFilter = allow->value("auto_filter", options.AllowAutoFilter);
+                options.AllowPivotTables = allow->value("pivot_tables", options.AllowPivotTables);
+            }
+
+            const auto result = protect ? sheet->Protect(options, password) : sheet->Unprotect(password);
+            if (!result.Succeeded())
+            {
+                return MakeError(ErrorCode::OperationFailed,
+                                 protect ? "The sheet protection could not be written."
+                                         : "The sheet protection could not be removed; the password may not "
+                                           "match.",
+                                 sheet->Name());
+            }
+        }
+
+        guard.Commit();
+
+        return ResultBuilder(protect ? "Protected the " + scope + "." : "Removed the " + scope + " protection.")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();

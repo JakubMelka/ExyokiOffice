@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-power-point",
   "title": "ExyokiOffice PowerPoint MCP Server",
-  "toolCount": 52,
+  "toolCount": 56,
   "tools": [
     {
       "annotations": {
@@ -3213,6 +3213,143 @@
         "type": "object"
       },
       "title": "List comments"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the animation effects of the presentation in playback order, optionally narrowed to one slide. An effect this version does not model is reported as \"unsupported\" and is left alone by the writing tools.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "animation",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_animations.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          },
+          "slide": {
+            "description": "1-based slide index; omit to list every slide.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_animations",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Animations.",
+            "properties": {
+              "animations": {
+                "description": "Effects in playback order.",
+                "items": {
+                  "description": "One effect: its animationId, slide, shape path, class, effect, trigger, timing, and any effect-specific parameter.",
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "animations"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List animations"
     },
     {
       "annotations": {
@@ -7596,6 +7733,721 @@
         "type": "object"
       },
       "title": "Add comment"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Animate a shape, appending the effect to the end of the slide's playback order. The effect and its class have to form a supported pair and the effect-specific parameter has to match, or nothing is written.",
+      "example": {
+        "direction": "left",
+        "documentId": "doc-1",
+        "effect": "fly",
+        "effect_class": "entrance",
+        "shape": "2",
+        "slide": 1
+      },
+      "group": "animation",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_animation.",
+        "properties": {
+          "color": {
+            "description": "Target fill color for change_fill_color as \"#RRGGBB\".",
+            "type": "string"
+          },
+          "direction": {
+            "description": "Required by fly and wipe (left, up, right, down) and by zoom (in, out).",
+            "enum": [
+              "left",
+              "up",
+              "right",
+              "down",
+              "in",
+              "out"
+            ],
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "effect": {
+            "default": "fade",
+            "description": "Effect to play.",
+            "enum": [
+              "appear",
+              "fade",
+              "fly",
+              "wipe",
+              "zoom",
+              "grow_shrink",
+              "spin",
+              "change_fill_color",
+              "motion_path"
+            ],
+            "type": "string"
+          },
+          "effect_class": {
+            "default": "entrance",
+            "description": "Effect gallery. Entrance and exit take appear, fade, fly, wipe, or zoom; emphasis takes grow_shrink, spin, or change_fill_color; motion_path takes motion_path.",
+            "enum": [
+              "entrance",
+              "emphasis",
+              "exit",
+              "motion_path"
+            ],
+            "type": "string"
+          },
+          "motion_path": {
+            "description": "DrawingML motion path for motion_path, for example \"M 0 0 L 0.5 0.25 E\".",
+            "type": "string"
+          },
+          "rotation_degrees": {
+            "description": "Signed rotation for spin, in whole degrees.",
+            "type": "integer"
+          },
+          "scale_percent": {
+            "description": "Target size for grow_shrink, in percent.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "shape": {
+            "description": "Shape path from get_slide.",
+            "type": "string"
+          },
+          "slide": {
+            "description": "1-based slide index.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "timing": {
+            "additionalProperties": false,
+            "description": "Effect timing. Every time is in milliseconds.",
+            "properties": {
+              "acceleration": {
+                "description": "Ease-in fraction in thousandths of one percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "auto_reverse": {
+                "default": false,
+                "description": "Play backwards after each forward pass.",
+                "type": "boolean"
+              },
+              "deceleration": {
+                "description": "Ease-out fraction in thousandths of one percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "delay": {
+                "default": 0,
+                "description": "Delay before the effect starts once triggered.",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "duration": {
+                "default": 500,
+                "description": "Duration of one iteration; may not be zero.",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "repeat_count": {
+                "description": "Total iterations; omit for a single pass.",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "repeat_indefinitely": {
+                "default": false,
+                "description": "Repeat until the slide advances; excludes repeat_count.",
+                "type": "boolean"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "trigger": {
+            "default": "on_click",
+            "description": "How this effect chains onto the one before it.",
+            "enum": [
+              "on_click",
+              "with_previous",
+              "after_previous"
+            ],
+            "type": "string"
+          },
+          "trigger_shape": {
+            "description": "Shape whose click starts this effect; omit to place it in the main sequence.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "slide",
+          "shape"
+        ],
+        "type": "object"
+      },
+      "name": "add_animation",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New animation.",
+            "properties": {
+              "animationId": {
+                "description": "Stable effect identifier.",
+                "type": "integer"
+              },
+              "shape": {
+                "description": "Shape path that was animated.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "animationId"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add animation"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Replace one animation effect, and optionally move it to another position in the playback order. The whole effect is rewritten, so members left out fall back to their defaults rather than to what the effect carried.",
+      "example": {
+        "animation_id": 2,
+        "documentId": "doc-1",
+        "effect": "fade",
+        "slide": 1,
+        "trigger": "after_previous"
+      },
+      "group": "animation",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of update_animation.",
+        "properties": {
+          "animation_id": {
+            "description": "Effect identifier from list_animations.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "color": {
+            "description": "Target fill color for change_fill_color as \"#RRGGBB\".",
+            "type": "string"
+          },
+          "direction": {
+            "description": "Required by fly and wipe (left, up, right, down) and by zoom (in, out).",
+            "enum": [
+              "left",
+              "up",
+              "right",
+              "down",
+              "in",
+              "out"
+            ],
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "effect": {
+            "default": "fade",
+            "description": "Effect to play.",
+            "enum": [
+              "appear",
+              "fade",
+              "fly",
+              "wipe",
+              "zoom",
+              "grow_shrink",
+              "spin",
+              "change_fill_color",
+              "motion_path"
+            ],
+            "type": "string"
+          },
+          "effect_class": {
+            "default": "entrance",
+            "description": "Effect gallery. Entrance and exit take appear, fade, fly, wipe, or zoom; emphasis takes grow_shrink, spin, or change_fill_color; motion_path takes motion_path.",
+            "enum": [
+              "entrance",
+              "emphasis",
+              "exit",
+              "motion_path"
+            ],
+            "type": "string"
+          },
+          "index": {
+            "description": "Move the effect to this 1-based position in the slide's playback order.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "motion_path": {
+            "description": "DrawingML motion path for motion_path, for example \"M 0 0 L 0.5 0.25 E\".",
+            "type": "string"
+          },
+          "rotation_degrees": {
+            "description": "Signed rotation for spin, in whole degrees.",
+            "type": "integer"
+          },
+          "scale_percent": {
+            "description": "Target size for grow_shrink, in percent.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "shape": {
+            "description": "Shape path the effect targets; omit to keep the current one.",
+            "type": "string"
+          },
+          "slide": {
+            "description": "1-based slide index.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "timing": {
+            "additionalProperties": false,
+            "description": "Effect timing. Every time is in milliseconds.",
+            "properties": {
+              "acceleration": {
+                "description": "Ease-in fraction in thousandths of one percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "auto_reverse": {
+                "default": false,
+                "description": "Play backwards after each forward pass.",
+                "type": "boolean"
+              },
+              "deceleration": {
+                "description": "Ease-out fraction in thousandths of one percent.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "delay": {
+                "default": 0,
+                "description": "Delay before the effect starts once triggered.",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "duration": {
+                "default": 500,
+                "description": "Duration of one iteration; may not be zero.",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "repeat_count": {
+                "description": "Total iterations; omit for a single pass.",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "repeat_indefinitely": {
+                "default": false,
+                "description": "Repeat until the slide advances; excludes repeat_count.",
+                "type": "boolean"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "trigger": {
+            "default": "on_click",
+            "description": "How this effect chains onto the one before it.",
+            "enum": [
+              "on_click",
+              "with_previous",
+              "after_previous"
+            ],
+            "type": "string"
+          },
+          "trigger_shape": {
+            "description": "Shape whose click starts this effect; omit to place it in the main sequence.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "slide",
+          "animation_id"
+        ],
+        "type": "object"
+      },
+      "name": "update_animation",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Updated animation.",
+            "properties": {
+              "animationId": {
+                "description": "Stable effect identifier.",
+                "type": "integer"
+              },
+              "index": {
+                "description": "1-based playback position.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "animationId"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Update animation"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Remove one animation effect, or every effect on the slide. Free-standing behaviors and media timing are left in place. Pass exactly one of animation_id and all.",
+      "example": {
+        "animation_id": 2,
+        "documentId": "doc-1",
+        "slide": 1
+      },
+      "group": "animation",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of remove_animation.",
+        "properties": {
+          "all": {
+            "default": false,
+            "description": "Remove every effect on the slide instead of naming one.",
+            "type": "boolean"
+          },
+          "animation_id": {
+            "description": "Effect identifier from list_animations.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "slide": {
+            "description": "1-based slide index.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documentId",
+          "slide"
+        ],
+        "type": "object"
+      },
+      "name": "remove_animation",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Removed animations.",
+            "properties": {
+              "removed": {
+                "description": "Effects the call removed.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "removed"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Remove animation"
     },
     {
       "annotations": {

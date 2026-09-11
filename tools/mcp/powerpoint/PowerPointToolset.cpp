@@ -215,6 +215,10 @@ public:
         RegisterSetNotes(registry);
         RegisterListComments(registry);
         RegisterAddComment(registry);
+        RegisterListAnimations(registry);
+        RegisterAddAnimation(registry);
+        RegisterUpdateAnimation(registry);
+        RegisterRemoveAnimation(registry);
         RegisterSetTransition(registry);
         RegisterAddSection(registry);
         RegisterSetSlideSize(registry);
@@ -3122,6 +3126,800 @@ private:
     }
 
     // --- design -------------------------------------------------------------
+
+    /**
+     * @brief Path of the shape carrying @p id, or an empty string.
+     *
+     * Animations address their target by non-visual identifier, which is what
+     * PresentationML stores, but every other tool of this server addresses a
+     * shape by its path. Reporting both means an agent can feed a listed
+     * animation straight back into the shape tools without a second lookup.
+     */
+    static std::string ShapePathOfId(const std::vector<PowerPoint::PresentationShape::Ptr>& level, UInt32 id,
+                                     const std::string& prefix)
+    {
+        for (Size index = 0; index < level.size(); ++index)
+        {
+            if (level[index] == nullptr)
+            {
+                continue;
+            }
+
+            const auto path = prefix.empty() ? std::to_string(index + 1)
+                                             : prefix + "/" + std::to_string(index + 1);
+            if (level[index]->Id() == id)
+            {
+                return path;
+            }
+
+            const auto nested = ShapePathOfId(level[index]->Children(), id, path);
+            if (!nested.empty())
+            {
+                return nested;
+            }
+        }
+
+        return std::string();
+    }
+
+    static std::string ShapePathOfId(const PowerPoint::PresentationSlide& slide, UInt32 id)
+    {
+        auto tree = slide.ShapeTree();
+        return tree == nullptr ? std::string() : ShapePathOfId(tree->Shapes(), id, std::string());
+    }
+
+    static std::string AnimationClassToken(PowerPoint::PresentationAnimationEffectClass value)
+    {
+        switch (value)
+        {
+            case PowerPoint::PresentationAnimationEffectClass::Entrance:
+                return "entrance";
+            case PowerPoint::PresentationAnimationEffectClass::Emphasis:
+                return "emphasis";
+            case PowerPoint::PresentationAnimationEffectClass::Exit:
+                return "exit";
+            case PowerPoint::PresentationAnimationEffectClass::MotionPath:
+                return "motion_path";
+        }
+
+        return "entrance";
+    }
+
+    static PowerPoint::PresentationAnimationEffectClass ParseAnimationClass(const std::string& token)
+    {
+        if (token == "emphasis")
+        {
+            return PowerPoint::PresentationAnimationEffectClass::Emphasis;
+        }
+
+        if (token == "exit")
+        {
+            return PowerPoint::PresentationAnimationEffectClass::Exit;
+        }
+
+        if (token == "motion_path")
+        {
+            return PowerPoint::PresentationAnimationEffectClass::MotionPath;
+        }
+
+        return PowerPoint::PresentationAnimationEffectClass::Entrance;
+    }
+
+    static std::string AnimationEffectToken(PowerPoint::PresentationAnimationEffect value)
+    {
+        switch (value)
+        {
+            case PowerPoint::PresentationAnimationEffect::Appear:
+                return "appear";
+            case PowerPoint::PresentationAnimationEffect::Fade:
+                return "fade";
+            case PowerPoint::PresentationAnimationEffect::Fly:
+                return "fly";
+            case PowerPoint::PresentationAnimationEffect::Wipe:
+                return "wipe";
+            case PowerPoint::PresentationAnimationEffect::Zoom:
+                return "zoom";
+            case PowerPoint::PresentationAnimationEffect::GrowShrink:
+                return "grow_shrink";
+            case PowerPoint::PresentationAnimationEffect::Spin:
+                return "spin";
+            case PowerPoint::PresentationAnimationEffect::ChangeFillColor:
+                return "change_fill_color";
+            case PowerPoint::PresentationAnimationEffect::MotionPath:
+                return "motion_path";
+            case PowerPoint::PresentationAnimationEffect::Unsupported:
+                break;
+        }
+
+        return "unsupported";
+    }
+
+    static PowerPoint::PresentationAnimationEffect ParseAnimationEffect(const std::string& token)
+    {
+        if (token == "appear")
+        {
+            return PowerPoint::PresentationAnimationEffect::Appear;
+        }
+
+        if (token == "fly")
+        {
+            return PowerPoint::PresentationAnimationEffect::Fly;
+        }
+
+        if (token == "wipe")
+        {
+            return PowerPoint::PresentationAnimationEffect::Wipe;
+        }
+
+        if (token == "zoom")
+        {
+            return PowerPoint::PresentationAnimationEffect::Zoom;
+        }
+
+        if (token == "grow_shrink")
+        {
+            return PowerPoint::PresentationAnimationEffect::GrowShrink;
+        }
+
+        if (token == "spin")
+        {
+            return PowerPoint::PresentationAnimationEffect::Spin;
+        }
+
+        if (token == "change_fill_color")
+        {
+            return PowerPoint::PresentationAnimationEffect::ChangeFillColor;
+        }
+
+        if (token == "motion_path")
+        {
+            return PowerPoint::PresentationAnimationEffect::MotionPath;
+        }
+
+        return PowerPoint::PresentationAnimationEffect::Fade;
+    }
+
+    static std::string AnimationTriggerToken(PowerPoint::PresentationAnimationTrigger value)
+    {
+        switch (value)
+        {
+            case PowerPoint::PresentationAnimationTrigger::WithPrevious:
+                return "with_previous";
+            case PowerPoint::PresentationAnimationTrigger::AfterPrevious:
+                return "after_previous";
+            case PowerPoint::PresentationAnimationTrigger::OnClick:
+                break;
+        }
+
+        return "on_click";
+    }
+
+    static PowerPoint::PresentationAnimationTrigger ParseAnimationTrigger(const std::string& token)
+    {
+        if (token == "with_previous")
+        {
+            return PowerPoint::PresentationAnimationTrigger::WithPrevious;
+        }
+
+        if (token == "after_previous")
+        {
+            return PowerPoint::PresentationAnimationTrigger::AfterPrevious;
+        }
+
+        return PowerPoint::PresentationAnimationTrigger::OnClick;
+    }
+
+    static std::string AnimationDirectionToken(PowerPoint::PresentationAnimationDirection value)
+    {
+        switch (value)
+        {
+            case PowerPoint::PresentationAnimationDirection::Left:
+                return "left";
+            case PowerPoint::PresentationAnimationDirection::Up:
+                return "up";
+            case PowerPoint::PresentationAnimationDirection::Right:
+                return "right";
+            case PowerPoint::PresentationAnimationDirection::Down:
+                return "down";
+            case PowerPoint::PresentationAnimationDirection::In:
+                return "in";
+            case PowerPoint::PresentationAnimationDirection::Out:
+                return "out";
+        }
+
+        return "left";
+    }
+
+    static PowerPoint::PresentationAnimationDirection ParseAnimationDirection(const std::string& token)
+    {
+        if (token == "up")
+        {
+            return PowerPoint::PresentationAnimationDirection::Up;
+        }
+
+        if (token == "right")
+        {
+            return PowerPoint::PresentationAnimationDirection::Right;
+        }
+
+        if (token == "down")
+        {
+            return PowerPoint::PresentationAnimationDirection::Down;
+        }
+
+        if (token == "in")
+        {
+            return PowerPoint::PresentationAnimationDirection::In;
+        }
+
+        if (token == "out")
+        {
+            return PowerPoint::PresentationAnimationDirection::Out;
+        }
+
+        return PowerPoint::PresentationAnimationDirection::Left;
+    }
+
+    /// Schema of the `timing` argument, shared by the writing animation tools.
+    static nlohmann::json AnimationTimingSchema()
+    {
+        return Schema::Object(
+            "Effect timing. Every time is in milliseconds.", {},
+            nlohmann::json{
+                {"delay", Schema::IntegerWithDefault("Delay before the effect starts once triggered.", 0, 0)},
+                {"duration", Schema::IntegerWithDefault("Duration of one iteration; may not be zero.", 500, 1)},
+                {"repeat_count", Schema::Integer("Total iterations; omit for a single pass.", 1)},
+                {"repeat_indefinitely",
+                 Schema::BooleanWithDefault("Repeat until the slide advances; excludes repeat_count.", false)},
+                {"auto_reverse", Schema::BooleanWithDefault("Play backwards after each forward pass.", false)},
+                {"acceleration",
+                 Schema::Integer("Ease-in fraction in thousandths of one percent.", 0, 100000)},
+                {"deceleration",
+                 Schema::Integer("Ease-out fraction in thousandths of one percent.", 0, 100000)}});
+    }
+
+    /// Properties every writing animation tool shares, beyond its addressing.
+    static void AddAnimationProperties(nlohmann::json& properties)
+    {
+        properties["effect_class"] = Schema::EnumerationWithDefault(
+            "Effect gallery. Entrance and exit take appear, fade, fly, wipe, or zoom; emphasis takes "
+            "grow_shrink, spin, or change_fill_color; motion_path takes motion_path.",
+            {"entrance", "emphasis", "exit", "motion_path"}, "entrance");
+        properties["effect"] = Schema::EnumerationWithDefault(
+            "Effect to play.",
+            {"appear", "fade", "fly", "wipe", "zoom", "grow_shrink", "spin", "change_fill_color", "motion_path"},
+            "fade");
+        properties["trigger"] = Schema::EnumerationWithDefault(
+            "How this effect chains onto the one before it.",
+            {"on_click", "with_previous", "after_previous"}, "on_click");
+        properties["trigger_shape"] =
+            Schema::String("Shape whose click starts this effect; omit to place it in the main sequence.");
+        properties["timing"] = AnimationTimingSchema();
+        properties["direction"] =
+            Schema::Enumeration("Required by fly and wipe (left, up, right, down) and by zoom (in, out).",
+                                {"left", "up", "right", "down", "in", "out"});
+        properties["scale_percent"] = Schema::Integer("Target size for grow_shrink, in percent.", 1);
+        properties["rotation_degrees"] = Schema::Integer("Signed rotation for spin, in whole degrees.");
+        properties["color"] = Schema::String("Target fill color for change_fill_color as \"#RRGGBB\".");
+        properties["motion_path"] =
+            Schema::String("DrawingML motion path for motion_path, for example \"M 0 0 L 0.5 0.25 E\".");
+    }
+
+    /**
+     * @brief Reads the shared animation members onto @p effect.
+     *
+     * The library validates the whole effect before it writes anything - the
+     * effect and class have to form a supported pair, and the parameters have
+     * to match the effect exactly - so this only has to translate. What it does
+     * decide is the target and trigger shapes, because those arrive as paths
+     * and PresentationML stores identifiers.
+     */
+    static bool ReadAnimation(const PowerPoint::PresentationSlide& slide, const nlohmann::json& arguments,
+                              PowerPoint::PresentationAnimationEffectData& effect, ToolOutcome& failure)
+    {
+        const auto path = arguments.value("shape", std::string());
+        auto target = PptAddressing::FindShape(slide, path, failure);
+        if (target == nullptr)
+        {
+            return false;
+        }
+
+        effect.TargetShapeId = target->Id();
+        if (effect.TargetShapeId == 0)
+        {
+            failure = MakeError(ErrorCode::ShapeNotFound, "The shape has no identifier to animate.", path);
+            return false;
+        }
+
+        if (const auto trigger = arguments.find("trigger_shape"); trigger != arguments.end())
+        {
+            auto shape = PptAddressing::FindShape(slide, trigger->get<std::string>(), failure);
+            if (shape == nullptr)
+            {
+                return false;
+            }
+
+            effect.TriggerShapeId = shape->Id();
+            if (effect.TriggerShapeId == 0)
+            {
+                failure = MakeError(ErrorCode::ShapeNotFound, "The trigger shape has no identifier.",
+                                    trigger->get<std::string>());
+                return false;
+            }
+        }
+
+        effect.Class = ParseAnimationClass(arguments.value("effect_class", std::string("entrance")));
+        effect.Effect = ParseAnimationEffect(arguments.value("effect", std::string("fade")));
+        effect.Trigger = ParseAnimationTrigger(arguments.value("trigger", std::string("on_click")));
+
+        if (const auto timing = arguments.find("timing"); timing != arguments.end())
+        {
+            effect.Timing.Delay = timing->value("delay", 0U);
+            effect.Timing.Duration = timing->value("duration", 500U);
+            effect.Timing.RepeatIndefinitely = timing->value("repeat_indefinitely", false);
+            effect.Timing.AutoReverse = timing->value("auto_reverse", false);
+            effect.Timing.Acceleration = timing->value("acceleration", 0U);
+            effect.Timing.Deceleration = timing->value("deceleration", 0U);
+            if (const auto repeat = timing->find("repeat_count"); repeat != timing->end())
+            {
+                effect.Timing.RepeatCount = repeat->get<UInt32>();
+            }
+        }
+
+        if (const auto direction = arguments.find("direction"); direction != arguments.end())
+        {
+            effect.Direction = ParseAnimationDirection(direction->get<std::string>());
+        }
+
+        if (const auto scale = arguments.find("scale_percent"); scale != arguments.end())
+        {
+            effect.ScalePercent = scale->get<Int32>();
+        }
+
+        if (const auto rotation = arguments.find("rotation_degrees"); rotation != arguments.end())
+        {
+            effect.RotationDegrees = rotation->get<Int32>();
+        }
+
+        if (const auto color = arguments.find("color"); color != arguments.end())
+        {
+            // The library takes six hexadecimal digits; the servers speak
+            // "#RRGGBB" everywhere, so the leading hash is parsed off here
+            // rather than leaving two spellings in the catalog.
+            const auto text = color->get<std::string>();
+            const auto parsed = ParseColor(text);
+            if (!parsed.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "The color is not \"#RRGGBB\".", "color");
+                return false;
+            }
+
+            effect.Color = text.front() == '#' ? text.substr(1) : text;
+        }
+
+        if (const auto motion = arguments.find("motion_path"); motion != arguments.end())
+        {
+            effect.MotionPath = motion->get<std::string>();
+        }
+
+        return true;
+    }
+
+    static nlohmann::json AnimationToJson(const PowerPoint::PresentationSlide& slide,
+                                          const PowerPoint::PresentationAnimationEffectData& effect)
+    {
+        nlohmann::json timing = nlohmann::json::object();
+        timing["delay"] = effect.Timing.Delay;
+        timing["duration"] = effect.Timing.Duration;
+        timing["repeatIndefinitely"] = effect.Timing.RepeatIndefinitely;
+        timing["autoReverse"] = effect.Timing.AutoReverse;
+        timing["acceleration"] = effect.Timing.Acceleration;
+        timing["deceleration"] = effect.Timing.Deceleration;
+        if (effect.Timing.RepeatCount.has_value())
+        {
+            timing["repeatCount"] = *effect.Timing.RepeatCount;
+        }
+
+        nlohmann::json entry = nlohmann::json::object();
+        entry["animationId"] = effect.Id;
+        entry["shape"] = ShapePathOfId(slide, effect.TargetShapeId);
+        entry["shapeId"] = effect.TargetShapeId;
+        entry["effectClass"] = AnimationClassToken(effect.Class);
+        entry["effect"] = AnimationEffectToken(effect.Effect);
+        entry["trigger"] = AnimationTriggerToken(effect.Trigger);
+        entry["timing"] = std::move(timing);
+        if (effect.TriggerShapeId != 0)
+        {
+            entry["triggerShape"] = ShapePathOfId(slide, effect.TriggerShapeId);
+        }
+
+        if (effect.Direction.has_value())
+        {
+            entry["direction"] = AnimationDirectionToken(*effect.Direction);
+        }
+
+        if (effect.ScalePercent.has_value())
+        {
+            entry["scalePercent"] = *effect.ScalePercent;
+        }
+
+        if (effect.RotationDegrees.has_value())
+        {
+            entry["rotationDegrees"] = *effect.RotationDegrees;
+        }
+
+        if (effect.Color.has_value())
+        {
+            entry["color"] = "#" + *effect.Color;
+        }
+
+        if (effect.MotionPath.has_value())
+        {
+            entry["motionPath"] = *effect.MotionPath;
+        }
+
+        return entry;
+    }
+
+    static void RegisterListAnimations(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        properties["slide"] = Schema::Integer("1-based slide index; omit to list every slide.", 1);
+
+        auto definition = MakeDefinition(
+            "list_animations", "List animations",
+            "List the animation effects of the presentation in playback order, optionally narrowed to one "
+            "slide. An effect this version does not model is reported as \"unsupported\" and is left alone by "
+            "the writing tools.",
+            "animation");
+        definition.InputSchema = Schema::Object("Arguments of list_animations.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Animations.", {"animations"},
+                           nlohmann::json{{"animations", Schema::Array("Effects in playback order.",
+                                                                       Schema::FreeObject("One effect: its "
+                                                                                          "animationId, slide, "
+                                                                                          "shape path, class, "
+                                                                                          "effect, trigger, "
+                                                                                          "timing, and any "
+                                                                                          "effect-specific "
+                                                                                          "parameter."))}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListAnimations(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListAnimations(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        const Size wanted = arguments.value("slide", static_cast<Size>(0));
+        nlohmann::json animations = nlohmann::json::array();
+        const auto slides = reader.Editor().Slides();
+        for (Size index = 0; index < slides.size(); ++index)
+        {
+            if ((wanted > 0 && index + 1 != wanted) || slides[index] == nullptr)
+            {
+                continue;
+            }
+
+            for (const auto& effect : slides[index]->AnimationEffects())
+            {
+                auto entry = AnimationToJson(*slides[index], effect);
+                entry["slide"] = static_cast<UInt64>(index + 1);
+                animations.push_back(std::move(entry));
+            }
+        }
+
+        const bool truncated = TruncateArrayToBudget(animations);
+
+        nlohmann::json data = nlohmann::json::object();
+        const auto count = animations.size();
+        data["animations"] = std::move(animations);
+
+        return ResultBuilder("The presentation holds " + std::to_string(count) + " animation effect(s).")
+            .WithData(std::move(data))
+            .WithTruncated(truncated)
+            .Build();
+    }
+
+    static void RegisterAddAnimation(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["shape"] = Schema::String("Shape path from get_slide.");
+        AddAnimationProperties(properties);
+
+        auto definition = MakeDefinition(
+            "add_animation", "Add animation",
+            "Animate a shape, appending the effect to the end of the slide's playback order. The effect and "
+            "its class have to form a supported pair and the effect-specific parameter has to match, or "
+            "nothing is written.",
+            "animation");
+        definition.InputSchema =
+            Schema::Object("Arguments of add_animation.", {"documentId", "slide", "shape"},
+                           std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New animation.", {"animationId"},
+                           nlohmann::json{{"animationId", Schema::Integer("Stable effect identifier.")},
+                                          {"shape", Schema::String("Shape path that was animated.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"slide", 1},
+                                            {"shape", "2"},
+                                            {"effect_class", "entrance"},
+                                            {"effect", "fly"},
+                                            {"direction", "left"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddAnimation(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome AddAnimation(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        PowerPoint::PresentationAnimationEffectData effect;
+        if (!ReadAnimation(*slide, arguments, effect, failure))
+        {
+            return failure;
+        }
+
+        MutationGuard guard(session.Session());
+
+        const auto written = slide->AddAnimationEffect(effect);
+        if (!written.has_value())
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "The effect was refused: the class and effect must form a supported pair, and the "
+                             "effect-specific parameter must match the effect exactly.",
+                             arguments.value("effect", std::string()),
+                             "Entrance and exit take appear, fade, fly, wipe, zoom; emphasis takes grow_shrink, "
+                             "spin, change_fill_color; motion_path takes motion_path.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["animationId"] = *written;
+        data["shape"] = arguments.value("shape", std::string());
+
+        return ResultBuilder("Animated shape " + arguments.value("shape", std::string()) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterUpdateAnimation(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["animation_id"] = Schema::Integer("Effect identifier from list_animations.", 1);
+        properties["shape"] = Schema::String("Shape path the effect targets; omit to keep the current one.");
+        properties["index"] =
+            Schema::Integer("Move the effect to this 1-based position in the slide's playback order.", 1);
+        AddAnimationProperties(properties);
+
+        auto definition = MakeDefinition(
+            "update_animation", "Update animation",
+            "Replace one animation effect, and optionally move it to another position in the playback order. "
+            "The whole effect is rewritten, so members left out fall back to their defaults rather than to "
+            "what the effect carried.",
+            "animation");
+        definition.InputSchema = Schema::Object("Arguments of update_animation.",
+                                                {"documentId", "slide", "animation_id"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Updated animation.", {"animationId"},
+                           nlohmann::json{{"animationId", Schema::Integer("Stable effect identifier.")},
+                                          {"index", Schema::Integer("1-based playback position.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"slide", 1},
+                                            {"animation_id", 2},
+                                            {"effect", "fade"},
+                                            {"trigger", "after_previous"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return UpdateAnimation(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome UpdateAnimation(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const auto animationId = arguments.value("animation_id", 0U);
+        const auto existing = slide->AnimationEffects();
+        const auto match = std::find_if(existing.begin(), existing.end(),
+                                        [animationId](const PowerPoint::PresentationAnimationEffectData& effect)
+                                        { return effect.Id == animationId; });
+        if (match == existing.end())
+        {
+            return MakeError(ErrorCode::ShapeNotFound, "No animation effect has that identifier.",
+                             std::to_string(animationId), "Call list_animations to see them.");
+        }
+
+        // The target shape is the one member worth carrying over: re-pointing
+        // an effect at a different shape is a deliberate act, while restating
+        // the shape on every timing tweak is friction.
+        nlohmann::json merged = arguments;
+        if (!merged.contains("shape"))
+        {
+            merged["shape"] = ShapePathOfId(*slide, match->TargetShapeId);
+        }
+
+        PowerPoint::PresentationAnimationEffectData effect;
+        if (!ReadAnimation(*slide, merged, effect, failure))
+        {
+            return failure;
+        }
+
+        effect.Id = animationId;
+
+        MutationGuard guard(session.Session());
+
+        if (!slide->UpdateAnimationEffect(animationId, effect))
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "The replacement effect was refused: the class and effect must form a supported "
+                             "pair, and the effect-specific parameter must match the effect exactly.",
+                             std::to_string(animationId));
+        }
+
+        Size position = static_cast<Size>(std::distance(existing.begin(), match));
+        if (const auto index = arguments.find("index"); index != arguments.end())
+        {
+            const Size wanted = index->get<Size>();
+            if (wanted == 0 || wanted > existing.size())
+            {
+                return MakeError(ErrorCode::InputInvalid,
+                                 "The slide has " + std::to_string(existing.size()) + " effect(s).",
+                                 std::to_string(wanted));
+            }
+
+            if (!slide->MoveAnimationEffect(animationId, wanted - 1))
+            {
+                return MakeError(ErrorCode::OperationFailed, "The effect could not be moved.",
+                                 std::to_string(wanted));
+            }
+
+            position = wanted - 1;
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["animationId"] = animationId;
+        data["index"] = static_cast<UInt64>(position + 1);
+
+        return ResultBuilder("Updated animation " + std::to_string(animationId) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterRemoveAnimation(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["animation_id"] = Schema::Integer("Effect identifier from list_animations.", 1);
+        properties["all"] =
+            Schema::BooleanWithDefault("Remove every effect on the slide instead of naming one.", false);
+
+        auto definition = MakeDefinition(
+            "remove_animation", "Remove animation",
+            "Remove one animation effect, or every effect on the slide. Free-standing behaviors and media "
+            "timing are left in place. Pass exactly one of animation_id and all.",
+            "animation");
+        definition.InputSchema =
+            Schema::Object("Arguments of remove_animation.", {"documentId", "slide"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Removed animations.", {"removed"},
+                           nlohmann::json{{"removed", Schema::Integer("Effects the call removed.")}}),
+            true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"slide", 1}, {"animation_id", 2}};
+        definition.Annotations.Destructive = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return RemoveAnimation(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome RemoveAnimation(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const bool all = arguments.value("all", false);
+        const bool named = arguments.contains("animation_id");
+
+        // Clearing a slide and removing one effect are different enough that
+        // guessing between them from an omission would be a poor trade.
+        if (all == named)
+        {
+            return MakeError(ErrorCode::InputInvalid, "Pass exactly one of animation_id and all.",
+                             "animation_id");
+        }
+
+        const auto before = slide->AnimationEffects().size();
+
+        MutationGuard guard(session.Session());
+
+        Size removed = 0;
+        if (all)
+        {
+            if (!slide->ClearAnimationEffects())
+            {
+                return MakeError(ErrorCode::OperationFailed, "The animations could not be cleared.");
+            }
+
+            removed = before;
+        }
+        else
+        {
+            const auto animationId = arguments.value("animation_id", 0U);
+            if (!slide->RemoveAnimationEffect(animationId))
+            {
+                return MakeError(ErrorCode::ShapeNotFound, "No animation effect has that identifier.",
+                                 std::to_string(animationId), "Call list_animations to see them.");
+            }
+
+            removed = 1;
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["removed"] = static_cast<UInt64>(removed);
+
+        return ResultBuilder("Removed " + std::to_string(removed) + " animation effect(s).")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
 
     static void RegisterSetTransition(ToolRegistry& registry)
     {
