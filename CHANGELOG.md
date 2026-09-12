@@ -57,6 +57,12 @@ in [docs/](docs/README.md).
   name: an editing restriction on a document, a password to modify on a
   presentation. Excel's moved from the `layout` group to `review` so the three
   can be filtered together with `--toolsets`.
+- Word `define_style` and `delete_style` write and remove style definitions,
+  including the run and paragraph formatting a style carries; `built_in` marks a
+  definition as Word's own style of that name rather than a new one.
+- Word `define_list` and `list_numbering` write and report multi-level list
+  definitions, and `insert_list` takes a `numbering_id` to continue an existing
+  sequence or lay out a definition.
 - `get_document_info` reports what a document restricts, on all three servers.
 
 ### Fixed

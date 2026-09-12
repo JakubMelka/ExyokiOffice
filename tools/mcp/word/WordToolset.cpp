@@ -279,6 +279,10 @@ public:
         RegisterFillTemplate(registry);
         RegisterCompareDocuments(registry);
         RegisterSetProtection(registry);
+        RegisterDefineStyle(registry);
+        RegisterDeleteStyle(registry);
+        RegisterListNumbering(registry);
+        RegisterDefineList(registry);
     }
 
 private:
@@ -1193,10 +1197,15 @@ private:
                                           {"level", Schema::Integer("List level, 0-based.", 0)}}));
         properties["kind"] = Schema::EnumerationWithDefault("List marker style.", {"bullet", "numbered"}, "bullet");
         properties["start"] = Schema::Integer("First number of a numbered list.", 1);
+        properties["numbering_id"] = Schema::Integer(
+            "Numbering instance the list joins, from a previous insert_list, define_list, or list_numbering. "
+            "The list then continues that sequence and takes its shape; 'kind' and 'start' are not used.",
+            1);
 
         auto definition = MakeDefinition("insert_list", "Insert list",
-                                         "Insert a bulleted or numbered list as consecutive paragraphs. Reuse the "
-                                         "returned numberingId to continue the same list later.",
+                                         "Insert a bulleted or numbered list as consecutive paragraphs. Pass the "
+                                         "numberingId of an earlier list to continue its sequence, or one from "
+                                         "define_list to lay out a multi-level definition.",
                                          "content");
         definition.InputSchema =
             Schema::Object("Arguments of insert_list.", {"documentId", "anchor", "items"}, std::move(properties));
@@ -1238,16 +1247,35 @@ private:
 
         MutationGuard guard(session.Session());
 
-        const auto kind = arguments.value("kind", std::string("bullet"));
-        auto listStyle = kind == "numbered" ? session.Editor().EnsureNumberedListStyle()
-                                            : session.Editor().EnsureBulletedListStyle();
-        if (kind == "numbered")
+        Word::ListStyle listStyle;
+        if (const auto numberingId = arguments.find("numbering_id");
+            numberingId != arguments.end() && numberingId->is_number_integer())
         {
-            const auto start = arguments.value("start", 1);
-            if (start != 1)
+            // Joining an existing sequence is what makes the list continue
+            // rather than start over, so the instance has to be the one that
+            // already exists; a missing one is a caller mistake, not a reason
+            // to invent a second list.
+            listStyle = session.Editor().Numbering().ContinueList(numberingId->get<int>());
+            if (listStyle.NumberingId == 0)
             {
-                listStyle = session.Editor().Numbering().RestartList(
-                    listStyle.NumberingId, {Word::NumberingLevelOverride{0, start}});
+                return MakeError(ErrorCode::InputInvalid,
+                                 "The document has no numbering instance " + numberingId->dump() + ".",
+                                 "numbering_id", "list_numbering reports the instances this document carries.");
+            }
+        }
+        else
+        {
+            const auto kind = arguments.value("kind", std::string("bullet"));
+            listStyle = kind == "numbered" ? session.Editor().EnsureNumberedListStyle()
+                                           : session.Editor().EnsureBulletedListStyle();
+            if (kind == "numbered")
+            {
+                const auto start = arguments.value("start", 1);
+                if (start != 1)
+                {
+                    listStyle = session.Editor().Numbering().RestartList(
+                        listStyle.NumberingId, {Word::NumberingLevelOverride{0, start}});
+                }
             }
         }
 
@@ -1298,8 +1326,9 @@ private:
         data["lastBlock"] = static_cast<UInt64>(lastBlock);
         data["numberingId"] = listStyle.NumberingId;
 
-        return ResultBuilder("Inserted a " + kind + " list as blocks " + std::to_string(firstBlock) + " to " +
-                             std::to_string(lastBlock) + ".")
+        return ResultBuilder("Inserted a list as blocks " + std::to_string(firstBlock) + " to " +
+                             std::to_string(lastBlock) + ", numbered as instance " +
+                             std::to_string(listStyle.NumberingId) + ".")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();
@@ -4113,6 +4142,949 @@ private:
         data["hasPassword"] = state.has_value() && state->HasPassword;
 
         return ResultBuilder(protect ? "Protected the document." : "Removed the document protection.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    // -----------------------------------------------------------------------
+    // Style definitions
+    //
+    // A style is a name content can point at, which is why defining one is
+    // worth a tool of its own: a document whose paragraphs carry meaningful
+    // style names can be restyled by changing a few definitions, while a
+    // document that repeats direct formatting on every paragraph cannot.
+    // -----------------------------------------------------------------------
+
+    /// The style formatting members define_style publishes.
+    static nlohmann::json StyleFormattingProperties()
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        properties["font"] = Schema::Object(
+            "Run formatting the style carries. A boolean passed as false is written as an explicit \"off\", "
+            "which is how a style overrides the one it is based on; a member left out is not touched at all.",
+            {},
+            nlohmann::json{{"name", Schema::String("Typeface.")},
+                           {"sizePt", Schema::Number("Font size in points, from 1 to 1638.")},
+                           {"bold", Schema::Boolean("Bold text.")},
+                           {"italic", Schema::Boolean("Italic text.")},
+                           {"underline", Schema::Boolean("Single underline.")},
+                           {"strike", Schema::Boolean("Struck-through text.")},
+                           {"allCaps", Schema::Boolean("Render lowercase letters as capitals.")},
+                           {"smallCaps", Schema::Boolean("Render lowercase letters as small capitals.")},
+                           {"color", Schema::String("Text color as \"#RRGGBB\".")}});
+        properties["paragraph"] = Schema::Object(
+            "Paragraph formatting the style carries; not accepted by a character style, which cannot hold any.",
+            {},
+            nlohmann::json{
+                {"alignment", Schema::Enumeration("Horizontal alignment.", {"left", "center", "right", "both"})},
+                {"space_before", Schema::Length("Space above the paragraph.")},
+                {"space_after", Schema::Length("Space below the paragraph.")},
+                {"line_spacing", Schema::Number("Line spacing as a multiple of single spacing.")},
+                {"indent_left", Schema::Length("Left indent.")},
+                {"indent_right", Schema::Length("Right indent.")},
+                {"indent_first_line", Schema::Length("First-line indent; a negative value hangs the first line.")},
+                {"keep_next", Schema::Boolean("Keep the paragraph on the same page as the next one.")},
+                {"keep_lines", Schema::Boolean("Keep every line of the paragraph on one page.")},
+                {"page_break_before", Schema::Boolean("Start the paragraph on a new page.")},
+                {"outline_level", Schema::Integer("Outline level, 0 for a top-level heading and 9 for body text.",
+                                                  0, 9)}});
+        return properties;
+    }
+
+    static void RegisterDefineStyle(ToolRegistry& registry)
+    {
+        nlohmann::json properties = StyleFormattingProperties();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["style_id"] = Schema::String(
+            "Identifier content refers to. Reusing an existing one updates that style rather than adding a "
+            "second definition.");
+        properties["kind"] = Schema::EnumerationWithDefault(
+            "Which family the style belongs to, and therefore what can refer to it: paragraphs, runs, tables, "
+            "or numbering definitions. Ignored when the style already exists.",
+            {"paragraph", "character", "table", "numbering"}, "paragraph");
+        properties["name"] = Schema::String("Name Word shows in its style gallery; defaults to the identifier.");
+        properties["based_on"] = Schema::String("Identifier of the style this one inherits from.");
+        properties["next"] = Schema::String(
+            "Identifier of the style Word applies to the paragraph created by pressing Enter at the end of one "
+            "carrying this style. A heading usually names the body style here.");
+        properties["linked"] = Schema::String(
+            "Identifier of the character style that pairs with this paragraph style, or the other way round.");
+        properties["aliases"] = Schema::String("Comma-separated alternative names.");
+        properties["ui_priority"] = Schema::Integer("Sort order in Word's style gallery; lower comes first.", 0,
+                                                    99);
+        properties["quick_style"] =
+            Schema::Boolean("Show the style in Word's quick style gallery rather than only in the full list.");
+        properties["hidden"] = Schema::Boolean("Hide the style from the gallery until it is used.");
+        properties["default"] =
+            Schema::Boolean("Make this the default style of its family; any previous default loses the flag.");
+        properties["built_in"] = Schema::BooleanWithDefault(
+            "Define the built-in style of this name rather than a new one of your own. Word reserves the "
+            "built-in names - \"Normal\", \"heading 1\", \"Title\", \"caption\" and the rest - so a custom "
+            "style given one of them is renamed on open: \"heading 1\" becomes \"Heading 11\". Set this when "
+            "you mean to redefine what the document's Heading 1 looks like, and leave it alone for a style of "
+            "your own.",
+            false);
+
+        auto definition = MakeDefinition(
+            "define_style", "Define style",
+            "Create a style definition or change an existing one. Only the members you pass take part, so a "
+            "second call adds to a definition rather than replacing it. Formatting the schema does not publish "
+            "is preserved: this rewrites the members it is given and leaves the rest of the definition alone.",
+            "content");
+        definition.InputSchema =
+            Schema::Object("Arguments of define_style.", {"documentId", "style_id"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Style definition.", {"styleId", "kind", "created"},
+                           nlohmann::json{{"styleId", Schema::String("Identifier of the style.")},
+                                          {"kind", Schema::String("Family the style belongs to.")},
+                                          {"created", Schema::Boolean("False when an existing style was "
+                                                                      "changed.")}}),
+            true);
+        definition.Example = nlohmann::json{
+            {"documentId", "doc-1"},
+            {"style_id", "ReportHeading"},
+            {"name", "Report Heading"},
+            {"based_on", "Heading1"},
+            {"next", "Normal"},
+            {"font", nlohmann::json{{"sizePt", 16}, {"bold", true}, {"color", "#1F4E79"}}},
+            {"paragraph", nlohmann::json{{"space_before", 12}, {"keep_next", true}}}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return DefineStyle(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static std::optional<Word::StyleType> ParseStyleType(const std::string& token)
+    {
+        if (token == "paragraph")
+        {
+            return Word::StyleType::Paragraph;
+        }
+
+        if (token == "character")
+        {
+            return Word::StyleType::Character;
+        }
+
+        if (token == "table")
+        {
+            return Word::StyleType::Table;
+        }
+
+        if (token == "numbering")
+        {
+            return Word::StyleType::Numbering;
+        }
+
+        return std::nullopt;
+    }
+
+    /**
+     * @brief Sets or clears one `w:val`-carrying on/off property of a style.
+     *
+     * An absent member leaves whatever the definition already had. `false` is
+     * not absence: it writes the element with an explicit off value, which is
+     * the only way a style can cancel something the style it is based on turns
+     * on.
+     */
+    template <typename TProperty, typename TParent>
+    static void ApplyStyleFlag(const std::shared_ptr<TParent>& parent, const nlohmann::json& owner,
+                               const char* name)
+    {
+        const auto member = owner.find(name);
+        if (member == owner.end() || !member->is_boolean())
+        {
+            return;
+        }
+
+        auto node = parent->template GetFirstChildOfType<TProperty>();
+        if (node == nullptr)
+        {
+            node = parent->template AppendChild<TProperty>();
+        }
+        if (node != nullptr)
+        {
+            node->SetVal(OnOffValue(member->get<bool>()));
+        }
+    }
+
+    /// Returns @p parent's child of type @p TChild, creating it when absent.
+    template <typename TChild, typename TParent>
+    static std::shared_ptr<TChild> EnsureChild(const std::shared_ptr<TParent>& parent)
+    {
+        auto child = parent->template GetFirstChildOfType<TChild>();
+        return child != nullptr ? child : parent->template AppendChild<TChild>();
+    }
+
+    static bool ApplyStyleFont(const std::shared_ptr<W::Style>& style, const nlohmann::json& font,
+                               ToolOutcome& failure)
+    {
+        auto properties = EnsureChild<W::StyleRunProperties>(style);
+        if (properties == nullptr)
+        {
+            failure = MakeError(ErrorCode::OperationFailed, "The style could not carry run formatting.");
+            return false;
+        }
+
+        ApplyStyleFlag<W::Bold>(properties, font, "bold");
+        ApplyStyleFlag<W::Italic>(properties, font, "italic");
+        ApplyStyleFlag<W::Strike>(properties, font, "strike");
+        ApplyStyleFlag<W::Caps>(properties, font, "allCaps");
+        ApplyStyleFlag<W::SmallCaps>(properties, font, "smallCaps");
+
+        if (const auto underline = font.find("underline");
+            underline != font.end() && underline->is_boolean())
+        {
+            auto node = EnsureChild<W::Underline>(properties);
+            if (node != nullptr)
+            {
+                node->SetVal(EnumValue<W::UnderlineValues>(underline->get<bool>() ? W::UnderlineValues::Single
+                                                                                  : W::UnderlineValues::None));
+            }
+        }
+
+        const auto name = font.value("name", std::string());
+        if (!name.empty())
+        {
+            auto fonts = EnsureChild<W::RunFonts>(properties);
+            if (fonts != nullptr)
+            {
+                fonts->SetAscii(StringValue(name));
+                fonts->SetHighAnsi(StringValue(name));
+                fonts->SetComplexScript(StringValue(name));
+            }
+        }
+
+        if (const auto size = font.find("sizePt"); size != font.end() && size->is_number())
+        {
+            // Word stores this in half-points, so an odd half-point is the
+            // smallest step a font size can take.
+            const auto halfPoints = static_cast<Int64>(std::lround(size->get<Real>() * 2.0));
+            auto node = EnsureChild<W::FontSize>(properties);
+            if (node != nullptr)
+            {
+                node->SetVal(StringValue(std::to_string(halfPoints)));
+            }
+        }
+
+        const auto color = font.value("color", std::string());
+        if (!color.empty())
+        {
+            const auto parsed = ParseColor(color);
+            if (!parsed.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "The font color is not a valid \"#RRGGBB\" value.",
+                                    color, "Use a hexadecimal color such as \"#1F4E79\".");
+                return false;
+            }
+
+            auto node = EnsureChild<W::Color>(properties);
+            if (node != nullptr)
+            {
+                auto hex = parsed->ToHexString();
+                if (!hex.empty() && hex.front() == '#')
+                {
+                    hex.erase(hex.begin());
+                }
+                node->SetVal(StringValue(hex));
+            }
+        }
+
+        return true;
+    }
+
+    /// Reads a length argument as whole twips, the unit WordprocessingML stores.
+    static bool ReadTwips(const nlohmann::json& owner, const char* name, std::optional<Int64>& result,
+                          ToolOutcome& failure)
+    {
+        result.reset();
+
+        const auto member = owner.find(name);
+        if (member == owner.end())
+        {
+            return true;
+        }
+
+        const auto length = ParseLength(*member);
+        if (!length.has_value())
+        {
+            failure = MakeError(ErrorCode::InputInvalid, "'" + std::string(name) + "' is not a length.",
+                                member->dump(), "Pass a number of points, or a string such as \"1.5cm\".");
+            return false;
+        }
+
+        result = static_cast<Int64>(std::llround(length->ToTw().GetValue()));
+        return true;
+    }
+
+    static bool ApplyStyleParagraph(const std::shared_ptr<W::Style>& style, const nlohmann::json& paragraph,
+                                    ToolOutcome& failure)
+    {
+        auto properties = EnsureChild<W::StyleParagraphProperties>(style);
+        if (properties == nullptr)
+        {
+            failure = MakeError(ErrorCode::OperationFailed, "The style could not carry paragraph formatting.");
+            return false;
+        }
+
+        ApplyStyleFlag<W::KeepNext>(properties, paragraph, "keep_next");
+        ApplyStyleFlag<W::KeepLines>(properties, paragraph, "keep_lines");
+        ApplyStyleFlag<W::PageBreakBefore>(properties, paragraph, "page_break_before");
+
+        const auto alignment = paragraph.value("alignment", std::string());
+        if (!alignment.empty())
+        {
+            const auto parsed = WordAddressing::ParseAlignment(alignment);
+            if (!parsed.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "'" + alignment + "' is not an alignment.",
+                                    "alignment");
+                return false;
+            }
+
+            auto node = EnsureChild<W::Justification>(properties);
+            if (node != nullptr)
+            {
+                node->SetVal(EnumValue<W::JustificationValues>(*parsed));
+            }
+        }
+
+        std::optional<Int64> before;
+        std::optional<Int64> after;
+        if (!ReadTwips(paragraph, "space_before", before, failure) ||
+            !ReadTwips(paragraph, "space_after", after, failure))
+        {
+            return false;
+        }
+
+        const auto lineSpacing = paragraph.find("line_spacing");
+        const bool hasLine = lineSpacing != paragraph.end() && lineSpacing->is_number();
+        if (before.has_value() || after.has_value() || hasLine)
+        {
+            auto node = EnsureChild<W::SpacingBetweenLines>(properties);
+            if (node != nullptr)
+            {
+                if (before.has_value())
+                {
+                    node->SetBefore(StringValue(std::to_string(*before)));
+                }
+                if (after.has_value())
+                {
+                    node->SetAfter(StringValue(std::to_string(*after)));
+                }
+                if (hasLine)
+                {
+                    // Word expresses a multiple of single spacing as 240ths of
+                    // a line, so single is 240 and double is 480.
+                    const auto line = static_cast<Int64>(std::lround(lineSpacing->get<Real>() * 240.0));
+                    node->SetLine(StringValue(std::to_string(line)));
+                    node->SetLineRule(EnumValue<W::LineSpacingRuleValues>(W::LineSpacingRuleValues::Auto));
+                }
+            }
+        }
+
+        std::optional<Int64> left;
+        std::optional<Int64> right;
+        std::optional<Int64> firstLine;
+        if (!ReadTwips(paragraph, "indent_left", left, failure) ||
+            !ReadTwips(paragraph, "indent_right", right, failure) ||
+            !ReadTwips(paragraph, "indent_first_line", firstLine, failure))
+        {
+            return false;
+        }
+
+        if (left.has_value() || right.has_value() || firstLine.has_value())
+        {
+            auto node = EnsureChild<W::Indentation>(properties);
+            if (node != nullptr)
+            {
+                if (left.has_value())
+                {
+                    node->SetLeft(StringValue(std::to_string(*left)));
+                }
+                if (right.has_value())
+                {
+                    node->SetRight(StringValue(std::to_string(*right)));
+                }
+                if (firstLine.has_value())
+                {
+                    // A negative first-line indent is a hanging indent, which
+                    // WordprocessingML spells as its own positive attribute.
+                    if (*firstLine < 0)
+                    {
+                        node->SetHanging(StringValue(std::to_string(-*firstLine)));
+                    }
+                    else
+                    {
+                        node->SetFirstLine(StringValue(std::to_string(*firstLine)));
+                    }
+                }
+            }
+        }
+
+        if (const auto outline = paragraph.find("outline_level");
+            outline != paragraph.end() && outline->is_number_integer())
+        {
+            auto node = EnsureChild<W::OutlineLevel>(properties);
+            if (node != nullptr)
+            {
+                node->SetVal(Int32Value(outline->get<Int32>()));
+            }
+        }
+
+        return true;
+    }
+
+    static ToolOutcome DefineStyle(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto styleId = arguments.value("style_id", std::string());
+        if (styleId.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A style needs an identifier.", "style_id");
+        }
+
+        auto styles = session.Editor().Styles();
+        const auto existing = styles.GetStyle(styleId);
+        const bool created = !existing.has_value();
+
+        auto definition = existing.value_or(Word::StyleDefinition{});
+        definition.StyleId = styleId;
+        if (created)
+        {
+            const auto kind = arguments.value("kind", std::string("paragraph"));
+            const auto parsed = ParseStyleType(kind);
+            if (!parsed.has_value())
+            {
+                return MakeError(ErrorCode::InputInvalid, "'" + kind + "' is not a style family.", "kind");
+            }
+
+            definition.Type = *parsed;
+            definition.Name = styleId;
+        }
+
+        if (arguments.contains("built_in"))
+        {
+            definition.IsCustom = !arguments.value("built_in", false);
+        }
+
+        if (const auto name = arguments.value("name", std::string()); !name.empty())
+        {
+            definition.Name = name;
+        }
+        if (arguments.contains("based_on"))
+        {
+            definition.BasedOnStyleId = arguments.value("based_on", std::string());
+        }
+        if (arguments.contains("next"))
+        {
+            definition.NextStyleId = arguments.value("next", std::string());
+        }
+        if (arguments.contains("linked"))
+        {
+            definition.LinkedStyleId = arguments.value("linked", std::string());
+        }
+        if (arguments.contains("aliases"))
+        {
+            definition.Aliases = arguments.value("aliases", std::string());
+        }
+        if (const auto priority = arguments.find("ui_priority");
+            priority != arguments.end() && priority->is_number_integer())
+        {
+            definition.UiPriority = priority->get<int>();
+        }
+        if (arguments.contains("quick_style"))
+        {
+            definition.IsPrimary = arguments.value("quick_style", false);
+        }
+        if (arguments.contains("hidden"))
+        {
+            definition.IsSemiHidden = arguments.value("hidden", false);
+            definition.IsUnhideWhenUsed = definition.IsSemiHidden;
+        }
+
+        const auto paragraph = arguments.find("paragraph");
+        const bool wantsParagraph = paragraph != arguments.end() && paragraph->is_object();
+        if (wantsParagraph && definition.Type == Word::StyleType::Character)
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "A character style cannot carry paragraph formatting.", "paragraph",
+                             "A character style formats runs inside a paragraph; define a paragraph style for "
+                             "the paragraph itself and link the two.");
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!styles.UpsertStyle(definition))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The style definition could not be written.", styleId);
+        }
+
+        if (arguments.value("default", false) && !styles.SetDefaultStyle(definition.Type, styleId))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The style could not be made the default.", styleId);
+        }
+
+        const auto style = styles.GetLowLevelStyle(styleId);
+        if (style == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The style could not be read back.", styleId);
+        }
+
+        ToolOutcome failure;
+        if (const auto font = arguments.find("font");
+            font != arguments.end() && font->is_object() && !ApplyStyleFont(style, *font, failure))
+        {
+            return failure;
+        }
+
+        if (wantsParagraph && !ApplyStyleParagraph(style, *paragraph, failure))
+        {
+            return failure;
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["styleId"] = styleId;
+        data["kind"] = StyleTypeToken(definition.Type);
+        data["created"] = created;
+
+        return ResultBuilder((created ? "Defined the style '" : "Changed the style '") + styleId + "'.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterDeleteStyle(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["style_id"] = Schema::String("Identifier of the style definition to remove.");
+
+        auto definition = MakeDefinition(
+            "delete_style", "Delete style",
+            "Remove a style definition. Content that still names the style keeps the reference and falls back "
+            "to the document defaults, so the answer reports how many blocks are in that position; move them "
+            "to another style with apply_style first if that is not what you want.",
+            "content");
+        definition.InputSchema =
+            Schema::Object("Arguments of delete_style.", {"documentId", "style_id"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Removal.", {"styleId", "removed"},
+                           nlohmann::json{{"styleId", Schema::String("Identifier that was removed.")},
+                                          {"removed", Schema::Boolean("A definition was there and is gone.")},
+                                          {"danglingBlocks",
+                                           Schema::Array("1-based indices of body blocks that still name the "
+                                                         "removed style.",
+                                                         Schema::Integer("Block index."))}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"style_id", "ReportHeading"}};
+        definition.Annotations.Destructive = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return DeleteStyle(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome DeleteStyle(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto styleId = arguments.value("style_id", std::string());
+        auto styles = session.Editor().Styles();
+        if (!styles.HasStyle(styleId))
+        {
+            return MakeError(ErrorCode::StyleNotFound, "No style '" + styleId + "' is defined.", styleId,
+                             "list_styles reports the identifiers this document defines.");
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!styles.RemoveStyle(styleId))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The style definition could not be removed.", styleId);
+        }
+
+        guard.Commit();
+
+        // Reported rather than repaired: which style the orphaned blocks should
+        // carry instead is a decision this tool has no way to make.
+        nlohmann::json dangling = nlohmann::json::array();
+        const auto blocks = session.Editor().BodyBlocks();
+        for (Size index = 1; index <= blocks.size(); ++index)
+        {
+            const auto paragraph = blocks[index - 1].AsParagraph();
+            if (paragraph != nullptr && paragraph->GetStyleId() == styleId)
+            {
+                dangling.push_back(static_cast<UInt64>(index));
+            }
+        }
+
+        nlohmann::json data = nlohmann::json::object();
+        data["styleId"] = styleId;
+        data["removed"] = true;
+        data["danglingBlocks"] = std::move(dangling);
+
+        return ResultBuilder("Removed the style '" + styleId + "'.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    // -----------------------------------------------------------------------
+    // Numbering definitions
+    //
+    // WordprocessingML separates the shape of a list from its sequence: an
+    // abstract definition says what each level looks like, and an instance is
+    // what paragraphs point at. Two paragraphs numbered in the same sequence
+    // share an instance; a list that starts over gets a new one over the same
+    // definition. Both halves are reported and both can be created here.
+    // -----------------------------------------------------------------------
+
+    static void RegisterListNumbering(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+
+        nlohmann::json level = Schema::Object(
+            "One level of a definition.", {"level"},
+            nlohmann::json{{"level", Schema::Integer("Zero-based level.")},
+                           {"format", Schema::String("Numbering format of the level.")},
+                           {"text", Schema::String("Pattern of the marker, where %1 is this level's number.")},
+                           {"start", Schema::Integer("First value of the level.")}});
+
+        nlohmann::json definitionSchema = Schema::Object(
+            "One abstract definition.", {"definitionId"},
+            nlohmann::json{{"definitionId", Schema::Integer("Identifier instances refer to.")},
+                           {"name", Schema::String("Name of the definition.")},
+                           {"levels", Schema::Array("Levels the definition declares.", std::move(level))}});
+
+        nlohmann::json override = Schema::Object(
+            "One restart override.", {"level", "start"},
+            nlohmann::json{{"level", Schema::Integer("Zero-based level that restarts.")},
+                           {"start", Schema::Integer("Value the level restarts at.")}});
+
+        nlohmann::json instance = Schema::Object(
+            "One numbering instance.", {"numberingId", "definitionId"},
+            nlohmann::json{{"numberingId", Schema::Integer("Identifier a paragraph names.")},
+                           {"definitionId", Schema::Integer("Definition the instance uses.")},
+                           {"overrides", Schema::Array("Levels this instance restarts.", std::move(override))}});
+
+        auto definition = MakeDefinition(
+            "list_numbering", "List numbering",
+            "Report the list definitions a document carries and the instances paragraphs point at. Use it to "
+            "find the numberingId that continues an existing list, or the name of a definition to reuse.",
+            "content");
+        definition.InputSchema = Schema::Object("Arguments of list_numbering.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Numbering.", {"definitions", "instances"},
+                           nlohmann::json{{"definitions", Schema::Array("Abstract definitions.",
+                                                                        std::move(definitionSchema))},
+                                          {"instances", Schema::Array("Instances over them.",
+                                                                      std::move(instance))}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListNumbering(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListNumbering(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        auto numbering = reader.Editor().Numbering();
+
+        nlohmann::json instances = nlohmann::json::array();
+        std::set<int> definitionIds;
+        for (const auto& instance : numbering.Instances())
+        {
+            definitionIds.insert(instance.AbstractNumberingId);
+
+            nlohmann::json overrides = nlohmann::json::array();
+            for (const auto& value : instance.Overrides)
+            {
+                overrides.push_back(nlohmann::json{{"level", value.Level}, {"start", value.Start}});
+            }
+
+            instances.push_back(nlohmann::json{{"numberingId", instance.NumberingId},
+                                               {"definitionId", instance.AbstractNumberingId},
+                                               {"overrides", std::move(overrides)}});
+        }
+
+        // Only the definitions something points at are reported: an abstract
+        // definition nothing instantiates cannot be reached from a paragraph,
+        // and listing it would offer an identifier that leads nowhere.
+        nlohmann::json definitions = nlohmann::json::array();
+        for (const auto id : definitionIds)
+        {
+            const auto found = numbering.GetDefinition(id);
+            if (!found.has_value())
+            {
+                continue;
+            }
+
+            nlohmann::json levels = nlohmann::json::array();
+            for (const auto& level : found->Levels)
+            {
+                levels.push_back(nlohmann::json{{"level", level.Level},
+                                                {"format", WordAddressing::NumberFormatToken(level.Format)},
+                                                {"text", level.LevelText},
+                                                {"start", level.Start}});
+            }
+
+            definitions.push_back(
+                nlohmann::json{{"definitionId", id}, {"name", found->Name}, {"levels", std::move(levels)}});
+        }
+
+        nlohmann::json data = nlohmann::json::object();
+        data["definitions"] = std::move(definitions);
+        data["instances"] = std::move(instances);
+
+        return ResultBuilder("The document carries " + std::to_string(data["definitions"].size()) +
+                             " list definition(s) and " + std::to_string(data["instances"].size()) +
+                             " instance(s).")
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterDefineList(ToolRegistry& registry)
+    {
+        nlohmann::json level = Schema::Object(
+            "One level of the definition.", {"level"},
+            nlohmann::json{
+                {"level", Schema::Integer("Zero-based level; Word allows 0 through 8.", 0, 8)},
+                {"format", Schema::EnumerationWithDefault(
+                               "How the number of this level is rendered. These are the common members of "
+                               "ST_NumberFormat; the full list is larger.",
+                               {"decimal", "decimalZero", "upperRoman", "lowerRoman", "upperLetter",
+                                "lowerLetter", "ordinal", "ordinalText", "cardinalText", "decimalEnclosedCircle",
+                                "bullet", "none"},
+                               "decimal")},
+                {"text", Schema::String(
+                             "Pattern of the marker, where %1 is the number of level 0 and %2 of level 1, so "
+                             "\"%1.%2.\" renders as \"2.3.\". A bullet level puts the bullet character here.")},
+                {"start", Schema::IntegerWithDefault("First value of the level.", 1, 0)},
+                {"suffix", Schema::EnumerationWithDefault("What separates the marker from the text.",
+                                                          {"tab", "space", "nothing"}, "tab")},
+                {"alignment", Schema::EnumerationWithDefault("Alignment of the marker itself.",
+                                                             {"left", "center", "right"}, "left")},
+                {"style_id", Schema::String("Paragraph style this level applies.")},
+                {"indent_left", Schema::Length("Left indent of paragraphs at this level.")},
+                {"indent_hanging", Schema::Length("How far the marker hangs left of the text.")},
+                {"restart_after", Schema::Integer("Restart this level whenever that lower level advances.", 0, 8)},
+                {"legal", Schema::Boolean("Render every inherited level as a decimal number.")}});
+
+        nlohmann::json restart = Schema::Object(
+            "One level to restart.", {"level", "start"},
+            nlohmann::json{{"level", Schema::Integer("Zero-based level to restart.", 0, 8)},
+                           {"start", Schema::Integer("Value it restarts at.", 0)}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["name"] = Schema::String(
+            "Name of the definition. An existing definition with this name is reused rather than duplicated, "
+            "which is what lets several lists share one shape.");
+        properties["levels"] = Schema::Array(
+            "Levels to write, in any order. Levels you leave out keep Word's defaults for them. Ignored when "
+            "the named definition already exists.",
+            std::move(level));
+        properties["restart"] = Schema::Array(
+            "Restart the returned instance at these values instead of continuing the sequence. Without it the "
+            "returned instance continues wherever the definition left off.",
+            std::move(restart));
+
+        auto definition = MakeDefinition(
+            "define_list", "Define list",
+            "Create a multi-level list definition, or reuse one by name, and return the numbering instance "
+            "paragraphs point at. Hand the returned numberingId to insert_list to lay the list out.",
+            "content");
+        definition.InputSchema =
+            Schema::Object("Arguments of define_list.", {"documentId", "name"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("List definition.", {"numberingId", "definitionId"},
+                           nlohmann::json{{"numberingId", Schema::Integer("Instance a paragraph names.")},
+                                          {"definitionId", Schema::Integer("Abstract definition behind it.")},
+                                          {"created", Schema::Boolean("False when an existing definition of "
+                                                                      "that name was reused.")}}),
+            true);
+        definition.Example = nlohmann::json{
+            {"documentId", "doc-1"},
+            {"name", "Outline"},
+            {"levels", nlohmann::json::array(
+                           {nlohmann::json{{"level", 0}, {"format", "upperRoman"}, {"text", "%1."}},
+                            nlohmann::json{{"level", 1}, {"format", "lowerLetter"}, {"text", "%2)"}}})}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return DefineList(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome DefineList(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto name = arguments.value("name", std::string());
+        if (name.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A list definition needs a name.", "name");
+        }
+
+        auto numbering = session.Editor().Numbering();
+
+        // Whether the name is new decides what the answer reports, and it has
+        // to be read before anything is written.
+        bool existed = false;
+        for (const auto& instance : numbering.Instances())
+        {
+            const auto found = numbering.GetDefinition(instance.AbstractNumberingId);
+            if (found.has_value() && found->Name == name)
+            {
+                existed = true;
+                break;
+            }
+        }
+
+        Word::NumberingDefinition definition;
+        definition.Name = name;
+
+        const auto levels = arguments.find("levels");
+        if (levels != arguments.end() && levels->is_array())
+        {
+            std::set<int> seen;
+            for (const auto& entry : *levels)
+            {
+                Word::NumberingLevelDefinition level;
+                level.Level = entry.value("level", 0);
+                if (!seen.insert(level.Level).second)
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "Level " + std::to_string(level.Level) + " is declared twice.", "levels");
+                }
+
+                const auto format = entry.value("format", std::string("decimal"));
+                const auto parsedFormat = WordAddressing::ParseNumberFormat(format);
+                if (!parsedFormat.has_value())
+                {
+                    return MakeError(ErrorCode::InputInvalid, "'" + format + "' is not a numbering format.",
+                                     "format");
+                }
+                level.Format = *parsedFormat;
+
+                level.LevelText = entry.value("text", std::string());
+                if (level.LevelText.empty())
+                {
+                    // A level with no pattern renders no marker at all, which
+                    // reads as a broken list rather than as a choice.
+                    level.LevelText = level.Format == W::NumberFormatValues::Bullet
+                                          ? std::string("\xEF\x82\xB7")
+                                          : "%" + std::to_string(level.Level + 1) + ".";
+                }
+
+                level.Start = entry.value("start", 1);
+                level.LegalNumbering = entry.value("legal", false);
+                level.ParagraphStyleId = entry.value("style_id", std::string());
+
+                const auto suffix = entry.value("suffix", std::string("tab"));
+                level.Suffix = suffix == "space"     ? W::LevelSuffixValues::Space
+                               : suffix == "nothing" ? W::LevelSuffixValues::Nothing
+                                                     : W::LevelSuffixValues::Tab;
+
+                const auto alignment = entry.value("alignment", std::string("left"));
+                level.Justification = alignment == "center"  ? W::LevelJustificationValues::center
+                                      : alignment == "right" ? W::LevelJustificationValues::right
+                                                             : W::LevelJustificationValues::left;
+
+                ToolOutcome failure;
+                std::optional<Int64> indentLeft;
+                std::optional<Int64> indentHanging;
+                if (!ReadTwips(entry, "indent_left", indentLeft, failure) ||
+                    !ReadTwips(entry, "indent_hanging", indentHanging, failure))
+                {
+                    return failure;
+                }
+
+                if (indentLeft.has_value())
+                {
+                    level.LeftIndent = MeasuringUnits(static_cast<Real>(*indentLeft), MeasurementUnit::Twip);
+                }
+                if (indentHanging.has_value())
+                {
+                    level.HangingIndent = MeasuringUnits(static_cast<Real>(*indentHanging), MeasurementUnit::Twip);
+                }
+
+                if (const auto restartAfter = entry.find("restart_after");
+                    restartAfter != entry.end() && restartAfter->is_number_integer())
+                {
+                    level.RestartAfterLevel = restartAfter->get<int>();
+                }
+
+                definition.Levels.push_back(level);
+            }
+        }
+
+        if (!existed && definition.Levels.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A new list definition needs at least one level.", "levels",
+                             "Pass 'levels', or name a definition list_numbering already reports.");
+        }
+
+        MutationGuard guard(session.Session());
+
+        auto listStyle = numbering.EnsureMultilevelList(definition);
+        if (listStyle.NumberingId == 0)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The list definition could not be written.", name);
+        }
+
+        const auto restart = arguments.find("restart");
+        if (restart != arguments.end() && restart->is_array() && !restart->empty())
+        {
+            std::vector<Word::NumberingLevelOverride> overrides;
+            for (const auto& entry : *restart)
+            {
+                overrides.push_back(
+                    Word::NumberingLevelOverride{entry.value("level", 0), entry.value("start", 1)});
+            }
+
+            listStyle = numbering.RestartList(listStyle.NumberingId, overrides);
+            if (listStyle.NumberingId == 0)
+            {
+                return MakeError(ErrorCode::OperationFailed, "The restarted instance could not be created.", name);
+            }
+        }
+
+        const auto instance = numbering.GetInstance(listStyle.NumberingId);
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["numberingId"] = listStyle.NumberingId;
+        data["definitionId"] = instance.has_value() ? instance->AbstractNumberingId : 0;
+        data["created"] = !existed;
+
+        return ResultBuilder((existed ? "Reused the list definition '" : "Defined the list '") + name +
+                             "' as numbering instance " + std::to_string(listStyle.NumberingId) + ".")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();

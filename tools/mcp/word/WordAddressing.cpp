@@ -666,6 +666,20 @@ std::optional<W::JustificationValues> WordAddressing::ParseAlignment(const std::
     return WordAddressingHelper::ParseEnum<W::JustificationValues>(token);
 }
 
+std::optional<W::NumberFormatValues> WordAddressing::ParseNumberFormat(const std::string& token)
+{
+    // The schema publishes the common formats; the metadata knows the whole
+    // ST_NumberFormat list, so a document read back may name one the schema
+    // never offered and still round-trip.
+    return WordAddressingHelper::ParseEnum<W::NumberFormatValues>(token);
+}
+
+std::string WordAddressing::NumberFormatToken(W::NumberFormatValues format)
+{
+    const auto* meta = W::NumberFormatValues::GetMetaEnum();
+    return meta != nullptr ? std::string(meta->ToString(static_cast<UInt32>(format.GetValue()))) : std::string();
+}
+
 std::vector<std::string> WordAddressing::AlignmentTokens()
 {
     return {"left", "center", "right", "both", "distribute"};

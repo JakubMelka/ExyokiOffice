@@ -1507,3 +1507,342 @@ TEST_CASE("protection is not removed by the wrong password or an unknown mode [m
     const auto relaxed = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
     CHECK(relaxed["data"]["protection"]["enforced"] == false);
 }
+
+TEST_CASE("a style definition carries the formatting it was given [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "styled.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    // A built-in name belongs to Word; a custom style given one is renamed on
+    // open, so redefining Heading 1 has to say that is what it means.
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Heading1"},
+                                                        {"name", "heading 1"},
+                                                        {"built_in", true},
+                                                        {"font", nlohmann::json{{"sizePt", 20},
+                                                                                {"bold", true}}}})["ok"] == true);
+
+    const auto defined = server->Call(
+        "define_style",
+        nlohmann::json{{"documentId", documentId},
+                       {"style_id", "ReportHeading"},
+                       {"name", "Report Heading"},
+                       {"based_on", "Heading1"},
+                       {"next", "Normal"},
+                       {"ui_priority", 11},
+                       {"quick_style", true},
+                       {"font", nlohmann::json{{"name", "Georgia"},
+                                               {"sizePt", 16},
+                                               {"bold", true},
+                                               {"italic", false},
+                                               {"smallCaps", true},
+                                               {"color", "#1F4E79"}}},
+                       {"paragraph", nlohmann::json{{"alignment", "center"},
+                                                    {"space_before", 18},
+                                                    {"space_after", 6},
+                                                    {"line_spacing", 1.5},
+                                                    {"indent_left", 14.4},
+                                                    {"indent_first_line", -14.4},
+                                                    {"keep_next", true},
+                                                    {"outline_level", 0}}}});
+    REQUIRE(defined["ok"] == true);
+    CHECK(defined["data"]["styleId"] == "ReportHeading");
+    CHECK(defined["data"]["kind"] == "paragraph");
+    CHECK(defined["data"]["created"] == true);
+
+    // A second call adds to the definition instead of replacing it.
+    const auto changed = server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                                     {"style_id", "ReportHeading"},
+                                                                     {"paragraph", nlohmann::json{{"page_break_before",
+                                                                                                   true}}}});
+    REQUIRE(changed["ok"] == true);
+    CHECK(changed["data"]["created"] == false);
+
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Caution"},
+                                                        {"kind", "character"},
+                                                        {"font", nlohmann::json{{"bold", true},
+                                                                                {"color", "#C00000"}}}})["ok"] ==
+            true);
+
+    const auto listed = server->Call("list_styles", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    CHECK(listed["data"]["styles"].size() == 3);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("styled.docx"));
+    REQUIRE(editor != nullptr);
+    const auto style = editor->Styles().GetStyle("ReportHeading");
+    REQUIRE(style.has_value());
+    CHECK(style->Name == "Report Heading");
+    CHECK(style->BasedOnStyleId == "Heading1");
+    CHECK(style->NextStyleId == "Normal");
+    CHECK(style->UiPriority == 11);
+    CHECK(style->IsPrimary);
+
+    const auto part = editor->GetDocument()->GetMainDocumentPart()->GetStyleDefinitionsPart();
+    REQUIRE(part != nullptr);
+    const auto xml = part->GetXmlString();
+    // Word stores a font size in half-points and a length in twips.
+    CHECK(xml.find("w:sz w:val=\"32\"") != std::string::npos);
+    CHECK(xml.find("w:before=\"360\"") != std::string::npos);
+    CHECK(xml.find("w:line=\"360\"") != std::string::npos);
+    // A negative first-line indent is a hanging indent, which is its own
+    // attribute rather than a negative firstLine.
+    CHECK(xml.find("w:hanging=\"288\"") != std::string::npos);
+    CHECK(xml.find("w:firstLine=\"-") == std::string::npos);
+    // An explicit false is written rather than dropped: that is the only way a
+    // style cancels something the style it is based on turns on.
+    CHECK(xml.find("<w:i w:val=\"false\" />") != std::string::npos);
+    CHECK(xml.find("w:color w:val=\"1F4E79\"") != std::string::npos);
+    CHECK(xml.find("w:outlineLvl w:val=\"0\"") != std::string::npos);
+    CHECK(xml.find("<w:pageBreakBefore w:val=\"true\" />") != std::string::npos);
+    // A style carrying a built-in name must not claim to be a custom style, or
+    // Word renames it: "heading 1" opens as "Heading 11".
+    CHECK(xml.find("w:styleId=\"Heading1\" w:customStyle") == std::string::npos);
+    CHECK(xml.find("w:styleId=\"ReportHeading\" w:customStyle=\"true\"") != std::string::npos);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("styled.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a style definition is refused when it cannot be built [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badstyles.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto emptyId =
+        server->Call("define_style", nlohmann::json{{"documentId", documentId}, {"style_id", ""}});
+    CHECK(emptyId["ok"] == false);
+    CHECK(emptyId["error"]["code"] == "input_invalid");
+
+    const auto unknownKind = server->Call(
+        "define_style", nlohmann::json{{"documentId", documentId}, {"style_id", "Odd"}, {"kind", "footnote"}});
+    CHECK(unknownKind["ok"] == false);
+    CHECK(unknownKind["error"]["code"] == "input_invalid");
+
+    const auto badColor = server->Call(
+        "define_style",
+        nlohmann::json{{"documentId", documentId},
+                       {"style_id", "Odd"},
+                       {"font", nlohmann::json{{"color", "crimson"}}}});
+    CHECK(badColor["ok"] == false);
+    CHECK(badColor["error"]["code"] == "input_invalid");
+
+    // A character style formats runs; it has no paragraph to format.
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Inline"},
+                                                        {"kind", "character"}})["ok"] == true);
+    const auto wrongFamily = server->Call(
+        "define_style",
+        nlohmann::json{{"documentId", documentId},
+                       {"style_id", "Inline"},
+                       {"paragraph", nlohmann::json{{"alignment", "center"}}}});
+    CHECK(wrongFamily["ok"] == false);
+    CHECK(wrongFamily["error"]["code"] == "input_invalid");
+
+    const auto badLength = server->Call(
+        "define_style",
+        nlohmann::json{{"documentId", documentId},
+                       {"style_id", "Body"},
+                       {"paragraph", nlohmann::json{{"indent_left", "a bit"}}}});
+    CHECK(badLength["ok"] == false);
+    CHECK(badLength["error"]["code"] == "input_invalid");
+
+    const auto missing =
+        server->Call("delete_style", nlohmann::json{{"documentId", documentId}, {"style_id", "Nowhere"}});
+    CHECK(missing["ok"] == false);
+    CHECK(missing["error"]["code"] == "style_not_found");
+
+    // 'Inline' was created above, so only that one style may exist.
+    const auto listed = server->Call("list_styles", nlohmann::json{{"documentId", documentId}});
+    CHECK(listed["data"]["styles"].size() == 1);
+}
+
+TEST_CASE("deleting a style reports the blocks left pointing at it [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "orphans.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Callout"},
+                                                        {"font", nlohmann::json{{"italic", true}}}})["ok"] ==
+            true);
+
+    for (const auto* text : {"One", "Two", "Three"})
+    {
+        REQUIRE(server->Call("insert_paragraph",
+                             nlohmann::json{{"documentId", documentId},
+                                            {"anchor", nlohmann::json{{"position", "end"}}},
+                                            {"text", text}})["ok"] == true);
+    }
+
+    REQUIRE(server->Call("apply_style",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"blocks", nlohmann::json::array({1, 3})},
+                                        {"style_id", "Callout"}})["ok"] == true);
+
+    const auto removed =
+        server->Call("delete_style", nlohmann::json{{"documentId", documentId}, {"style_id", "Callout"}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["removed"] == true);
+    // Reported rather than repaired: which style those blocks should carry
+    // instead is not this tool's decision.
+    REQUIRE(removed["data"]["danglingBlocks"].size() == 2);
+    CHECK(removed["data"]["danglingBlocks"][0] == 1);
+    CHECK(removed["data"]["danglingBlocks"][1] == 3);
+
+    const auto listed = server->Call("list_styles", nlohmann::json{{"documentId", documentId}});
+    CHECK(listed["data"]["styles"].empty());
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    const auto report = ExyokiOffice::Tools::Run(server->Path("orphans.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a multi-level list definition is written, reused and laid out [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "outline.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto empty = server->Call("list_numbering", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(empty["ok"] == true);
+    CHECK(empty["data"]["definitions"].empty());
+    CHECK(empty["data"]["instances"].empty());
+
+    const auto defined = server->Call(
+        "define_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Outline"},
+                       {"levels", nlohmann::json::array(
+                                      {nlohmann::json{{"level", 0},
+                                                      {"format", "upperRoman"},
+                                                      {"text", "%1."},
+                                                      {"indent_left", 18},
+                                                      {"indent_hanging", 18}},
+                                       nlohmann::json{{"level", 1},
+                                                      {"format", "lowerLetter"},
+                                                      {"text", "%2)"},
+                                                      {"suffix", "space"},
+                                                      {"start", 2}}})}});
+    REQUIRE(defined["ok"] == true);
+    CHECK(defined["data"]["created"] == true);
+    const auto numberingId = defined["data"]["numberingId"].get<int>();
+    CHECK(numberingId > 0);
+
+    // The same name resolves to the same definition rather than a second one.
+    const auto reused =
+        server->Call("define_list", nlohmann::json{{"documentId", documentId}, {"name", "Outline"}});
+    REQUIRE(reused["ok"] == true);
+    CHECK(reused["data"]["created"] == false);
+    CHECK(reused["data"]["definitionId"] == defined["data"]["definitionId"]);
+
+    const auto inserted = server->Call(
+        "insert_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"numbering_id", numberingId},
+                       {"items", nlohmann::json::array({nlohmann::json{{"text", "First"}},
+                                                        nlohmann::json{{"text", "Nested"}, {"level", 1}},
+                                                        nlohmann::json{{"text", "Second"}}})}});
+    REQUIRE(inserted["ok"] == true);
+    CHECK(inserted["data"]["numberingId"] == numberingId);
+
+    const auto reported = server->Call("list_numbering", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(reported["data"]["definitions"].size() == 1);
+    const auto& levels = reported["data"]["definitions"][0]["levels"];
+    REQUIRE(levels.size() == 2);
+    CHECK(reported["data"]["definitions"][0]["name"] == "Outline");
+    CHECK(levels[0]["format"] == "upperRoman");
+    CHECK(levels[0]["text"] == "%1.");
+    CHECK(levels[1]["format"] == "lowerLetter");
+    CHECK(levels[1]["start"] == 2);
+
+    // A restart is a second instance over the same definition, which is how
+    // WordprocessingML makes a list start over without redefining its shape.
+    const auto restarted = server->Call(
+        "define_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Outline"},
+                       {"restart", nlohmann::json::array({nlohmann::json{{"level", 0}, {"start", 1}}})}});
+    REQUIRE(restarted["ok"] == true);
+    CHECK(restarted["data"]["numberingId"] != numberingId);
+    CHECK(restarted["data"]["definitionId"] == defined["data"]["definitionId"]);
+
+    const auto afterRestart = server->Call("list_numbering", nlohmann::json{{"documentId", documentId}});
+    CHECK(afterRestart["data"]["definitions"].size() == 1);
+    CHECK(afterRestart["data"]["instances"].size() == 2);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("outline.docx"));
+    REQUIRE(editor != nullptr);
+    CHECK(editor->Numbering().Instances().size() == 2);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("outline.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a list definition is refused when it cannot be built [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badlist.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto noName = server->Call("define_list", nlohmann::json{{"documentId", documentId}, {"name", ""}});
+    CHECK(noName["ok"] == false);
+    CHECK(noName["error"]["code"] == "input_invalid");
+
+    // A name nothing defines yet has to arrive with the levels that define it.
+    const auto noLevels =
+        server->Call("define_list", nlohmann::json{{"documentId", documentId}, {"name", "Ghost"}});
+    CHECK(noLevels["ok"] == false);
+    CHECK(noLevels["error"]["code"] == "input_invalid");
+
+    const auto twice = server->Call(
+        "define_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Twice"},
+                       {"levels", nlohmann::json::array({nlohmann::json{{"level", 0}},
+                                                         nlohmann::json{{"level", 0}}})}});
+    CHECK(twice["ok"] == false);
+    CHECK(twice["error"]["code"] == "input_invalid");
+
+    const auto unknownFormat = server->Call(
+        "define_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Odd"},
+                       {"levels", nlohmann::json::array({nlohmann::json{{"level", 0},
+                                                                        {"format", "hieroglyph"}}})}});
+    CHECK(unknownFormat["ok"] == false);
+    CHECK(unknownFormat["error"]["code"] == "input_invalid");
+
+    const auto unknownInstance = server->Call(
+        "insert_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"numbering_id", 4242},
+                       {"items", nlohmann::json::array({nlohmann::json{{"text", "Orphan"}}})}});
+    CHECK(unknownInstance["ok"] == false);
+    CHECK(unknownInstance["error"]["code"] == "input_invalid");
+
+    // Nothing above may have written a definition or a paragraph.
+    const auto numbering = server->Call("list_numbering", nlohmann::json{{"documentId", documentId}});
+    CHECK(numbering["data"]["definitions"].empty());
+    CHECK(numbering["data"]["instances"].empty());
+}

@@ -10,7 +10,7 @@ not intended, the gap belongs in
 decision, not as an absence.
 
 Reviewed at 148 tools (Word 50, Excel 48, PowerPoint 50). P0 is done and P1 is
-most of the way; the catalog now stands at 182 (Word 56, Excel 67,
+most of the way; the catalog now stands at 186 (Word 60, Excel 67,
 PowerPoint 59).
 
 ## Contents
@@ -218,7 +218,8 @@ was implemented after this review was written and is struck through:
       average conditional-format rules. Sort state, colour scales and data bars
       turned out to be Gap D rather than Gap C — see above
 - [x] Excel VBA extract, replace, remove
-- [ ] Word style definitions and numbering
+- [x] Word style definitions and numbering, and `insert_list` continuing an
+      existing sequence, which its description already claimed
 - [ ] Word floating images with wrapping; section columns; character styles
 - [ ] Word content controls
 - [x] Themes, all three families

@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-word",
   "title": "ExyokiOffice Word MCP Server",
-  "toolCount": 56,
+  "toolCount": 60,
   "tools": [
     {
       "annotations": {
@@ -3787,6 +3787,229 @@
     {
       "annotations": {
         "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Report the list definitions a document carries and the instances paragraphs point at. Use it to find the numberingId that continues an existing list, or the name of a definition to reuse.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_numbering.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_numbering",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Numbering.",
+            "properties": {
+              "definitions": {
+                "description": "Abstract definitions.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One abstract definition.",
+                  "properties": {
+                    "definitionId": {
+                      "description": "Identifier instances refer to.",
+                      "type": "integer"
+                    },
+                    "levels": {
+                      "description": "Levels the definition declares.",
+                      "items": {
+                        "additionalProperties": false,
+                        "description": "One level of a definition.",
+                        "properties": {
+                          "format": {
+                            "description": "Numbering format of the level.",
+                            "type": "string"
+                          },
+                          "level": {
+                            "description": "Zero-based level.",
+                            "type": "integer"
+                          },
+                          "start": {
+                            "description": "First value of the level.",
+                            "type": "integer"
+                          },
+                          "text": {
+                            "description": "Pattern of the marker, where %1 is this level's number.",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "level"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "description": "Name of the definition.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "definitionId"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "instances": {
+                "description": "Instances over them.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One numbering instance.",
+                  "properties": {
+                    "definitionId": {
+                      "description": "Definition the instance uses.",
+                      "type": "integer"
+                    },
+                    "numberingId": {
+                      "description": "Identifier a paragraph names.",
+                      "type": "integer"
+                    },
+                    "overrides": {
+                      "description": "Levels this instance restarts.",
+                      "items": {
+                        "additionalProperties": false,
+                        "description": "One restart override.",
+                        "properties": {
+                          "level": {
+                            "description": "Zero-based level that restarts.",
+                            "type": "integer"
+                          },
+                          "start": {
+                            "description": "Value the level restarts at.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "level",
+                          "start"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "numberingId",
+                    "definitionId"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "definitions",
+              "instances"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List numbering"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
         "idempotentHint": false,
         "openWorldHint": false,
         "readOnlyHint": false
@@ -5212,7 +5435,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Insert a bulleted or numbered list as consecutive paragraphs. Reuse the returned numberingId to continue the same list later.",
+      "description": "Insert a bulleted or numbered list as consecutive paragraphs. Pass the numberingId of an earlier list to continue its sequence, or one from define_list to lay out a multi-level definition.",
       "example": {
         "anchor": {
           "position": "end"
@@ -5483,6 +5706,11 @@
               "numbered"
             ],
             "type": "string"
+          },
+          "numbering_id": {
+            "description": "Numbering instance the list joins, from a previous insert_list, define_list, or list_numbering. The list then continues that sequence and takes its shape; 'kind' and 'start' are not used.",
+            "minimum": 1,
+            "type": "integer"
           },
           "start": {
             "description": "First number of a numbered list.",
@@ -10005,6 +10233,790 @@
         "type": "object"
       },
       "title": "Set document protection"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Create a style definition or change an existing one. Only the members you pass take part, so a second call adds to a definition rather than replacing it. Formatting the schema does not publish is preserved: this rewrites the members it is given and leaves the rest of the definition alone.",
+      "example": {
+        "based_on": "Heading1",
+        "documentId": "doc-1",
+        "font": {
+          "bold": true,
+          "color": "#1F4E79",
+          "sizePt": 16
+        },
+        "name": "Report Heading",
+        "next": "Normal",
+        "paragraph": {
+          "keep_next": true,
+          "space_before": 12
+        },
+        "style_id": "ReportHeading"
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of define_style.",
+        "properties": {
+          "aliases": {
+            "description": "Comma-separated alternative names.",
+            "type": "string"
+          },
+          "based_on": {
+            "description": "Identifier of the style this one inherits from.",
+            "type": "string"
+          },
+          "built_in": {
+            "default": false,
+            "description": "Define the built-in style of this name rather than a new one of your own. Word reserves the built-in names - \"Normal\", \"heading 1\", \"Title\", \"caption\" and the rest - so a custom style given one of them is renamed on open: \"heading 1\" becomes \"Heading 11\". Set this when you mean to redefine what the document's Heading 1 looks like, and leave it alone for a style of your own.",
+            "type": "boolean"
+          },
+          "default": {
+            "description": "Make this the default style of its family; any previous default loses the flag.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "font": {
+            "additionalProperties": false,
+            "description": "Run formatting the style carries. A boolean passed as false is written as an explicit \"off\", which is how a style overrides the one it is based on; a member left out is not touched at all.",
+            "properties": {
+              "allCaps": {
+                "description": "Render lowercase letters as capitals.",
+                "type": "boolean"
+              },
+              "bold": {
+                "description": "Bold text.",
+                "type": "boolean"
+              },
+              "color": {
+                "description": "Text color as \"#RRGGBB\".",
+                "type": "string"
+              },
+              "italic": {
+                "description": "Italic text.",
+                "type": "boolean"
+              },
+              "name": {
+                "description": "Typeface.",
+                "type": "string"
+              },
+              "sizePt": {
+                "description": "Font size in points, from 1 to 1638.",
+                "type": "number"
+              },
+              "smallCaps": {
+                "description": "Render lowercase letters as small capitals.",
+                "type": "boolean"
+              },
+              "strike": {
+                "description": "Struck-through text.",
+                "type": "boolean"
+              },
+              "underline": {
+                "description": "Single underline.",
+                "type": "boolean"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "hidden": {
+            "description": "Hide the style from the gallery until it is used.",
+            "type": "boolean"
+          },
+          "kind": {
+            "default": "paragraph",
+            "description": "Which family the style belongs to, and therefore what can refer to it: paragraphs, runs, tables, or numbering definitions. Ignored when the style already exists.",
+            "enum": [
+              "paragraph",
+              "character",
+              "table",
+              "numbering"
+            ],
+            "type": "string"
+          },
+          "linked": {
+            "description": "Identifier of the character style that pairs with this paragraph style, or the other way round.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name Word shows in its style gallery; defaults to the identifier.",
+            "type": "string"
+          },
+          "next": {
+            "description": "Identifier of the style Word applies to the paragraph created by pressing Enter at the end of one carrying this style. A heading usually names the body style here.",
+            "type": "string"
+          },
+          "paragraph": {
+            "additionalProperties": false,
+            "description": "Paragraph formatting the style carries; not accepted by a character style, which cannot hold any.",
+            "properties": {
+              "alignment": {
+                "description": "Horizontal alignment.",
+                "enum": [
+                  "left",
+                  "center",
+                  "right",
+                  "both"
+                ],
+                "type": "string"
+              },
+              "indent_first_line": {
+                "description": "First-line indent; a negative value hangs the first line.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "indent_left": {
+                "description": "Left indent.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "indent_right": {
+                "description": "Right indent.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "keep_lines": {
+                "description": "Keep every line of the paragraph on one page.",
+                "type": "boolean"
+              },
+              "keep_next": {
+                "description": "Keep the paragraph on the same page as the next one.",
+                "type": "boolean"
+              },
+              "line_spacing": {
+                "description": "Line spacing as a multiple of single spacing.",
+                "type": "number"
+              },
+              "outline_level": {
+                "description": "Outline level, 0 for a top-level heading and 9 for body text.",
+                "maximum": 9,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "page_break_before": {
+                "description": "Start the paragraph on a new page.",
+                "type": "boolean"
+              },
+              "space_after": {
+                "description": "Space below the paragraph.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "space_before": {
+                "description": "Space above the paragraph.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "quick_style": {
+            "description": "Show the style in Word's quick style gallery rather than only in the full list.",
+            "type": "boolean"
+          },
+          "style_id": {
+            "description": "Identifier content refers to. Reusing an existing one updates that style rather than adding a second definition.",
+            "type": "string"
+          },
+          "ui_priority": {
+            "description": "Sort order in Word's style gallery; lower comes first.",
+            "maximum": 99,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documentId",
+          "style_id"
+        ],
+        "type": "object"
+      },
+      "name": "define_style",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Style definition.",
+            "properties": {
+              "created": {
+                "description": "False when an existing style was changed.",
+                "type": "boolean"
+              },
+              "kind": {
+                "description": "Family the style belongs to.",
+                "type": "string"
+              },
+              "styleId": {
+                "description": "Identifier of the style.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "styleId",
+              "kind",
+              "created"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Define style"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Remove a style definition. Content that still names the style keeps the reference and falls back to the document defaults, so the answer reports how many blocks are in that position; move them to another style with apply_style first if that is not what you want.",
+      "example": {
+        "documentId": "doc-1",
+        "style_id": "ReportHeading"
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of delete_style.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "style_id": {
+            "description": "Identifier of the style definition to remove.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "style_id"
+        ],
+        "type": "object"
+      },
+      "name": "delete_style",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Removal.",
+            "properties": {
+              "danglingBlocks": {
+                "description": "1-based indices of body blocks that still name the removed style.",
+                "items": {
+                  "description": "Block index.",
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "removed": {
+                "description": "A definition was there and is gone.",
+                "type": "boolean"
+              },
+              "styleId": {
+                "description": "Identifier that was removed.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "styleId",
+              "removed"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Delete style"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Create a multi-level list definition, or reuse one by name, and return the numbering instance paragraphs point at. Hand the returned numberingId to insert_list to lay the list out.",
+      "example": {
+        "documentId": "doc-1",
+        "levels": [
+          {
+            "format": "upperRoman",
+            "level": 0,
+            "text": "%1."
+          },
+          {
+            "format": "lowerLetter",
+            "level": 1,
+            "text": "%2)"
+          }
+        ],
+        "name": "Outline"
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of define_list.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "levels": {
+            "description": "Levels to write, in any order. Levels you leave out keep Word's defaults for them. Ignored when the named definition already exists.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One level of the definition.",
+              "properties": {
+                "alignment": {
+                  "default": "left",
+                  "description": "Alignment of the marker itself.",
+                  "enum": [
+                    "left",
+                    "center",
+                    "right"
+                  ],
+                  "type": "string"
+                },
+                "format": {
+                  "default": "decimal",
+                  "description": "How the number of this level is rendered. These are the common members of ST_NumberFormat; the full list is larger.",
+                  "enum": [
+                    "decimal",
+                    "decimalZero",
+                    "upperRoman",
+                    "lowerRoman",
+                    "upperLetter",
+                    "lowerLetter",
+                    "ordinal",
+                    "ordinalText",
+                    "cardinalText",
+                    "decimalEnclosedCircle",
+                    "bullet",
+                    "none"
+                  ],
+                  "type": "string"
+                },
+                "indent_hanging": {
+                  "description": "How far the marker hangs left of the text.",
+                  "type": [
+                    "number",
+                    "string"
+                  ]
+                },
+                "indent_left": {
+                  "description": "Left indent of paragraphs at this level.",
+                  "type": [
+                    "number",
+                    "string"
+                  ]
+                },
+                "legal": {
+                  "description": "Render every inherited level as a decimal number.",
+                  "type": "boolean"
+                },
+                "level": {
+                  "description": "Zero-based level; Word allows 0 through 8.",
+                  "maximum": 8,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "restart_after": {
+                  "description": "Restart this level whenever that lower level advances.",
+                  "maximum": 8,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "start": {
+                  "default": 1,
+                  "description": "First value of the level.",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "style_id": {
+                  "description": "Paragraph style this level applies.",
+                  "type": "string"
+                },
+                "suffix": {
+                  "default": "tab",
+                  "description": "What separates the marker from the text.",
+                  "enum": [
+                    "tab",
+                    "space",
+                    "nothing"
+                  ],
+                  "type": "string"
+                },
+                "text": {
+                  "description": "Pattern of the marker, where %1 is the number of level 0 and %2 of level 1, so \"%1.%2.\" renders as \"2.3.\". A bullet level puts the bullet character here.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "Name of the definition. An existing definition with this name is reused rather than duplicated, which is what lets several lists share one shape.",
+            "type": "string"
+          },
+          "restart": {
+            "description": "Restart the returned instance at these values instead of continuing the sequence. Without it the returned instance continues wherever the definition left off.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One level to restart.",
+              "properties": {
+                "level": {
+                  "description": "Zero-based level to restart.",
+                  "maximum": 8,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "start": {
+                  "description": "Value it restarts at.",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "level",
+                "start"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "documentId",
+          "name"
+        ],
+        "type": "object"
+      },
+      "name": "define_list",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "List definition.",
+            "properties": {
+              "created": {
+                "description": "False when an existing definition of that name was reused.",
+                "type": "boolean"
+              },
+              "definitionId": {
+                "description": "Abstract definition behind it.",
+                "type": "integer"
+              },
+              "numberingId": {
+                "description": "Instance a paragraph names.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "numberingId",
+              "definitionId"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Define list"
     },
     {
       "annotations": {

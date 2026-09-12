@@ -209,7 +209,8 @@ TEST_CASE("every registered tool has an explicit behavioral test commitment [mcp
         "insert_list", "edit_paragraph", "delete_blocks", "apply_style", "insert_image", "add_bookmark",
         "insert_table", "edit_table_cell", "modify_table", "format_table", "set_header_footer", "set_section",
         "set_tracked_changes", "resolve_revisions", "add_comment", "delete_comment", "add_note", "fill_template",
-        "compare_documents", "list_charts", "update_chart", "set_protection"};
+        "compare_documents", "list_charts", "update_chart", "set_protection", "define_style", "delete_style",
+        "list_numbering", "define_list"};
     const std::set<std::string> excel{
         "list_sheets", "read_range", "add_sheet", "rename_sheet", "delete_sheet", "write_cells", "write_range",
         "clear_range", "modify_sheet_structure", "set_hyperlink", "recalculate", "merge_cells", "format_range",

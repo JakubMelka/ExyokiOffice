@@ -746,7 +746,11 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `list_charts` | content | R I | Embedded charts with their cached series |
 | `update_chart` | content | M | Rewrite the series and title of a chart already in the document |
 | `insert_paragraph` | content | M | Insert one paragraph at an anchor |
-| `insert_list` | content | M | Insert a bulleted or numbered list |
+| `insert_list` | content | M | Insert a bulleted or numbered list, optionally continuing an existing one |
+| `define_style` | content | M I | Create a style definition or change one |
+| `delete_style` | content | D I | Remove a style definition |
+| `list_numbering` | content | R I | List definitions and the instances paragraphs point at |
+| `define_list` | content | M | Define a multi-level list and get the instance paragraphs name |
 | `edit_paragraph` | content | M | Rewrite one paragraph |
 | `delete_blocks` | content | D | Delete a range of body blocks |
 | `apply_style` | content | M I | Apply a paragraph style to several blocks |
@@ -778,6 +782,20 @@ styling it had, which mirrors what writing a chart produces in the first place.
 editors that open the file. The tools of this server write content directly and
 do not generate revisions themselves; use `compare_documents` when you need
 tracked differences.
+
+`define_style` changes only the members it is given, so a definition can be
+built up over several calls and formatting the schema does not publish survives
+untouched. Word owns the built-in style names — `Normal`, `heading 1`, `Title`
+and the rest — and renames a custom style that claims one, so pass
+`built_in: true` when you mean to redefine what the document's own Heading 1
+looks like rather than to add a style of your own.
+
+Numbering has two halves and both are addressable. `define_list` writes the
+shape of a list, reusing an existing definition when the name matches, and
+returns the numbering instance paragraphs point at; passing `restart` returns a
+second instance over the same shape, which is how a list starts over without
+being redefined. `insert_list` takes that `numbering_id`, and `list_numbering`
+reports what a document already carries.
 
 ### `exyoki-mcp-excel`
 
