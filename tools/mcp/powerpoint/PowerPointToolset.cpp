@@ -73,6 +73,24 @@ std::shared_ptr<OpenXmlPackage> PowerPointDocumentHandle::Package() const
     return m_editor ? m_editor->GetDocument() : nullptr;
 }
 
+nlohmann::json PowerPointDocumentHandle::Protection() const
+{
+    const auto info = m_editor ? m_editor->GetModifyProtection() : std::nullopt;
+    if (!info.has_value() || !info->HasPassword)
+    {
+        return {};
+    }
+
+    nlohmann::json data = nlohmann::json::object();
+    data["kind"] = "modify";
+    data["hasPassword"] = true;
+    // A verifier this library cannot compute still stops PowerPoint; it only
+    // stops the server from removing the protection, which the caller has to
+    // know before it tries.
+    data["verifierSupported"] = info->VerifierSupported;
+    return data;
+}
+
 std::shared_ptr<Packaging::ThemePart> PowerPointDocumentHandle::Theme() const
 {
     const auto document = m_editor ? m_editor->GetDocument() : nullptr;
@@ -264,6 +282,7 @@ public:
         RegisterSetTransition(registry);
         RegisterAddSection(registry);
         RegisterSetSlideSize(registry);
+        RegisterSetProtection(registry);
     }
 
 private:
@@ -4205,6 +4224,98 @@ private:
         data["slideCount"] = static_cast<UInt64>(section.SlideIds.size());
 
         return ResultBuilder("Added section '" + section.Name + "'.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    // -----------------------------------------------------------------------
+    // Modify protection
+    //
+    // A presentation restricts one thing: the password PowerPoint asks for
+    // before it will let anyone save over the file. It is a restriction
+    // PowerPoint honours, not encryption; every part of the package stays plain,
+    // readable OOXML, and the password is stored only as a verifier.
+    // -----------------------------------------------------------------------
+
+    static void RegisterSetProtection(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["protect"] =
+            Schema::BooleanWithDefault("True to apply protection, false to remove it.", true);
+        properties["password"] = Schema::String(
+            "Password to require when protecting, or the one it was applied with when removing it.");
+
+        auto definition = MakeDefinition(
+            "set_protection", "Set modify protection",
+            "Require a password before a presentation may be saved over, or remove that requirement. "
+            "PowerPoint opens a protected presentation read-only until the password is given. This is not "
+            "encryption: every part stays readable and any tool that ignores the setting can still rewrite the "
+            "presentation, so use it to state intent rather than to keep a secret.",
+            "review");
+        definition.InputSchema =
+            Schema::Object("Arguments of set_protection.", {"documentId", "password"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Protection state.", {"protected"},
+                           nlohmann::json{{"protected", Schema::Boolean("True when a password is now "
+                                                                        "required to save over the file.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"password", "secret"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetProtection(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome SetProtection(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const bool protect = arguments.value("protect", true);
+        const auto password = arguments.value("password", std::string());
+        if (password.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A password is required.", "password",
+                             protect ? "Protecting a presentation means requiring a password to save over it."
+                                     : "Removing the protection needs the password it was applied with.");
+        }
+
+        MutationGuard guard(session.Session());
+
+        const auto result = protect ? session.Editor().ProtectFromModification(password)
+                                    : session.Editor().UnprotectFromModification(password);
+        if (!result.Succeeded())
+        {
+            switch (result.Error)
+            {
+                case PowerPoint::PresentationProtectionError::PasswordMismatch:
+                case PowerPoint::PresentationProtectionError::InvalidPassword:
+                    return MakeError(ErrorCode::InputInvalid, result.Message, "password",
+                                     "Removing the protection needs the password it was applied with.");
+                case PowerPoint::PresentationProtectionError::UnsupportedVerifier:
+                    return MakeError(ErrorCode::Unsupported, result.Message, session.Session().Id(),
+                                     "The stored verifier uses an algorithm this server cannot compute, so it "
+                                     "cannot tell a right password from a wrong one; remove the protection in "
+                                     "PowerPoint.");
+                default:
+                    return MakeError(ErrorCode::OperationFailed, result.Message, session.Session().Id());
+            }
+        }
+
+        guard.Commit();
+
+        const auto state = session.Editor().GetModifyProtection();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["protected"] = state.has_value() && state->HasPassword;
+
+        return ResultBuilder(protect ? "A password is now required to save over the presentation."
+                                     : "Removed the modify protection.")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();

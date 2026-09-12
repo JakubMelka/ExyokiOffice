@@ -1301,7 +1301,13 @@ private:
                                           {"relationshipCount", Schema::Integer("Number of relationships.")},
                                           {"totalPartSize", Schema::Integer("Uncompressed size of all parts.")},
                                           {"properties", Schema::FreeObject("Core and extended properties.")},
-                                          {"statistics", Schema::FreeObject("Family-specific content statistics.")}});
+                                          {"statistics", Schema::FreeObject("Family-specific content statistics.")},
+                                          {"protection", Schema::FreeObject(
+                                                             "What the document restricts, absent when it "
+                                                             "restricts nothing. Word reports an editing mode, "
+                                                             "Excel the workbook structure and each protected "
+                                                             "sheet, a presentation a password to modify. None "
+                                                             "of it is encryption: every part stays readable.")}});
 
         auto definition = MakeReadDefinition(
             "get_document_info", "Get document info",
@@ -1345,6 +1351,13 @@ private:
                                  ? SharedToolsetHelper::StatsToJson(
                                        context.Adapter().Stat(statistics.Document()))
                                  : nlohmann::json::object();
+
+        // Reported only when there is something to report, so an unrestricted
+        // document does not carry an empty object saying so.
+        if (auto protection = access.Document().Protection(); !protection.is_null())
+        {
+            data["protection"] = std::move(protection);
+        }
 
         return ResultBuilder("Read the overview of a " + std::string(Tools::ToString(info.Family)) + " document.")
             .WithData(std::move(data))

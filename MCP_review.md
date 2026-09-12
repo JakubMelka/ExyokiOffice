@@ -9,8 +9,9 @@ not intended, the gap belongs in
 [Limits of this version](docs/tools/mcp-servers.md#limits-of-this-version) as a
 decision, not as an absence.
 
-Reviewed at 148 tools (Word 50, Excel 48, PowerPoint 50). P0 is done: the
-catalog now stands at 158 (Word 53, Excel 53, PowerPoint 52).
+Reviewed at 148 tools (Word 50, Excel 48, PowerPoint 50). P0 is done and P1 is
+most of the way; the catalog now stands at 182 (Word 56, Excel 67,
+PowerPoint 59).
 
 ## Contents
 
@@ -31,9 +32,10 @@ catalog now stands at 158 (Word 53, Excel 53, PowerPoint 52).
 | Python black box ([tests/mcp_python](tests/mcp_python)) | 69 tests over the official MCP SDK, across real stdio |
 | Catalog | `CheckMcpCatalog.cmake` compares [docs/schemas](docs/schemas) against the live server |
 
-Every one of the 148 tools has at least one call site in the C++ tests, and the
+Every one of the tools has at least one call site in the C++ tests, and the
 Python suite validates every input and output schema, rejects an unknown
-property on all 148, and checks the text block against `structuredContent`.
+property on every one of them, and checks the text block against
+`structuredContent`.
 That part is in good shape.
 
 Two weaknesses:
@@ -68,19 +70,20 @@ and its invalid-input cases covered.
 
 ## Library defects the oracle found
 
-**Five defects, all in the library rather than in the servers, all now fixed.**
-Every one of them produced a file that round-tripped through the library's own
-tests and validated as OPC and against the schema, while Excel threw the feature
-away. Each construct is graded `Yes` in the compatibility matrix, so the matrix
-was overstating what shipped.
+**Six defects, all in the library rather than in the servers, all now fixed.**
+Five produced a file that round-tripped through the library's own tests and
+validated as OPC and against the schema, while Excel threw the feature away; the
+sixth failed validation and nobody had looked. Each construct is graded `Yes` in
+the compatibility matrix, so the matrix was overstating what shipped.
 
-| Construct | Matrix | What Excel did | Cause | Fix |
+| Construct | Matrix | What Office did | Cause | Fix |
 | --- | --- | --- | --- | --- |
 | Threaded comments (`excel-layout`) | Yes | Dropped `xl/threadedcomments/*` entirely; `CommentsThreaded.Count` was 0 | A thread is not self-sufficient: Excel requires a legacy note carrying the flattened conversation, and that note's VML box | `AddThreadedComment` writes the backing note, its VML drawing and the `legacyDrawing` reference; `Comments()` hides the backing, and every rewrite of the comments part restores it |
 | Table slicers (`excel-slicers`) | Yes | Dropped the cache and the drawing, leaving an orphaned `xl/slicers/slicer1.xml` | Two causes at once: the worksheet `slicerList` extension URI was wrong, and the cache had no workbook defined name | Table slicers register under `{3A4CF648-…}`; every slicer cache gets a `#N/A` defined name |
 | Pivot slicers (`excel-slicers`) | Yes | Refused to open the workbook at all, then discarded the slicer once it opened | Three causes: the pivot `slicerList` URI was wrong in its last segment, the slicer cache named a `pivotCacheId` no extension declared, and the pivot table still claimed the Excel 2007 feature version | Pivot slicers register under `{A8765BA9-…-ACF838C121DE}`; the pivot cache declares its identifier; hosting a slicer raises `updatedVersion` to 4 |
 | Pivot slicers on a reordered workbook (`excel-slicers`) | Yes | Discarded the slicer whenever a sheet's position and its `sheetId` differed | The cache's `tabId` was written as the tab position; Excel reads it as the `sheetId` | `SheetTabId` reads the `sheetId` off the workbook sheet list |
 | Table totals row (`excel-tables`) | Yes | Refused to open the workbook | `SetTotalsRowShown` flipped two attributes without growing the table, which left the auto-filter covering the totals row | The table reference grows by a row and the auto-filter stays below it; `Resize` and `SetAutoFilterEnabled` hold the same invariant |
+| Modify protection (`ppt-presentations`) | Yes | Validation reported seven missing required attributes, and a presentation PowerPoint protected could not be unprotected at all | `p:modifyVerifier` was written with the ISO attribute group, which `CT_ModifyVerifier` declares optional; the seven it declares required are the ones PowerPoint writes, and the reader treated them as a legacy form it could not validate | The writer emits the seven required attributes; the reader accepts both groups. The hash itself was already right: recomputing PowerPoint's own `hashData` with the ISO formula reproduces it byte for byte |
 
 Each cause was isolated by bisecting against a file Excel itself wrote: our
 parts were swapped into a working reference one at a time until it broke, then
@@ -105,6 +108,11 @@ Three things are worth carrying forward:
   A sheet's position equals its `sheetId` in every workbook built front to back,
   which is every workbook a test builds. Cases like this need a fixture that
   makes the two differ on purpose.
+- **"Legacy" was an assumption, not an observation.** The modify verifier was
+  written in the newer of two attribute groups and the older one was documented
+  as pre-2010 and unvalidatable. Current PowerPoint writes only the older group,
+  the schema requires it, and the two carry the same values under different
+  names. One presentation saved by PowerPoint settled all three points.
 
 ## What the oracle cannot reach
 
@@ -214,7 +222,8 @@ was implemented after this review was written and is struck through:
 - [ ] Word floating images with wrapping; section columns; character styles
 - [ ] Word content controls
 - [x] Themes, all three families
-- [ ] Document protection for Word and PowerPoint
+- [x] Document protection for Word and PowerPoint, and `get_document_info`
+      reporting what a document restricts
 
 ### P2 — decisions to state rather than gaps to close
 

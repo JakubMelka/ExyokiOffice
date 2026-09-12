@@ -1407,3 +1407,103 @@ TEST_CASE("update_chart refuses what it cannot plot [mcp-word]")
     REQUIRE(still["data"]["charts"].size() == 1);
     CHECK(still["data"]["charts"][0]["series"][0]["name"] == "North");
 }
+
+TEST_CASE("document protection is applied, reported and removed [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "restricted.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("insert_paragraph",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"anchor", nlohmann::json{{"position", "end"}}},
+                                        {"text", "Body"}})["ok"] == true);
+
+    // A document nobody restricted says so by leaving the field out rather than
+    // by reporting an empty restriction.
+    const auto before = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(before["ok"] == true);
+    CHECK_FALSE(before["data"].contains("protection"));
+
+    const auto applied = server->Call("set_protection", nlohmann::json{{"documentId", documentId},
+                                                                       {"editing", "comments"},
+                                                                       {"password", "secret"}});
+    REQUIRE(applied["ok"] == true);
+    CHECK(applied["data"]["protected"] == true);
+    CHECK(applied["data"]["editing"] == "comments");
+    CHECK(applied["data"]["hasPassword"] == true);
+
+    const auto reported = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(reported["data"].contains("protection"));
+    CHECK(reported["data"]["protection"]["kind"] == "document");
+    CHECK(reported["data"]["protection"]["editing"] == "comments");
+    CHECK(reported["data"]["protection"]["enforced"] == true);
+    CHECK(reported["data"]["protection"]["hasPassword"] == true);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    // The restriction is a setting in the package, not a lock on it: the
+    // document is still readable and still rewritable by this server.
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("restricted.docx"));
+    REQUIRE(editor != nullptr);
+    const auto state = editor->GetDocumentProtection();
+    REQUIRE(state.has_value());
+    CHECK(state->Options.Editing == ExyokiOffice::Word::WordProtectionType::Comments);
+    CHECK(state->HasPassword);
+
+    const auto removed = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId}, {"protect", false}, {"password", "secret"}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["protected"] == false);
+
+    const auto after = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    CHECK_FALSE(after["data"].contains("protection"));
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("restricted.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("protection is not removed by the wrong password or an unknown mode [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "locked.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto unknownMode = server->Call(
+        "set_protection", nlohmann::json{{"documentId", documentId}, {"editing", "sealed"}});
+    CHECK(unknownMode["ok"] == false);
+    CHECK(unknownMode["error"]["code"] == "input_invalid");
+
+    REQUIRE(server->Call("set_protection", nlohmann::json{{"documentId", documentId},
+                                                          {"editing", "readOnly"},
+                                                          {"password", "right"}})["ok"] == true);
+
+    const auto wrong = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId}, {"protect", false}, {"password", "wrong"}});
+    CHECK(wrong["ok"] == false);
+    CHECK(wrong["error"]["code"] == "input_invalid");
+
+    const auto none = server->Call(
+        "set_protection", nlohmann::json{{"documentId", documentId}, {"protect", false}});
+    CHECK(none["ok"] == false);
+
+    // A refused removal leaves the restriction exactly as it was.
+    const auto still = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(still["data"].contains("protection"));
+    CHECK(still["data"]["protection"]["editing"] == "readOnly");
+    CHECK(still["data"]["protection"]["hasPassword"] == true);
+
+    // A restriction recorded without enforcement is a different state, and the
+    // report distinguishes the two.
+    REQUIRE(server->Call("set_protection", nlohmann::json{{"documentId", documentId},
+                                                          {"editing", "forms"},
+                                                          {"enforce", false},
+                                                          {"password", "right"}})["ok"] == true);
+    const auto relaxed = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    CHECK(relaxed["data"]["protection"]["enforced"] == false);
+}

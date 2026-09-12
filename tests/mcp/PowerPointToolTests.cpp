@@ -1491,3 +1491,84 @@ TEST_CASE("the animation tools refuse effects that cannot be written [mcp-powerp
     const auto listed = server->Call("list_animations", nlohmann::json{{"documentId", documentId}});
     CHECK(listed["data"]["animations"].empty());
 }
+
+TEST_CASE("a presentation requires a password to be saved over [mcp-power-point]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "guarded.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_slide",
+                         nlohmann::json{{"documentId", documentId}, {"title", "Hello"}})["ok"] == true);
+
+    const auto before = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(before["ok"] == true);
+    CHECK_FALSE(before["data"].contains("protection"));
+
+    const auto applied = server->Call(
+        "set_protection", nlohmann::json{{"documentId", documentId}, {"password", "secret"}});
+    REQUIRE(applied["ok"] == true);
+    CHECK(applied["data"]["protected"] == true);
+
+    const auto reported = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(reported["data"].contains("protection"));
+    CHECK(reported["data"]["protection"]["kind"] == "modify");
+    CHECK(reported["data"]["protection"]["hasPassword"] == true);
+    CHECK(reported["data"]["protection"]["verifierSupported"] == true);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    // The verifier is in the package; the package itself is not encrypted, so
+    // the presentation opens and reads exactly as before.
+    auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::Open(server->Path("guarded.pptx"));
+    REQUIRE(editor != nullptr);
+    const auto state = editor->GetModifyProtection();
+    REQUIRE(state.has_value());
+    CHECK(state->HasPassword);
+
+    const auto removed = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId}, {"protect", false}, {"password", "secret"}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["protected"] == false);
+
+    const auto after = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    CHECK_FALSE(after["data"].contains("protection"));
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("guarded.pptx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("modify protection refuses a missing or mismatched password [mcp-power-point]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "sealed.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    // The schema requires the member; an empty one is refused by the handler,
+    // because a password nobody has to give protects nothing.
+    const auto empty =
+        server->Call("set_protection", nlohmann::json{{"documentId", documentId}, {"password", ""}});
+    CHECK(empty["ok"] == false);
+    CHECK(empty["error"]["code"] == "input_invalid");
+
+    const auto missing = server->Call("set_protection", nlohmann::json{{"documentId", documentId}});
+    CHECK(missing["ok"] == false);
+    CHECK(missing["error"]["code"] == "input_invalid");
+
+    REQUIRE(server->Call("set_protection", nlohmann::json{{"documentId", documentId},
+                                                          {"password", "right"}})["ok"] == true);
+
+    const auto wrong = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId}, {"protect", false}, {"password", "wrong"}});
+    CHECK(wrong["ok"] == false);
+    CHECK(wrong["error"]["code"] == "input_invalid");
+
+    const auto still = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(still["data"].contains("protection"));
+    CHECK(still["data"]["protection"]["hasPassword"] == true);
+}

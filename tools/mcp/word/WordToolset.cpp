@@ -31,6 +31,24 @@ namespace ExyokiOffice::Mcp
 
 namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
 
+/// Names a `w:documentProtection/@w:edit` value the way the tools publish it.
+static const char* WordProtectionToken(Word::WordProtectionType editing)
+{
+    switch (editing)
+    {
+        case Word::WordProtectionType::ReadOnly:
+            return "readOnly";
+        case Word::WordProtectionType::Comments:
+            return "comments";
+        case Word::WordProtectionType::TrackedChanges:
+            return "trackedChanges";
+        case Word::WordProtectionType::Forms:
+            return "forms";
+        default:
+            return "none";
+    }
+}
+
 /// Open settings that carry the configured safety limits and nothing else.
 static Packaging::OpenSettings SettingsWithLimits(const OpenXmlPackageLimits& limits)
 {
@@ -78,6 +96,23 @@ bool WordDocumentHandle::LoadFromMemory(std::span<const Byte> bytes)
 std::shared_ptr<OpenXmlPackage> WordDocumentHandle::Package() const
 {
     return m_editor ? m_editor->GetDocument() : nullptr;
+}
+
+nlohmann::json WordDocumentHandle::Protection() const
+{
+    const auto info = m_editor ? m_editor->GetDocumentProtection() : std::nullopt;
+    if (!info.has_value())
+    {
+        return {};
+    }
+
+    nlohmann::json data = nlohmann::json::object();
+    data["kind"] = "document";
+    data["editing"] = WordProtectionToken(info->Options.Editing);
+    data["enforced"] = info->Options.Enforce;
+    data["restrictFormatting"] = info->Options.RestrictFormattingToUnlockedStyles;
+    data["hasPassword"] = info->HasPassword;
+    return data;
 }
 
 std::shared_ptr<Packaging::ThemePart> WordDocumentHandle::Theme() const
@@ -243,6 +278,7 @@ public:
         RegisterAddNote(registry);
         RegisterFillTemplate(registry);
         RegisterCompareDocuments(registry);
+        RegisterSetProtection(registry);
     }
 
 private:
@@ -3935,6 +3971,151 @@ private:
                 skipped.push_back(key);
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Document protection
+    //
+    // This is a restriction a word processor honours, not encryption: every
+    // part of the package stays plain, readable OOXML, and a tool that ignores
+    // the setting can still rewrite the whole document. The password is stored
+    // as a verifier, which lets Word recognise the right password and nothing
+    // more.
+    // -----------------------------------------------------------------------
+
+    static void RegisterSetProtection(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["protect"] =
+            Schema::BooleanWithDefault("True to apply protection, false to remove it.", true);
+        properties["editing"] = Schema::EnumerationWithDefault(
+            "What a reader may still change: nothing at all, comments only, anything as long as revision "
+            "tracking stays on, or only form fields and unlocked regions. \"none\" records the restriction "
+            "without limiting editing, which is what leaves formatting restrictions on their own.",
+            {"readOnly", "comments", "trackedChanges", "forms", "none"}, "readOnly");
+        properties["restrict_formatting"] =
+            Schema::BooleanWithDefault("Also restrict direct formatting to styles that are not locked.", false);
+        properties["enforce"] = Schema::BooleanWithDefault(
+            "Enforce the restriction rather than only recording it; a recorded but unenforced restriction is "
+            "what Word shows as available protection the reader can switch on.",
+            true);
+        properties["password"] =
+            Schema::String("Password required to remove the protection again; omit for none.");
+
+        auto definition = MakeDefinition(
+            "set_protection", "Set document protection",
+            "Restrict how a word processor lets a reader edit the document, or remove that restriction. This is "
+            "not encryption: every part stays readable and any tool that ignores the setting can still rewrite "
+            "the document, so use it to state intent rather than to keep a secret. Removing protection needs "
+            "the password it was applied with.",
+            "review");
+        definition.InputSchema =
+            Schema::Object("Arguments of set_protection.", {"documentId"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Protection state.", {"protected"},
+                           nlohmann::json{{"protected", Schema::Boolean("True when a restriction is now "
+                                                                        "recorded.")},
+                                          {"editing", Schema::String("Editing restriction now in force.")},
+                                          {"hasPassword", Schema::Boolean("Removing it requires a password.")}}),
+            true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"editing", "comments"}, {"password", "secret"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetProtection(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static std::optional<Word::WordProtectionType> ParseProtectionType(const std::string& token)
+    {
+        if (token == "readOnly")
+        {
+            return Word::WordProtectionType::ReadOnly;
+        }
+
+        if (token == "comments")
+        {
+            return Word::WordProtectionType::Comments;
+        }
+
+        if (token == "trackedChanges")
+        {
+            return Word::WordProtectionType::TrackedChanges;
+        }
+
+        if (token == "forms")
+        {
+            return Word::WordProtectionType::Forms;
+        }
+
+        if (token == "none")
+        {
+            return Word::WordProtectionType::None;
+        }
+
+        return std::nullopt;
+    }
+
+    static ToolOutcome SetProtection(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const bool protect = arguments.value("protect", true);
+        const auto password = arguments.value("password", std::string());
+
+        Word::WordProtectionOptions options;
+        const auto editing = arguments.value("editing", std::string("readOnly"));
+        if (const auto parsed = ParseProtectionType(editing); parsed.has_value())
+        {
+            options.Editing = *parsed;
+        }
+        else
+        {
+            return MakeError(ErrorCode::InputInvalid, "'" + editing + "' is not an editing restriction.",
+                             "editing");
+        }
+        options.RestrictFormattingToUnlockedStyles = arguments.value("restrict_formatting", false);
+        options.Enforce = arguments.value("enforce", true);
+
+        MutationGuard guard(session.Session());
+
+        const auto result = protect ? session.Editor().ProtectDocument(options, password)
+                                    : session.Editor().UnprotectDocument(password);
+        if (!result.Succeeded())
+        {
+            switch (result.Error)
+            {
+                case Word::WordProtectionError::PasswordMismatch:
+                    return MakeError(ErrorCode::InputInvalid, result.Message, "password",
+                                     "Removing protection needs the password it was applied with.");
+                case Word::WordProtectionError::UnsupportedVerifier:
+                    return MakeError(ErrorCode::Unsupported, result.Message, session.Session().Id(),
+                                     "The stored verifier uses an algorithm this server cannot compute, so it "
+                                     "cannot tell a right password from a wrong one; remove the protection in "
+                                     "Word.");
+                default:
+                    return MakeError(ErrorCode::OperationFailed, result.Message, session.Session().Id());
+            }
+        }
+
+        guard.Commit();
+
+        const auto state = session.Editor().GetDocumentProtection();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["protected"] = state.has_value();
+        data["editing"] = state.has_value() ? WordProtectionToken(state->Options.Editing) : "none";
+        data["hasPassword"] = state.has_value() && state->HasPassword;
+
+        return ResultBuilder(protect ? "Protected the document." : "Removed the document protection.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
     }
 
     static void RegisterCompareDocuments(ToolRegistry& registry)

@@ -695,7 +695,7 @@ Reading — each accepts `documentId` **or** `path`:
 
 | Tool | | Purpose |
 | --- | --- | --- |
-| `get_document_info` | R I | Package overview, properties, and content statistics |
+| `get_document_info` | R I | Package overview, properties, content statistics, and what the document restricts |
 | `get_document_model` | R I | The semantic `exyokioffice-document` JSON model |
 | `get_document_markdown` | R I | Structure-preserving Markdown rendering |
 | `get_document_text` | R I | Every readable text block as plain text |
@@ -767,6 +767,7 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `add_note` | review | M | Add a footnote or endnote |
 | `fill_template` | automation | M | Fill MERGEFIELD, bookmark, and repeating-region placeholders in a session or a file |
 | `compare_documents` | automation | M | Write a tracked-revision comparison of two files |
+| `set_protection` | review | M I | Restrict how a word processor lets a reader edit the document, or lift it |
 
 `update_chart` rewrites a chart the document already carries; it cannot anchor
 a new one, because the library has no helper for that — see
@@ -816,10 +817,10 @@ tracked differences.
 | `list_slicers` | analysis | R I | Slicers with their buttons and which are selected |
 | `set_slicer_selection` | analysis | M I | Choose which of a slicer's buttons are selected |
 | `set_print_setup` | layout | M I | Orientation, paper, scaling, margins, print area, repeated titles, header and footer |
-| `set_protection` | layout | M I | Protect a worksheet or the workbook structure, or lift it |
 | `add_image` | media | M | Place a picture, anchored to a cell rectangle |
 | `list_comments` | review | R I | List the comments of the workbook, threaded and plain alike |
 | `add_comment` | review | M | Comment a cell, or reply to a thread entry |
+| `set_protection` | review | M I | Protect a worksheet or the workbook structure, or lift it |
 | `delete_comment` | review | D | Remove one thread entry, or the plain note of a cell |
 
 SpreadsheetML carries two unrelated comment models, and the `threaded` flag
@@ -886,6 +887,7 @@ CSV import and export run through `convert_document`, which takes
 | `set_transition` | design | M I | Set or remove a slide transition |
 | `add_section` | design | M | Group slides into a named section |
 | `set_slide_size` | design | M I | Slide size from a preset or dimensions |
+| `set_protection` | review | M I | Require a password before the presentation may be saved over, or lift it |
 
 An animation names its target by the shape's non-visual identifier, which is
 what PresentationML stores, but `list_animations` resolves it back to the shape

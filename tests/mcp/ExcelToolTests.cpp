@@ -1469,6 +1469,42 @@ TEST_CASE("sheet and workbook protection are applied and lifted [mcp-excel]")
     CHECK(missingSheet["error"]["code"] == "sheet_not_found");
 }
 
+TEST_CASE("the overview reports what a workbook restricts [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "guarded.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_sheet", nlohmann::json{{"documentId", documentId},
+                                                      {"name", "Open"}})["ok"] == true);
+
+    // A workbook nobody restricted says so by leaving the field out.
+    const auto before = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    CHECK_FALSE(before["data"].contains("protection"));
+
+    REQUIRE(server->Call("set_protection", nlohmann::json{{"documentId", documentId},
+                                                           {"scope", "workbook"},
+                                                           {"lock_windows", true}})["ok"] == true);
+    REQUIRE(server->Call("set_protection", nlohmann::json{{"documentId", documentId},
+                                                           {"scope", "sheet"},
+                                                           {"sheet", "Sheet1"},
+                                                           {"password", "secret"}})["ok"] == true);
+
+    const auto reported = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(reported["data"].contains("protection"));
+    const auto& protection = reported["data"]["protection"];
+    CHECK(protection["workbook"]["lockStructure"] == true);
+    CHECK(protection["workbook"]["lockWindows"] == true);
+    CHECK(protection["workbook"]["hasPassword"] == false);
+
+    // Only the protected sheet is listed; the other one is not restricted and
+    // has nothing to report.
+    REQUIRE(protection["sheets"].size() == 1);
+    CHECK(protection["sheets"][0]["sheet"] == "Sheet1");
+    CHECK(protection["sheets"][0]["hasPassword"] == true);
+}
+
 TEST_CASE("move_sheet and copy_sheet refuse what they cannot do [mcp-excel]")
 {
     auto server = MakeExcelServer();

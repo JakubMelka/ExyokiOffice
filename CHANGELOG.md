@@ -53,6 +53,11 @@ in [docs/](docs/README.md).
 - Excel `get_vba_project`, `set_vba_project` and `remove_vba_project` move the
   opaque `vbaProject.bin` between a workbook and a workspace file; the payload
   is never parsed or executed.
+- Word and PowerPoint `set_protection`, matching the Excel tool of the same
+  name: an editing restriction on a document, a password to modify on a
+  presentation. Excel's moved from the `layout` group to `review` so the three
+  can be filtered together with `--toolsets`.
+- `get_document_info` reports what a document restricts, on all three servers.
 
 ### Fixed
 
@@ -75,6 +80,13 @@ in [docs/](docs/README.md).
     the totals row outside `autoFilter`; Excel refused to open a workbook whose
     auto-filter reached into it. `Resize` and `SetAutoFilterEnabled` hold the
     same invariant.
+- `PowerPointDocumentEditor::ProtectFromModification` writes the seven
+  `p:modifyVerifier` attributes `CT_ModifyVerifier` requires and PowerPoint
+  itself writes; the ISO attribute group it wrote before is optional in the
+  schema, so the presentation failed validation on seven counts.
+  `UnprotectFromModification` now validates either attribute group, so a
+  presentation protected in PowerPoint can be unprotected rather than reported
+  as `UnsupportedVerifier`.
 
 ## [1.1.0] - 2026-08-20
 

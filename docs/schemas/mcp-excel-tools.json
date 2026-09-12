@@ -947,6 +947,10 @@
                 "description": "Core and extended properties.",
                 "type": "object"
               },
+              "protection": {
+                "description": "What the document restricts, absent when it restricts nothing. Word reports an editing mode, Excel the workbook structure and each protected sheet, a presentation a password to modify. None of it is encryption: every part stays readable.",
+                "type": "object"
+              },
               "relationshipCount": {
                 "description": "Number of relationships.",
                 "type": "integer"
@@ -6462,7 +6466,7 @@
         "password": "secret",
         "scope": "sheet"
       },
-      "group": "layout",
+      "group": "review",
       "inputSchema": {
         "additionalProperties": false,
         "description": "Arguments of set_protection.",

@@ -76,6 +76,53 @@ std::shared_ptr<OpenXmlPackage> ExcelDocumentHandle::Package() const
     return m_editor ? m_editor->GetDocument() : nullptr;
 }
 
+nlohmann::json ExcelDocumentHandle::Protection() const
+{
+    if (!m_editor)
+    {
+        return {};
+    }
+
+    nlohmann::json sheets = nlohmann::json::array();
+    for (const auto& sheet : m_editor->Worksheets())
+    {
+        const auto info = sheet ? sheet->GetProtection() : std::nullopt;
+        if (!info.has_value())
+        {
+            continue;
+        }
+
+        nlohmann::json entry = nlohmann::json::object();
+        entry["sheet"] = sheet->Name();
+        entry["hasPassword"] = info->HasPassword;
+        sheets.push_back(std::move(entry));
+    }
+
+    const auto workbook = m_editor->GetWorkbookProtection();
+    if (!workbook.has_value() && sheets.empty())
+    {
+        return {};
+    }
+
+    nlohmann::json data = nlohmann::json::object();
+    if (workbook.has_value())
+    {
+        nlohmann::json structure = nlohmann::json::object();
+        structure["lockStructure"] = workbook->Options.LockStructure;
+        structure["lockWindows"] = workbook->Options.LockWindows;
+        structure["hasPassword"] = workbook->HasPassword;
+        data["workbook"] = std::move(structure);
+    }
+    if (!sheets.empty())
+    {
+        // Which operations each protected sheet still permits is a long list
+        // nobody reads in an overview; set_protection writes it and the sheet
+        // itself carries it.
+        data["sheets"] = std::move(sheets);
+    }
+    return data;
+}
+
 std::shared_ptr<Packaging::ThemePart> ExcelDocumentHandle::Theme() const
 {
     const auto document = m_editor ? m_editor->GetDocument() : nullptr;
@@ -1689,7 +1736,7 @@ private:
             "Protect a worksheet or the workbook structure, or remove that protection. This is an editing "
             "restriction with a password verifier, not encryption: every part stays readable and any tool "
             "that ignores the setting can still rewrite the document.",
-            "layout");
+            "review");
         definition.InputSchema =
             Schema::Object("Arguments of set_protection.", {"documentId"}, std::move(properties));
         definition.OutputSchema =
