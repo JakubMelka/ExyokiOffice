@@ -63,6 +63,11 @@ in [docs/](docs/README.md).
 - Word `define_list` and `list_numbering` write and report multi-level list
   definitions, and `insert_list` takes a `numbering_id` to continue an existing
   sequence or lay out a definition.
+- Word `insert_content_control`, `list_content_controls` and
+  `update_content_control` write, read and remove content controls.
+- Word `insert_image` takes a `layout` object for a floating picture with text
+  wrapping, anchoring and distance from text; `set_section` takes `columns`; and
+  `apply_style` puts a character style on the runs of the named blocks.
 - `get_document_info` reports what a document restricts, on all three servers.
 
 ### Fixed
@@ -86,6 +91,10 @@ in [docs/](docs/README.md).
     the totals row outside `autoFilter`; Excel refused to open a workbook whose
     auto-filter reached into it. `Resize` and `SetAutoFilterEnabled` hold the
     same invariant.
+- `Word::Image::SetAltText` writes the text on the drawing's `wp:docPr` as well
+  as the picture's `pic:cNvPr`; Word reads the first and ignores the second, so
+  a picture labelled through this API was unlabelled in Word's Alt Text pane and
+  for anything reading it.
 - `PowerPointDocumentEditor::ProtectFromModification` writes the seven
   `p:modifyVerifier` attributes `CT_ModifyVerifier` requires and PowerPoint
   itself writes; the ISO attribute group it wrote before is optional in the

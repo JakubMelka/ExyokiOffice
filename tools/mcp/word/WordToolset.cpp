@@ -283,6 +283,9 @@ public:
         RegisterDeleteStyle(registry);
         RegisterListNumbering(registry);
         RegisterDefineList(registry);
+        RegisterInsertContentControl(registry);
+        RegisterListContentControls(registry);
+        RegisterUpdateContentControl(registry);
     }
 
 private:
@@ -1476,15 +1479,21 @@ private:
         ToolSupport::AddDocumentIdProperty(properties);
         properties["blocks"] = Schema::Array("1-based block indices to restyle.",
                                              Schema::Integer("Body block index.", 1));
-        properties["style_id"] = Schema::String("Paragraph style identifier to apply.");
+        properties["style_id"] = Schema::String(
+            "Identifier of the style to apply, of any family list_styles reports.");
 
-        auto definition = MakeDefinition("apply_style", "Apply paragraph style",
-                                         "Apply one paragraph style to several blocks at once.", "content");
+        auto definition = MakeDefinition("apply_style", "Apply style",
+                                         "Apply a style to several blocks at once. Where it goes follows "
+                                         "from what kind of style it is: a paragraph style onto the paragraph, "
+                                         "a character style onto every run inside it.",
+                                         "content");
         definition.InputSchema =
             Schema::Object("Arguments of apply_style.", {"documentId", "blocks", "style_id"}, std::move(properties));
         definition.OutputSchema = Schema::Envelope(
             Schema::Object("Restyled blocks.", {"styled"},
-                           nlohmann::json{{"styled", Schema::Integer("Number of restyled paragraphs.")}}),
+                           nlohmann::json{{"styled", Schema::Integer("Number of restyled blocks.")},
+                                          {"runs", Schema::Integer("Runs a character style was put on; zero "
+                                                                   "for a paragraph style.")}}),
             true);
         definition.Example = nlohmann::json{
             {"documentId", "doc-1"}, {"blocks", nlohmann::json::array({2, 3})}, {"style_id", "Quote"}};
@@ -1503,15 +1512,21 @@ private:
         }
 
         const auto styleId = arguments.value("style_id", std::string());
-        if (!session.Editor().Styles().HasStyle(styleId))
+        const auto definition = session.Editor().Styles().GetStyle(styleId);
+        if (!definition.has_value())
         {
             return MakeError(ErrorCode::StyleNotFound, "The document defines no style '" + styleId + "'.", styleId,
                              "Call list_styles to see the available style identifiers.");
         }
 
+        // Where a style goes is decided by what kind of style it is, not by an
+        // argument: a character style on a paragraph is markup Word ignores.
+        const bool character = definition->Type == Word::StyleType::Character;
+
         MutationGuard guard(session.Session());
 
         Size styled = 0;
+        Size runs = 0;
         ToolOutcome failure;
         for (const auto& entry : arguments.at("blocks"))
         {
@@ -1521,7 +1536,22 @@ private:
                 return failure;
             }
 
-            paragraph->SetStyleId(styleId);
+            if (character)
+            {
+                for (const auto& run : paragraph->Runs())
+                {
+                    if (run != nullptr)
+                    {
+                        run->SetStyleId(styleId);
+                        ++runs;
+                    }
+                }
+            }
+            else
+            {
+                paragraph->SetStyleId(styleId);
+            }
+
             ++styled;
         }
 
@@ -1529,8 +1559,9 @@ private:
 
         nlohmann::json data = nlohmann::json::object();
         data["styled"] = static_cast<UInt64>(styled);
+        data["runs"] = static_cast<UInt64>(runs);
 
-        return ResultBuilder("Applied '" + styleId + "' to " + std::to_string(styled) + " paragraph(s).")
+        return ResultBuilder("Applied '" + styleId + "' to " + std::to_string(styled) + " block(s).")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();
@@ -1549,11 +1580,57 @@ private:
         properties["height"] =
             Schema::Length("Rendered height; the aspect ratio is kept when only one dimension is given.");
         properties["alt"] = Schema::String("Alternative text.");
+        properties["layout"] = Schema::Object(
+            "How the picture sits in the text. An inline picture flows with the text like a very large "
+            "character; a floating one is anchored and the text wraps around it.",
+            {},
+            nlohmann::json{
+                {"mode", Schema::EnumerationWithDefault("Inline or floating.", {"inline", "floating"}, "inline")},
+                {"wrap", Schema::EnumerationWithDefault(
+                             "How text behaves around a floating picture: around its rectangle, around its "
+                             "outline, through its transparent parts, above and below only, or not at all, "
+                             "which lets the text run over it.",
+                             {"square", "tight", "through", "topAndBottom", "none"}, "square")},
+                {"wrap_side", Schema::EnumerationWithDefault(
+                                  "Which sides of the picture text may flow down.",
+                                  {"bothSides", "left", "right", "largest"}, "bothSides")},
+                {"horizontal", Schema::Object(
+                                   "Horizontal anchor. Give either 'align' or 'offset'.", {},
+                                   nlohmann::json{{"from", Schema::EnumerationWithDefault(
+                                                               "What the position is measured from.",
+                                                               {"page", "margin", "column", "character",
+                                                                "leftMargin", "rightMargin", "insideMargin",
+                                                                "outsideMargin"},
+                                                               "column")},
+                                                  {"align", Schema::Enumeration("Alignment against it.",
+                                                                                {"left", "center", "right",
+                                                                                 "inside", "outside"})},
+                                                  {"offset", Schema::Length("Distance from it.")}})},
+                {"vertical", Schema::Object(
+                                 "Vertical anchor. Give either 'align' or 'offset'.", {},
+                                 nlohmann::json{{"from", Schema::EnumerationWithDefault(
+                                                             "What the position is measured from.",
+                                                             {"page", "margin", "paragraph", "line", "topMargin",
+                                                              "bottomMargin", "insideMargin", "outsideMargin"},
+                                                             "paragraph")},
+                                                {"align", Schema::Enumeration("Alignment against it.",
+                                                                              {"top", "center", "bottom",
+                                                                               "inside", "outside"})},
+                                                {"offset", Schema::Length("Distance from it.")}})},
+                {"distance", Schema::Object("How close text may come to the picture.", {},
+                                            nlohmann::json{{"left", Schema::Length("On the left.")},
+                                                           {"top", Schema::Length("Above.")},
+                                                           {"right", Schema::Length("On the right.")},
+                                                           {"bottom", Schema::Length("Below.")}})},
+                {"behind_text", Schema::Boolean("Put the picture behind the text rather than in front.")},
+                {"allow_overlap", Schema::Boolean("Let the picture overlap other floating objects.")}});
 
         auto definition = MakeDefinition("insert_image", "Insert image",
-                                         "Insert a picture as its own paragraph at an anchor. The image format is "
-                                         "detected from the payload when contentType is omitted, and omitting both "
-                                         "width and height keeps the image's own size.",
+                                         "Insert a picture at an anchor. The image format is detected from the "
+                                         "payload when contentType is omitted, and omitting both width and "
+                                         "height keeps the image's own size. An inline picture becomes its own "
+                                         "paragraph; a floating one is anchored to the paragraph it is inserted "
+                                         "at and the text wraps around it.",
                                          "content");
         definition.InputSchema =
             Schema::Object("Arguments of insert_image.", {"documentId", "anchor"}, std::move(properties));
@@ -2826,15 +2903,23 @@ private:
                                                               {"header", Schema::Length("Header distance.")},
                                                               {"footer", Schema::Length("Footer distance.")},
                                                               {"gutter", Schema::Length("Gutter.")}});
+        properties["columns"] = Schema::Object(
+            "Text columns of equal width. One column is the ordinary single-column page.", {"count"},
+            nlohmann::json{{"count", Schema::Integer("Number of columns.", 1, 45)},
+                           {"spacing", Schema::Length("Gap between columns; about 1.25 cm when omitted.")},
+                           {"separator", Schema::Boolean("Draw a line down the gaps.")}});
 
         auto definition = MakeDefinition("set_section", "Set page setup",
-                                         "Set the page size, orientation, and margins of a section.", "layout");
+                                         "Set the page size, orientation, margins, and text columns of a "
+                                         "section.",
+                                         "layout");
         definition.InputSchema = Schema::Object("Arguments of set_section.", {"documentId"}, std::move(properties));
         definition.OutputSchema = Schema::Envelope(
             Schema::Object("Applied page setup.", {},
                            nlohmann::json{{"widthPt", Schema::Number("Page width in points.")},
                                           {"heightPt", Schema::Number("Page height in points.")},
-                                          {"orientation", Schema::String("portrait or landscape.")}}),
+                                          {"orientation", Schema::String("portrait or landscape.")},
+                                          {"columns", Schema::Integer("Text columns the section now has.")}}),
             true);
         definition.Example = nlohmann::json{
             {"documentId", "doc-1"}, {"page_size", nlohmann::json{{"preset", "A4"}}}, {"orientation", "landscape"}};
@@ -2969,6 +3054,38 @@ private:
             section->SetMargins(values);
         }
 
+        auto columnCount = section->GetColumns().value_or(Word::SectionColumns{}).Count;
+        if (const auto columns = arguments.find("columns"); columns != arguments.end() && columns->is_object())
+        {
+            auto values = section->GetColumns().value_or(Word::SectionColumns{});
+            values.Count = static_cast<UInt16>(std::max(1, columns->value("count", 1)));
+            if (const auto spacing = columns->find("spacing"); spacing != columns->end())
+            {
+                const auto parsed = ParseLength(*spacing);
+                if (!parsed.has_value())
+                {
+                    return MakeError(ErrorCode::InputInvalid, "The column spacing is not a valid length.",
+                                     spacing->dump(), "Use a number of points or a string such as \"1cm\".");
+                }
+
+                values.Spacing = *parsed;
+            }
+            else if (values.Spacing.ToEmu().GetValue() <= 0.0)
+            {
+                // Columns touching each other are unreadable, and Word's own
+                // default gap is what a caller that said nothing means.
+                values.Spacing = MeasuringUnits(0.5, MeasurementUnit::Inch);
+            }
+
+            if (columns->contains("separator"))
+            {
+                values.Separator = columns->value("separator", false);
+            }
+
+            section->SetColumns(values);
+            columnCount = values.Count;
+        }
+
         guard.Commit();
 
         nlohmann::json data = nlohmann::json::object();
@@ -2976,6 +3093,7 @@ private:
         data["heightPt"] = ToPointValue(pageSize.Height);
         data["orientation"] =
             pageSize.Orientation == Word::PageOrientation::Landscape ? "landscape" : "portrait";
+        data["columns"] = static_cast<UInt64>(std::max<UInt16>(1, columnCount));
 
         return ResultBuilder("Updated the section page setup.")
             .WithSession(session.Session())
@@ -5085,6 +5203,415 @@ private:
 
         return ResultBuilder((existed ? "Reused the list definition '" : "Defined the list '") + name +
                              "' as numbering instance " + std::to_string(listStyle.NumberingId) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    // -----------------------------------------------------------------------
+    // Content controls
+    //
+    // A content control is a named, addressable region: a form field, a
+    // placeholder a template fills, a section an editor may not touch. The
+    // `tag` is what code looks it up by and the `alias` is what Word shows, so
+    // the two are separate on purpose.
+    //
+    // The library covers the rich-text kind. A checkbox, date picker, drop-down
+    // or repeating section in a document read from elsewhere keeps its own
+    // markup untouched, and is reported here with the type it declares so a
+    // caller knows the difference.
+    // -----------------------------------------------------------------------
+
+    static std::string ContentControlLockToken(
+        const std::optional<W::LockingValues>& lock)
+    {
+        if (!lock.has_value())
+        {
+            return "none";
+        }
+
+        switch (lock->GetValue())
+        {
+            case W::LockingValues::SdtLocked:
+                return "control";
+            case W::LockingValues::ContentLocked:
+                return "content";
+            case W::LockingValues::SdtContentLocked:
+                return "both";
+            default:
+                return "none";
+        }
+    }
+
+    static std::optional<W::LockingValues> ParseContentControlLock(const std::string& token)
+    {
+        if (token == "none")
+        {
+            return W::LockingValues::Unlocked;
+        }
+
+        if (token == "control")
+        {
+            return W::LockingValues::SdtLocked;
+        }
+
+        if (token == "content")
+        {
+            return W::LockingValues::ContentLocked;
+        }
+
+        if (token == "both")
+        {
+            return W::LockingValues::SdtContentLocked;
+        }
+
+        return std::nullopt;
+    }
+
+    static nlohmann::json ContentControlToJson(const Word::ContentControl& control)
+    {
+        nlohmann::json entry = nlohmann::json::object();
+        entry["id"] = control.GetId();
+        entry["level"] = control.IsBlock() ? "block" : "inline";
+        entry["tag"] = control.GetTag();
+        entry["alias"] = control.GetAlias();
+        entry["lock"] = ContentControlLockToken(control.GetLock());
+        entry["showingPlaceholder"] = control.IsShowingPlaceholder();
+        entry["text"] = control.PlainText();
+        return entry;
+    }
+
+    /// The lock argument both writing tools publish.
+    static nlohmann::json ContentControlLockSchema()
+    {
+        return Schema::Enumeration(
+            "What a person editing in Word may change: \"content\" locks the text but lets the control be "
+            "deleted, \"control\" is the other way round, \"both\" locks each, and \"none\" lifts the lock. It "
+            "is a restriction Word honours, not one this server enforces on itself.",
+            {"none", "control", "content", "both"});
+    }
+
+    static void RegisterInsertContentControl(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["anchor"] = WordAddressing::AnchorSchema();
+        properties["block"] = Schema::Integer(
+            "1-based paragraph to put an inline control in; required for an inline control and not used by a "
+            "block one, which takes 'anchor' instead.",
+            1);
+        properties["level"] = Schema::EnumerationWithDefault(
+            "A block control is a sibling of paragraphs and holds whole paragraphs; an inline one lives inside "
+            "a paragraph alongside its runs.",
+            {"block", "inline"}, "block");
+        properties["tag"] = Schema::String("Programmatic name used to find the control again.");
+        properties["alias"] = Schema::String("Name Word shows on the control.");
+        properties["text"] = Schema::String("Initial content of the control.");
+        properties["lock"] = ContentControlLockSchema();
+
+        auto definition = MakeDefinition(
+            "insert_content_control", "Insert content control",
+            "Insert a content control: a named region a template can fill and a person editing in Word can be "
+            "restricted to. A block control holds whole paragraphs and goes at an anchor; an inline one sits "
+            "among the runs of the paragraph named by 'block'.",
+            "content");
+        definition.InputSchema =
+            Schema::Object("Arguments of insert_content_control.", {"documentId"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New content control.", {"id", "level"},
+                           nlohmann::json{{"id", Schema::Integer("Identifier the other tools address it by.")},
+                                          {"level", Schema::String("block or inline.")},
+                                          {"block", Schema::Integer("1-based block the control sits in or is.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"anchor", nlohmann::json{{"position", "end"}}},
+                                            {"tag", "customerName"},
+                                            {"alias", "Customer name"},
+                                            {"text", "Acme Corp."}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return InsertContentControl(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome InsertContentControl(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto tag = arguments.value("tag", std::string());
+        const auto alias = arguments.value("alias", std::string());
+        const auto text = arguments.value("text", std::string());
+        const auto lockToken = arguments.value("lock", std::string());
+
+        std::optional<W::LockingValues> lock;
+        if (!lockToken.empty())
+        {
+            lock = ParseContentControlLock(lockToken);
+            if (!lock.has_value())
+            {
+                return MakeError(ErrorCode::InputInvalid, "'" + lockToken + "' is not a lock.", "lock");
+            }
+        }
+
+        ToolOutcome failure;
+        const auto level = arguments.value("level", std::string("block"));
+
+        MutationGuard guard(session.Session());
+
+        Word::ContentControl::Ptr control;
+        Size blockIndex = 0;
+        if (level == "inline")
+        {
+            const auto blocks = session.Editor().BodyBlocks();
+            const Size requested = arguments.value("block", static_cast<Size>(0));
+            if (requested == 0 || requested > blocks.size())
+            {
+                return MakeError(ErrorCode::BlockNotFound,
+                                 "An inline control needs the 1-based 'block' of the paragraph it sits in.",
+                                 std::to_string(requested),
+                                 "read_blocks reports the current block indices.");
+            }
+
+            auto paragraph = blocks[requested - 1].AsParagraph();
+            if (paragraph == nullptr)
+            {
+                return MakeError(ErrorCode::BlockNotFound, "Block " + std::to_string(requested) + " is not a paragraph.",
+                                 std::to_string(requested));
+            }
+
+            control = paragraph->AddInlineContentControl(tag, alias);
+            blockIndex = requested;
+        }
+        else
+        {
+            Word::WordDocumentEditor::BodyCursor cursor;
+            WordAnchor anchor;
+            if (!WordAddressing::ParseAnchor(arguments, anchor, failure) ||
+                !WordAddressing::ResolveCursor(session.Editor(), anchor, cursor, failure))
+            {
+                return failure;
+            }
+
+            control = cursor.InsertContentControl(tag, alias);
+        }
+
+        if (control == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The content control could not be inserted.");
+        }
+
+        if (!text.empty())
+        {
+            control->SetText(text);
+        }
+
+        if (lock.has_value())
+        {
+            control->SetLock(*lock);
+        }
+
+        const auto id = control->EnsureId();
+
+        guard.Commit();
+
+        if (blockIndex == 0)
+        {
+            blockIndex = WordAddressing::IndexOfElement(session.Editor(), control->GetLowLevelApi());
+        }
+
+        nlohmann::json data = nlohmann::json::object();
+        data["id"] = id;
+        data["level"] = level == "inline" ? "inline" : "block";
+        data["block"] = static_cast<UInt64>(blockIndex);
+
+        return ResultBuilder("Inserted a content control as " + std::to_string(id) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterListContentControls(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        properties["tag"] = Schema::String("Report only the controls carrying this tag.");
+
+        nlohmann::json entry = Schema::Object(
+            "One content control.", {"id", "level"},
+            nlohmann::json{{"id", Schema::Integer("Identifier the writing tools address it by.")},
+                           {"level", Schema::String("block or inline.")},
+                           {"tag", Schema::String("Programmatic name.")},
+                           {"alias", Schema::String("Name Word shows.")},
+                           {"lock", Schema::String("none, control, content, or both.")},
+                           {"showingPlaceholder", Schema::Boolean("Word is showing placeholder text rather "
+                                                                  "than entered content.")},
+                           {"text", Schema::String("Plain text the control currently holds.")}});
+
+        auto definition = MakeDefinition(
+            "list_content_controls", "List content controls",
+            "List the content controls of the document body with their tag, alias, lock and current text. Use "
+            "it to find the id a control is addressed by.",
+            "content");
+        definition.InputSchema =
+            Schema::Object("Arguments of list_content_controls.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Content controls.", {"controls"},
+                           nlohmann::json{{"controls", Schema::Array("Controls in document order.",
+                                                                     std::move(entry))}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListContentControls(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListContentControls(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        const auto tag = arguments.value("tag", std::string());
+
+        nlohmann::json controls = nlohmann::json::array();
+        for (const auto& control : reader.Editor().ContentControls())
+        {
+            if (control == nullptr || (!tag.empty() && control->GetTag() != tag))
+            {
+                continue;
+            }
+
+            controls.push_back(ContentControlToJson(*control));
+        }
+
+        const auto count = controls.size();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["controls"] = std::move(controls);
+
+        return ResultBuilder("The document carries " + std::to_string(count) + " content control(s).")
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterUpdateContentControl(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["id"] = Schema::Integer("Identifier from list_content_controls or insert_content_control.", 0);
+        properties["tag"] = Schema::String("Rename the programmatic tag.");
+        properties["alias"] = Schema::String("Rename what Word shows.");
+        properties["text"] = Schema::String("Replace the content with this text.");
+        properties["lock"] = ContentControlLockSchema();
+        properties["showing_placeholder"] =
+            Schema::Boolean("Whether Word treats the current content as placeholder text.");
+        properties["remove"] = Schema::BooleanWithDefault(
+            "Remove the control. Its content goes with it, so read the text first if it is worth keeping; the "
+            "other members are ignored.",
+            false);
+
+        auto definition = MakeDefinition(
+            "update_content_control", "Update content control",
+            "Change what one content control holds or how it is locked, or remove it. Only the members you "
+            "pass take part.",
+            "content");
+        definition.InputSchema =
+            Schema::Object("Arguments of update_content_control.", {"documentId", "id"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Changed content control.", {"id"},
+                           nlohmann::json{{"id", Schema::Integer("Identifier that was addressed.")},
+                                          {"removed", Schema::Boolean("The control is gone.")},
+                                          {"tag", Schema::String("Tag after the change.")},
+                                          {"text", Schema::String("Text after the change.")}}),
+            true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"id", 1}, {"text", "Acme Corp."}, {"lock", "content"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return UpdateContentControl(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome UpdateContentControl(ToolContext& context, const nlohmann::json& arguments)
+    {
+        WordSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto id = arguments.value("id", 0);
+        auto control = session.Editor().FindContentControl(id);
+        if (control == nullptr)
+        {
+            return MakeError(ErrorCode::BlockNotFound,
+                             "The document has no content control " + std::to_string(id) + ".",
+                             std::to_string(id),
+                             "list_content_controls reports the identifiers this document carries.");
+        }
+
+        std::optional<W::LockingValues> lock;
+        if (const auto token = arguments.value("lock", std::string()); !token.empty())
+        {
+            lock = ParseContentControlLock(token);
+            if (!lock.has_value())
+            {
+                return MakeError(ErrorCode::InputInvalid, "'" + token + "' is not a lock.", "lock");
+            }
+        }
+
+        MutationGuard guard(session.Session());
+
+        nlohmann::json data = nlohmann::json::object();
+        data["id"] = id;
+
+        if (arguments.value("remove", false))
+        {
+            control->Remove();
+            guard.Commit();
+
+            data["removed"] = true;
+            return ResultBuilder("Removed content control " + std::to_string(id) + ".")
+                .WithSession(session.Session())
+                .WithData(std::move(data))
+                .Build();
+        }
+
+        if (arguments.contains("tag"))
+        {
+            control->SetTag(arguments.value("tag", std::string()));
+        }
+        if (arguments.contains("alias"))
+        {
+            control->SetAlias(arguments.value("alias", std::string()));
+        }
+        if (arguments.contains("text"))
+        {
+            control->SetText(arguments.value("text", std::string()));
+        }
+        if (lock.has_value())
+        {
+            control->SetLock(*lock);
+        }
+        if (arguments.contains("showing_placeholder"))
+        {
+            control->SetShowingPlaceholder(arguments.value("showing_placeholder", false));
+        }
+
+        guard.Commit();
+
+        data["removed"] = false;
+        data["tag"] = control->GetTag();
+        data["text"] = control->PlainText();
+
+        return ResultBuilder("Changed content control " + std::to_string(id) + ".")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();

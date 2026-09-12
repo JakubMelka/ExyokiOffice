@@ -753,15 +753,18 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `define_list` | content | M | Define a multi-level list and get the instance paragraphs name |
 | `edit_paragraph` | content | M | Rewrite one paragraph |
 | `delete_blocks` | content | D | Delete a range of body blocks |
-| `apply_style` | content | M I | Apply a paragraph style to several blocks |
-| `insert_image` | content | M | Insert a picture as its own paragraph |
+| `apply_style` | content | M I | Apply a paragraph or character style to several blocks |
+| `insert_content_control` | content | M | Insert a named region a template fills or an editor is held to |
+| `list_content_controls` | content | R I | Controls with their tag, alias, lock and text |
+| `update_content_control` | content | M I | Change what one holds or how it is locked, or remove it |
+| `insert_image` | content | M | Insert a picture, inline or floating with text wrapped around it |
 | `add_bookmark` | content | M | Bookmark a paragraph, or the range from `block` to `end_block` |
 | `insert_table` | tables | M | Insert a table, optionally filled |
 | `edit_table_cell` | tables | M | Rewrite one table cell |
 | `modify_table` | tables | D | Add or delete rows and columns, or merge cells |
 | `format_table` | tables | M I | Table width, alignment, borders, cell padding, column widths, and per-cell shading, alignment and borders |
 | `set_header_footer` | layout | M I | Replace a header or footer, including fields such as PAGE |
-| `set_section` | layout | M I | Page size, orientation, and margins |
+| `set_section` | layout | M I | Page size, orientation, margins, and text columns |
 | `set_tracked_changes` | review | M I | Turn the revision-tracking flag on or off |
 | `list_revisions` | review | R I | List the tracked revisions |
 | `resolve_revisions` | review | M | Accept or reject revisions |
@@ -789,6 +792,12 @@ untouched. Word owns the built-in style names — `Normal`, `heading 1`, `Title`
 and the rest — and renames a custom style that claims one, so pass
 `built_in: true` when you mean to redefine what the document's own Heading 1
 looks like rather than to add a style of your own.
+
+A content control is a named, addressable region: a form field, a placeholder
+a template fills, a section an editor may not touch. The `tag` is what code
+looks it up by and the `alias` is what Word shows. The rich-text kind is what
+these tools write; a checkbox, date picker, drop-down or repeating section read
+from another document keeps its own markup and is reported with the rest.
 
 Numbering has two halves and both are addressable. `define_list` writes the
 shape of a list, reusing an existing definition when the name matches, and

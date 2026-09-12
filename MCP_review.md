@@ -10,7 +10,7 @@ not intended, the gap belongs in
 decision, not as an absence.
 
 Reviewed at 148 tools (Word 50, Excel 48, PowerPoint 50). P0 is done and P1 is
-most of the way; the catalog now stands at 186 (Word 60, Excel 67,
+most of the way; the catalog now stands at 189 (Word 63, Excel 67,
 PowerPoint 59).
 
 ## Contents
@@ -70,7 +70,7 @@ and its invalid-input cases covered.
 
 ## Library defects the oracle found
 
-**Six defects, all in the library rather than in the servers, all now fixed.**
+**Seven defects, all in the library rather than in the servers, all now fixed.**
 Five produced a file that round-tripped through the library's own tests and
 validated as OPC and against the schema, while Excel threw the feature away; the
 sixth failed validation and nobody had looked. Each construct is graded `Yes` in
@@ -84,6 +84,7 @@ the compatibility matrix, so the matrix was overstating what shipped.
 | Pivot slicers on a reordered workbook (`excel-slicers`) | Yes | Discarded the slicer whenever a sheet's position and its `sheetId` differed | The cache's `tabId` was written as the tab position; Excel reads it as the `sheetId` | `SheetTabId` reads the `sheetId` off the workbook sheet list |
 | Table totals row (`excel-tables`) | Yes | Refused to open the workbook | `SetTotalsRowShown` flipped two attributes without growing the table, which left the auto-filter covering the totals row | The table reference grows by a row and the auto-filter stays below it; `Resize` and `SetAutoFilterEnabled` hold the same invariant |
 | Modify protection (`ppt-presentations`) | Yes | Validation reported seven missing required attributes, and a presentation PowerPoint protected could not be unprotected at all | `p:modifyVerifier` was written with the ISO attribute group, which `CT_ModifyVerifier` declares optional; the seven it declares required are the ones PowerPoint writes, and the reader treated them as a legacy form it could not validate | The writer emits the seven required attributes; the reader accepts both groups. The hash itself was already right: recomputing PowerPoint's own `hashData` with the ISO formula reproduces it byte for byte |
+| Image alt text (`word-images`) | Yes | Reported no alternative text at all; `InlineShape.AlternativeText` was empty | `SetAltText` wrote only the picture's `pic:cNvPr`. Word reads the drawing's `wp:docPr` and writes both | Both are written, and reading prefers `wp:docPr`. An accessibility feature that silently labels nothing is worse than one that is absent |
 
 Each cause was isolated by bisecting against a file Excel itself wrote: our
 parts were swapped into a working reference one at a time until it broke, then
@@ -220,8 +221,8 @@ was implemented after this review was written and is struck through:
 - [x] Excel VBA extract, replace, remove
 - [x] Word style definitions and numbering, and `insert_list` continuing an
       existing sequence, which its description already claimed
-- [ ] Word floating images with wrapping; section columns; character styles
-- [ ] Word content controls
+- [x] Word floating images with wrapping; section columns; character styles
+- [x] Word content controls
 - [x] Themes, all three families
 - [x] Document protection for Word and PowerPoint, and `get_document_info`
       reporting what a document restricts

@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-word",
   "title": "ExyokiOffice Word MCP Server",
-  "toolCount": 60,
+  "toolCount": 63,
   "tools": [
     {
       "annotations": {
@@ -4010,6 +4010,177 @@
     {
       "annotations": {
         "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the content controls of the document body with their tag, alias, lock and current text. Use it to find the id a control is addressed by.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_content_controls.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          },
+          "tag": {
+            "description": "Report only the controls carrying this tag.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_content_controls",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Content controls.",
+            "properties": {
+              "controls": {
+                "description": "Controls in document order.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One content control.",
+                  "properties": {
+                    "alias": {
+                      "description": "Name Word shows.",
+                      "type": "string"
+                    },
+                    "id": {
+                      "description": "Identifier the writing tools address it by.",
+                      "type": "integer"
+                    },
+                    "level": {
+                      "description": "block or inline.",
+                      "type": "string"
+                    },
+                    "lock": {
+                      "description": "none, control, content, or both.",
+                      "type": "string"
+                    },
+                    "showingPlaceholder": {
+                      "description": "Word is showing placeholder text rather than entered content.",
+                      "type": "boolean"
+                    },
+                    "tag": {
+                      "description": "Programmatic name.",
+                      "type": "string"
+                    },
+                    "text": {
+                      "description": "Plain text the control currently holds.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "level"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "controls"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List content controls"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
         "idempotentHint": false,
         "openWorldHint": false,
         "readOnlyHint": false
@@ -6367,7 +6538,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Apply one paragraph style to several blocks at once.",
+      "description": "Apply a style to several blocks at once. Where it goes follows from what kind of style it is: a paragraph style onto the paragraph, a character style onto every run inside it.",
       "example": {
         "blocks": [
           2,
@@ -6395,7 +6566,7 @@
             "type": "string"
           },
           "style_id": {
-            "description": "Paragraph style identifier to apply.",
+            "description": "Identifier of the style to apply, of any family list_styles reports.",
             "type": "string"
           }
         },
@@ -6415,8 +6586,12 @@
             "additionalProperties": false,
             "description": "Restyled blocks.",
             "properties": {
+              "runs": {
+                "description": "Runs a character style was put on; zero for a paragraph style.",
+                "type": "integer"
+              },
               "styled": {
-                "description": "Number of restyled paragraphs.",
+                "description": "Number of restyled blocks.",
                 "type": "integer"
               }
             },
@@ -6516,7 +6691,7 @@
         ],
         "type": "object"
       },
-      "title": "Apply paragraph style"
+      "title": "Apply style"
     },
     {
       "annotations": {
@@ -6525,7 +6700,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Insert a picture as its own paragraph at an anchor. The image format is detected from the payload when contentType is omitted, and omitting both width and height keeps the image's own size.",
+      "description": "Insert a picture at an anchor. The image format is detected from the payload when contentType is omitted, and omitting both width and height keeps the image's own size. An inline picture becomes its own paragraph; a floating one is anchored to the paragraph it is inserted at and the text wraps around it.",
       "example": {
         "anchor": {
           "position": "end"
@@ -6585,6 +6760,172 @@
               "number",
               "string"
             ]
+          },
+          "layout": {
+            "additionalProperties": false,
+            "description": "How the picture sits in the text. An inline picture flows with the text like a very large character; a floating one is anchored and the text wraps around it.",
+            "properties": {
+              "allow_overlap": {
+                "description": "Let the picture overlap other floating objects.",
+                "type": "boolean"
+              },
+              "behind_text": {
+                "description": "Put the picture behind the text rather than in front.",
+                "type": "boolean"
+              },
+              "distance": {
+                "additionalProperties": false,
+                "description": "How close text may come to the picture.",
+                "properties": {
+                  "bottom": {
+                    "description": "Below.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  },
+                  "left": {
+                    "description": "On the left.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  },
+                  "right": {
+                    "description": "On the right.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  },
+                  "top": {
+                    "description": "Above.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "horizontal": {
+                "additionalProperties": false,
+                "description": "Horizontal anchor. Give either 'align' or 'offset'.",
+                "properties": {
+                  "align": {
+                    "description": "Alignment against it.",
+                    "enum": [
+                      "left",
+                      "center",
+                      "right",
+                      "inside",
+                      "outside"
+                    ],
+                    "type": "string"
+                  },
+                  "from": {
+                    "default": "column",
+                    "description": "What the position is measured from.",
+                    "enum": [
+                      "page",
+                      "margin",
+                      "column",
+                      "character",
+                      "leftMargin",
+                      "rightMargin",
+                      "insideMargin",
+                      "outsideMargin"
+                    ],
+                    "type": "string"
+                  },
+                  "offset": {
+                    "description": "Distance from it.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "mode": {
+                "default": "inline",
+                "description": "Inline or floating.",
+                "enum": [
+                  "inline",
+                  "floating"
+                ],
+                "type": "string"
+              },
+              "vertical": {
+                "additionalProperties": false,
+                "description": "Vertical anchor. Give either 'align' or 'offset'.",
+                "properties": {
+                  "align": {
+                    "description": "Alignment against it.",
+                    "enum": [
+                      "top",
+                      "center",
+                      "bottom",
+                      "inside",
+                      "outside"
+                    ],
+                    "type": "string"
+                  },
+                  "from": {
+                    "default": "paragraph",
+                    "description": "What the position is measured from.",
+                    "enum": [
+                      "page",
+                      "margin",
+                      "paragraph",
+                      "line",
+                      "topMargin",
+                      "bottomMargin",
+                      "insideMargin",
+                      "outsideMargin"
+                    ],
+                    "type": "string"
+                  },
+                  "offset": {
+                    "description": "Distance from it.",
+                    "type": [
+                      "number",
+                      "string"
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "wrap": {
+                "default": "square",
+                "description": "How text behaves around a floating picture: around its rectangle, around its outline, through its transparent parts, above and below only, or not at all, which lets the text run over it.",
+                "enum": [
+                  "square",
+                  "tight",
+                  "through",
+                  "topAndBottom",
+                  "none"
+                ],
+                "type": "string"
+              },
+              "wrap_side": {
+                "default": "bothSides",
+                "description": "Which sides of the picture text may flow down.",
+                "enum": [
+                  "bothSides",
+                  "left",
+                  "right",
+                  "largest"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
           },
           "path": {
             "description": "Workspace-relative image file; mutually exclusive with dataBase64.",
@@ -8681,7 +9022,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Set the page size, orientation, and margins of a section.",
+      "description": "Set the page size, orientation, margins, and text columns of a section.",
       "example": {
         "documentId": "doc-1",
         "orientation": "landscape",
@@ -8694,6 +9035,33 @@
         "additionalProperties": false,
         "description": "Arguments of set_section.",
         "properties": {
+          "columns": {
+            "additionalProperties": false,
+            "description": "Text columns of equal width. One column is the ordinary single-column page.",
+            "properties": {
+              "count": {
+                "description": "Number of columns.",
+                "maximum": 45,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "separator": {
+                "description": "Draw a line down the gaps.",
+                "type": "boolean"
+              },
+              "spacing": {
+                "description": "Gap between columns; about 1.25 cm when omitted.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "count"
+            ],
+            "type": "object"
+          },
           "documentId": {
             "description": "Identifier of the open document to modify.",
             "type": "string"
@@ -8816,6 +9184,10 @@
             "additionalProperties": false,
             "description": "Applied page setup.",
             "properties": {
+              "columns": {
+                "description": "Text columns the section now has.",
+                "type": "integer"
+              },
               "heightPt": {
                 "description": "Page height in points.",
                 "type": "number"
@@ -11017,6 +11389,410 @@
         "type": "object"
       },
       "title": "Define list"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Insert a content control: a named region a template can fill and a person editing in Word can be restricted to. A block control holds whole paragraphs and goes at an anchor; an inline one sits among the runs of the paragraph named by 'block'.",
+      "example": {
+        "alias": "Customer name",
+        "anchor": {
+          "position": "end"
+        },
+        "documentId": "doc-1",
+        "tag": "customerName",
+        "text": "Acme Corp."
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of insert_content_control.",
+        "properties": {
+          "alias": {
+            "description": "Name Word shows on the control.",
+            "type": "string"
+          },
+          "anchor": {
+            "additionalProperties": false,
+            "description": "Where the new content goes. 'before' and 'after' need a 1-based block index from read_blocks.",
+            "properties": {
+              "block": {
+                "description": "1-based body block index.",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "position": {
+                "description": "Insertion point.",
+                "enum": [
+                  "start",
+                  "end",
+                  "before",
+                  "after"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "position"
+            ],
+            "type": "object"
+          },
+          "block": {
+            "description": "1-based paragraph to put an inline control in; required for an inline control and not used by a block one, which takes 'anchor' instead.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "level": {
+            "default": "block",
+            "description": "A block control is a sibling of paragraphs and holds whole paragraphs; an inline one lives inside a paragraph alongside its runs.",
+            "enum": [
+              "block",
+              "inline"
+            ],
+            "type": "string"
+          },
+          "lock": {
+            "description": "What a person editing in Word may change: \"content\" locks the text but lets the control be deleted, \"control\" is the other way round, \"both\" locks each, and \"none\" lifts the lock. It is a restriction Word honours, not one this server enforces on itself.",
+            "enum": [
+              "none",
+              "control",
+              "content",
+              "both"
+            ],
+            "type": "string"
+          },
+          "tag": {
+            "description": "Programmatic name used to find the control again.",
+            "type": "string"
+          },
+          "text": {
+            "description": "Initial content of the control.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "insert_content_control",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New content control.",
+            "properties": {
+              "block": {
+                "description": "1-based block the control sits in or is.",
+                "type": "integer"
+              },
+              "id": {
+                "description": "Identifier the other tools address it by.",
+                "type": "integer"
+              },
+              "level": {
+                "description": "block or inline.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "level"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Insert content control"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Change what one content control holds or how it is locked, or remove it. Only the members you pass take part.",
+      "example": {
+        "documentId": "doc-1",
+        "id": 1,
+        "lock": "content",
+        "text": "Acme Corp."
+      },
+      "group": "content",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of update_content_control.",
+        "properties": {
+          "alias": {
+            "description": "Rename what Word shows.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Identifier from list_content_controls or insert_content_control.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "lock": {
+            "description": "What a person editing in Word may change: \"content\" locks the text but lets the control be deleted, \"control\" is the other way round, \"both\" locks each, and \"none\" lifts the lock. It is a restriction Word honours, not one this server enforces on itself.",
+            "enum": [
+              "none",
+              "control",
+              "content",
+              "both"
+            ],
+            "type": "string"
+          },
+          "remove": {
+            "default": false,
+            "description": "Remove the control. Its content goes with it, so read the text first if it is worth keeping; the other members are ignored.",
+            "type": "boolean"
+          },
+          "showing_placeholder": {
+            "description": "Whether Word treats the current content as placeholder text.",
+            "type": "boolean"
+          },
+          "tag": {
+            "description": "Rename the programmatic tag.",
+            "type": "string"
+          },
+          "text": {
+            "description": "Replace the content with this text.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "update_content_control",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Changed content control.",
+            "properties": {
+              "id": {
+                "description": "Identifier that was addressed.",
+                "type": "integer"
+              },
+              "removed": {
+                "description": "The control is gone.",
+                "type": "boolean"
+              },
+              "tag": {
+                "description": "Tag after the change.",
+                "type": "string"
+              },
+              "text": {
+                "description": "Text after the change.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Update content control"
     },
     {
       "annotations": {

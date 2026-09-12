@@ -88,6 +88,158 @@ public:
     }
 
     /**
+     * @brief Applies the `layout` descriptor of insert_image to a placed image.
+     *
+     * Every setter that takes a floating-only property switches an inline image
+     * to floating on its own, so the mode is applied first and the rest follow
+     * only when the caller asked for floating. Anything else would turn a
+     * picture the caller wanted in the text flow into an anchored one because
+     * of a stray member.
+     */
+    static bool ApplyImageLayout(Word::Image& image, const nlohmann::json& layout, ToolOutcome& failure)
+    {
+        namespace WP = ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing;
+
+        if (layout.value("mode", std::string("inline")) != "floating")
+        {
+            return true;
+        }
+
+        const auto wrapToken = layout.value("wrap", std::string("square"));
+        const auto wrap = wrapToken == "tight"          ? Word::ImageWrap::Tight
+                          : wrapToken == "through"      ? Word::ImageWrap::Through
+                          : wrapToken == "topAndBottom" ? Word::ImageWrap::TopAndBottom
+                          : wrapToken == "none"         ? Word::ImageWrap::None
+                                                        : Word::ImageWrap::Square;
+
+        const auto sideToken = layout.value("wrap_side", std::string("bothSides"));
+        const auto side = sideToken == "left"      ? WP::WrapTextValues::Left
+                          : sideToken == "right"   ? WP::WrapTextValues::Right
+                          : sideToken == "largest" ? WP::WrapTextValues::Largest
+                                                   : WP::WrapTextValues::BothSides;
+        image.SetWrap(wrap, side);
+
+        const auto horizontal = layout.find("horizontal");
+        const auto vertical = layout.find("vertical");
+        const bool hasHorizontal = horizontal != layout.end() && horizontal->is_object();
+        const bool hasVertical = vertical != layout.end() && vertical->is_object();
+        if (hasHorizontal || hasVertical)
+        {
+            const nlohmann::json empty = nlohmann::json::object();
+            const auto& h = hasHorizontal ? *horizontal : empty;
+            const auto& v = hasVertical ? *vertical : empty;
+
+            const auto horizontalFromToken = h.value("from", std::string("column"));
+            const auto horizontalFrom =
+                horizontalFromToken == "page"            ? WP::HorizontalRelativePositionValues::Page
+                : horizontalFromToken == "margin"        ? WP::HorizontalRelativePositionValues::Margin
+                : horizontalFromToken == "character"     ? WP::HorizontalRelativePositionValues::Character
+                : horizontalFromToken == "leftMargin"    ? WP::HorizontalRelativePositionValues::LeftMargin
+                : horizontalFromToken == "rightMargin"   ? WP::HorizontalRelativePositionValues::RightMargin
+                : horizontalFromToken == "insideMargin"  ? WP::HorizontalRelativePositionValues::InsideMargin
+                : horizontalFromToken == "outsideMargin" ? WP::HorizontalRelativePositionValues::OutsideMargin
+                                                         : WP::HorizontalRelativePositionValues::Column;
+
+            const auto verticalFromToken = v.value("from", std::string("paragraph"));
+            const auto verticalFrom =
+                verticalFromToken == "page"            ? WP::VerticalRelativePositionValues::Page
+                : verticalFromToken == "margin"        ? WP::VerticalRelativePositionValues::Margin
+                : verticalFromToken == "line"          ? WP::VerticalRelativePositionValues::Line
+                : verticalFromToken == "topMargin"     ? WP::VerticalRelativePositionValues::TopMargin
+                : verticalFromToken == "bottomMargin"  ? WP::VerticalRelativePositionValues::BottomMargin
+                : verticalFromToken == "insideMargin"  ? WP::VerticalRelativePositionValues::InsideMargin
+                : verticalFromToken == "outsideMargin" ? WP::VerticalRelativePositionValues::OutsideMargin
+                                                       : WP::VerticalRelativePositionValues::Paragraph;
+
+            const auto horizontalAlign = h.value("align", std::string());
+            const auto verticalAlign = v.value("align", std::string());
+            if (!horizontalAlign.empty() || !verticalAlign.empty())
+            {
+                // The library writes both axes together, so an axis the caller
+                // only gave an anchor for gets the neutral alignment rather
+                // than an offset it never asked for.
+                const auto horizontalValue =
+                    horizontalAlign == "left"      ? WP::HorizontalAlignmentValues::Left
+                    : horizontalAlign == "right"   ? WP::HorizontalAlignmentValues::Right
+                    : horizontalAlign == "inside"  ? WP::HorizontalAlignmentValues::Inside
+                    : horizontalAlign == "outside" ? WP::HorizontalAlignmentValues::Outside
+                                                   : WP::HorizontalAlignmentValues::Center;
+                const auto verticalValue = verticalAlign == "top"       ? WP::VerticalAlignmentValues::Top
+                                           : verticalAlign == "bottom"  ? WP::VerticalAlignmentValues::Bottom
+                                           : verticalAlign == "inside"  ? WP::VerticalAlignmentValues::Inside
+                                           : verticalAlign == "outside" ? WP::VerticalAlignmentValues::Outside
+                                                                        : WP::VerticalAlignmentValues::Center;
+                image.SetPositionAligned(horizontalFrom, horizontalValue, verticalFrom, verticalValue);
+            }
+            else
+            {
+                MeasuringUnits horizontalOffset;
+                MeasuringUnits verticalOffset;
+                if (!ReadImageOffset(h, "offset", horizontalOffset, failure) ||
+                    !ReadImageOffset(v, "offset", verticalOffset, failure))
+                {
+                    return false;
+                }
+
+                image.SetPosition(horizontalFrom, horizontalOffset, verticalFrom, verticalOffset);
+            }
+        }
+
+        if (const auto distance = layout.find("distance"); distance != layout.end() && distance->is_object())
+        {
+            MeasuringUnits left;
+            MeasuringUnits top;
+            MeasuringUnits right;
+            MeasuringUnits bottom;
+            if (!ReadImageOffset(*distance, "left", left, failure) ||
+                !ReadImageOffset(*distance, "top", top, failure) ||
+                !ReadImageOffset(*distance, "right", right, failure) ||
+                !ReadImageOffset(*distance, "bottom", bottom, failure))
+            {
+                return false;
+            }
+
+            image.SetDistanceFromText(left, top, right, bottom);
+        }
+
+        if (layout.contains("behind_text"))
+        {
+            image.SetBehindText(layout.value("behind_text", false));
+        }
+
+        if (layout.contains("allow_overlap"))
+        {
+            image.SetAllowOverlap(layout.value("allow_overlap", true));
+        }
+
+        return true;
+    }
+
+    /// Reads one optional length of the layout descriptor; absent means zero.
+    static bool ReadImageOffset(const nlohmann::json& owner, const char* name, MeasuringUnits& result,
+                                ToolOutcome& failure)
+    {
+        const auto member = owner.find(name);
+        if (member == owner.end())
+        {
+            result = MeasuringUnits(0.0, MeasurementUnit::Point);
+            return true;
+        }
+
+        const auto parsed = ParseLength(*member);
+        if (!parsed.has_value())
+        {
+            failure = MakeError(ErrorCode::InputInvalid,
+                                "'" + std::string(name) + "' of the image layout is not a length.",
+                                member->dump(), "Use a number of points or a string such as \"2cm\".");
+            return false;
+        }
+
+        result = *parsed;
+        return true;
+    }
+
+    /**
      * @brief Applies a run formatting preset to an already created run.
      *
      * Paragraph::AddRun() takes a RunStyle, but a run appended to a hyperlink
@@ -618,6 +770,16 @@ bool WordAddressing::AppendImage(Word::WordDocumentEditor& editor, Word::Paragra
     {
         failure = MakeError(ErrorCode::OperationFailed, "The image could not be added to the document.", {},
                             "Check that the payload is a supported image format.");
+        return false;
+    }
+
+    // Switching an inline picture to floating rebuilds the drawing around a
+    // `wp:anchor`, so the layout is applied first and the alt text written into
+    // whichever container the picture ended up in.
+    const auto layout = descriptor.find("layout");
+    if (layout != descriptor.end() && layout->is_object() &&
+        !WordAddressingHelper::ApplyImageLayout(*image, *layout, failure))
+    {
         return false;
     }
 
