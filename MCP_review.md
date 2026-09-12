@@ -10,8 +10,7 @@ not intended, the gap belongs in
 decision, not as an absence.
 
 Reviewed at 148 tools (Word 50, Excel 48, PowerPoint 50). P0 is done and P1 is
-most of the way; the catalog now stands at 189 (Word 63, Excel 67,
-PowerPoint 59).
+done; the catalog now stands at 195 (Word 63, Excel 67, PowerPoint 65).
 
 ## Contents
 
@@ -70,7 +69,8 @@ and its invalid-input cases covered.
 
 ## Library defects the oracle found
 
-**Seven defects, all in the library rather than in the servers, all now fixed.**
+**Nine defects, eight in the library and one in its package validator, all now
+fixed.**
 Five produced a file that round-tripped through the library's own tests and
 validated as OPC and against the schema, while Excel threw the feature away; the
 sixth failed validation and nobody had looked. Each construct is graded `Yes` in
@@ -85,6 +85,8 @@ the compatibility matrix, so the matrix was overstating what shipped.
 | Table totals row (`excel-tables`) | Yes | Refused to open the workbook | `SetTotalsRowShown` flipped two attributes without growing the table, which left the auto-filter covering the totals row | The table reference grows by a row and the auto-filter stays below it; `Resize` and `SetAutoFilterEnabled` hold the same invariant |
 | Modify protection (`ppt-presentations`) | Yes | Validation reported seven missing required attributes, and a presentation PowerPoint protected could not be unprotected at all | `p:modifyVerifier` was written with the ISO attribute group, which `CT_ModifyVerifier` declares optional; the seven it declares required are the ones PowerPoint writes, and the reader treated them as a legacy form it could not validate | The writer emits the seven required attributes; the reader accepts both groups. The hash itself was already right: recomputing PowerPoint's own `hashData` with the ISO formula reproduces it byte for byte |
 | Image alt text (`word-images`) | Yes | Reported no alternative text at all; `InlineShape.AlternativeText` was empty | `SetAltText` wrote only the picture's `pic:cNvPr`. Word reads the drawing's `wp:docPr` and writes both | Both are written, and reading prefers `wp:docPr`. An accessibility feature that silently labels nothing is worse than one that is absent |
+| Embedded media (`ppt-media`) | Yes | Opened, then dropped the media part on its own save and rewrote the relationship as external | `a:audioFile` can only name a relationship through `r:link`, which reads as a link whatever the target is. PowerPoint tells the two apart by a second relationship and a `p14:media` extension naming it | Both are written. Verified by having PowerPoint re-save the file: before, the package came back with no media part at all; after, it keeps the part, both internal relationships, the extension, and the volume and loop settings |
+| Relationship type check (the validator itself) | — | Reported an error on a presentation PowerPoint wrote | The rule assumed every incoming relationship to a part carries the part's own descriptor type; OPC allows several, and Office relies on it | The rule reports only a part reached solely by a wrong-typed relationship. A gate that rejects Office's own output is worse than no gate |
 
 Each cause was isolated by bisecting against a file Excel itself wrote: our
 parts were swapped into a working reference one at a time until it broke, then
@@ -211,8 +213,8 @@ was implemented after this review was written and is struck through:
 ### P1 — the rest of Gap B and Gap C
 
 - [x] PowerPoint animations
-- [ ] PowerPoint masters and layouts, write side
-- [ ] PowerPoint custom shows; audio and video
+- [x] PowerPoint masters and layouts, write side
+- [x] PowerPoint custom shows; audio and video
 - [x] Excel slicers
 - [x] Excel sheet move, copy, protection; range copy and move
 - [x] Excel table listing, auto-filter and column filters; the ranking and

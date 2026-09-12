@@ -887,6 +887,11 @@ CSV import and export run through `convert_document`, which takes
 | `list_slides` | slides | R I | Slides with layout, title, and shape counts |
 | `get_slide` | slides | R I | One slide as shapes with their paths, or as model, Markdown, or text |
 | `list_layouts` | slides | R I | Layouts and the placeholders each offers |
+| `add_layout` | slides | M | Add a layout to a master with the placeholders slides inherit |
+| `delete_layout` | slides | D I | Remove a layout, moving its slides to a replacement |
+| `set_slide_layout` | slides | M I | Point a slide at a different layout |
+| `list_custom_shows` | slides | R I | Named slide sequences with the slides each plays |
+| `set_custom_show` | slides | M I | Create, change or remove a named slide sequence |
 | `add_slide` | slides | M | Add a slide built from a layout |
 | `delete_slide` | slides | D | Remove a slide |
 | `move_slide` | slides | M | Move a slide to another position |
@@ -907,6 +912,7 @@ CSV import and export run through `convert_document`, which takes
 | `list_comments` | content | R I | List comments, optionally per slide |
 | `add_comment` | content | M | Attach a comment to a slide |
 | `add_image` | media | M | Place a picture on a slide |
+| `add_media` | media | M | Place audio or video, embedded from a file or linked |
 | `list_animations` | animation | R I | Animation effects in playback order |
 | `add_animation` | animation | M | Animate a shape, appending the effect to the playback order |
 | `update_animation` | animation | M I | Replace one effect, and optionally move it in the order |
@@ -915,6 +921,21 @@ CSV import and export run through `convert_document`, which takes
 | `add_section` | design | M | Group slides into a named section |
 | `set_slide_size` | design | M I | Slide size from a preset or dimensions |
 | `set_protection` | review | M I | Require a password before the presentation may be saved over, or lift it |
+
+A slide inherits what it looks like from its layout and the layout from its
+master, so `add_layout` and `set_slide_layout` are how a deck is made
+restyleable rather than repeating formatting on every slide. A layout still in
+use cannot simply be deleted: `delete_layout` wants a `replacement` the affected
+slides can move to.
+
+A custom show stores persistent slide identifiers rather than positions, so
+reordering the deck afterwards leaves the show playing the same slides;
+`list_custom_shows` reports both, and a slide a show names but that no longer
+exists shows up as an identifier with no position.
+
+`add_media` stores the payload verbatim. Nothing decodes, transcodes, inspects
+or plays it, and an address passed as `uri` is kept as a relationship and never
+fetched.
 
 An animation names its target by the shape's non-visual identifier, which is
 what PresentationML stores, but `list_animations` resolves it back to the shape

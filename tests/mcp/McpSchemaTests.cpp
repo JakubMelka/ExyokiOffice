@@ -226,7 +226,8 @@ TEST_CASE("every registered tool has an explicit behavioral test commitment [mcp
         "edit_text_frame", "delete_shape", "set_shape_transform", "add_image", "add_table", "edit_table_cell",
         "add_chart", "set_notes", "add_comment", "set_transition", "add_section", "set_slide_size", "add_shape",
         "format_shape", "list_animations", "add_animation", "update_animation", "remove_animation",
-        "set_protection"};
+        "set_protection", "add_layout", "delete_layout", "set_slide_layout", "list_custom_shows",
+        "set_custom_show", "add_media"};
 
     const auto check = [&shared](const McpTestServer& server, const std::set<std::string>& family)
     {

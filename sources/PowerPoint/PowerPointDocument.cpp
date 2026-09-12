@@ -1045,6 +1045,85 @@ public:
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio";
     static constexpr std::string_view VideoRelationship =
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/video";
+    /**
+     * @brief The relationship PowerPoint uses to say the media is in the package.
+     *
+     * `a:audioFile`/`a:videoFile` can only name a relationship through `r:link`,
+     * which reads as a link whether the target is inside the package or not.
+     * PowerPoint distinguishes the two by a second relationship of this type and
+     * a `p14:media` extension naming it. Without them it treats an internal
+     * relationship as an external one and drops the media part on the next save.
+     */
+    static constexpr std::string_view MediaRelationship =
+        "http://schemas.microsoft.com/office/2007/relationships/media";
+    /// Extension slot PowerPoint stores `p14:media` in.
+    static constexpr std::string_view MediaExtensionUri = "{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}";
+
+    /// The `p:nvPr` of a media picture, which is where the extension belongs.
+    static std::shared_ptr<Presentation::ApplicationNonVisualDrawingProperties> ApplicationProperties(
+        const std::shared_ptr<OpenXMLElement>& element)
+    {
+        if (!element)
+        {
+            return nullptr;
+        }
+        const auto found = element->Descendants<Presentation::ApplicationNonVisualDrawingProperties>();
+        return found.empty() ? nullptr : found.front();
+    }
+
+    /// Removes any `p14:media` the shape already carries, with its extension host.
+    static void RemoveMediaExtension(const std::shared_ptr<OpenXMLElement>& element)
+    {
+        auto properties = ApplicationProperties(element);
+        if (!properties)
+        {
+            return;
+        }
+        for (const auto& media : properties->Descendants<PowerPoint2010::Media>())
+        {
+            auto extension = media ? media->Parent() : nullptr;
+            auto list = extension ? extension->Parent() : nullptr;
+            if (list)
+            {
+                list->RemoveChild(extension);
+                // An extension list with nothing left in it is markup that says
+                // nothing, so it goes with the extension it existed for.
+                if (list->Children().empty() && list->Parent())
+                {
+                    list->Parent()->RemoveChild(list);
+                }
+            }
+        }
+    }
+
+    /// Writes `p14:media` naming the package-resident media relationship.
+    static bool WriteMediaExtension(const std::shared_ptr<OpenXMLElement>& element,
+                                    const std::string& relationshipId)
+    {
+        auto properties = ApplicationProperties(element);
+        if (!properties || relationshipId.empty())
+        {
+            return false;
+        }
+        auto list = properties->GetFirstChildOfType<Presentation::ExtensionList>();
+        if (!list)
+        {
+            list = properties->AppendChild<Presentation::ExtensionList>();
+        }
+        auto extension = list ? list->AppendChild<Presentation::Extension>() : nullptr;
+        if (!extension)
+        {
+            return false;
+        }
+        extension->SetUri(StringValue(std::string(MediaExtensionUri)));
+        auto media = extension->AppendChild<PowerPoint2010::Media>();
+        if (!media)
+        {
+            return false;
+        }
+        media->SetEmbed(StringValue(relationshipId));
+        return true;
+    }
 
     static const OpenXmlPartDescriptor& Descriptor(PresentationMediaKind kind)
     {
@@ -6115,6 +6194,7 @@ bool PresentationShape::SetMedia(const PresentationMediaData& value)
     }
 
     std::string newId;
+    std::string mediaId;
     const auto relationshipType = value.Kind == PresentationMediaKind::Audio
                                       ? PresentationMediaHelpers::AudioRelationship
                                       : PresentationMediaHelpers::VideoRelationship;
@@ -6129,6 +6209,13 @@ bool PresentationShape::SetMedia(const PresentationMediaData& value)
         newId = part->RelationshipId();
         part->SetContentType(value.Embedded->ContentType);
         part->SetBinaryData(value.Embedded->Data);
+        // The same part gains a second relationship, which is what the
+        // p14:media extension below names; see MediaRelationship.
+        mediaId = m_slidePart->AddPartReference(part, PresentationMediaHelpers::MediaRelationship);
+        if (mediaId.empty())
+        {
+            return false;
+        }
     }
     else
     {
@@ -6152,6 +6239,12 @@ bool PresentationShape::SetMedia(const PresentationMediaData& value)
     else
     {
         markerParent->AppendChild<Drawing::VideoFromFile>()->SetLink(StringValue(newId));
+    }
+
+    PresentationMediaHelpers::RemoveMediaExtension(m_element);
+    if (!mediaId.empty() && !PresentationMediaHelpers::WriteMediaExtension(m_element, mediaId))
+    {
+        return false;
     }
 
     if (oldRelationship)

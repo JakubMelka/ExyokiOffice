@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
 #include <set>
 #include <string>
 
@@ -1571,4 +1572,388 @@ TEST_CASE("modify protection refuses a missing or mismatched password [mcp-power
     const auto still = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
     REQUIRE(still["data"].contains("protection"));
     CHECK(still["data"]["protection"]["hasPassword"] == true);
+}
+
+TEST_CASE("a layout is added, used by a slide and removed [mcp-power-point]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "layouts.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    for (const auto* title : {"One", "Two"})
+    {
+        REQUIRE(server->Call("add_slide",
+                             nlohmann::json{{"documentId", documentId}, {"title", title}})["ok"] == true);
+    }
+
+    const auto added = server->Call(
+        "add_layout",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Quote"},
+                       {"type", "titleOnly"},
+                       {"placeholders", nlohmann::json::array({nlohmann::json{{"type", "title"}},
+                                                               nlohmann::json{{"type", "body"}, {"index", 1}}})}});
+    REQUIRE(added["ok"] == true);
+    CHECK(added["data"]["name"] == "Quote");
+    CHECK(added["data"]["placeholders"] == 2);
+
+    const auto listed = server->Call("list_layouts", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    bool found = false;
+    for (const auto& entry : listed["data"]["layouts"])
+    {
+        if (entry["name"] == "Quote")
+        {
+            found = true;
+            CHECK(entry["placeholders"].size() == 2);
+        }
+    }
+    CHECK(found);
+
+    const auto assigned = server->Call(
+        "set_slide_layout", nlohmann::json{{"documentId", documentId}, {"slide", 2}, {"layout", "Quote"}});
+    REQUIRE(assigned["ok"] == true);
+    CHECK(assigned["data"]["layout"] == "Quote");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::Open(server->Path("layouts.pptx"));
+    REQUIRE(editor != nullptr);
+    const auto slides = editor->Slides();
+    REQUIRE(slides.size() == 2);
+    REQUIRE(slides[1]->Layout() != nullptr);
+    CHECK(slides[1]->Layout()->Name() == "Quote");
+
+    // A layout a slide still uses cannot simply disappear; the slide has to be
+    // given somewhere else to inherit from.
+    const auto inUse =
+        server->Call("delete_layout", nlohmann::json{{"documentId", documentId}, {"name", "Quote"}});
+    CHECK(inUse["ok"] == false);
+    CHECK(inUse["error"]["code"] == "operation_failed");
+
+    const auto removed = server->Call("delete_layout", nlohmann::json{{"documentId", documentId},
+                                                                      {"name", "Quote"},
+                                                                      {"replacement", "Title and Content"}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["removed"] == true);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("layouts.pptx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a layout is refused when it cannot be placed [mcp-power-point]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badlayout.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId}, {"title", "One"}})["ok"] ==
+            true);
+
+    const auto noName = server->Call("add_layout", nlohmann::json{{"documentId", documentId}, {"name", ""}});
+    CHECK(noName["ok"] == false);
+    CHECK(noName["error"]["code"] == "input_invalid");
+
+    // add_slide picks a layout by name, so two cannot share one.
+    const auto clash = server->Call(
+        "add_layout", nlohmann::json{{"documentId", documentId}, {"name", "Title and Content"}});
+    CHECK(clash["ok"] == false);
+    CHECK(clash["error"]["code"] == "input_invalid");
+
+    const auto unknownMaster = server->Call(
+        "add_layout", nlohmann::json{{"documentId", documentId}, {"name", "Odd"}, {"master", "Nowhere"}});
+    CHECK(unknownMaster["ok"] == false);
+    CHECK(unknownMaster["error"]["code"] == "layout_not_found");
+
+    const auto badPlaceholder = server->Call(
+        "add_layout",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Odd"},
+                       {"placeholders", nlohmann::json::array({nlohmann::json{{"type", "hologram"}}})}});
+    CHECK(badPlaceholder["ok"] == false);
+    CHECK(badPlaceholder["error"]["code"] == "input_invalid");
+
+    const auto unknownLayout = server->Call(
+        "set_slide_layout", nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"layout", "Nowhere"}});
+    CHECK(unknownLayout["ok"] == false);
+    CHECK(unknownLayout["error"]["code"] == "layout_not_found");
+
+    const auto missing =
+        server->Call("delete_layout", nlohmann::json{{"documentId", documentId}, {"name", "Nowhere"}});
+    CHECK(missing["ok"] == false);
+    CHECK(missing["error"]["code"] == "layout_not_found");
+
+    // Nothing above may have added a layout.
+    const auto listed = server->Call("list_layouts", nlohmann::json{{"documentId", documentId}});
+    CHECK(listed["data"]["layouts"].size() == 1);
+}
+
+TEST_CASE("a custom show names slides that survive reordering [mcp-power-point]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "shows.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    for (const auto* title : {"One", "Two", "Three"})
+    {
+        REQUIRE(server->Call("add_slide",
+                             nlohmann::json{{"documentId", documentId}, {"title", title}})["ok"] == true);
+    }
+
+    const auto empty = server->Call("list_custom_shows", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(empty["ok"] == true);
+    CHECK(empty["data"]["shows"].empty());
+
+    const auto added = server->Call("set_custom_show",
+                                    nlohmann::json{{"documentId", documentId},
+                                                   {"name", "Short version"},
+                                                   {"slides", nlohmann::json::array({1, 3})}});
+    REQUIRE(added["ok"] == true);
+    CHECK(added["data"]["slides"] == 2);
+    // The library takes the identifier from the caller and allocates none, so
+    // the tool picks the lowest free one rather than writing a zero the format
+    // rejects.
+    const auto showId = added["data"]["id"].get<int>();
+    CHECK(showId > 0);
+
+    const auto second = server->Call("set_custom_show",
+                                     nlohmann::json{{"documentId", documentId},
+                                                    {"name", "Everything"},
+                                                    {"slides", nlohmann::json::array({1, 2, 3})}});
+    REQUIRE(second["ok"] == true);
+    CHECK(second["data"]["id"] != showId);
+
+    // A show stores persistent identifiers, so moving a slide changes which
+    // position it plays at without changing which slides it plays.
+    REQUIRE(server->Call("move_slide", nlohmann::json{{"documentId", documentId},
+                                                      {"from", 3},
+                                                      {"to", 1}})["ok"] == true);
+
+    const auto listed = server->Call("list_custom_shows", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["data"]["shows"].size() == 2);
+    const auto& first = listed["data"]["shows"][0];
+    CHECK(first["name"] == "Short version");
+    REQUIRE(first["slides"].size() == 2);
+    CHECK(first["slides"][0] == 2);
+    CHECK(first["slides"][1] == 1);
+
+    const auto renamed = server->Call("set_custom_show", nlohmann::json{{"documentId", documentId},
+                                                                        {"id", showId},
+                                                                        {"name", "Highlights"}});
+    REQUIRE(renamed["ok"] == true);
+    CHECK(renamed["data"]["name"] == "Highlights");
+    CHECK(renamed["data"]["slides"] == 2);
+
+    const auto removed = server->Call(
+        "set_custom_show", nlohmann::json{{"documentId", documentId}, {"id", showId}, {"remove", true}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["removed"] == true);
+
+    const auto after = server->Call("list_custom_shows", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(after["data"]["shows"].size() == 1);
+    CHECK(after["data"]["shows"][0]["name"] == "Everything");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    const auto report = ExyokiOffice::Tools::Run(server->Path("shows.pptx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a custom show is refused when it names nothing usable [mcp-power-point]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badshow.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId}, {"title", "One"}})["ok"] ==
+            true);
+
+    const auto noName = server->Call("set_custom_show", nlohmann::json{
+                                                            {"documentId", documentId},
+                                                            {"slides", nlohmann::json::array({1})}});
+    CHECK(noName["ok"] == false);
+    CHECK(noName["error"]["code"] == "input_invalid");
+
+    const auto noSlides =
+        server->Call("set_custom_show", nlohmann::json{{"documentId", documentId}, {"name", "Empty"}});
+    CHECK(noSlides["ok"] == false);
+    CHECK(noSlides["error"]["code"] == "input_invalid");
+
+    const auto badSlide = server->Call("set_custom_show",
+                                       nlohmann::json{{"documentId", documentId},
+                                                      {"name", "Beyond"},
+                                                      {"slides", nlohmann::json::array({1, 9})}});
+    CHECK(badSlide["ok"] == false);
+    CHECK(badSlide["error"]["code"] == "slide_not_found");
+
+    const auto unknown = server->Call("set_custom_show", nlohmann::json{{"documentId", documentId},
+                                                                        {"id", 42},
+                                                                        {"name", "Ghost"}});
+    CHECK(unknown["ok"] == false);
+    CHECK(unknown["error"]["code"] == "slide_not_found");
+
+    const auto removeWithoutId =
+        server->Call("set_custom_show", nlohmann::json{{"documentId", documentId}, {"remove", true}});
+    CHECK(removeWithoutId["ok"] == false);
+    CHECK(removeWithoutId["error"]["code"] == "input_invalid");
+
+    const auto shows = server->Call("list_custom_shows", nlohmann::json{{"documentId", documentId}});
+    CHECK(shows["data"]["shows"].empty());
+}
+
+/// A 0.1 s silent WAV: what the tools do with it is what matters, not its sound.
+static void WriteWavFile(const std::filesystem::path& path)
+{
+    std::vector<unsigned char> bytes;
+    const auto append = [&bytes](const char* text)
+    {
+        for (const char* it = text; *it != '\0'; ++it)
+        {
+            bytes.push_back(static_cast<unsigned char>(*it));
+        }
+    };
+    const auto appendUInt32 = [&bytes](ExyokiOffice::UInt32 value)
+    {
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            bytes.push_back(static_cast<unsigned char>((value >> shift) & 0xFFu));
+        }
+    };
+    const auto appendUInt16 = [&bytes](ExyokiOffice::UInt16 value)
+    {
+        bytes.push_back(static_cast<unsigned char>(value & 0xFFu));
+        bytes.push_back(static_cast<unsigned char>((value >> 8) & 0xFFu));
+    };
+
+    constexpr ExyokiOffice::UInt32 kFrames = 800;
+    append("RIFF");
+    appendUInt32(36 + kFrames);
+    append("WAVEfmt ");
+    appendUInt32(16);
+    appendUInt16(1);
+    appendUInt16(1);
+    appendUInt32(8000);
+    appendUInt32(8000);
+    appendUInt16(1);
+    appendUInt16(8);
+    append("data");
+    appendUInt32(kFrames);
+    bytes.insert(bytes.end(), kFrames, 0x80);
+
+    std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+    REQUIRE(stream.good());
+    stream.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    REQUIRE(stream.good());
+}
+
+TEST_CASE("embedded audio stays in the package [mcp-power-point]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "sound.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId}, {"title", "One"}})["ok"] ==
+            true);
+
+    WriteWavFile(server->Path("tone.wav"));
+
+    const auto added = server->Call("add_media", nlohmann::json{{"documentId", documentId},
+                                                                {"slide", 1},
+                                                                {"kind", "audio"},
+                                                                {"path", "tone.wav"},
+                                                                {"x", "2cm"},
+                                                                {"y", "2cm"},
+                                                                {"width", "3cm"},
+                                                                {"height", "3cm"},
+                                                                {"alt", "A short tone"},
+                                                                {"playback", nlohmann::json{{"volume", 60},
+                                                                                            {"loop", true}}}});
+    REQUIRE(added["ok"] == true);
+    CHECK(added["data"]["kind"] == "audio");
+    CHECK(added["data"]["linked"] == false);
+    CHECK(added["data"]["bytes"] == 844);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::Open(server->Path("sound.pptx"));
+    REQUIRE(editor != nullptr);
+    const auto slides = editor->Slides();
+    REQUIRE_FALSE(slides.empty());
+
+    const auto xml = slides.front()->GetPart()->GetXmlString();
+    // `a:audioFile` can only name a relationship through `r:link`, which reads
+    // as a link whatever the target is. PowerPoint tells an embedded stream
+    // apart by the p14:media extension; without it, it rewrites the
+    // relationship as external and drops the media part on the next save.
+    CHECK(xml.find("<a:audioFile") != std::string::npos);
+    CHECK(xml.find("{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}") != std::string::npos);
+    CHECK(xml.find("<p14:media") != std::string::npos);
+    CHECK(xml.find("vol=\"60000\"") != std::string::npos);
+    CHECK(xml.find("repeatCount=\"indefinite\"") != std::string::npos);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("sound.pptx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("media is refused when the source cannot be used [mcp-power-point]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badmedia.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId}, {"title", "One"}})["ok"] ==
+            true);
+
+    // Embedding and linking are alternatives, so neither and both are mistakes.
+    const auto neither =
+        server->Call("add_media", nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"kind", "audio"}});
+    CHECK(neither["ok"] == false);
+    CHECK(neither["error"]["code"] == "input_invalid");
+
+    const auto both = server->Call("add_media", nlohmann::json{{"documentId", documentId},
+                                                               {"slide", 1},
+                                                               {"kind", "audio"},
+                                                               {"path", "tone.wav"},
+                                                               {"uri", "https://example.invalid/a.mp3"}});
+    CHECK(both["ok"] == false);
+    CHECK(both["error"]["code"] == "input_invalid");
+
+    const auto missing = server->Call("add_media", nlohmann::json{{"documentId", documentId},
+                                                                  {"slide", 1},
+                                                                  {"kind", "video"},
+                                                                  {"path", "absent.mp4"}});
+    CHECK(missing["ok"] == false);
+    CHECK(missing["error"]["code"] == "file_not_found");
+
+    // A name with no recognizable extension cannot name its own media type.
+    {
+        std::ofstream stream(server->Path("mystery.dat"), std::ios::binary | std::ios::trunc);
+        REQUIRE(stream.good());
+        stream << "not really media";
+    }
+    const auto unknownType = server->Call("add_media", nlohmann::json{{"documentId", documentId},
+                                                                      {"slide", 1},
+                                                                      {"kind", "audio"},
+                                                                      {"path", "mystery.dat"}});
+    CHECK(unknownType["ok"] == false);
+    CHECK(unknownType["error"]["code"] == "input_invalid");
+
+    // A linked address is stored as a relationship and never opened, so an
+    // unreachable one is accepted exactly as given.
+    const auto linked = server->Call("add_media", nlohmann::json{{"documentId", documentId},
+                                                                 {"slide", 1},
+                                                                 {"kind", "video"},
+                                                                 {"uri", "https://example.invalid/clip.mp4"}});
+    REQUIRE(linked["ok"] == true);
+    CHECK(linked["data"]["linked"] == true);
+    CHECK(linked["data"]["bytes"] == 0);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    const auto report = ExyokiOffice::Tools::Run(server->Path("badmedia.pptx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }

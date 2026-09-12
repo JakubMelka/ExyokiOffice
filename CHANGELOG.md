@@ -68,6 +68,12 @@ in [docs/](docs/README.md).
 - Word `insert_image` takes a `layout` object for a floating picture with text
   wrapping, anchoring and distance from text; `set_section` takes `columns`; and
   `apply_style` puts a character style on the runs of the named blocks.
+- PowerPoint `add_layout`, `delete_layout` and `set_slide_layout` write the
+  layout side of a presentation's design.
+- PowerPoint `list_custom_shows` and `set_custom_show` read and write the named
+  slide sequences a deck plays.
+- PowerPoint `add_media` places audio or video on a slide, embedded from a
+  workspace file or linked by address.
 - `get_document_info` reports what a document restricts, on all three servers.
 
 ### Fixed
@@ -91,6 +97,14 @@ in [docs/](docs/README.md).
     the totals row outside `autoFilter`; Excel refused to open a workbook whose
     auto-filter reached into it. `Resize` and `SetAutoFilterEnabled` hold the
     same invariant.
+- `PresentationShape::SetMedia` relates an embedded media part a second time as
+  `http://schemas.microsoft.com/office/2007/relationships/media` and names it
+  from a `p14:media` extension, which is how PowerPoint tells an embedded stream
+  from a linked one; without them PowerPoint rewrote the relationship as
+  external and dropped the media part on its next save.
+- `OpenXmlPackageValidator` no longer reports a relationship-type mismatch for a
+  part that is also related under its own descriptor type, which had made it
+  report an error on presentations PowerPoint itself wrote.
 - `Word::Image::SetAltText` writes the text on the drawing's `wp:docPr` as well
   as the picture's `pic:cNvPr`; Word reads the first and ignores the second, so
   a picture labelled through this API was unlabelled in Word's Alt Text pane and

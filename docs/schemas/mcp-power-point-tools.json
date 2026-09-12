@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-power-point",
   "title": "ExyokiOffice PowerPoint MCP Server",
-  "toolCount": 59,
+  "toolCount": 65,
   "tools": [
     {
       "annotations": {
@@ -3539,6 +3539,169 @@
         "type": "object"
       },
       "title": "List animations"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the named slide sequences the presentation carries, with the slides each one plays. Slides are reported both as current positions and as the persistent identifiers the file stores.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "slides",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_custom_shows.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_custom_shows",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Custom shows.",
+            "properties": {
+              "shows": {
+                "description": "Shows in presentation order.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One custom show.",
+                  "properties": {
+                    "id": {
+                      "description": "Identifier set_custom_show addresses it by.",
+                      "type": "integer"
+                    },
+                    "name": {
+                      "description": "Display name.",
+                      "type": "string"
+                    },
+                    "slideIds": {
+                      "description": "Persistent slide identifiers, as stored.",
+                      "items": {
+                        "description": "Slide identifier.",
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "slides": {
+                      "description": "1-based slide positions in playback order.",
+                      "items": {
+                        "description": "Slide position.",
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "shows"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List custom shows"
     },
     {
       "annotations": {
@@ -9540,6 +9703,975 @@
         "type": "object"
       },
       "title": "Set modify protection"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Add a slide layout to a master and give it the placeholders slides made from it will inherit. A deck whose slides carry meaningful layouts can be restyled by changing the layout; one that repeats formatting on every slide cannot.",
+      "example": {
+        "documentId": "doc-1",
+        "name": "Quote",
+        "placeholders": [
+          {
+            "type": "title"
+          },
+          {
+            "index": 1,
+            "type": "body"
+          }
+        ],
+        "type": "titleOnly"
+      },
+      "group": "slides",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_layout.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "master": {
+            "description": "Name of the master the layout belongs to; the presentation's first master when omitted.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the new layout; this is what add_slide takes.",
+            "type": "string"
+          },
+          "placeholders": {
+            "description": "Placeholders the layout offers, in order. A slide made from the layout inherits these, and set_placeholder_text fills them.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One placeholder.",
+              "properties": {
+                "index": {
+                  "description": "Inheritance key; a placeholder at a lower level with the same index overrides this one.",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": {
+                  "description": "Placeholder kind.",
+                  "enum": [
+                    "title",
+                    "body",
+                    "centeredTitle",
+                    "subtitle",
+                    "dateAndTime",
+                    "slideNumber",
+                    "footer",
+                    "header",
+                    "object",
+                    "chart",
+                    "table",
+                    "clipArt",
+                    "diagram",
+                    "media",
+                    "picture"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "type": {
+            "default": "custom",
+            "description": "What PowerPoint calls the layout in its own list. \"custom\" is a layout of your own, and the others name the standard slots a deck usually has.",
+            "enum": [
+              "custom",
+              "title",
+              "titleOnly",
+              "object",
+              "twoObjects",
+              "blank",
+              "picture",
+              "objectText",
+              "sectionHeader",
+              "verticalTitleAndText"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "name"
+        ],
+        "type": "object"
+      },
+      "name": "add_layout",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New layout.",
+            "properties": {
+              "master": {
+                "description": "Master the layout belongs to.",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name add_slide takes.",
+                "type": "string"
+              },
+              "placeholders": {
+                "description": "Placeholders declared on it.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "master"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add slide layout"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Remove a slide layout. Slides using it move to the replacement layout and keep their own content unchanged; without a replacement, a layout still in use is refused rather than leaving slides pointing at nothing.",
+      "example": {
+        "documentId": "doc-1",
+        "name": "Quote",
+        "replacement": "Title and Content"
+      },
+      "group": "slides",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of delete_layout.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the layout to remove.",
+            "type": "string"
+          },
+          "replacement": {
+            "description": "Layout the slides currently using this one move to. Required when any slide uses it, because a slide without a layout has nothing to inherit from.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "name"
+        ],
+        "type": "object"
+      },
+      "name": "delete_layout",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Removal.",
+            "properties": {
+              "name": {
+                "description": "Layout that was removed.",
+                "type": "string"
+              },
+              "removed": {
+                "description": "The layout is gone.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "removed"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Delete slide layout"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Point a slide at a different layout. The slide keeps every shape it carries; what changes is what it inherits, so a slide whose content came from the old layout's placeholders may need set_placeholder_text again.",
+      "example": {
+        "documentId": "doc-1",
+        "layout": "Quote",
+        "slide": 2
+      },
+      "group": "slides",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_slide_layout.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "layout": {
+            "description": "Layout name from list_layouts.",
+            "type": "string"
+          },
+          "slide": {
+            "description": "1-based slide index.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documentId",
+          "slide",
+          "layout"
+        ],
+        "type": "object"
+      },
+      "name": "set_slide_layout",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New layout.",
+            "properties": {
+              "layout": {
+                "description": "Layout it now uses.",
+                "type": "string"
+              },
+              "slide": {
+                "description": "Slide that was changed.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "slide",
+              "layout"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set slide layout"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Create, change or remove a named slide sequence. The slides are given as positions and stored as the persistent identifiers those positions currently have, so reordering the deck afterwards leaves the show playing the same slides.",
+      "example": {
+        "documentId": "doc-1",
+        "name": "Short version",
+        "slides": [
+          1,
+          3,
+          7
+        ]
+      },
+      "group": "slides",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_custom_show.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Identifier of the show to change or remove, from list_custom_shows. Omitted, a new show is created.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "name": {
+            "description": "Display name; required for a new show and unique among them.",
+            "type": "string"
+          },
+          "remove": {
+            "default": false,
+            "description": "Remove the show named by 'id'; the slides themselves are untouched.",
+            "type": "boolean"
+          },
+          "slides": {
+            "description": "1-based slide positions in playback order. A slide may appear more than once.",
+            "items": {
+              "description": "Slide position.",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "set_custom_show",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Custom show.",
+            "properties": {
+              "id": {
+                "description": "Identifier of the show.",
+                "type": "integer"
+              },
+              "name": {
+                "description": "Name after the change.",
+                "type": "string"
+              },
+              "removed": {
+                "description": "The show is gone.",
+                "type": "boolean"
+              },
+              "slides": {
+                "description": "Slides it plays.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set custom show"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Place an audio or video shape on a slide, embedding a workspace file or linking an external address. The payload is opaque: nothing here decodes, transcodes, inspects or plays it, and a linked address is stored as a relationship and never fetched.",
+      "example": {
+        "documentId": "doc-1",
+        "height": "9cm",
+        "kind": "video",
+        "path": "intro.mp4",
+        "slide": 1,
+        "width": "16cm"
+      },
+      "group": "media",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_media.",
+        "properties": {
+          "alt": {
+            "description": "Accessibility description of the media.",
+            "type": "string"
+          },
+          "contentType": {
+            "description": "Media type of an embedded file, for example \"audio/mpeg\" or \"video/mp4\"; guessed from the file extension when omitted.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "height": {
+            "description": "Height of the media shape.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "kind": {
+            "description": "Whether the file is audio or video.",
+            "enum": [
+              "audio",
+              "video"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the shape; generated when omitted.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative media file to embed; the bytes are stored verbatim.",
+            "type": "string"
+          },
+          "playback": {
+            "additionalProperties": false,
+            "description": "How PowerPoint plays it.",
+            "properties": {
+              "full_screen": {
+                "description": "Play a video full screen.",
+                "type": "boolean"
+              },
+              "loop": {
+                "description": "Repeat until the slide moves on.",
+                "type": "boolean"
+              },
+              "muted": {
+                "description": "Play without sound.",
+                "type": "boolean"
+              },
+              "show_when_stopped": {
+                "description": "Keep the shape visible while stopped.",
+                "type": "boolean"
+              },
+              "volume": {
+                "description": "Volume as a percentage.",
+                "maximum": 100,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "poster_path": {
+            "description": "Workspace-relative image shown before the media plays; video usually wants one.",
+            "type": "string"
+          },
+          "slide": {
+            "description": "1-based slide index.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "uri": {
+            "description": "External media address to link instead of embedding. It is kept as a relationship and never opened by this server; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "width": {
+            "description": "Width of the media shape.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "x": {
+            "description": "Left edge of the media shape.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "y": {
+            "description": "Top edge of the media shape.",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "documentId",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "name": "add_media",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New media shape.",
+            "properties": {
+              "bytes": {
+                "description": "Size of an embedded payload.",
+                "type": "integer"
+              },
+              "kind": {
+                "description": "audio or video.",
+                "type": "string"
+              },
+              "linked": {
+                "description": "The media is linked rather than embedded.",
+                "type": "boolean"
+              },
+              "shape": {
+                "description": "Shape path the other tools address it by.",
+                "type": "string"
+              },
+              "slide": {
+                "description": "Slide it was placed on.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "slide",
+              "kind"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add audio or video"
     },
     {
       "annotations": {
