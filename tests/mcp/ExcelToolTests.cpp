@@ -1991,6 +1991,134 @@ TEST_CASE("a conditional formatting rule is refused when it cannot be built [mcp
     CHECK(documents["data"]["documents"][0]["dirty"] == false);
 }
 
+TEST_CASE("a conditional formatting rule paints with the format it is given [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "painted.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto painted = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "A1:A10"},
+                       {"rule",
+                        nlohmann::json{
+                            {"type", "cellIs"}, {"operator", "greaterThan"}, {"formula1", "100"}}},
+                       {"format", nlohmann::json{{"fill", nlohmann::json{{"color", "#FF0000"}}},
+                                                 {"font", nlohmann::json{{"bold", true},
+                                                                         {"color", "#FFFFFF"}}}}}});
+    REQUIRE(painted["ok"] == true);
+    CHECK(painted["data"]["differentialFormatId"] == 0);
+
+    // A second rule asking for the same appearance reuses the same format.
+    const auto reused = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "C1:C10"},
+                       {"rule", nlohmann::json{{"type", "duplicateValues"}}},
+                       {"format", nlohmann::json{{"fill", nlohmann::json{{"color", "#FF0000"}}},
+                                                 {"font", nlohmann::json{{"bold", true},
+                                                                         {"color", "#FFFFFF"}}}}}});
+    REQUIRE(reused["ok"] == true);
+    CHECK(reused["data"]["differentialFormatId"] == 0);
+
+    // A rule without a format matches cells and changes nothing, which the
+    // answer says by leaving the field out rather than reporting a format.
+    const auto plain = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "E1:E10"},
+                       {"rule", nlohmann::json{{"type", "containsBlanks"}}}});
+    REQUIRE(plain["ok"] == true);
+    CHECK_FALSE(plain["data"].contains("differentialFormatId"));
+
+    const auto different = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "G1:G10"},
+                       {"rule", nlohmann::json{{"type", "containsErrors"}}},
+                       {"format", nlohmann::json{{"number_format", "0.00"},
+                                                 {"alignment", nlohmann::json{{"horizontal", "center"}}}}}});
+    REQUIRE(different["ok"] == true);
+    CHECK(different["data"]["differentialFormatId"] == 1);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("painted.xlsx"));
+    REQUIRE(editor != nullptr);
+    CHECK(editor->Styles().DifferentialFormatCount() == 2);
+
+    const auto rules = editor->FirstWorksheet()->ConditionalFormattings();
+    REQUIRE(rules.size() == 4);
+    REQUIRE(rules[0]->Definition().DifferentialFormatId.has_value());
+    CHECK(*rules[0]->Definition().DifferentialFormatId == 0);
+    CHECK_FALSE(rules[2]->Definition().DifferentialFormatId.has_value());
+
+    // A dxf solid fill carries only bgColor; the same colour written as a cell
+    // fill validates and Excel then paints nothing.
+    const auto styles = editor->GetDocument()->GetWorkbookPart()->GetWorkbookStylesPart()->GetXmlString();
+    const auto dxfs = styles.substr(styles.find("<x:dxfs"));
+    CHECK(dxfs.find("<x:bgColor rgb=\"FFFF0000\"") != std::string::npos);
+    CHECK(dxfs.find("fgColor") == std::string::npos);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("painted.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a conditional format that cannot be built is refused whole [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badformat.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto empty = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "A1:A4"},
+                       {"rule", nlohmann::json{{"type", "duplicateValues"}}},
+                       {"format", nlohmann::json::object()}});
+    CHECK(empty["ok"] == false);
+    CHECK(empty["error"]["code"] == "input_invalid");
+
+    const auto badColor = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "A1:A4"},
+                       {"rule", nlohmann::json{{"type", "duplicateValues"}}},
+                       {"format", nlohmann::json{{"fill", nlohmann::json{{"color", "crimson"}}}}}});
+    CHECK(badColor["ok"] == false);
+    CHECK(badColor["error"]["code"] == "input_invalid");
+
+    // The format publishes a closed vocabulary, so a member outside it is
+    // rejected against the schema rather than quietly dropped.
+    const auto unknownMember = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "A1:A4"},
+                       {"rule", nlohmann::json{{"type", "duplicateValues"}}},
+                       {"format", nlohmann::json{{"gradient", "rainbow"}}}});
+    CHECK(unknownMember["ok"] == false);
+    CHECK(unknownMember["error"]["code"] == "input_invalid");
+
+    const auto notAnObject = server->Call(
+        "add_conditional_formatting",
+        nlohmann::json{{"documentId", documentId},
+                       {"range", "A1:A4"},
+                       {"rule", nlohmann::json{{"type", "duplicateValues"}}},
+                       {"format", "red"}});
+    CHECK(notAnObject["ok"] == false);
+
+    // A rule the format cannot be built for is not written half way: neither
+    // the rule nor a differential format survives, and the document is clean.
+    const auto documents = server->Call("list_documents", nlohmann::json::object());
+    REQUIRE(documents["data"]["documents"].size() == 1);
+    CHECK(documents["data"]["documents"][0]["dirty"] == false);
+}
+
 /// Stand-in for a VBA project: an OLE compound-file signature and filler.
 ///
 /// The server treats the payload as opaque throughout, so the round trip is

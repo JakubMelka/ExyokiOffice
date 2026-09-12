@@ -2956,12 +2956,16 @@ private:
             .Build();
     }
 
-    static void RegisterFormatRange(ToolRegistry& registry)
+    /**
+     * @brief The appearance members format_range and a conditional format share.
+     *
+     * The appearance a rule paints over the cells it matches is the same
+     * vocabulary as the appearance a range carries, so the two tools publish
+     * one schema instead of two that drift apart.
+     */
+    static nlohmann::json StyleProperties()
     {
         nlohmann::json properties = nlohmann::json::object();
-        ToolSupport::AddDocumentIdProperty(properties);
-        properties["sheet"] = SheetProperty();
-        properties["range"] = Schema::String("A1 range to format.");
         properties["number_format"] = Schema::String("Number format code, for example \"#,##0.00\".");
         properties["font"] = Schema::Object("Font settings.", {},
                                             nlohmann::json{{"name", Schema::String("Font family.")},
@@ -2985,6 +2989,15 @@ private:
                            {"vertical", Schema::Enumeration("Vertical alignment.",
                                                             {"top", "center", "bottom", "justify", "distributed"})},
                            {"wrap", Schema::Boolean("Wrap text inside the cell.")}});
+        return properties;
+    }
+
+    static void RegisterFormatRange(ToolRegistry& registry)
+    {
+        nlohmann::json properties = StyleProperties();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["range"] = Schema::String("A1 range to format.");
 
         auto definition = MakeDefinition("format_range", "Format cell range",
                                          "Apply a number format, font, fill, border, and alignment to a range. "
@@ -3160,6 +3173,124 @@ private:
         return std::nullopt;
     }
 
+    /**
+     * @brief Reads the members StyleProperties() publishes into a style definition.
+     *
+     * Absent members are left out of @p style rather than defaulted, which is
+     * what lets the same reader serve a cell format (where a missing member
+     * means "the workbook default") and a differential format (where it means
+     * "leave this alone").
+     */
+    static bool ReadStyleArguments(const nlohmann::json& owner, Excel::ExcelStyle& style, ToolOutcome& failure)
+    {
+        const auto numberFormat = owner.value("number_format", std::string());
+        if (!numberFormat.empty())
+        {
+            auto format = Excel::ExcelNumberFormat::Custom(numberFormat);
+            if (!format.has_value())
+            {
+                failure = MakeError(ErrorCode::Unsupported, "The number format code was rejected.", numberFormat,
+                                    "Use an Excel number format such as \"#,##0.00\".");
+                return false;
+            }
+
+            style.NumberFormat = *format;
+        }
+
+        const auto font = owner.find("font");
+        if (font != owner.end() && font->is_object())
+        {
+            Excel::ExcelFont value;
+            const auto name = font->value("name", std::string());
+            if (!name.empty())
+            {
+                value.Name = name;
+            }
+
+            const auto size = font->value("sizePt", 0.0);
+            if (size > 0.0)
+            {
+                value.Size = size;
+            }
+
+            value.Bold = font->value("bold", false);
+            value.Italic = font->value("italic", false);
+            if (!ReadColor(*font, "color", "font", value.Color, failure))
+            {
+                return false;
+            }
+
+            style.Font = value;
+        }
+
+        const auto fill = owner.find("fill");
+        if (fill != owner.end() && fill->is_object())
+        {
+            std::optional<Excel::ExcelColor> color;
+            if (!ReadColor(*fill, "color", "fill", color, failure))
+            {
+                return false;
+            }
+
+            if (!color.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "A fill needs a \"color\".", {},
+                                    "Pass fill.color as \"#RRGGBB\", for example \"#FFFF00\".");
+                return false;
+            }
+
+            Excel::ExcelFill value;
+            value.Kind = Excel::ExcelFillKind::Pattern;
+            value.Pattern = Excel::ExcelFillPattern::Solid;
+            value.Foreground = color;
+            style.Fill = value;
+        }
+
+        const auto border = owner.find("border");
+        if (border != owner.end() && border->is_object())
+        {
+            Excel::ExcelBorderSide side;
+            side.Style = ParseBorderStyle(border->value("style", std::string("thin")));
+            if (!ReadColor(*border, "color", "border", side.Color, failure))
+            {
+                return false;
+            }
+
+            Excel::ExcelBorder value;
+            value.Left = side;
+            value.Right = side;
+            value.Top = side;
+            value.Bottom = side;
+            style.Border = value;
+        }
+
+        const auto alignment = owner.find("alignment");
+        if (alignment != owner.end() && alignment->is_object())
+        {
+            Excel::ExcelAlignment value;
+            const auto horizontal = alignment->value("horizontal", std::string());
+            if (!horizontal.empty())
+            {
+                value.Horizontal = ParseHorizontalAlignment(horizontal);
+            }
+
+            const auto vertical = alignment->value("vertical", std::string());
+            if (!vertical.empty())
+            {
+                value.Vertical = ParseVerticalAlignment(vertical);
+            }
+
+            if (alignment->contains("wrap"))
+            {
+                value.WrapText = alignment->value("wrap", false);
+            }
+
+            style.Alignment = value;
+        }
+
+        return true;
+    }
+
     static ToolOutcome FormatRange(ToolContext& context, const nlohmann::json& arguments)
     {
         ExcelSession session(context, arguments);
@@ -3182,108 +3313,9 @@ private:
         }
 
         Excel::ExcelStyle style;
-
-        const auto numberFormat = arguments.value("number_format", std::string());
-        if (!numberFormat.empty())
+        if (!ReadStyleArguments(arguments, style, failure))
         {
-            auto format = Excel::ExcelNumberFormat::Custom(numberFormat);
-            if (!format.has_value())
-            {
-                return MakeError(ErrorCode::Unsupported, "The number format code was rejected.", numberFormat,
-                                 "Use an Excel number format such as \"#,##0.00\".");
-            }
-
-            style.NumberFormat = *format;
-        }
-
-        const auto font = arguments.find("font");
-        if (font != arguments.end() && font->is_object())
-        {
-            Excel::ExcelFont value;
-            const auto name = font->value("name", std::string());
-            if (!name.empty())
-            {
-                value.Name = name;
-            }
-
-            const auto size = font->value("sizePt", 0.0);
-            if (size > 0.0)
-            {
-                value.Size = size;
-            }
-
-            value.Bold = font->value("bold", false);
-            value.Italic = font->value("italic", false);
-            if (!ReadColor(*font, "color", "font", value.Color, failure))
-            {
-                return failure;
-            }
-
-            style.Font = value;
-        }
-
-        const auto fill = arguments.find("fill");
-        if (fill != arguments.end() && fill->is_object())
-        {
-            std::optional<Excel::ExcelColor> color;
-            if (!ReadColor(*fill, "color", "fill", color, failure))
-            {
-                return failure;
-            }
-
-            if (!color.has_value())
-            {
-                return MakeError(ErrorCode::InputInvalid, "A fill needs a \"color\".", {},
-                                 "Pass fill.color as \"#RRGGBB\", for example \"#FFFF00\".");
-            }
-
-            Excel::ExcelFill value;
-            value.Kind = Excel::ExcelFillKind::Pattern;
-            value.Pattern = Excel::ExcelFillPattern::Solid;
-            value.Foreground = color;
-            style.Fill = value;
-        }
-
-        const auto border = arguments.find("border");
-        if (border != arguments.end() && border->is_object())
-        {
-            Excel::ExcelBorderSide side;
-            side.Style = ParseBorderStyle(border->value("style", std::string("thin")));
-            if (!ReadColor(*border, "color", "border", side.Color, failure))
-            {
-                return failure;
-            }
-
-            Excel::ExcelBorder value;
-            value.Left = side;
-            value.Right = side;
-            value.Top = side;
-            value.Bottom = side;
-            style.Border = value;
-        }
-
-        const auto alignment = arguments.find("alignment");
-        if (alignment != arguments.end() && alignment->is_object())
-        {
-            Excel::ExcelAlignment value;
-            const auto horizontal = alignment->value("horizontal", std::string());
-            if (!horizontal.empty())
-            {
-                value.Horizontal = ParseHorizontalAlignment(horizontal);
-            }
-
-            const auto vertical = alignment->value("vertical", std::string());
-            if (!vertical.empty())
-            {
-                value.Vertical = ParseVerticalAlignment(vertical);
-            }
-
-            if (alignment->contains("wrap"))
-            {
-                value.WrapText = alignment->value("wrap", false);
-            }
-
-            style.Alignment = value;
+            return failure;
         }
 
         MutationGuard guard(session.Session());
@@ -4689,25 +4721,32 @@ private:
         properties["sheet"] = SheetProperty();
         properties["range"] = RangeListProperty();
         properties["rule"] = std::move(rule);
+        properties["format"] = Schema::Object(
+            "Appearance painted over the cells the rule matches. Only the members you pass take part; every "
+            "other aspect of a matching cell keeps the look it already had.",
+            {}, StyleProperties());
 
         auto definition = MakeDefinition(
             "add_conditional_formatting", "Add conditional formatting",
-            "Add a conditional formatting rule to one or several ranges. The rule decides which cells match; it "
-            "carries no appearance of its own, because this version cannot create the differential format a rule "
-            "would point at. Color scales, data bars and icon sets are not offered either. To make a difference "
-            "visible, set it with format_range.",
+            "Add a conditional formatting rule to one or several ranges. The rule decides which cells match and "
+            "'format' decides what they then look like; a rule without a format matches cells and changes "
+            "nothing about them. Color scales, data bars and icon sets are not offered by this version.",
             "analysis");
         definition.InputSchema = Schema::Object("Arguments of add_conditional_formatting.",
                                                 {"documentId", "range", "rule"}, std::move(properties));
-        definition.OutputSchema =
-            Schema::Envelope(Schema::Object("New rule.", {"range"},
-                                            nlohmann::json{{"range", Schema::String("A1 range.")},
-                                                           {"type", Schema::String("Rule kind applied.")}}),
-                             true);
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New rule.", {"range"},
+                           nlohmann::json{{"range", Schema::String("A1 range.")},
+                                          {"type", Schema::String("Rule kind applied.")},
+                                          {"differentialFormatId",
+                                           Schema::Integer("Workbook differential format the rule paints with; "
+                                                           "absent when the rule carries no appearance.")}}),
+            true);
         definition.Example = nlohmann::json{
             {"documentId", "doc-1"},
             {"range", "B2:B20"},
-            {"rule", nlohmann::json{{"type", "cellIs"}, {"operator", "greaterThan"}, {"formula1", "100"}}}};
+            {"rule", nlohmann::json{{"type", "cellIs"}, {"operator", "greaterThan"}, {"formula1", "100"}}},
+            {"format", nlohmann::json{{"fill", nlohmann::json{{"color", "#FFC7CE"}}}}}};
         definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
         { return AddConditionalFormatting(context, arguments); };
         registry.Add(std::move(definition));
@@ -4913,19 +4952,42 @@ private:
         {
             return MakeError(ErrorCode::Unsupported, "The rule kind '" + type + "' is not offered by this server.",
                              type,
-                             "Color scales, data bars and icon sets are not written by this version; use cellIs or "
-                             "expression and set the appearance with format_range.");
+                             "Color scales, data bars and icon sets are not written by this version; use cellIs "
+                             "or expression and pass the appearance in 'format'.");
         }
 
         definition->StopIfTrue = rule.value("stop_if_true", false);
-
-        MutationGuard guard(session.Session());
 
         if (!Excel::IsValidExcelConditionalFormatting(*definition))
         {
             return MakeError(ErrorCode::InputInvalid, "The rule is incomplete for its kind.", type,
                              "A cellIs rule needs one formula, or two for between and notBetween; a text rule "
                              "needs 'text'; the remaining kinds take neither.");
+        }
+
+        MutationGuard guard(session.Session());
+
+        // The appearance is registered as a workbook differential format and
+        // the rule refers to it by index; that reference is the whole of what
+        // a matching cell ends up looking like.
+        const auto format = arguments.find("format");
+        if (format != arguments.end() && format->is_object())
+        {
+            Excel::ExcelStyle appearance;
+            if (!ReadStyleArguments(*format, appearance, failure))
+            {
+                return failure;
+            }
+
+            auto styles = session.Editor().Styles();
+            const auto registration = styles.GetOrAddDifferentialFormat(appearance);
+            if (!registration.Succeeded())
+            {
+                return MakeError(ErrorCode::InputInvalid, registration.Status.Message, "format",
+                                 "Pass at least one of number_format, font, fill, border or alignment.");
+            }
+
+            definition->DifferentialFormatId = registration.StyleIndex;
         }
 
         if (sheet->CreateConditionalFormatting(*definition) == nullptr)
@@ -4939,6 +5001,10 @@ private:
         nlohmann::json data = nlohmann::json::object();
         data["range"] = rangeText;
         data["type"] = type;
+        if (definition->DifferentialFormatId.has_value())
+        {
+            data["differentialFormatId"] = *definition->DifferentialFormatId;
+        }
 
         return ResultBuilder("Added a '" + type + "' rule to " + rangeText + ".")
             .WithSession(session.Session())

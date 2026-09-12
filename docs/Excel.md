@@ -141,8 +141,6 @@ sheet->SetHyperlink(ExcelHyperlink{.Address = *CellAddress::ParseA1("F1"),
   removal or reordering) do not rewrite defined-name formulas.
 - Rich-text shared-string runs are preserved but not synthesized by the
   high-level API yet; `SetCellText` writes plain-text shared strings.
-- Conditional formatting rules reference `dxfs` differential-format entries
-  by index but do not create them.
 
 The [compatibility matrix](Compatibility.md) grades every Excel feature area
 for create, edit, and preserve support, alongside the supported document

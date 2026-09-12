@@ -270,4 +270,183 @@ TEST_SUITE("ExcelStyleRepositoryTests")
         CHECK(duplicate.StyleIndex == style.StyleIndex);
         CHECK(reopened->Styles().Count() == 2);
     }
+
+    TEST_CASE("A differential format is written the way Excel writes one [unit] [excel] [excel-style]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        CHECK(editor->Styles().DifferentialFormatCount() == 0);
+
+        ExcelStyle style;
+        ExcelFont font;
+        font.Bold = true;
+        font.Color = ExcelColor::Rgb("FFFFFFFF");
+        style.Font = font;
+        ExcelFill fill;
+        fill.Pattern = ExcelFillPattern::Solid;
+        fill.Foreground = ExcelColor::Rgb("FFFF0000");
+        style.Fill = fill;
+
+        const auto registered = editor->Styles().GetOrAddDifferentialFormat(style);
+        REQUIRE(registered);
+        CHECK(registered.StyleIndex == 0);
+        CHECK(editor->Styles().DifferentialFormatCount() == 1);
+
+        const auto xml = editor->GetDocument()->GetWorkbookPart()->GetWorkbookStylesPart()->GetXmlString();
+        CHECK(xml.find("<x:dxfs count=\"1\"") != std::string::npos);
+        // Transcribed from a workbook Excel wrote for the same rule: a dxf
+        // solid fill carries only bgColor. Written as a cell fill instead -
+        // patternType plus fgColor - the package still validates and Excel
+        // paints nothing at all.
+        const auto dxfs = xml.substr(xml.find("<x:dxfs"));
+        CHECK(dxfs.find("<x:bgColor rgb=\"FFFF0000\"") != std::string::npos);
+        CHECK(dxfs.find("patternType") == std::string::npos);
+        CHECK(dxfs.find("fgColor") == std::string::npos);
+        CHECK(dxfs.find("<x:b val=\"1\"") != std::string::npos);
+        CHECK(dxfs.find("<x:color rgb=\"FFFFFFFF\"") != std::string::npos);
+
+        // Registering a cell style is a different collection and does not
+        // disturb the differential one.
+        REQUIRE(editor->Styles().GetOrAdd(style));
+        CHECK(editor->Styles().DifferentialFormatCount() == 1);
+    }
+
+    TEST_CASE("Differential formats deduplicate and survive a package round trip [unit] [excel] [excel-style]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+
+        ExcelStyle first;
+        ExcelFill fill;
+        fill.Pattern = ExcelFillPattern::Solid;
+        fill.Foreground = ExcelColor::Rgb("FFFFC7CE");
+        first.Fill = fill;
+
+        ExcelStyle second;
+        second.NumberFormat = ExcelNumberFormat{std::nullopt, "0.00"};
+        ExcelFont font;
+        font.Italic = true;
+        second.Font = font;
+        ExcelBorder border;
+        border.Left = {ExcelBorderStyle::Thin, ExcelColor::Rgb("FF006100")};
+        border.Bottom = {ExcelBorderStyle::Thin, ExcelColor::Rgb("FF006100")};
+        second.Border = border;
+
+        const auto firstId = editor->Styles().GetOrAddDifferentialFormat(first);
+        const auto secondId = editor->Styles().GetOrAddDifferentialFormat(second);
+        REQUIRE(firstId);
+        REQUIRE(secondId);
+        CHECK(firstId.StyleIndex == 0);
+        CHECK(secondId.StyleIndex == 1);
+
+        const auto repeated = editor->Styles().GetOrAddDifferentialFormat(first);
+        REQUIRE(repeated);
+        CHECK(repeated.StyleIndex == firstId.StyleIndex);
+        CHECK(editor->Styles().DifferentialFormatCount() == 2);
+
+        // A differential border states only the sides that carry a line: a
+        // side written as style="none" would order Excel to erase a line the
+        // rule was never asked to touch.
+        const auto xml = editor->GetDocument()->GetWorkbookPart()->GetWorkbookStylesPart()->GetXmlString();
+        const auto dxfs = xml.substr(xml.find("<x:dxfs"));
+        CHECK(ExcelStyleTestHelpers::Count(dxfs, "<x:left style=\"thin\"") == 1);
+        CHECK(ExcelStyleTestHelpers::Count(dxfs, "style=\"none\"") == 0);
+        CHECK(dxfs.find("diagonalUp") == std::string::npos);
+
+        const auto bytes = editor->SaveToMemory();
+        REQUIRE_FALSE(bytes.empty());
+        auto reopened = ExcelDocumentEditor::Open(bytes);
+        REQUIRE(reopened);
+        CHECK(reopened->Styles().DifferentialFormatCount() == 2);
+
+        // Reading one back and registering it again yields the same index, so
+        // a read-modify-write cycle does not grow the collection.
+        const auto readBack = reopened->Styles().GetDifferentialFormat(1);
+        REQUIRE(readBack.has_value());
+        REQUIRE(readBack->Font.has_value());
+        CHECK(readBack->Font->Italic);
+        REQUIRE(readBack->NumberFormat.has_value());
+        CHECK(readBack->NumberFormat->FormatCode == "0.00");
+        REQUIRE(readBack->Border.has_value());
+        CHECK(readBack->Border->Left.Style == ExcelBorderStyle::Thin);
+        CHECK(readBack->Border->Right.Style == ExcelBorderStyle::None);
+        const auto reregistered = reopened->Styles().GetOrAddDifferentialFormat(*readBack);
+        REQUIRE(reregistered);
+        CHECK(reregistered.StyleIndex == 1);
+        CHECK(reopened->Styles().DifferentialFormatCount() == 2);
+
+        const auto solid = reopened->Styles().GetDifferentialFormat(0);
+        REQUIRE(solid.has_value());
+        REQUIRE(solid->Fill.has_value());
+        // The colour went in as the foreground of a solid fill and comes back
+        // as one, even though the file stores it in bgColor.
+        CHECK(solid->Fill->Pattern == ExcelFillPattern::Solid);
+        REQUIRE(solid->Fill->Foreground.has_value());
+        CHECK(solid->Fill->Foreground->Argb == "FFFFC7CE");
+    }
+
+    TEST_CASE("A differential format that changes nothing is refused [unit] [excel] [excel-style]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+
+        const auto empty = editor->Styles().GetOrAddDifferentialFormat(ExcelStyle{});
+        CHECK_FALSE(empty);
+        CHECK(empty.Status.Error == RangeOperationError::InvalidStyle);
+        CHECK(editor->Styles().DifferentialFormatCount() == 0);
+
+        // QuotePrefix and PivotButton are cell-format flags with no dxf form,
+        // so a definition carrying only those is still empty.
+        ExcelStyle flagsOnly;
+        flagsOnly.QuotePrefix = true;
+        flagsOnly.PivotButton = true;
+        CHECK_FALSE(editor->Styles().GetOrAddDifferentialFormat(flagsOnly));
+
+        ExcelStyle gradient;
+        ExcelFill fill;
+        fill.Kind = ExcelFillKind::LinearGradient;
+        fill.GradientStops = {{0.0, ExcelColor::Rgb("FFFFFFFF")}, {1.0, ExcelColor::Rgb("FF000000")}};
+        gradient.Fill = fill;
+        const auto refusedGradient = editor->Styles().GetOrAddDifferentialFormat(gradient);
+        CHECK_FALSE(refusedGradient);
+        CHECK(refusedGradient.Status.Error == RangeOperationError::InvalidStyle);
+
+        ExcelStyle badColor;
+        ExcelFont font;
+        font.Color = ExcelColor::Rgb("nonsense");
+        badColor.Font = font;
+        CHECK_FALSE(editor->Styles().GetOrAddDifferentialFormat(badColor));
+
+        // Nothing above may have created the collection.
+        CHECK(editor->Styles().DifferentialFormatCount() == 0);
+        CHECK_FALSE(editor->Styles().GetDifferentialFormat(0).has_value());
+    }
+
+    TEST_CASE("A conditional formatting rule paints with the differential format it names [unit] [excel] [excel-style]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        auto sheet = editor->FirstWorksheet();
+        REQUIRE(sheet);
+
+        ExcelStyle appearance;
+        ExcelFill fill;
+        fill.Pattern = ExcelFillPattern::Solid;
+        fill.Foreground = ExcelColor::Rgb("FFFFC7CE");
+        appearance.Fill = fill;
+        const auto registered = editor->Styles().GetOrAddDifferentialFormat(appearance);
+        REQUIRE(registered);
+
+        auto definition = ExcelConditionalFormattingDefinition::CellIs(
+            {ExcelStyleTestHelpers::Range("A1:A10")}, ConditionalFormattingOperator::GreaterThan, "100");
+        definition.DifferentialFormatId = registered.StyleIndex;
+        const auto rule = sheet->CreateConditionalFormatting(definition);
+        REQUIRE(rule);
+        CHECK(rule->Definition().DifferentialFormatId == registered.StyleIndex);
+
+        const auto bytes = editor->SaveToMemory();
+        auto reopened = ExcelDocumentEditor::Open(bytes);
+        REQUIRE(reopened);
+        const auto rules = reopened->FirstWorksheet()->ConditionalFormattings();
+        REQUIRE(rules.size() == 1);
+        REQUIRE(rules.front()->Definition().DifferentialFormatId.has_value());
+        CHECK(*rules.front()->Definition().DifferentialFormatId == registered.StyleIndex);
+        CHECK(reopened->Styles().GetDifferentialFormat(registered.StyleIndex).has_value());
+    }
 }

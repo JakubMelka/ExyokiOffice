@@ -1018,11 +1018,10 @@ Deliberately out of scope, and rejected rather than half-implemented:
   embedded packages go to a file through `export_media`.
 - **Basic charts only.** Categories, series, and the common plot types;
   anything richer answers `unsupported` with a hint.
-- **A conditional formatting rule carries no appearance.** It decides which
-  cells match, and nothing more: this version cannot create the differential
-  format a rule points at, so Excel keeps the rule and shows no difference. Use
-  `format_range` to make one visible. Colour scales, data bars and icon sets are
-  not offered at all.
+- **No colour scales, data bars or icon sets.** The other conditional
+  formatting rule kinds are offered, each painting the cells it matches with the
+  appearance passed in `format`; a rule without one matches cells and changes
+  nothing about them.
 - **No sort state on a table.** `update_table` filters columns; it does not
   record a sort order.
 

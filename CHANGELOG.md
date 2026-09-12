@@ -40,7 +40,12 @@ in [docs/](docs/README.md).
     rows the filter excludes.
 - Excel `add_conditional_formatting` takes the `containsErrors`,
   `notContainsErrors`, `top`, `bottom`, `aboveAverage` and `belowAverage` rule
-  kinds, and applies one rule to several ranges at once.
+  kinds, applies one rule to several ranges at once, and paints the cells a
+  rule matches with the appearance passed in `format`.
+- `StyleRepository::GetOrAddDifferentialFormat`, `GetDifferentialFormat` and
+  `DifferentialFormatCount` register and read the `dxfs` differential formats a
+  conditional formatting rule paints with. See
+  [Data validation and conditional formatting](docs/excel/validation.md).
 - `get_theme` and `set_theme` on all three servers read and change the scheme
   colours and fonts a document resolves its theme references against; a
   document without a theme is given the Office default first. See

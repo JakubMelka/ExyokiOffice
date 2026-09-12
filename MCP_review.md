@@ -179,11 +179,12 @@ SmartArt (all families), Word text boxes and equations, a *new* chart anchor in
 Word, rich-text cell content in Excel, OOXML package encryption.
 
 Three more were found while working through P1, and two of them are worth a
-decision before the announcement rather than after it:
+decision before the announcement rather than after it. The first of the three
+was implemented after this review was written and is struck through:
 
 | Missing | Consequence |
 | --- | --- |
-| **Differential formats (`dxfs`)** | `ExcelConditionalFormattingDefinition` carries a `DifferentialFormatId` but nothing can create the format it points at. Every rule the server writes is therefore invisible: Excel keeps it, matches it, and shows no difference. Confirmed through the object model — the rule is present and its `Interior` and `Font` are empty. A conditional formatting tool that cannot change an appearance is a thin thing to announce. |
+| ~~**Differential formats (`dxfs`)**~~ | **Closed.** `StyleRepository::GetOrAddDifferentialFormat()` registers one and `add_conditional_formatting` takes a `format` argument that interns it, so a rule now paints the cells it matches. Verified against Excel: our `dxf` and the one Excel writes for the same rule are identical property by property, and `DisplayFormat` on a matching cell reports the painted fill, font, border and number format. The trap was that a `dxf` solid fill carries only `bgColor` — the cell form, `patternType` plus `fgColor`, validates and paints nothing. |
 | **Colour scales, data bars, icon sets** | Absent from the library, present only in the generated DOM. This was recorded under Gap C as a tool gap; it is not one. |
 | **Table sort state** | `SortState` exists only in the generated DOM. Also recorded under Gap C by mistake. |
 

@@ -9747,9 +9747,14 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Add a conditional formatting rule to one or several ranges. The rule decides which cells match; it carries no appearance of its own, because this version cannot create the differential format a rule would point at. Color scales, data bars and icon sets are not offered either. To make a difference visible, set it with format_range.",
+      "description": "Add a conditional formatting rule to one or several ranges. The rule decides which cells match and 'format' decides what they then look like; a rule without a format matches cells and changes nothing about them. Color scales, data bars and icon sets are not offered by this version.",
       "example": {
         "documentId": "doc-1",
+        "format": {
+          "fill": {
+            "color": "#FFC7CE"
+          }
+        },
         "range": "B2:B20",
         "rule": {
           "formula1": "100",
@@ -9765,6 +9770,121 @@
           "documentId": {
             "description": "Identifier of the open document to modify.",
             "type": "string"
+          },
+          "format": {
+            "additionalProperties": false,
+            "description": "Appearance painted over the cells the rule matches. Only the members you pass take part; every other aspect of a matching cell keeps the look it already had.",
+            "properties": {
+              "alignment": {
+                "additionalProperties": false,
+                "description": "Cell alignment.",
+                "properties": {
+                  "horizontal": {
+                    "description": "Horizontal alignment.",
+                    "enum": [
+                      "general",
+                      "left",
+                      "center",
+                      "right",
+                      "fill",
+                      "justify",
+                      "distributed"
+                    ],
+                    "type": "string"
+                  },
+                  "vertical": {
+                    "description": "Vertical alignment.",
+                    "enum": [
+                      "top",
+                      "center",
+                      "bottom",
+                      "justify",
+                      "distributed"
+                    ],
+                    "type": "string"
+                  },
+                  "wrap": {
+                    "description": "Wrap text inside the cell.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "border": {
+                "additionalProperties": false,
+                "description": "Outline border applied to all four sides.",
+                "properties": {
+                  "color": {
+                    "description": "Border color as \"#RRGGBB\".",
+                    "type": "string"
+                  },
+                  "style": {
+                    "description": "Border line style.",
+                    "enum": [
+                      "none",
+                      "thin",
+                      "medium",
+                      "thick",
+                      "dashed",
+                      "dotted",
+                      "double"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "fill": {
+                "additionalProperties": false,
+                "description": "Solid cell background.",
+                "properties": {
+                  "color": {
+                    "description": "Fill color as \"#RRGGBB\".",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "color"
+                ],
+                "type": "object"
+              },
+              "font": {
+                "additionalProperties": false,
+                "description": "Font settings.",
+                "properties": {
+                  "bold": {
+                    "description": "Bold text.",
+                    "type": "boolean"
+                  },
+                  "color": {
+                    "description": "Font color as \"#RRGGBB\".",
+                    "type": "string"
+                  },
+                  "italic": {
+                    "description": "Italic text.",
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "description": "Font family.",
+                    "type": "string"
+                  },
+                  "sizePt": {
+                    "description": "Font size in points.",
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "number_format": {
+                "description": "Number format code, for example \"#,##0.00\".",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
           },
           "range": {
             "description": "A1 range the rule applies to, or a list of them evaluated as one population.",
@@ -9886,6 +10006,10 @@
             "additionalProperties": false,
             "description": "New rule.",
             "properties": {
+              "differentialFormatId": {
+                "description": "Workbook differential format the rule paints with; absent when the rule carries no appearance.",
+                "type": "integer"
+              },
               "range": {
                 "description": "A1 range.",
                 "type": "string"
