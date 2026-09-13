@@ -723,7 +723,8 @@ public:
      * @brief Merges a rectangular range while preserving its top-left value.
      *
      * The range must contain at least two cells and must not intersect any
-     * existing merged range. Every physically stored cell except the top-left
+     * existing merged range or any table; Excel refuses to open a workbook
+     * with a merged cell inside a table. Every physically stored cell except the top-left
      * cell is removed, because SpreadsheetML stores the value of a merged area
      * only in its top-left cell. The merge registry and its count are updated
      * in schema order. On any failure the complete original worksheet XML is
@@ -803,6 +804,13 @@ public:
      * case-insensitively across every table in the workbook. A stable table ID,
      * package relationship, worksheet `tableParts` entry, table columns, and an
      * auto-filter are created atomically.
+     *
+     * The first row of the range is the header row, and each column name is
+     * written into its header cell unless the cell already holds that text:
+     * Excel refuses to open a workbook whose header cells disagree with the
+     * table's column names, an empty header cell included. A header cell
+     * holding anything else is overwritten. A range that intersects merged
+     * cells is refused, for the same reason.
      *
      * @return The attached table, or nullptr when validation or package
      * mutation fails.
@@ -1091,8 +1099,13 @@ public:
      * renders without recalculation. The drawing object identifier shares a
      * numbering space with worksheet images.
      *
+     * Series that set @ref ExcelChartSeries::Type or
+     * @ref ExcelChartSeries::SecondaryAxis make a combination chart: one plot
+     * group per type and axis, the secondary value axis on the opposite side.
+     *
      * @param chart Chart definition. At least one series and valid anchors are required.
-     * @return The allocated drawing object identifier, or std::nullopt on invalid input.
+     * @return The allocated drawing object identifier, or std::nullopt on invalid
+     * input, including a combination of series types that cannot share axes.
      */
     std::optional<UInt32> AddChart(ExcelChartDefinition chart);
 
@@ -1295,6 +1308,11 @@ private:
  * across multiple service objects and after package round trips. Missing style
  * parts are initialized with the mandatory default font, fills, border, base
  * style XF, Normal cell style, and default cell XF.
+ *
+ * The repository also owns the workbook's differential formats, the partial
+ * formats a conditional-format rule paints over the cells it matches. They are
+ * registered and deduplicated separately from cell styles and are indexed by
+ * their own counter.
  */
 class EXYOKIOFFICE_EXPORT StyleRepository
 {
@@ -1369,6 +1387,47 @@ public:
      *         referenced style index is invalid.
      */
     std::optional<ExcelStyle> GetCellStyle(const Worksheet& worksheet, CellAddress address) const;
+    /**
+     * @brief Returns the number of registered differential formats.
+     *
+     * This is the count of `dxf` records a conditional-format rule's
+     * `differentialFormatId` indexes into.
+     */
+    UInt32 DifferentialFormatCount() const;
+    /**
+     * @brief Registers a differential format, or reuses an equal existing one.
+     *
+     * A differential format is the appearance a conditional-format rule paints
+     * over the cells it matches. It is *differential*: only the components the
+     * definition sets take part, and every component it leaves empty keeps
+     * whatever the cell already had. A rule without one matches cells and
+     * changes nothing, so the returned index belongs in
+     * ExcelConditionalFormattingDefinition::DifferentialFormatId.
+     *
+     * The dxf form of a component is not always the cell form. A solid fill is
+     * written the way Excel writes it, as a pattern fill carrying only a
+     * background colour; a border states only the sides that carry a line.
+     * Gradient fills have no dxf form and are refused. `QuotePrefix` and
+     * `PivotButton` are cell-format flags and are ignored here.
+     *
+     * Equal definitions resolve to the same index, so registering one rule's
+     * appearance repeatedly does not grow the stylesheet.
+     *
+     * @param style Definition that has to set at least one component.
+     * @return The zero-based dxf index, or a failed status for an empty or
+     *         invalid definition.
+     */
+    StyleRegistrationResult GetOrAddDifferentialFormat(const ExcelStyle& style);
+    /**
+     * @brief Reads a registered differential format back into a definition.
+     *
+     * This is the inverse of GetOrAddDifferentialFormat(): registering the
+     * returned definition again yields the same index.
+     *
+     * @param differentialFormatId Zero-based index into the workbook dxf collection.
+     * @return Style definition, or std::nullopt when the index does not exist.
+     */
+    std::optional<ExcelStyle> GetDifferentialFormat(UInt32 differentialFormatId) const;
 
 private:
     ExcelDocument::Ptr m_document;

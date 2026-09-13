@@ -146,6 +146,8 @@ public:
             const auto valuesColumn = static_cast<UInt32>(i) + 2; // column A is reserved for categories
             SharedCharts::ChartSeriesData data;
             data.name = source.Name;
+            data.kind = source.Type ? ToPlotKind(*source.Type) : SharedCharts::ChartPlotKind::Unknown;
+            data.secondaryAxis = source.SecondaryAxis;
             data.values = NumberRef(RangeFormula(valuesColumn, source.Values.size()), source.Values);
             if (source.Categories)
             {
@@ -339,6 +341,12 @@ PresentationShape::Ptr PresentationShapeTree::AddChart(const PresentationChartDe
             return nullptr;
         }
     }
+    const auto resolved =
+        PresentationChartHelpers::ResolveSeries(chart, PresentationChartHelpers::IsScatterType(chart.Type));
+    if (!SharedCharts::ChartDom::IsValidCombination(PresentationChartHelpers::ToPlotKind(chart.Type), resolved))
+    {
+        return nullptr;
+    }
 
     const UInt32 id = PresentationChartHelpers::NextShapeId(tree);
     auto frame = tree->AppendChild<Presentation::GraphicFrame>();
@@ -375,12 +383,11 @@ PresentationShape::Ptr PresentationShapeTree::AddChart(const PresentationChartDe
     layout.title = chart.Title;
     layout.categoryAxisTitle = chart.CategoryAxisTitle;
     layout.valueAxisTitle = chart.ValueAxisTitle;
+    layout.secondaryValueAxisTitle = chart.SecondaryValueAxisTitle;
     layout.showLegend = chart.ShowLegend;
     layout.legendPosition = PresentationChartHelpers::ToLegendKind(chart.LegendPosition);
     layout.showGridLines = chart.ShowGridLines;
-    SharedCharts::ChartDom::BuildChartSpace(
-        part->GetChartSpace(), layout,
-        PresentationChartHelpers::ResolveSeries(chart, PresentationChartHelpers::IsScatterType(chart.Type)));
+    SharedCharts::ChartDom::BuildChartSpace(part->GetChartSpace(), layout, resolved);
 
     auto wrapper = PresentationShape::Ptr(new PresentationShape(frame, m_slidePart));
     if (!wrapper->SetTransform(chart.Transform))
@@ -408,14 +415,21 @@ std::optional<PresentationChartInfo> PresentationShape::GetChart() const
     PresentationChartInfo info;
     info.HasEmbeddedWorkbook = part->GetEmbeddedPackagePart() != nullptr;
     info.Title = SharedCharts::ChartDom::ReadTitle(chart);
-    SharedCharts::ChartPlotKind kind{};
-    bool scatter = false;
-    auto group = SharedCharts::ChartDom::FindPlotGroup(chart->GetFirstChildOfType<Charts::PlotArea>(), kind, scatter);
-    info.Type = PresentationChartHelpers::ToPublicType(kind);
-    for (const auto& series : SharedCharts::ChartDom::Series(group))
+    const auto plotArea = chart->GetFirstChildOfType<Charts::PlotArea>();
+    const auto groups = SharedCharts::ChartDom::PlotGroups(plotArea);
+    const auto chartKind = groups.empty() ? SharedCharts::ChartPlotKind::Unknown : groups.front().kind;
+    info.Type = PresentationChartHelpers::ToPublicType(chartKind);
+    for (const auto& node : SharedCharts::ChartDom::AllSeries(plotArea))
     {
+        const auto& series = node.series;
+        const bool scatter = node.scatterLike;
         PresentationChartSeries entry;
         entry.Name = SharedCharts::ChartDom::ReadSeriesName(series);
+        if (node.kind != chartKind)
+        {
+            entry.Type = PresentationChartHelpers::ToPublicType(node.kind);
+        }
+        entry.SecondaryAxis = node.secondaryAxis;
         auto values = scatter ? std::static_pointer_cast<OpenXMLElement>(series->GetFirstChildOfType<Charts::YValues>())
                               : std::static_pointer_cast<OpenXMLElement>(series->GetFirstChildOfType<Charts::Values>());
         auto categories =
@@ -496,18 +510,18 @@ bool PresentationShape::RefreshChartDataFromEmbeddedWorkbook()
     }
     auto chartSpace = part->GetChartSpace();
     auto chart = chartSpace ? chartSpace->GetFirstChildOfType<Charts::Chart>() : nullptr;
-    SharedCharts::ChartPlotKind kind{};
-    bool scatter = false;
-    auto group = chart ? SharedCharts::ChartDom::FindPlotGroup(chart->GetFirstChildOfType<Charts::PlotArea>(), kind, scatter)
-                       : nullptr;
-    if (!group)
+    const auto nodes = chart ? SharedCharts::ChartDom::AllSeries(chart->GetFirstChildOfType<Charts::PlotArea>())
+                             : std::vector<SharedCharts::ChartSeriesNode>{};
+    if (nodes.empty())
     {
         return false;
     }
 
     std::vector<PresentationChartSeries> refreshed;
-    for (const auto& seriesNode : SharedCharts::ChartDom::Series(group))
+    for (const auto& node : nodes)
     {
+        const auto& seriesNode = node.series;
+        const bool scatter = node.scatterLike;
         auto valuesWrapper =
             scatter ? std::static_pointer_cast<OpenXMLElement>(seriesNode->GetFirstChildOfType<Charts::YValues>())
                     : std::static_pointer_cast<OpenXMLElement>(seriesNode->GetFirstChildOfType<Charts::Values>());

@@ -296,6 +296,31 @@ bool ExcelTable::SetColumns(const std::vector<ExcelTableColumn>& columns)
     return true;
 }
 
+/**
+ * Points the auto-filter at the part of @p range the filter buttons act on.
+ *
+ * The totals row is not filtered, so it stays outside: Excel refuses to open a
+ * workbook whose auto-filter reaches into it. The table reference itself covers
+ * the totals row, which is why the two are not the same rectangle.
+ */
+namespace
+{
+void SyncAutoFilterReference(const std::shared_ptr<Spreadsheet::Table>& table, CellRange range, bool totalsShown)
+{
+    const auto filter = table ? table->GetFirstChildOfType<Spreadsheet::AutoFilter>() : nullptr;
+    if (!filter)
+    {
+        return;
+    }
+    if (totalsShown && range.RowCount() >= 2)
+    {
+        range = CellRange(range.First(),
+                          CellAddress(RowIndex(range.Last().Row().Value() - 1), range.Last().Column()));
+    }
+    filter->SetReference(StringValue(range.ToA1()));
+}
+} // namespace
+
 bool ExcelTable::Resize(CellRange range)
 {
     const auto table = m_part ? m_part->GetTable() : nullptr;
@@ -307,10 +332,7 @@ bool ExcelTable::Resize(CellRange range)
     }
     const auto originalXml = m_part->GetXmlString();
     table->SetReference(StringValue(range.ToA1()));
-    if (const auto filter = table->GetFirstChildOfType<Spreadsheet::AutoFilter>())
-    {
-        filter->SetReference(StringValue(range.ToA1()));
-    }
+    SyncAutoFilterReference(table, range, TotalsRowShown());
     if (TotalsRowShown() && range.RowCount() < 2)
     {
         return m_part->SetXmlString(originalXml), false;
@@ -337,7 +359,7 @@ bool ExcelTable::Resize(CellRange range,
     const auto autoFilter = table->GetFirstChildOfType<Spreadsheet::AutoFilter>();
     if (autoFilter)
     {
-        autoFilter->SetReference(StringValue(range.ToA1()));
+        SyncAutoFilterReference(table, range, TotalsRowShown());
         for (const auto& filter : autoFilter->Elements<Spreadsheet::FilterColumn>())
         {
             if (filter->GetColumnId().ValueOr(MaxColumnIndex) >= range.ColumnCount())
@@ -373,7 +395,7 @@ bool ExcelTable::SetAutoFilterEnabled(bool enabled)
     {
         return false;
     }
-    target->SetReference(StringValue(range->ToA1()));
+    SyncAutoFilterReference(table, *range, TotalsRowShown());
     return true;
 }
 
@@ -517,8 +539,27 @@ bool ExcelTable::SetTotalsRowShown(bool shown)
     {
         return false;
     }
+    if (shown == TotalsRowShown())
+    {
+        return true;
+    }
+
+    // The totals row is a row of the table, so showing one grows the table by a
+    // row and hiding it gives that row back. Leaving the reference alone
+    // instead turns the last data row into the totals row and puts it inside
+    // the auto-filter, which Excel refuses to open.
+    const auto last = range->Last().Row().Value();
+    const auto grown = shown ? last + 1 : last - 1;
+    const auto resized = CellRange(range->First(), CellAddress(RowIndex(grown), range->Last().Column()));
+    if (!resized.IsValid())
+    {
+        return false;
+    }
+
+    table->SetReference(StringValue(resized.ToA1()));
     table->SetTotalsRowShown(BooleanValue(shown));
     table->SetTotalsRowCount(UInt32Value(shown ? 1 : 0));
+    SyncAutoFilterReference(table, resized, shown);
     return true;
 }
 

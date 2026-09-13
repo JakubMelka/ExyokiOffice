@@ -72,9 +72,11 @@ enum class ConditionalFormattingOperator
  * not accept formulas, an operator, or text.
  *
  *
- * `differentialFormatId` refers to an existing workbook dxfs entry; this API
- * preserves the reference but does not
- * create or visually evaluate styles.
+ * `differentialFormatId` refers to an existing workbook dxfs entry and carries
+ * the whole appearance of the rule: a rule without one matches cells and
+ * changes nothing about them. Register one with
+ * StyleRepository::GetOrAddDifferentialFormat(). Rules are never evaluated
+ * here.
  * Top uses `rank`, with `percent` and `bottom` selecting its variants.
  * AboveAverage
  * uses `aboveAverage`, `equalAverage`, and an optional non-negative `standardDeviation`.
@@ -93,7 +95,11 @@ struct EXYOKIOFFICE_EXPORT ExcelConditionalFormattingDefinition
     std::optional<ConditionalFormattingOperator> Operation;
     /** @brief Search text required by contains, not-contains, begins-with, and ends-with rules. */
     std::optional<std::string> Text;
-    /** @brief Optional zero-based reference into the workbook differential-formats collection. */
+    /**
+     * @brief Optional zero-based reference into the workbook differential-formats collection.
+     *
+     * This is the rule's entire appearance; a rule without one is invisible.
+     */
     std::optional<UInt32> DifferentialFormatId;
     /** @brief Whether evaluation stops after this rule evaluates to true. */
     bool StopIfTrue = false;

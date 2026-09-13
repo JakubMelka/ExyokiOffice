@@ -1,15 +1,22 @@
 # Baseline results
 
-Baseline date: 2026-08-05 (third run, after the destination-family check)
+Baseline date: 2026-09-13 (fourth run, after the P1 tools)
 
 Environment:
 
 - Windows, Python 3.13.14;
 - official MCP Python SDK 2.0.0;
-- ExyokiOffice Debug MCP executables from `build/vs/tools/mcp/Debug`;
-- test command: `.venv\Scripts\python.exe -m pytest -q`.
+- ExyokiOffice Release MCP executables from `build/ninja-release/tools/mcp`,
+  named explicitly through `EXYOKI_MCP_*_EXE`;
+- test command: `.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider`.
 
 Result: **69 passed, no expected failures**.
+
+The first attempt at this baseline failed three tests, and not because of the
+servers: the catalog test compared the tool count against 50, 48 and 50 written
+into this suite, and the assertion sat before the schema checks, so none of the
+47 tools added since had had its schemas checked. The test now compares the live
+catalog against the one published in `docs/schemas`, name by name.
 
 Every `xfail(strict=True)` marker this suite once carried is gone, and each was
 removed by changing the server rather than the test:
@@ -27,13 +34,14 @@ Coverage demonstrated by passing tests:
 
 - official SDK startup, MCP 2025-11-25 negotiation, capabilities and shutdown
   for all three executables;
-- stable discovery of 50 Word, 48 Excel and 50 PowerPoint tools;
+- discovery of 63 Word, 67 Excel and 65 PowerPoint tools, matching the
+  published catalogs name for name;
 - syntactic validation of every input and output schema as JSON Schema
   2020-12;
 - presence and consistency of tool annotations;
 - read-only and `--toolsets lifecycle` catalog filtering;
-- rejection of an unknown property by every one of the 148 tools;
-- output-schema validation of all 148 resulting error envelopes;
+- rejection of an unknown property by every one of the 195 tools;
+- output-schema validation of all 195 resulting error envelopes;
 - byte-for-byte semantic equality of their JSON text blocks and
   `structuredContent` objects;
 - DOCX create/edit/table/read/validate/save/close/reopen round trip;

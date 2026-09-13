@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 // See LICENSE file in the project root for full license text.
 
+#include "ExyokiOffice/ThemeService.hpp"
 #include "ExcelToolset.hpp"
 
 #include "ExcelAddressing.hpp"
@@ -11,12 +12,14 @@
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Spreadsheet.hpp"
 #include "ExyokiOffice/Excel/ExcelFormulaEngine.hpp"
 #include "ExyokiOffice/Excel/ExcelNamedRange.hpp"
+#include "ExyokiOffice/Excel/ExcelSlicer.hpp"
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
 #include "ExyokiOffice/Tools/DocumentModelIO.hpp"
 
 #include "AsciiText.hpp"
 
 #include <algorithm>
+#include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -71,6 +74,76 @@ bool ExcelDocumentHandle::LoadFromMemory(std::span<const Byte> bytes)
 std::shared_ptr<OpenXmlPackage> ExcelDocumentHandle::Package() const
 {
     return m_editor ? m_editor->GetDocument() : nullptr;
+}
+
+nlohmann::json ExcelDocumentHandle::Protection() const
+{
+    if (!m_editor)
+    {
+        return {};
+    }
+
+    nlohmann::json sheets = nlohmann::json::array();
+    for (const auto& sheet : m_editor->Worksheets())
+    {
+        const auto info = sheet ? sheet->GetProtection() : std::nullopt;
+        if (!info.has_value())
+        {
+            continue;
+        }
+
+        nlohmann::json entry = nlohmann::json::object();
+        entry["sheet"] = sheet->Name();
+        entry["hasPassword"] = info->HasPassword;
+        sheets.push_back(std::move(entry));
+    }
+
+    const auto workbook = m_editor->GetWorkbookProtection();
+    if (!workbook.has_value() && sheets.empty())
+    {
+        return {};
+    }
+
+    nlohmann::json data = nlohmann::json::object();
+    if (workbook.has_value())
+    {
+        nlohmann::json structure = nlohmann::json::object();
+        structure["lockStructure"] = workbook->Options.LockStructure;
+        structure["lockWindows"] = workbook->Options.LockWindows;
+        structure["hasPassword"] = workbook->HasPassword;
+        data["workbook"] = std::move(structure);
+    }
+    if (!sheets.empty())
+    {
+        // Which operations each protected sheet still permits is a long list
+        // nobody reads in an overview; set_protection writes it and the sheet
+        // itself carries it.
+        data["sheets"] = std::move(sheets);
+    }
+    return data;
+}
+
+std::shared_ptr<Packaging::ThemePart> ExcelDocumentHandle::Theme() const
+{
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto main = document ? document->GetWorkbookPart() : nullptr;
+    return main ? main->GetThemePart() : nullptr;
+}
+
+std::shared_ptr<Packaging::ThemePart> ExcelDocumentHandle::EnsureTheme()
+{
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto main = document ? document->GetWorkbookPart() : nullptr;
+    if (!main)
+    {
+        return nullptr;
+    }
+    if (const auto existing = main->GetThemePart())
+    {
+        return existing;
+    }
+    const auto created = main->AddThemePart();
+    return created && ThemeService::WriteDefaultTheme(created) ? created : nullptr;
 }
 
 nlohmann::json ExcelDocumentHandle::Summary() const
@@ -201,12 +274,21 @@ public:
         RegisterAddSheet(registry);
         RegisterRenameSheet(registry);
         RegisterDeleteSheet(registry);
+        RegisterMoveSheet(registry);
+        RegisterCopySheet(registry);
         RegisterReadRange(registry);
         RegisterWriteCells(registry);
         RegisterWriteRange(registry);
         RegisterClearRange(registry);
         RegisterModifySheetStructure(registry);
+        RegisterCopyRange(registry);
         RegisterSetHyperlink(registry);
+        RegisterSetProtection(registry);
+        RegisterSetPrintSetup(registry);
+        RegisterAddImage(registry);
+        RegisterAddComment(registry);
+        RegisterListComments(registry);
+        RegisterDeleteComment(registry);
         RegisterRecalculate(registry);
         RegisterMergeCells(registry);
         RegisterFormatRange(registry);
@@ -214,11 +296,19 @@ public:
         RegisterSetRowHeight(registry);
         RegisterFreezePanes(registry);
         RegisterAddTable(registry);
+        RegisterListTables(registry);
+        RegisterUpdateTable(registry);
+        RegisterGetVbaProject(registry);
+        RegisterSetVbaProject(registry);
+        RegisterRemoveVbaProject(registry);
         RegisterAddNamedRange(registry);
         RegisterAddDataValidation(registry);
         RegisterAddConditionalFormatting(registry);
         RegisterAddChart(registry);
         RegisterAddPivotTable(registry);
+        RegisterAddSlicer(registry);
+        RegisterListSlicers(registry);
+        RegisterSetSlicerSelection(registry);
     }
 
 private:
@@ -306,6 +396,22 @@ private:
         nlohmann::json schema = nlohmann::json::object();
         schema["description"] = std::move(description);
         schema["type"] = nlohmann::json::array({"string", "integer"});
+        return schema;
+    }
+
+    /**
+     * @brief A range argument that takes one rectangle or several.
+     *
+     * A conditional format applies to a set of rectangles, not only to one, and
+     * a rule repeated per rectangle is not the same thing: rules that rank or
+     * average read their population from the whole set.
+     */
+    static nlohmann::json RangeListProperty()
+    {
+        nlohmann::json schema = nlohmann::json::object();
+        schema["description"] = "A1 range the rule applies to, or a list of them evaluated as one population.";
+        schema["type"] = nlohmann::json::array({"string", "array"});
+        schema["items"] = Schema::String("One A1 range.");
         return schema;
     }
 
@@ -1282,6 +1388,19 @@ private:
         const auto at = arguments.value("at", static_cast<UInt32>(1));
         const auto count = arguments.value("count", static_cast<UInt32>(1));
 
+        // An interval off the grid is a mistake in the request, and the caller
+        // needs the grid size to fix it; the library would only say it failed.
+        const bool rows = operation == "insert_rows" || operation == "delete_rows";
+        const UInt32 limit = rows ? Excel::MaxRowIndex : Excel::MaxColumnIndex;
+        if (at > limit)
+        {
+            return MakeError(ErrorCode::RangeInvalid,
+                             std::string(rows ? "Row " : "Column ") + std::to_string(at) +
+                                 " is outside the worksheet, which has " + std::to_string(limit) +
+                                 (rows ? " rows." : " columns."),
+                             std::to_string(at), "Pass an 'at' within the worksheet grid.");
+        }
+
         MutationGuard guard(session.Session());
 
         Excel::RangeOperationResult result;
@@ -1317,6 +1436,419 @@ private:
         data["affectedCells"] = static_cast<UInt64>(result.AffectedCellCount);
 
         return ResultBuilder("Applied '" + operation + "' to " + sheet->Name() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterMoveSheet(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["to_index"] = Schema::Integer("1-based position the sheet moves to.", 1);
+
+        auto definition = MakeDefinition("move_sheet", "Move worksheet",
+                                         "Move a worksheet to another position in the workbook.", "sheets");
+        definition.InputSchema =
+            Schema::Object("Arguments of move_sheet.", {"documentId", "to_index"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Moved sheet.", {"name", "index"},
+                                            nlohmann::json{{"name", Schema::String("Worksheet name.")},
+                                                           {"index", Schema::Integer("New 1-based position.")}}),
+                             true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"sheet", "Data"}, {"to_index", 1}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return MoveSheet(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome MoveSheet(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        const auto name = sheet->Name();
+        const auto from = IndexOfSheet(session.Editor(), *sheet);
+        const Size to = arguments.value("to_index", static_cast<Size>(1));
+        const auto count = session.Editor().Worksheets().size();
+        if (to == 0 || to > count)
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "The workbook has " + std::to_string(count) + " worksheet(s).", std::to_string(to));
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!session.Editor().MoveWorksheet(from, to - 1))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The worksheet could not be moved.", name);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = name;
+        data["index"] = static_cast<UInt64>(to);
+
+        return ResultBuilder("Moved " + name + " to position " + std::to_string(to) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterCopySheet(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["name"] = Schema::String("Name for the copy; one is generated when omitted.");
+        properties["source_path"] =
+            Schema::String("Workspace-relative workbook to copy the sheet from; omit to copy within this one.");
+
+        auto definition = MakeDefinition(
+            "copy_sheet", "Copy worksheet",
+            "Copy a worksheet, either within this workbook or from another one in the workspace. The copy is "
+            "appended at the end.",
+            "sheets");
+        definition.InputSchema =
+            Schema::Object("Arguments of copy_sheet.", {"documentId"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("New sheet.", {"name", "index"},
+                                            nlohmann::json{{"name", Schema::String("Name of the copy.")},
+                                                           {"index", Schema::Integer("1-based position.")}}),
+                             true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"sheet", "Data"}, {"name", "Data backup"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return CopySheet(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome CopySheet(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto name = arguments.value("name", std::string());
+        const auto sourcePath = arguments.value("source_path", std::string());
+
+        MutationGuard guard(session.Session());
+
+        Excel::Worksheet::Ptr copy;
+        if (sourcePath.empty())
+        {
+            ToolOutcome failure;
+            auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+            if (sheet == nullptr)
+            {
+                return failure;
+            }
+
+            copy = session.Editor().CopyWorksheet(IndexOfSheet(session.Editor(), *sheet), name);
+        }
+        else
+        {
+            // A source workbook is an ordinary workspace file, so it goes
+            // through the same path resolution every file-to-file tool uses.
+            ToolOutcome failure;
+            const auto resolved = ToolSupport::ResolveExistingFile(context, sourcePath, failure);
+            if (!resolved.has_value())
+            {
+                return failure;
+            }
+
+            // A source workbook is opened under the configured safety limits
+            // like any other, so a decompression bomb cannot arrive this way
+            // either.
+            auto source =
+                Excel::ExcelDocumentEditor::Open(*resolved, SettingsWithLimits(context.Options().PackageLimits));
+            if (source == nullptr)
+            {
+                return MakeError(ErrorCode::PackageLoadFailed, "The source workbook could not be opened.",
+                                 sourcePath);
+            }
+
+            ToolOutcome sourceFailure;
+            auto sheet = ExcelAddressing::FindSheet(*source, arguments, sourceFailure);
+            if (sheet == nullptr)
+            {
+                return sourceFailure;
+            }
+
+            copy = session.Editor().CopyWorksheetFrom(*source, IndexOfSheet(*source, *sheet), name);
+        }
+
+        if (copy == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed,
+                             "The worksheet could not be copied; the name may already be taken.", name);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = copy->Name();
+        data["index"] = static_cast<UInt64>(session.Editor().Worksheets().size());
+
+        return ResultBuilder("Copied the worksheet as " + copy->Name() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterCopyRange(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["source"] = Schema::String("A1 range to copy.");
+        properties["destination"] = Schema::String("A1 cell the range's top-left corner lands on.");
+        properties["move"] =
+            Schema::BooleanWithDefault("Clear the source after copying, and rewrite formulas that referred to "
+                                       "it.",
+                                       false);
+
+        auto definition = MakeDefinition(
+            "copy_range", "Copy or move range",
+            "Copy a rectangular range to another position on the same sheet, or move it. Source and "
+            "destination may overlap. A copy writes formulas verbatim, without adjusting their references; a "
+            "move retargets the local A1 references that pointed into the source and clears it.",
+            "cells");
+        definition.InputSchema = Schema::Object("Arguments of copy_range.",
+                                                {"documentId", "source", "destination"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Copied range.", {"source", "destination"},
+                                            nlohmann::json{{"source", Schema::String("A1 source range.")},
+                                                           {"destination", Schema::String("A1 destination "
+                                                                                          "range.")},
+                                                           {"moved", Schema::Boolean("True when the source was "
+                                                                                     "cleared.")}}),
+                             true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"source", "A1:C5"}, {"destination", "E1"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return CopyRange(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome CopyRange(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        const auto sourceText = arguments.value("source", std::string());
+        const auto source = ExcelAddressing::ParseRange(sourceText, failure);
+        if (!source.has_value())
+        {
+            return failure;
+        }
+
+        const auto destinationText = arguments.value("destination", std::string());
+        const auto destination = ExcelAddressing::ParseCell(destinationText, failure);
+        if (!destination.has_value())
+        {
+            return failure;
+        }
+
+        const bool move = arguments.value("move", false);
+
+        MutationGuard guard(session.Session());
+
+        const auto result = move ? sheet->MoveRange(*source, *destination)
+                                 : sheet->CopyRange(*source, *destination);
+        if (!result.Succeeded())
+        {
+            return MakeError(ErrorCode::RangeInvalid,
+                             move ? "The range could not be moved." : "The range could not be copied.",
+                             sourceText + " -> " + destinationText,
+                             "A destination that would run past the Excel grid is refused; an overlapping one "
+                             "is not.");
+        }
+
+        guard.Commit();
+
+        // The destination range is the source rectangle translated onto the new
+        // top-left corner, which is what the caller wants to address next.
+        const auto width = source->Last().Column().Value() - source->First().Column().Value();
+        const auto height = source->Last().Row().Value() - source->First().Row().Value();
+        const auto last = Excel::CellAddress::TryCreate(destination->Row().Value() + height,
+                                                        destination->Column().Value() + width);
+
+        nlohmann::json data = nlohmann::json::object();
+        data["source"] = source->ToA1();
+        data["destination"] = last.has_value() ? Excel::CellRange(*destination, *last).ToA1()
+                                               : destination->ToA1();
+        data["moved"] = move;
+
+        return ResultBuilder((move ? std::string("Moved ") : std::string("Copied ")) + source->ToA1() + " to " +
+                             destination->ToA1() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterSetProtection(ToolRegistry& registry)
+    {
+        nlohmann::json allow = Schema::Object(
+            "Operations that stay available while sheet protection is active.", {},
+            nlohmann::json{{"format_cells", Schema::Boolean("Permit changing cell formats.")},
+                           {"format_columns", Schema::Boolean("Permit changing column widths and formats.")},
+                           {"format_rows", Schema::Boolean("Permit changing row heights and formats.")},
+                           {"insert_columns", Schema::Boolean("Permit inserting columns.")},
+                           {"insert_rows", Schema::Boolean("Permit inserting rows.")},
+                           {"insert_hyperlinks", Schema::Boolean("Permit inserting hyperlinks.")},
+                           {"delete_columns", Schema::Boolean("Permit deleting unlocked columns.")},
+                           {"delete_rows", Schema::Boolean("Permit deleting unlocked rows.")},
+                           {"select_locked_cells", Schema::Boolean("Permit selecting locked cells.")},
+                           {"select_unlocked_cells", Schema::Boolean("Permit selecting unlocked cells.")},
+                           {"sort", Schema::Boolean("Permit sorting unlocked ranges.")},
+                           {"auto_filter", Schema::Boolean("Permit changing auto-filter criteria.")},
+                           {"pivot_tables", Schema::Boolean("Permit interacting with pivot tables.")}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["scope"] =
+            Schema::EnumerationWithDefault("What to protect.", {"sheet", "workbook"}, "sheet");
+        properties["sheet"] = SheetProperty();
+        properties["protect"] =
+            Schema::BooleanWithDefault("True to apply protection, false to remove it.", true);
+        properties["password"] = Schema::String("Password; the same one is required to remove the protection.");
+        properties["allow"] = std::move(allow);
+        properties["lock_structure"] = Schema::BooleanWithDefault(
+            "Workbook scope: prevent adding, deleting, renaming, hiding, moving and copying sheets.", true);
+        properties["lock_windows"] =
+            Schema::BooleanWithDefault("Workbook scope: prevent moving and resizing the workbook windows.",
+                                       false);
+
+        auto definition = MakeDefinition(
+            "set_protection", "Set protection",
+            "Protect a worksheet or the workbook structure, or remove that protection. This is an editing "
+            "restriction with a password verifier, not encryption: every part stays readable and any tool "
+            "that ignores the setting can still rewrite the document.",
+            "review");
+        definition.InputSchema =
+            Schema::Object("Arguments of set_protection.", {"documentId"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Protection state.", {"scope", "protected"},
+                                            nlohmann::json{{"scope", Schema::String("sheet or workbook.")},
+                                                           {"protected", Schema::Boolean("True when protection "
+                                                                                         "is now active.")},
+                                                           {"sheet", Schema::String("Worksheet name, for sheet "
+                                                                                    "scope.")}}),
+                             true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"scope", "sheet"}, {"password", "secret"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetProtection(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome SetProtection(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto scope = arguments.value("scope", std::string("sheet"));
+        const bool protect = arguments.value("protect", true);
+        const auto password = arguments.value("password", std::string());
+
+        nlohmann::json data = nlohmann::json::object();
+        data["scope"] = scope;
+        data["protected"] = protect;
+        data["sheet"] = std::string();
+
+        MutationGuard guard(session.Session());
+
+        if (scope == "workbook")
+        {
+            Excel::WorkbookProtectionOptions options;
+            options.LockStructure = arguments.value("lock_structure", true);
+            options.LockWindows = arguments.value("lock_windows", false);
+
+            const auto result = protect ? session.Editor().ProtectWorkbook(options, password)
+                                        : session.Editor().UnprotectWorkbook(password);
+            if (!result.Succeeded())
+            {
+                return MakeError(ErrorCode::OperationFailed,
+                                 protect ? "The workbook protection could not be written."
+                                         : "The workbook protection could not be removed; the password may not "
+                                           "match.",
+                                 scope);
+            }
+        }
+        else
+        {
+            ToolOutcome failure;
+            auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+            if (sheet == nullptr)
+            {
+                return failure;
+            }
+
+            data["sheet"] = sheet->Name();
+
+            Excel::SheetProtectionOptions options;
+            if (const auto allow = arguments.find("allow"); allow != arguments.end())
+            {
+                options.AllowFormatCells = allow->value("format_cells", options.AllowFormatCells);
+                options.AllowFormatColumns = allow->value("format_columns", options.AllowFormatColumns);
+                options.AllowFormatRows = allow->value("format_rows", options.AllowFormatRows);
+                options.AllowInsertColumns = allow->value("insert_columns", options.AllowInsertColumns);
+                options.AllowInsertRows = allow->value("insert_rows", options.AllowInsertRows);
+                options.AllowInsertHyperlinks = allow->value("insert_hyperlinks", options.AllowInsertHyperlinks);
+                options.AllowDeleteColumns = allow->value("delete_columns", options.AllowDeleteColumns);
+                options.AllowDeleteRows = allow->value("delete_rows", options.AllowDeleteRows);
+                options.AllowSelectLockedCells =
+                    allow->value("select_locked_cells", options.AllowSelectLockedCells);
+                options.AllowSelectUnlockedCells =
+                    allow->value("select_unlocked_cells", options.AllowSelectUnlockedCells);
+                options.AllowSort = allow->value("sort", options.AllowSort);
+                options.AllowAutoFilter = allow->value("auto_filter", options.AllowAutoFilter);
+                options.AllowPivotTables = allow->value("pivot_tables", options.AllowPivotTables);
+            }
+
+            const auto result = protect ? sheet->Protect(options, password) : sheet->Unprotect(password);
+            if (!result.Succeeded())
+            {
+                return MakeError(ErrorCode::OperationFailed,
+                                 protect ? "The sheet protection could not be written."
+                                         : "The sheet protection could not be removed; the password may not "
+                                           "match.",
+                                 sheet->Name());
+            }
+        }
+
+        guard.Commit();
+
+        return ResultBuilder(protect ? "Protected the " + scope + "." : "Removed the " + scope + " protection.")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();
@@ -1405,6 +1937,830 @@ private:
 
         return ResultBuilder(removed ? "Removed the hyperlink from " + address->ToA1() + "."
                                      : "Linked " + address->ToA1() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    /**
+     * @brief The `threaded` flag, shared by the three comment tools.
+     *
+     * SpreadsheetML carries two unrelated comment models, and which one a call
+     * means cannot be inferred from the arguments: a plain comment is keyed by
+     * its cell, a threaded one by an identifier, and a cell can hold both. The
+     * flag is therefore explicit everywhere rather than guessed.
+     *
+     * It defaults to the threaded model, which is the one Excel writes today and
+     * the one a reply can be attached to.
+     */
+    static nlohmann::json ThreadedProperty()
+    {
+        return Schema::BooleanWithDefault("Address the modern threaded comment model rather than the plain "
+                                          "note model.",
+                                          true);
+    }
+
+    /// The paper sizes SpreadsheetML names, as the tokens the schema publishes.
+    static const std::vector<std::pair<const char*, Excel::PaperSize>>& PaperSizes()
+    {
+        static const std::vector<std::pair<const char*, Excel::PaperSize>> sizes{
+            {"letter", Excel::PaperSize::Letter},       {"letter_small", Excel::PaperSize::LetterSmall},
+            {"tabloid", Excel::PaperSize::Tabloid},     {"ledger", Excel::PaperSize::Ledger},
+            {"legal", Excel::PaperSize::Legal},         {"statement", Excel::PaperSize::Statement},
+            {"executive", Excel::PaperSize::Executive}, {"a3", Excel::PaperSize::A3},
+            {"a4", Excel::PaperSize::A4},               {"a4_small", Excel::PaperSize::A4Small},
+            {"a5", Excel::PaperSize::A5},               {"b4", Excel::PaperSize::B4},
+            {"b5", Excel::PaperSize::B5},               {"folio", Excel::PaperSize::Folio}};
+        return sizes;
+    }
+
+    static std::string PaperSizeToken(Excel::PaperSize size)
+    {
+        for (const auto& [token, value] : PaperSizes())
+        {
+            if (value == size)
+            {
+                return token;
+            }
+        }
+
+        return "letter";
+    }
+
+    /**
+     * @brief Reads a row or column band such as `"1:2"` or `"A:B"`.
+     *
+     * Print titles are a pair of bands rather than a cell range. The band
+     * grammar is the one the sizing tools already take — a single position or
+     * a pair, in either order — so an agent writes a band the same way here as
+     * it does for `set_row_height`.
+     */
+    static bool ParsePrintTitleBand(const std::string& text, bool columns, std::pair<UInt32, UInt32>& band,
+                                    ToolOutcome& failure)
+    {
+        UInt32 first = 0;
+        UInt32 last = 0;
+        const bool parsed = columns ? ExcelAddressing::ParseColumnBand(text, first, last)
+                                    : ExcelAddressing::ParseRowBand(text, first, last);
+        if (!parsed)
+        {
+            failure = MakeError(ErrorCode::RangeInvalid,
+                                columns ? "A column band looks like \"A\" or \"A:B\"."
+                                        : "A row band looks like \"1\" or \"1:2\".",
+                                text);
+            return false;
+        }
+
+        band = {first, last};
+        return true;
+    }
+
+    static void RegisterSetPrintSetup(ToolRegistry& registry)
+    {
+        std::vector<std::string> paperTokens;
+        for (const auto& [token, value] : PaperSizes())
+        {
+            static_cast<void>(value);
+            paperTokens.emplace_back(token);
+        }
+
+        nlohmann::json margins =
+            Schema::Object("Page margins; omitted members keep their current value.", {},
+                           nlohmann::json{{"left", Schema::Length("Left margin.")},
+                                          {"right", Schema::Length("Right margin.")},
+                                          {"top", Schema::Length("Top margin.")},
+                                          {"bottom", Schema::Length("Bottom margin.")},
+                                          {"header", Schema::Length("Header margin.")},
+                                          {"footer", Schema::Length("Footer margin.")}});
+
+        nlohmann::json headerFooter = Schema::Object(
+            "Header and footer strings, using Excel's formatting codes such as \"&P\" for the page number.", {},
+            nlohmann::json{{"odd_header", Schema::String("Header of every page, or of odd pages.")},
+                           {"odd_footer", Schema::String("Footer of every page, or of odd pages.")},
+                           {"even_header", Schema::String("Header of even pages.")},
+                           {"even_footer", Schema::String("Footer of even pages.")},
+                           {"first_header", Schema::String("Header of the first page.")},
+                           {"first_footer", Schema::String("Footer of the first page.")},
+                           {"different_odd_even", Schema::Boolean("Use the even-page strings.")},
+                           {"different_first", Schema::Boolean("Use the first-page strings.")}});
+
+        nlohmann::json options =
+            Schema::Object("Print decorations and alignment.", {},
+                           nlohmann::json{{"horizontal_centered", Schema::Boolean("Center the page horizontally.")},
+                                          {"vertical_centered", Schema::Boolean("Center the page vertically.")},
+                                          {"headings", Schema::Boolean("Print row and column headings.")},
+                                          {"grid_lines", Schema::Boolean("Print grid lines.")}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["orientation"] = Schema::Enumeration("Page orientation.", {"portrait", "landscape"});
+        properties["paper_size"] = Schema::Enumeration("Paper size.", std::move(paperTokens));
+        properties["scale"] = Schema::Integer("Print scale in percent; ignored when a fit-to-page value is set.",
+                                              10, 400);
+        properties["fit_to_width"] = Schema::Integer("Pages to fit the width into; 0 means unrestricted.", 0, 32767);
+        properties["fit_to_height"] =
+            Schema::Integer("Pages to fit the height into; 0 means unrestricted.", 0, 32767);
+        properties["margins"] = std::move(margins);
+        properties["print_area"] =
+            Schema::Array("A1 ranges printed from this sheet; an empty array clears the print area.",
+                          Schema::String("One A1 range."));
+        properties["repeat_rows"] = Schema::String("Row band repeated on every page, such as \"1:2\"; an empty "
+                                                   "string clears it.");
+        properties["repeat_columns"] = Schema::String("Column band repeated on every page, such as \"A:B\"; an "
+                                                      "empty string clears it.");
+        properties["header_footer"] = std::move(headerFooter);
+        properties["options"] = std::move(options);
+
+        auto definition =
+            MakeDefinition("set_print_setup", "Set print setup",
+                           "Set how a worksheet prints: orientation, paper, scaling, margins, print area, "
+                           "repeated titles, headers and footers. Every member is optional and the ones left "
+                           "out keep their current value.",
+                           "layout");
+        definition.InputSchema =
+            Schema::Object("Arguments of set_print_setup.", {"documentId"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Effective print setup.", {"sheet"},
+                           nlohmann::json{{"sheet", Schema::String("Worksheet name.")},
+                                          {"orientation", Schema::String("Page orientation.")},
+                                          {"paperSize", Schema::String("Paper size token.")},
+                                          {"printArea", Schema::Array("A1 ranges printed from this sheet.",
+                                                                      Schema::String("One A1 range."))}}),
+            true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"orientation", "landscape"}, {"fit_to_width", 1}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetPrintSetup(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    /// Applies the members of @p source that are present onto @p margins.
+    static bool ApplyMargins(const nlohmann::json& source, Excel::PageMargins& margins, ToolOutcome& failure)
+    {
+        const auto apply = [&source, &failure](const char* name, MeasuringUnits& target)
+        {
+            const auto value = source.find(name);
+            if (value == source.end())
+            {
+                return true;
+            }
+
+            const auto parsed = ParseLength(*value);
+            if (!parsed.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "The margin is not a length.", name);
+                return false;
+            }
+
+            // A negative margin passes the length parser but not the writer,
+            // which would fail the whole call with nothing to point at.
+            if (ToPointValue(*parsed) < 0.0)
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "A margin cannot be negative.", name);
+                return false;
+            }
+
+            target = *parsed;
+            return true;
+        };
+
+        return apply("left", margins.Left) && apply("right", margins.Right) && apply("top", margins.Top) &&
+               apply("bottom", margins.Bottom) && apply("header", margins.Header) &&
+               apply("footer", margins.Footer);
+    }
+
+    static ToolOutcome SetPrintSetup(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        // Everything is parsed and validated before anything is written, so a
+        // rejected member does not leave half a print setup behind.
+        auto setup = sheet->GetPageSetup();
+        if (const auto orientation = arguments.find("orientation"); orientation != arguments.end())
+        {
+            setup.Orientation = orientation->get<std::string>() == "landscape" ? Excel::PageOrientation::Landscape
+                                                                              : Excel::PageOrientation::Portrait;
+        }
+
+        if (const auto paper = arguments.find("paper_size"); paper != arguments.end())
+        {
+            const auto token = paper->get<std::string>();
+            for (const auto& [name, value] : PaperSizes())
+            {
+                if (token == name)
+                {
+                    setup.PaperSize = value;
+                    break;
+                }
+            }
+        }
+
+        if (const auto scale = arguments.find("scale"); scale != arguments.end())
+        {
+            setup.Scale = scale->get<UInt32>();
+        }
+
+        if (const auto fit = arguments.find("fit_to_width"); fit != arguments.end())
+        {
+            setup.FitToWidth = fit->get<UInt32>();
+        }
+
+        if (const auto fit = arguments.find("fit_to_height"); fit != arguments.end())
+        {
+            setup.FitToHeight = fit->get<UInt32>();
+        }
+
+        auto margins = sheet->GetPageMargins();
+        if (const auto source = arguments.find("margins"); source != arguments.end())
+        {
+            if (!ApplyMargins(*source, margins, failure))
+            {
+                return failure;
+            }
+        }
+
+        std::optional<std::vector<Excel::CellRange>> printArea;
+        if (const auto areas = arguments.find("print_area"); areas != arguments.end())
+        {
+            std::vector<Excel::CellRange> parsed;
+            for (const auto& entry : *areas)
+            {
+                const auto text = entry.get<std::string>();
+                const auto range = ExcelAddressing::ParseRange(text, failure);
+                if (!range.has_value())
+                {
+                    return failure;
+                }
+
+                parsed.push_back(*range);
+            }
+
+            printArea = std::move(parsed);
+        }
+
+        auto titles = sheet->GetPrintTitles();
+        if (const auto rows = arguments.find("repeat_rows"); rows != arguments.end())
+        {
+            const auto text = rows->get<std::string>();
+            if (text.empty())
+            {
+                titles.Rows.reset();
+            }
+            else
+            {
+                std::pair<UInt32, UInt32> band;
+                if (!ParsePrintTitleBand(text, false, band, failure))
+                {
+                    return failure;
+                }
+
+                titles.Rows = band;
+            }
+        }
+
+        if (const auto columns = arguments.find("repeat_columns"); columns != arguments.end())
+        {
+            const auto text = columns->get<std::string>();
+            if (text.empty())
+            {
+                titles.Columns.reset();
+            }
+            else
+            {
+                std::pair<UInt32, UInt32> band;
+                if (!ParsePrintTitleBand(text, true, band, failure))
+                {
+                    return failure;
+                }
+
+                titles.Columns = band;
+            }
+        }
+
+        auto headerFooter = sheet->GetHeaderFooter();
+        if (const auto source = arguments.find("header_footer"); source != arguments.end())
+        {
+            headerFooter.OddHeader = source->value("odd_header", headerFooter.OddHeader);
+            headerFooter.OddFooter = source->value("odd_footer", headerFooter.OddFooter);
+            headerFooter.EvenHeader = source->value("even_header", headerFooter.EvenHeader);
+            headerFooter.EvenFooter = source->value("even_footer", headerFooter.EvenFooter);
+            headerFooter.FirstHeader = source->value("first_header", headerFooter.FirstHeader);
+            headerFooter.FirstFooter = source->value("first_footer", headerFooter.FirstFooter);
+            headerFooter.DifferentOddEven = source->value("different_odd_even", headerFooter.DifferentOddEven);
+            headerFooter.DifferentFirst = source->value("different_first", headerFooter.DifferentFirst);
+        }
+
+        auto options = sheet->GetPrintOptions();
+        if (const auto source = arguments.find("options"); source != arguments.end())
+        {
+            options.HorizontalCentered = source->value("horizontal_centered", options.HorizontalCentered);
+            options.VerticalCentered = source->value("vertical_centered", options.VerticalCentered);
+            options.Headings = source->value("headings", options.Headings);
+            options.GridLines = source->value("grid_lines", options.GridLines);
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!sheet->SetPageSetup(setup) || !sheet->SetPageMargins(margins) || !sheet->SetPrintTitles(titles) ||
+            !sheet->SetHeaderFooter(headerFooter) || !sheet->SetPrintOptions(options))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The print setup could not be written.", sheet->Name());
+        }
+
+        if (printArea.has_value() && !sheet->SetPrintArea(*printArea))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The print area could not be written.", sheet->Name());
+        }
+
+        guard.Commit();
+
+        nlohmann::json areas = nlohmann::json::array();
+        for (const auto& range : sheet->GetPrintArea())
+        {
+            areas.push_back(range.ToA1());
+        }
+
+        nlohmann::json data = nlohmann::json::object();
+        data["sheet"] = sheet->Name();
+        data["orientation"] =
+            setup.Orientation == Excel::PageOrientation::Landscape ? "landscape" : "portrait";
+        data["paperSize"] = setup.PaperSize.has_value() ? PaperSizeToken(*setup.PaperSize) : std::string();
+        data["printArea"] = std::move(areas);
+
+        return ResultBuilder("Set the print setup of " + sheet->Name() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    /**
+     * @brief Maps a detected media type onto the worksheet image formats.
+     *
+     * A worksheet drawing stores the encoding as an enumeration rather than as
+     * a content type, so a payload the library cannot name here has nowhere to
+     * go and is refused instead of being written as something it is not.
+     */
+    static std::optional<Excel::ExcelImageFormat> ParseImageFormat(const std::string& contentType)
+    {
+        if (contentType == "image/png")
+        {
+            return Excel::ExcelImageFormat::Png;
+        }
+
+        if (contentType == "image/jpeg")
+        {
+            return Excel::ExcelImageFormat::Jpeg;
+        }
+
+        if (contentType == "image/gif")
+        {
+            return Excel::ExcelImageFormat::Gif;
+        }
+
+        if (contentType == "image/bmp")
+        {
+            return Excel::ExcelImageFormat::Bmp;
+        }
+
+        if (contentType == "image/tiff")
+        {
+            return Excel::ExcelImageFormat::Tiff;
+        }
+
+        return std::nullopt;
+    }
+
+    static void RegisterAddImage(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["anchor_cell"] = Schema::String("A1 cell the image's top-left corner sits on.");
+        properties["path"] = Schema::String("Workspace-relative image file; mutually exclusive with dataBase64.");
+        properties["dataBase64"] = Schema::String("Base64 image payload; mutually exclusive with path.");
+        properties["contentType"] = Schema::String("Media type; detected when omitted.");
+        properties["width"] = Schema::Length("Image width; defaults to about 10 cm.");
+        properties["height"] = Schema::Length("Image height; defaults to about 7.5 cm.");
+        properties["alt"] = Schema::String("Alternative text for accessibility.");
+        properties["name"] = Schema::String("Non-visual drawing name.");
+
+        auto definition = MakeDefinition("add_image", "Add image",
+                                         "Place a picture on the worksheet, anchored to a cell rectangle. PNG, "
+                                         "JPEG, GIF, BMP, and TIFF payloads are accepted.",
+                                         "media");
+        definition.InputSchema = Schema::Object("Arguments of add_image.", {"documentId", "anchor_cell"},
+                                                std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New image.", {"imageId"},
+                           nlohmann::json{{"imageId", Schema::Integer("Drawing object identifier.")},
+                                          {"anchor", Schema::String("A1 anchor cell.")},
+                                          {"contentType", Schema::String("Media type that was stored.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"anchor_cell", "D2"}, {"path", "logo.png"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddImage(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome AddImage(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        const auto anchorText = arguments.value("anchor_cell", std::string());
+        const auto anchor = ExcelAddressing::ParseCell(anchorText, failure);
+        if (!anchor.has_value())
+        {
+            return failure;
+        }
+
+        std::vector<Byte> bytes;
+        std::string contentType;
+        if (!ToolSupport::LoadImagePayload(context, arguments, bytes, contentType, failure))
+        {
+            return failure;
+        }
+
+        const auto format = ParseImageFormat(contentType);
+        if (!format.has_value())
+        {
+            return MakeError(ErrorCode::Unsupported,
+                             "A worksheet image must be PNG, JPEG, GIF, BMP, or TIFF.", contentType);
+        }
+
+        MutationGuard guard(session.Session());
+
+        Excel::ExcelWorksheetImage image;
+        image.Name = arguments.value("name", std::string());
+        image.Description = arguments.value("alt", std::string());
+        image.From = *anchor;
+        image.To = AnchorEnd(*anchor, arguments, 283.0, 212.0);
+        image.Data = std::move(bytes);
+        image.Format = *format;
+
+        const auto written = sheet->AddImage(std::move(image));
+        if (!written.has_value())
+        {
+            return MakeError(ErrorCode::OperationFailed, "The image could not be placed.", anchorText);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["imageId"] = static_cast<UInt64>(*written);
+        data["anchor"] = anchor->ToA1();
+        data["contentType"] = contentType;
+
+        return ResultBuilder("Placed an image at " + anchor->ToA1() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterAddComment(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["cell"] = Schema::String("A1 address of the annotated cell.");
+        properties["text"] = Schema::String("Comment text.");
+        properties["author"] = Schema::StringWithDefault("Author display name.", "ExyokiOffice");
+        properties["threaded"] = ThreadedProperty();
+        properties["reply_to"] =
+            Schema::String("Identifier of the thread entry this one replies to; implies a threaded comment.");
+
+        auto definition = MakeDefinition("add_comment", "Add comment",
+                                         "Attach a comment to a cell, as a plain note by default or as a "
+                                         "threaded comment. Pass reply_to to answer an existing thread entry.",
+                                         "review");
+        definition.InputSchema =
+            Schema::Object("Arguments of add_comment.", {"documentId", "cell", "text"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New comment.", {"cell"},
+                           nlohmann::json{{"cell", Schema::String("A1 address.")},
+                                          {"commentId", Schema::String("Thread entry identifier; empty for a "
+                                                                       "plain note.")},
+                                          {"threaded", Schema::Boolean("True for a threaded comment.")}}),
+            true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"cell", "B4"}, {"text", "Check this number."}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddComment(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome AddComment(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        const auto cellText = arguments.value("cell", std::string());
+        const auto address = ExcelAddressing::ParseCell(cellText, failure);
+        if (!address.has_value())
+        {
+            return failure;
+        }
+
+        const auto text = arguments.value("text", std::string());
+        if (text.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A comment needs text.", "text");
+        }
+
+        const auto replyTo = arguments.value("reply_to", std::string());
+        // The fallback here has to match the schema's published default: the
+        // schema documents the default, it does not fill it in.
+        const bool threaded = !replyTo.empty() || arguments.value("threaded", true);
+
+        // A reply has to name an entry that exists. Without the check the
+        // orphaned parent identifier would be written out and Excel would drop
+        // the reply when it repaired the file, which reports success here and
+        // loses the comment there.
+        if (!replyTo.empty())
+        {
+            const auto existing = sheet->ThreadedComments();
+            const auto parent = std::find_if(existing.begin(), existing.end(),
+                                             [&replyTo](const Excel::ExcelThreadedComment& entry)
+                                             { return entry.Id == replyTo; });
+            if (parent == existing.end())
+            {
+                return MakeError(ErrorCode::CommentNotFound, "No thread entry has that identifier.", replyTo);
+            }
+        }
+
+        MutationGuard guard(session.Session());
+
+        std::string commentId;
+        if (threaded)
+        {
+            Excel::ExcelThreadedComment comment;
+            comment.Address = *address;
+            comment.PersonName = arguments.value("author", std::string("ExyokiOffice"));
+            comment.Text = text;
+            comment.ParentId = replyTo;
+
+            const auto written = sheet->AddThreadedComment(std::move(comment));
+            if (!written.has_value())
+            {
+                return MakeError(ErrorCode::OperationFailed, "The comment could not be written.", cellText);
+            }
+
+            commentId = *written;
+        }
+        else
+        {
+            Excel::ExcelComment comment;
+            comment.Address = *address;
+            comment.Author = arguments.value("author", std::string("ExyokiOffice"));
+            comment.Text = text;
+            if (!sheet->SetComment(comment))
+            {
+                return MakeError(ErrorCode::OperationFailed, "The comment could not be written.", cellText);
+            }
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["cell"] = address->ToA1();
+        data["commentId"] = commentId;
+        data["threaded"] = threaded;
+
+        return ResultBuilder("Commented " + address->ToA1() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterListComments(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        properties["sheet"] = SheetReferenceProperty(
+            "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.");
+
+        nlohmann::json comment =
+            Schema::Object("One comment.", {"sheet", "cell", "text"},
+                           nlohmann::json{{"sheet", Schema::String("Worksheet name.")},
+                                          {"cell", Schema::String("A1 address.")},
+                                          {"id", Schema::String("Thread entry identifier; empty for a plain "
+                                                                "note.")},
+                                          {"author", Schema::String("Author display name.")},
+                                          {"text", Schema::String("Comment text.")},
+                                          {"threaded", Schema::Boolean("True for a threaded comment.")},
+                                          {"parentId", Schema::String("Identifier of the entry this one "
+                                                                      "replies to.")}});
+
+        auto definition = MakeDefinition("list_comments", "List comments",
+                                         "List the comments of the workbook, optionally narrowed to one sheet. "
+                                         "Both threaded comments and plain notes are reported.",
+                                         "review");
+        definition.InputSchema = Schema::Object("Arguments of list_comments.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Comments.", {"comments"},
+                           nlohmann::json{{"comments", Schema::Array("Comments.", std::move(comment))}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListComments(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListComments(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        // `sheet` narrows the listing but is optional, and FindSheet falls back
+        // to the first sheet when it is absent. Resolving it only when present
+        // keeps "omitted" meaning every sheet rather than the first one.
+        std::string only;
+        if (arguments.contains("sheet"))
+        {
+            ToolOutcome failure;
+            auto sheet = ExcelAddressing::FindSheet(reader.Editor(), arguments, failure);
+            if (sheet == nullptr)
+            {
+                return failure;
+            }
+
+            only = sheet->Name();
+        }
+
+        nlohmann::json comments = nlohmann::json::array();
+        for (const auto& sheet : reader.Editor().Worksheets())
+        {
+            if (sheet == nullptr || (!only.empty() && sheet->Name() != only))
+            {
+                continue;
+            }
+
+            for (const auto& note : sheet->Comments())
+            {
+                nlohmann::json entry = nlohmann::json::object();
+                entry["sheet"] = sheet->Name();
+                entry["cell"] = note.Address.ToA1();
+                entry["id"] = std::string();
+                entry["author"] = note.Author;
+                entry["text"] = note.Text;
+                entry["threaded"] = false;
+                entry["parentId"] = std::string();
+                comments.push_back(std::move(entry));
+            }
+
+            for (const auto& thread : sheet->ThreadedComments())
+            {
+                nlohmann::json entry = nlohmann::json::object();
+                entry["sheet"] = sheet->Name();
+                entry["cell"] = thread.Address.ToA1();
+                entry["id"] = thread.Id;
+                entry["author"] = thread.PersonName;
+                entry["text"] = thread.Text;
+                entry["threaded"] = true;
+                entry["parentId"] = thread.ParentId;
+                comments.push_back(std::move(entry));
+            }
+        }
+
+        const bool truncated = TruncateArrayToBudget(comments);
+
+        nlohmann::json data = nlohmann::json::object();
+        const auto count = comments.size();
+        data["comments"] = std::move(comments);
+
+        return ResultBuilder("The workbook holds " + std::to_string(count) + " comment(s).")
+            .WithData(std::move(data))
+            .WithTruncated(truncated)
+            .Build();
+    }
+
+    static void RegisterDeleteComment(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["cell"] = Schema::String("A1 address whose plain note is removed.");
+        properties["comment_id"] = Schema::String("Thread entry identifier reported by list_comments.");
+
+        auto definition = MakeDefinition("delete_comment", "Delete comment",
+                                         "Remove one comment: a thread entry by its identifier, or the plain note "
+                                         "of a cell. Pass exactly one of comment_id and cell.",
+                                         "review");
+        definition.InputSchema = Schema::Object("Arguments of delete_comment.", {"documentId"},
+                                                std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Deleted comment.", {"removed"},
+                           nlohmann::json{{"removed", Schema::Boolean("True when a comment was removed.")},
+                                          {"cell", Schema::String("A1 address, when one was named.")},
+                                          {"commentId", Schema::String("Identifier, when one was named.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"cell", "B4"}};
+        definition.Annotations.Destructive = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return DeleteComment(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome DeleteComment(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto cellText = arguments.value("cell", std::string());
+        const auto commentId = arguments.value("comment_id", std::string());
+
+        // Neither argument is required on its own, so the pair has to be
+        // checked here. Accepting both would leave it to the reader of the log
+        // to work out which comment actually went.
+        if (cellText.empty() == commentId.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "Pass exactly one of comment_id and cell.", "comment_id");
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        nlohmann::json data = nlohmann::json::object();
+        data["cell"] = std::string();
+        data["commentId"] = std::string();
+
+        MutationGuard guard(session.Session());
+
+        bool removed = false;
+        if (!commentId.empty())
+        {
+            removed = sheet->RemoveThreadedComment(commentId);
+            data["commentId"] = commentId;
+            if (!removed)
+            {
+                return MakeError(ErrorCode::CommentNotFound, "No thread entry has that identifier.", commentId);
+            }
+        }
+        else
+        {
+            const auto address = ExcelAddressing::ParseCell(cellText, failure);
+            if (!address.has_value())
+            {
+                return failure;
+            }
+
+            removed = sheet->RemoveComment(*address);
+            data["cell"] = address->ToA1();
+            if (!removed)
+            {
+                return MakeError(ErrorCode::CommentNotFound, "The cell carries no plain note.", cellText);
+            }
+        }
+
+        guard.Commit();
+        data["removed"] = removed;
+
+        return ResultBuilder("Removed one comment.")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();
@@ -1618,6 +2974,15 @@ private:
         registry.Add(std::move(definition));
     }
 
+    /// Whether two ranges share at least one cell.
+    static bool RangesIntersect(const Excel::CellRange& left, const Excel::CellRange& right)
+    {
+        return left.First().Row().Value() <= right.Last().Row().Value() &&
+               right.First().Row().Value() <= left.Last().Row().Value() &&
+               left.First().Column().Value() <= right.Last().Column().Value() &&
+               right.First().Column().Value() <= left.Last().Column().Value();
+    }
+
     static ToolOutcome MergeCells(ToolContext& context, const nlohmann::json& arguments)
     {
         ExcelSession session(context, arguments);
@@ -1640,6 +3005,20 @@ private:
         }
 
         const bool unmerge = arguments.value("unmerge", false);
+        if (!unmerge)
+        {
+            for (const auto& table : sheet->Tables())
+            {
+                const auto area = table->Range();
+                if (area.has_value() && RangesIntersect(*area, *range))
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "The range " + range->ToA1() + " overlaps the table '" + table->Name() +
+                                         "', and a table cannot hold merged cells.",
+                                     range->ToA1(), "Merge cells outside the table, or center the text instead.");
+                }
+            }
+        }
 
         MutationGuard guard(session.Session());
 
@@ -1660,12 +3039,16 @@ private:
             .Build();
     }
 
-    static void RegisterFormatRange(ToolRegistry& registry)
+    /**
+     * @brief The appearance members format_range and a conditional format share.
+     *
+     * The appearance a rule paints over the cells it matches is the same
+     * vocabulary as the appearance a range carries, so the two tools publish
+     * one schema instead of two that drift apart.
+     */
+    static nlohmann::json StyleProperties()
     {
         nlohmann::json properties = nlohmann::json::object();
-        ToolSupport::AddDocumentIdProperty(properties);
-        properties["sheet"] = SheetProperty();
-        properties["range"] = Schema::String("A1 range to format.");
         properties["number_format"] = Schema::String("Number format code, for example \"#,##0.00\".");
         properties["font"] = Schema::Object("Font settings.", {},
                                             nlohmann::json{{"name", Schema::String("Font family.")},
@@ -1689,6 +3072,15 @@ private:
                            {"vertical", Schema::Enumeration("Vertical alignment.",
                                                             {"top", "center", "bottom", "justify", "distributed"})},
                            {"wrap", Schema::Boolean("Wrap text inside the cell.")}});
+        return properties;
+    }
+
+    static void RegisterFormatRange(ToolRegistry& registry)
+    {
+        nlohmann::json properties = StyleProperties();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["range"] = Schema::String("A1 range to format.");
 
         auto definition = MakeDefinition("format_range", "Format cell range",
                                          "Apply a number format, font, fill, border, and alignment to a range. "
@@ -1864,6 +3256,124 @@ private:
         return std::nullopt;
     }
 
+    /**
+     * @brief Reads the members StyleProperties() publishes into a style definition.
+     *
+     * Absent members are left out of @p style rather than defaulted, which is
+     * what lets the same reader serve a cell format (where a missing member
+     * means "the workbook default") and a differential format (where it means
+     * "leave this alone").
+     */
+    static bool ReadStyleArguments(const nlohmann::json& owner, Excel::ExcelStyle& style, ToolOutcome& failure)
+    {
+        const auto numberFormat = owner.value("number_format", std::string());
+        if (!numberFormat.empty())
+        {
+            auto format = Excel::ExcelNumberFormat::Custom(numberFormat);
+            if (!format.has_value())
+            {
+                failure = MakeError(ErrorCode::Unsupported, "The number format code was rejected.", numberFormat,
+                                    "Use an Excel number format such as \"#,##0.00\".");
+                return false;
+            }
+
+            style.NumberFormat = *format;
+        }
+
+        const auto font = owner.find("font");
+        if (font != owner.end() && font->is_object())
+        {
+            Excel::ExcelFont value;
+            const auto name = font->value("name", std::string());
+            if (!name.empty())
+            {
+                value.Name = name;
+            }
+
+            const auto size = font->value("sizePt", 0.0);
+            if (size > 0.0)
+            {
+                value.Size = size;
+            }
+
+            value.Bold = font->value("bold", false);
+            value.Italic = font->value("italic", false);
+            if (!ReadColor(*font, "color", "font", value.Color, failure))
+            {
+                return false;
+            }
+
+            style.Font = value;
+        }
+
+        const auto fill = owner.find("fill");
+        if (fill != owner.end() && fill->is_object())
+        {
+            std::optional<Excel::ExcelColor> color;
+            if (!ReadColor(*fill, "color", "fill", color, failure))
+            {
+                return false;
+            }
+
+            if (!color.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "A fill needs a \"color\".", {},
+                                    "Pass fill.color as \"#RRGGBB\", for example \"#FFFF00\".");
+                return false;
+            }
+
+            Excel::ExcelFill value;
+            value.Kind = Excel::ExcelFillKind::Pattern;
+            value.Pattern = Excel::ExcelFillPattern::Solid;
+            value.Foreground = color;
+            style.Fill = value;
+        }
+
+        const auto border = owner.find("border");
+        if (border != owner.end() && border->is_object())
+        {
+            Excel::ExcelBorderSide side;
+            side.Style = ParseBorderStyle(border->value("style", std::string("thin")));
+            if (!ReadColor(*border, "color", "border", side.Color, failure))
+            {
+                return false;
+            }
+
+            Excel::ExcelBorder value;
+            value.Left = side;
+            value.Right = side;
+            value.Top = side;
+            value.Bottom = side;
+            style.Border = value;
+        }
+
+        const auto alignment = owner.find("alignment");
+        if (alignment != owner.end() && alignment->is_object())
+        {
+            Excel::ExcelAlignment value;
+            const auto horizontal = alignment->value("horizontal", std::string());
+            if (!horizontal.empty())
+            {
+                value.Horizontal = ParseHorizontalAlignment(horizontal);
+            }
+
+            const auto vertical = alignment->value("vertical", std::string());
+            if (!vertical.empty())
+            {
+                value.Vertical = ParseVerticalAlignment(vertical);
+            }
+
+            if (alignment->contains("wrap"))
+            {
+                value.WrapText = alignment->value("wrap", false);
+            }
+
+            style.Alignment = value;
+        }
+
+        return true;
+    }
+
     static ToolOutcome FormatRange(ToolContext& context, const nlohmann::json& arguments)
     {
         ExcelSession session(context, arguments);
@@ -1886,108 +3396,9 @@ private:
         }
 
         Excel::ExcelStyle style;
-
-        const auto numberFormat = arguments.value("number_format", std::string());
-        if (!numberFormat.empty())
+        if (!ReadStyleArguments(arguments, style, failure))
         {
-            auto format = Excel::ExcelNumberFormat::Custom(numberFormat);
-            if (!format.has_value())
-            {
-                return MakeError(ErrorCode::Unsupported, "The number format code was rejected.", numberFormat,
-                                 "Use an Excel number format such as \"#,##0.00\".");
-            }
-
-            style.NumberFormat = *format;
-        }
-
-        const auto font = arguments.find("font");
-        if (font != arguments.end() && font->is_object())
-        {
-            Excel::ExcelFont value;
-            const auto name = font->value("name", std::string());
-            if (!name.empty())
-            {
-                value.Name = name;
-            }
-
-            const auto size = font->value("sizePt", 0.0);
-            if (size > 0.0)
-            {
-                value.Size = size;
-            }
-
-            value.Bold = font->value("bold", false);
-            value.Italic = font->value("italic", false);
-            if (!ReadColor(*font, "color", "font", value.Color, failure))
-            {
-                return failure;
-            }
-
-            style.Font = value;
-        }
-
-        const auto fill = arguments.find("fill");
-        if (fill != arguments.end() && fill->is_object())
-        {
-            std::optional<Excel::ExcelColor> color;
-            if (!ReadColor(*fill, "color", "fill", color, failure))
-            {
-                return failure;
-            }
-
-            if (!color.has_value())
-            {
-                return MakeError(ErrorCode::InputInvalid, "A fill needs a \"color\".", {},
-                                 "Pass fill.color as \"#RRGGBB\", for example \"#FFFF00\".");
-            }
-
-            Excel::ExcelFill value;
-            value.Kind = Excel::ExcelFillKind::Pattern;
-            value.Pattern = Excel::ExcelFillPattern::Solid;
-            value.Foreground = color;
-            style.Fill = value;
-        }
-
-        const auto border = arguments.find("border");
-        if (border != arguments.end() && border->is_object())
-        {
-            Excel::ExcelBorderSide side;
-            side.Style = ParseBorderStyle(border->value("style", std::string("thin")));
-            if (!ReadColor(*border, "color", "border", side.Color, failure))
-            {
-                return failure;
-            }
-
-            Excel::ExcelBorder value;
-            value.Left = side;
-            value.Right = side;
-            value.Top = side;
-            value.Bottom = side;
-            style.Border = value;
-        }
-
-        const auto alignment = arguments.find("alignment");
-        if (alignment != arguments.end() && alignment->is_object())
-        {
-            Excel::ExcelAlignment value;
-            const auto horizontal = alignment->value("horizontal", std::string());
-            if (!horizontal.empty())
-            {
-                value.Horizontal = ParseHorizontalAlignment(horizontal);
-            }
-
-            const auto vertical = alignment->value("vertical", std::string());
-            if (!vertical.empty())
-            {
-                value.Vertical = ParseVerticalAlignment(vertical);
-            }
-
-            if (alignment->contains("wrap"))
-            {
-                value.WrapText = alignment->value("wrap", false);
-            }
-
-            style.Alignment = value;
+            return failure;
         }
 
         MutationGuard guard(session.Session());
@@ -2235,6 +3646,693 @@ private:
 
     // --- analysis -----------------------------------------------------------
 
+    /**
+     * @brief Finds a table of the workbook by name, and the sheet that owns it.
+     *
+     * Table names are unique workbook-wide, so a `sheet` argument only narrows
+     * the search; a name that exists on another sheet is then not found, which
+     * is what makes a mistaken sheet report itself rather than land elsewhere.
+     */
+    static Excel::ExcelTable::Ptr FindTable(Excel::ExcelDocumentEditor& editor, const std::string& name,
+                                            const std::string& only, std::string& hostSheet)
+    {
+        for (const auto& sheet : editor.Worksheets())
+        {
+            if (sheet == nullptr || (!only.empty() && sheet->Name() != only))
+            {
+                continue;
+            }
+
+            for (const auto& table : sheet->Tables())
+            {
+                if (table != nullptr && AsciiText::EqualsIgnoreCase(table->Name(), name))
+                {
+                    hostSheet = sheet->Name();
+                    return table;
+                }
+            }
+        }
+
+        return nullptr;
+    }
+
+    /// Reports one table the way both table tools describe it.
+    static nlohmann::json DescribeTable(const Excel::ExcelTable::Ptr& table, const std::string& sheetName)
+    {
+        const auto columns = table->Columns();
+
+        nlohmann::json columnList = nlohmann::json::array();
+        for (const auto& column : columns)
+        {
+            nlohmann::json entry = nlohmann::json::object();
+            entry["name"] = column.Name;
+            entry["id"] = column.Id;
+            if (column.TotalsRowLabel.has_value())
+            {
+                entry["totalsLabel"] = *column.TotalsRowLabel;
+            }
+
+            columnList.push_back(std::move(entry));
+        }
+
+        nlohmann::json filters = nlohmann::json::array();
+        for (const auto& filter : table->ValueFilters())
+        {
+            nlohmann::json entry = nlohmann::json::object();
+            entry["column"] = filter.ColumnIndex < columns.size() ? columns[filter.ColumnIndex].Name : std::string();
+            entry["columnIndex"] = filter.ColumnIndex + 1;
+            entry["values"] = filter.Values;
+            entry["includeBlank"] = filter.IncludeBlank;
+            filters.push_back(std::move(entry));
+        }
+
+        const auto range = table->Range();
+
+        nlohmann::json entry = nlohmann::json::object();
+        entry["name"] = table->Name();
+        entry["sheet"] = sheetName;
+        entry["range"] = range.has_value() ? range->ToA1() : std::string();
+        entry["autoFilter"] = table->AutoFilterEnabled();
+        entry["totalsRow"] = table->TotalsRowShown();
+        entry["columns"] = std::move(columnList);
+        entry["filters"] = std::move(filters);
+        return entry;
+    }
+
+    /**
+     * @brief Hides the table rows its value filters exclude, and shows the rest.
+     *
+     * The filter criteria and the hidden rows are two separate things in the
+     * file: the criteria say what the funnel button offers, the `hidden` flag on
+     * each row is what a reader actually sees. Excel writes both and recomputes
+     * neither on open, so a file carrying criteria alone shows a column marked
+     * as filtered with every row still in view.
+     */
+    static void ApplyTableFilters(const Excel::Worksheet::Ptr& sheet, const Excel::ExcelTable::Ptr& table,
+                                  const Excel::SharedStringTableService& sharedStrings)
+    {
+        const auto range = table->Range();
+        if (sheet == nullptr || !range.has_value())
+        {
+            return;
+        }
+
+        const auto filters = table->ValueFilters();
+        const auto firstColumn = range->First().Column().Value();
+        const auto firstRow = range->First().Row().Value() + 1;
+        const auto lastRow = range->Last().Row().Value() - (table->TotalsRowShown() ? 1 : 0);
+
+        for (auto row = firstRow; row <= lastRow; ++row)
+        {
+            bool visible = true;
+            for (const auto& filter : filters)
+            {
+                const auto value = sheet->GetCellValue(row, firstColumn + filter.ColumnIndex);
+                const auto text = value.has_value()
+                                      ? ExcelAddressing::CellValueToText(*value, sharedStrings)
+                                      : std::string();
+                if (text.empty())
+                {
+                    visible = filter.IncludeBlank;
+                }
+                else
+                {
+                    visible = std::find(filter.Values.begin(), filter.Values.end(), text) != filter.Values.end();
+                }
+
+                if (!visible)
+                {
+                    break;
+                }
+            }
+
+            auto dimension = sheet->GetRowDimension(row).value_or(Excel::RowDimension{});
+            if (dimension.Hidden == !visible)
+            {
+                continue;
+            }
+
+            dimension.Hidden = !visible;
+            sheet->SetRowDimension(row, dimension);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // VBA project
+    //
+    // The project is carried as opaque bytes throughout: nothing here parses,
+    // rewrites, or runs the code it contains. A workbook that gains one becomes
+    // macro-enabled, which is a property of the package rather than of the file
+    // name, so the tools say so rather than renaming anything behind the
+    // caller's back.
+    // -----------------------------------------------------------------------
+
+    static void RegisterGetVbaProject(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        // Not `path`: a reading tool already publishes that as the document to
+        // open, and the two would be the same argument.
+        properties["output_path"] = Schema::String(
+            "Workspace file to write vbaProject.bin to; omitted, only the report is returned.");
+        properties["overwrite"] = Schema::BooleanWithDefault("Replace an existing file at that path.", false);
+
+        auto definition = MakeDefinition(
+            "get_vba_project", "Get VBA project",
+            "Report whether the workbook carries a VBA project and, when a path is given, write the opaque "
+            "vbaProject.bin to it. The payload is never parsed or executed.",
+            "vba");
+        definition.InputSchema = Schema::Object("Arguments of get_vba_project.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("VBA project.", {"present"},
+                           nlohmann::json{{"present", Schema::Boolean("A project is embedded.")},
+                                          {"bytes", Schema::Integer("Size of the project payload.")},
+                                          {"path", Schema::String("Workspace file it was written to.")}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"output_path", "macros.bin"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return GetVbaProject(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome GetVbaProject(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        const auto document = reader.Editor().GetDocument();
+        if (document == nullptr)
+        {
+            return MakeError(ErrorCode::InternalError, "The workbook has no package.");
+        }
+
+        nlohmann::json data = nlohmann::json::object();
+        data["present"] = document->HasVbaProject();
+        if (!document->HasVbaProject())
+        {
+            return ResultBuilder("The workbook carries no VBA project.").WithData(std::move(data)).Build();
+        }
+
+        const auto payload = document->GetVbaProjectData();
+        data["bytes"] = static_cast<UInt64>(payload.size());
+
+        const auto path = arguments.value("output_path", std::string());
+        if (path.empty())
+        {
+            return ResultBuilder("The workbook carries a VBA project of " + std::to_string(payload.size()) +
+                                 " bytes.")
+                .WithData(std::move(data))
+                .Build();
+        }
+
+        ToolOutcome failure;
+        const auto resolved =
+            ToolSupport::ResolveOutputPath(context, path, arguments.value("overwrite", false), failure);
+        if (!resolved.has_value())
+        {
+            return failure;
+        }
+
+        std::ofstream stream(*resolved, std::ios::binary | std::ios::trunc);
+        if (!stream)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The file could not be written.", path);
+        }
+
+        stream.write(reinterpret_cast<const char*>(payload.data()), static_cast<std::streamsize>(payload.size()));
+        if (!stream)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The file could not be written.", path);
+        }
+
+        data["path"] = context.GetWorkspace().Relativize(*resolved);
+
+        return ResultBuilder("Wrote the VBA project to " + path + ".").WithData(std::move(data)).Build();
+    }
+
+    static void RegisterSetVbaProject(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["source_path"] = Schema::String("Workspace file holding the vbaProject.bin to embed.");
+
+        auto definition = MakeDefinition(
+            "set_vba_project", "Set VBA project",
+            "Embed or replace the workbook's VBA project from a workspace file, which makes the workbook "
+            "macro-enabled. The bytes are stored exactly as given: nothing here parses, rewrites or runs them, "
+            "and saving under an .xlsx name produces a macro-enabled package a reader will question.",
+            "vba");
+        definition.InputSchema =
+            Schema::Object("Arguments of set_vba_project.", {"documentId", "source_path"},
+                           std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Embedded project.", {"bytes"},
+                           nlohmann::json{{"bytes", Schema::Integer("Size of the embedded payload.")},
+                                          {"macroEnabled", Schema::Boolean("The package is now macro-enabled.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"source_path", "macros.bin"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetVbaProject(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome SetVbaProject(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto path = arguments.value("source_path", std::string());
+        ToolOutcome failure;
+        const auto resolved = ToolSupport::ResolveExistingFile(context, path, failure);
+        if (!resolved.has_value())
+        {
+            return failure;
+        }
+
+        std::ifstream stream(*resolved, std::ios::binary);
+        if (!stream)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The file could not be read.", path);
+        }
+
+        const std::vector<Byte> payload((std::istreambuf_iterator<char>(stream)),
+                                        std::istreambuf_iterator<char>());
+        if (payload.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "The file is empty.", path,
+                             "A VBA project is the vbaProject.bin taken out of a macro-enabled workbook.");
+        }
+
+        const auto document = session.Editor().GetDocument();
+        if (document == nullptr)
+        {
+            return MakeError(ErrorCode::InternalError, "The workbook has no package.", session.Session().Id());
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!document->SetVbaProjectData(payload))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The VBA project could not be embedded.", path);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["bytes"] = static_cast<UInt64>(payload.size());
+        data["macroEnabled"] = document->HasVbaProject();
+
+        return ResultBuilder("Embedded a VBA project of " + std::to_string(payload.size()) + " bytes.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterRemoveVbaProject(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+
+        auto definition = MakeDefinition(
+            "remove_vba_project", "Remove VBA project",
+            "Remove the workbook's VBA project and turn the package back into its macro-free counterpart.",
+            "vba");
+        definition.InputSchema =
+            Schema::Object("Arguments of remove_vba_project.", {"documentId"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Removal.", {"removed"},
+                           nlohmann::json{{"removed", Schema::Boolean("A project was there and is gone.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.Destructive = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return RemoveVbaProject(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome RemoveVbaProject(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto document = session.Editor().GetDocument();
+        if (document == nullptr)
+        {
+            return MakeError(ErrorCode::InternalError, "The workbook has no package.", session.Session().Id());
+        }
+
+        if (!document->HasVbaProject())
+        {
+            return MakeError(ErrorCode::MediaNotFound, "The workbook carries no VBA project.",
+                             session.Session().Id());
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!document->RemoveVbaProject())
+        {
+            return MakeError(ErrorCode::OperationFailed, "The VBA project could not be removed.",
+                             session.Session().Id());
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["removed"] = true;
+
+        return ResultBuilder("Removed the VBA project.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterListTables(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        properties["sheet"] = SheetReferenceProperty(
+            "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.");
+
+        nlohmann::json column =
+            Schema::Object("One table column.", {"name"},
+                           nlohmann::json{{"name", Schema::String("Column name.")},
+                                          {"id", Schema::Integer("Stable column identifier.")},
+                                          {"totalsLabel", Schema::String("Label shown in the totals row.")}});
+
+        nlohmann::json filter = Schema::Object(
+            "One column filter.", {"column", "values"},
+            nlohmann::json{{"column", Schema::String("Filtered column.")},
+                           {"columnIndex", Schema::Integer("1-based column position.")},
+                           {"values", Schema::Array("Values kept visible.", Schema::String("One value."))},
+                           {"includeBlank", Schema::Boolean("Blank cells are kept too.")}});
+
+        nlohmann::json table = Schema::Object(
+            "One table.", {"name", "sheet", "range"},
+            nlohmann::json{{"name", Schema::String("Table name.")},
+                           {"sheet", Schema::String("Worksheet that holds it.")},
+                           {"range", Schema::String("A1 range, header and totals rows included.")},
+                           {"autoFilter", Schema::Boolean("The table carries filter buttons.")},
+                           {"totalsRow", Schema::Boolean("The totals row is visible.")},
+                           {"columns", Schema::Array("Columns in worksheet order.", std::move(column))},
+                           {"filters", Schema::Array("Active column filters.", std::move(filter))}});
+
+        auto definition = MakeDefinition("list_tables", "List tables",
+                                         "List the structured tables of the workbook with their columns and the "
+                                         "filters currently applied to them.",
+                                         "analysis");
+        definition.InputSchema = Schema::Object("Arguments of list_tables.", {}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Tables.", {"tables"},
+                                            nlohmann::json{{"tables", Schema::Array("Tables.", std::move(table))}}),
+                             false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListTables(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListTables(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        std::string only;
+        if (arguments.contains("sheet"))
+        {
+            ToolOutcome failure;
+            auto sheet = ExcelAddressing::FindSheet(reader.Editor(), arguments, failure);
+            if (sheet == nullptr)
+            {
+                return failure;
+            }
+
+            only = sheet->Name();
+        }
+
+        nlohmann::json tables = nlohmann::json::array();
+        for (const auto& sheet : reader.Editor().Worksheets())
+        {
+            if (sheet == nullptr || (!only.empty() && sheet->Name() != only))
+            {
+                continue;
+            }
+
+            for (const auto& table : sheet->Tables())
+            {
+                if (table != nullptr)
+                {
+                    tables.push_back(DescribeTable(table, sheet->Name()));
+                }
+            }
+        }
+
+        const auto count = tables.size();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["tables"] = std::move(tables);
+
+        return ResultBuilder("Listed " + std::to_string(count) + " table(s).").WithData(std::move(data)).Build();
+    }
+
+    static void RegisterUpdateTable(ToolRegistry& registry)
+    {
+        nlohmann::json filter = Schema::Object(
+            "One column filter.", {"column"},
+            nlohmann::json{
+                {"column", SheetReferenceProperty("Column name (case-insensitive) or 1-based position.")},
+                {"values", Schema::Array("Values to keep visible; the others are hidden.",
+                                         Schema::String("One value, as it is written in the cell."))},
+                {"include_blank", Schema::BooleanWithDefault("Keep blank cells visible as well.", false)},
+                {"clear", Schema::BooleanWithDefault("Drop this column's filter instead of setting one.", false)}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetReferenceProperty(
+            "Worksheet holding the table, by name or 1-based index; omit to search the whole workbook.");
+        properties["table"] = Schema::String("Name of the table to update, matched case-insensitively.");
+        properties["name"] = Schema::String("New table name.");
+        properties["auto_filter"] = Schema::Boolean("Show or hide the column filter buttons.");
+        properties["totals_row"] = Schema::Boolean("Show or hide the totals row; showing it needs two data rows.");
+        properties["filters"] = Schema::Array("Column filters to set or drop.", std::move(filter));
+        properties["clear_filters"] = Schema::BooleanWithDefault("Drop every column filter first.", false);
+
+        auto definition = MakeDefinition(
+            "update_table", "Update table",
+            "Rename a table, show or hide its filter buttons and totals row, and set which values each column "
+            "keeps visible. Rows the filters exclude are hidden, not deleted; clearing the filters brings them "
+            "back.",
+            "analysis");
+        definition.InputSchema =
+            Schema::Object("Arguments of update_table.", {"documentId", "table"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Updated table.", {"name", "sheet"},
+                                            nlohmann::json{
+                                                {"name", Schema::String("Table name.")},
+                                                {"sheet", Schema::String("Worksheet that holds it.")},
+                                                {"range", Schema::String("A1 range of the table.")},
+                                                {"autoFilter", Schema::Boolean("Filter buttons are shown.")},
+                                                {"totalsRow", Schema::Boolean("The totals row is shown.")},
+                                                {"filterCount", Schema::Integer("Column filters now in force.")}}),
+                             true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"},
+                           {"table", "Sales"},
+                           {"filters", nlohmann::json::array({nlohmann::json{
+                                           {"column", "Region"},
+                                           {"values", nlohmann::json::array({"North", "South"})}}})}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return UpdateTable(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome UpdateTable(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        std::string only;
+        if (arguments.contains("sheet"))
+        {
+            ToolOutcome failure;
+            auto hosting = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+            if (hosting == nullptr)
+            {
+                return failure;
+            }
+
+            only = hosting->Name();
+        }
+
+        const auto tableName = arguments.value("table", std::string());
+        std::string sheetName;
+        auto table = FindTable(session.Editor(), tableName, only, sheetName);
+        if (table == nullptr)
+        {
+            return MakeError(ErrorCode::MediaNotFound, "No table named '" + tableName + "'.", tableName,
+                             "Call list_tables to see the tables the workbook holds.");
+        }
+
+        auto sheet = session.Editor().GetWorksheet(sheetName);
+        const auto columns = table->Columns();
+
+        // Every filter is resolved against the table before anything is
+        // written, so one naming a column that does not exist leaves the table
+        // exactly as it was rather than half updated.
+        struct PendingFilter
+        {
+            UInt32 Index = 0;
+            bool Clear = false;
+            Excel::ExcelTableValueFilter Filter;
+        };
+
+        std::vector<PendingFilter> pending;
+        const auto filters = arguments.find("filters");
+        if (filters != arguments.end())
+        {
+            for (const auto& entry : *filters)
+            {
+                const auto& column = entry.at("column");
+                std::optional<UInt32> index;
+                if (column.is_number_integer())
+                {
+                    const auto position = column.get<Int64>();
+                    if (position >= 1 && static_cast<Size>(position) <= columns.size())
+                    {
+                        index = static_cast<UInt32>(position - 1);
+                    }
+                }
+                else
+                {
+                    const auto wanted = column.get<std::string>();
+                    for (Size candidate = 0; candidate < columns.size(); ++candidate)
+                    {
+                        if (AsciiText::EqualsIgnoreCase(columns[candidate].Name, wanted))
+                        {
+                            index = static_cast<UInt32>(candidate);
+                            break;
+                        }
+                    }
+                }
+
+                if (!index.has_value())
+                {
+                    return MakeError(ErrorCode::InputInvalid, "The table has no column " + column.dump() + ".",
+                                     tableName, "Name a column of the table, or give its 1-based position.");
+                }
+
+                PendingFilter item;
+                item.Index = *index;
+                item.Clear = entry.value("clear", false);
+                item.Filter.ColumnIndex = *index;
+                item.Filter.IncludeBlank = entry.value("include_blank", false);
+                const auto values = entry.find("values");
+                if (values != entry.end())
+                {
+                    for (const auto& value : *values)
+                    {
+                        item.Filter.Values.push_back(value.get<std::string>());
+                    }
+                }
+
+                if (!item.Clear && item.Filter.Values.empty() && !item.Filter.IncludeBlank)
+                {
+                    return MakeError(ErrorCode::InputInvalid, "A filter needs values, include_blank, or clear.",
+                                     columns[*index].Name,
+                                     "An empty filter would hide every row; pass clear to drop the filter "
+                                     "instead.");
+                }
+
+                pending.push_back(std::move(item));
+            }
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (arguments.contains("name"))
+        {
+            const auto newName = arguments.value("name", std::string());
+            if (sheet == nullptr || !sheet->RenameTable(table, newName))
+            {
+                return MakeError(ErrorCode::OperationFailed, "The table could not be renamed to '" + newName + "'.",
+                                 newName,
+                                 "A table name is unique in the workbook, starts with a letter or an underscore, "
+                                 "and carries no spaces.");
+            }
+        }
+
+        if (arguments.contains("auto_filter") && !table->SetAutoFilterEnabled(arguments.value("auto_filter", true)))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The filter buttons could not be changed.", tableName);
+        }
+
+        if (arguments.value("clear_filters", false) && !table->ClearValueFilters())
+        {
+            return MakeError(ErrorCode::OperationFailed, "The column filters could not be cleared.", tableName);
+        }
+
+        for (const auto& item : pending)
+        {
+            if (item.Clear)
+            {
+                table->RemoveValueFilter(item.Index);
+                continue;
+            }
+
+            if (!table->SetValueFilter(item.Filter))
+            {
+                return MakeError(ErrorCode::OperationFailed,
+                                 "The filter for column " + std::to_string(item.Index + 1) + " could not be set.",
+                                 tableName,
+                                 "Values have to be distinct, and the table needs its filter buttons shown.");
+            }
+        }
+
+        if (arguments.contains("totals_row") && !table->SetTotalsRowShown(arguments.value("totals_row", false)))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The totals row could not be changed.", tableName,
+                             "Showing a totals row needs a table with at least two rows.");
+        }
+
+        ApplyTableFilters(sheet, table, session.Editor().SharedStrings());
+
+        guard.Commit();
+
+        const auto range = table->Range();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = table->Name();
+        data["sheet"] = sheetName;
+        data["range"] = range.has_value() ? range->ToA1() : std::string();
+        data["autoFilter"] = table->AutoFilterEnabled();
+        data["totalsRow"] = table->TotalsRowShown();
+        data["filterCount"] = table->ValueFilters().size();
+
+        return ResultBuilder("Updated table '" + table->Name() + "'.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
     static void RegisterAddTable(ToolRegistry& registry)
     {
         nlohmann::json properties = nlohmann::json::object();
@@ -2243,7 +4341,11 @@ private:
         properties["range"] = Schema::String("A1 range covered by the table, including the header row.");
         properties["name"] = Schema::String("Table name; generated when omitted.");
         properties["header_row"] =
-            Schema::BooleanWithDefault("Take the column names from the first row of the range.", true);
+            Schema::BooleanWithDefault(
+                "Take the column names from the first row of the range. The first row is the table's header row "
+                "either way: an empty header cell, or every header cell when this is false, is given a generated "
+                "name such as Column1, and the result warns when that overwrote a value.",
+                true);
 
         auto definition = MakeDefinition("add_table", "Add table",
                                          "Turn a range into a structured table (list object) with named columns.",
@@ -2282,6 +4384,19 @@ private:
         if (!range.has_value())
         {
             return failure;
+        }
+
+        // Excel keeps merged cells out of tables: it refuses to make one over
+        // them and will not open a workbook that has one.
+        for (const auto& merged : sheet->MergedRanges())
+        {
+            if (RangesIntersect(merged, *range))
+            {
+                return MakeError(ErrorCode::InputInvalid,
+                                 "The range " + range->ToA1() + " contains the merged cells " + merged.ToA1() +
+                                     ", and a table cannot hold merged cells.",
+                                 merged.ToA1(), "Unmerge them first with merge_cells and unmerge set to true.");
+            }
         }
 
         auto name = arguments.value("name", std::string());
@@ -2329,6 +4444,25 @@ private:
             ++columnId;
         }
 
+        // The library writes each column name into its header cell, because
+        // Excel refuses a table whose header cells disagree with its columns.
+        // A header cell that held something else is worth telling the caller.
+        std::vector<std::string> overwritten;
+        for (Size index = 0; index < columns.size(); ++index)
+        {
+            const auto address = Excel::CellAddress::TryCreate(
+                range->First().Row().Value(), range->First().Column().Value() + static_cast<UInt32>(index));
+            const auto stored = address.has_value() ? sheet->GetCellValue(*address) : std::nullopt;
+            if (stored.has_value())
+            {
+                const auto text = ExcelAddressing::CellValueToText(*stored, sharedStrings);
+                if (!text.empty() && text != columns[index].Name)
+                {
+                    overwritten.push_back(address->ToA1());
+                }
+            }
+        }
+
         MutationGuard guard(session.Session());
 
         auto table = sheet->CreateTable(name, *range, columns);
@@ -2345,10 +4479,21 @@ private:
         data["range"] = range->ToA1();
         data["columns"] = std::move(columnNames);
 
-        return ResultBuilder("Created table '" + table->Name() + "' over " + range->ToA1() + ".")
-            .WithSession(session.Session())
-            .WithData(std::move(data))
-            .Build();
+        ResultBuilder builder("Created table '" + table->Name() + "' over " + range->ToA1() + ".");
+        builder.WithSession(session.Session()).WithData(std::move(data));
+        if (!overwritten.empty())
+        {
+            std::string cells;
+            for (const auto& cell : overwritten)
+            {
+                cells += (cells.empty() ? "" : ", ") + cell;
+            }
+            builder.WithWarning("table_header_rewritten",
+                                "The header row now holds the column names, replacing the values in " + cells + ".",
+                                range->ToA1());
+        }
+
+        return builder.Build();
     }
 
     static void RegisterAddNamedRange(ToolRegistry& registry)
@@ -2683,37 +4828,55 @@ private:
                 {"type", Schema::Enumeration("Rule kind.",
                                              {"cellIs", "expression", "containsText", "notContainsText",
                                               "beginsWith", "endsWith", "uniqueValues", "duplicateValues",
-                                              "containsBlanks", "notContainsBlanks"})},
+                                              "containsBlanks", "notContainsBlanks", "containsErrors",
+                                              "notContainsErrors", "top", "bottom", "aboveAverage",
+                                              "belowAverage"})},
                 {"operator", Schema::Enumeration("Comparison for cellIs rules.",
                                                  {"lessThan", "lessThanOrEqual", "equal", "notEqual",
                                                   "greaterThanOrEqual", "greaterThan", "between", "notBetween"})},
                 {"formula1", Schema::String("First formula or bound.")},
                 {"formula2", Schema::String("Second bound for between and notBetween.")},
                 {"text", Schema::String("Text for the text-matching rules.")},
+                {"rank", Schema::IntegerWithDefault("How many items a top or bottom rule selects.", 10, 1, 1000)},
+                {"percent", Schema::BooleanWithDefault(
+                                "Read 'rank' as a percentage of the range rather than a count of items.", false)},
+                {"equal_average",
+                 Schema::BooleanWithDefault("Include values equal to the average in an average rule.", false)},
+                {"standard_deviation",
+                 Schema::Integer("Shift an average rule's boundary by this many standard deviations.", 0, 3)},
                 {"stop_if_true", Schema::Boolean("Stop evaluating further rules when this one matches.")}});
 
         nlohmann::json properties = nlohmann::json::object();
         ToolSupport::AddDocumentIdProperty(properties);
         properties["sheet"] = SheetProperty();
-        properties["range"] = Schema::String("A1 range the rule applies to.");
+        properties["range"] = RangeListProperty();
         properties["rule"] = std::move(rule);
+        properties["format"] = Schema::Object(
+            "Appearance painted over the cells the rule matches. Only the members you pass take part; every "
+            "other aspect of a matching cell keeps the look it already had.",
+            {}, StyleProperties());
 
         auto definition = MakeDefinition(
             "add_conditional_formatting", "Add conditional formatting",
-            "Add a conditional formatting rule to a range. Color scales and data bars are not offered in this "
-            "version; use a cellIs or expression rule instead.",
+            "Add a conditional formatting rule to one or several ranges. The rule decides which cells match and "
+            "'format' decides what they then look like; a rule without a format matches cells and changes "
+            "nothing about them. Color scales, data bars and icon sets are not offered by this version.",
             "analysis");
         definition.InputSchema = Schema::Object("Arguments of add_conditional_formatting.",
                                                 {"documentId", "range", "rule"}, std::move(properties));
-        definition.OutputSchema =
-            Schema::Envelope(Schema::Object("New rule.", {"range"},
-                                            nlohmann::json{{"range", Schema::String("A1 range.")},
-                                                           {"type", Schema::String("Rule kind applied.")}}),
-                             true);
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New rule.", {"range"},
+                           nlohmann::json{{"range", Schema::String("A1 range.")},
+                                          {"type", Schema::String("Rule kind applied.")},
+                                          {"differentialFormatId",
+                                           Schema::Integer("Workbook differential format the rule paints with; "
+                                                           "absent when the rule carries no appearance.")}}),
+            true);
         definition.Example = nlohmann::json{
             {"documentId", "doc-1"},
             {"range", "B2:B20"},
-            {"rule", nlohmann::json{{"type", "cellIs"}, {"operator", "greaterThan"}, {"formula1", "100"}}}};
+            {"rule", nlohmann::json{{"type", "cellIs"}, {"operator", "greaterThan"}, {"formula1", "100"}}},
+            {"format", nlohmann::json{{"fill", nlohmann::json{{"color", "#FFC7CE"}}}}}};
         definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
         { return AddConditionalFormatting(context, arguments); };
         registry.Add(std::move(definition));
@@ -2779,15 +4942,49 @@ private:
             return failure;
         }
 
-        const auto range = ExcelAddressing::ParseRange(arguments.value("range", std::string()), failure);
-        if (!range.has_value())
+        std::vector<std::string> rangeTokens;
+        const auto& rangeArgument = arguments.at("range");
+        if (rangeArgument.is_array())
         {
-            return failure;
+            for (const auto& entry : rangeArgument)
+            {
+                if (!entry.is_string())
+                {
+                    return MakeError(ErrorCode::InputInvalid, "Every entry of 'range' has to be an A1 range.",
+                                     entry.dump());
+                }
+                rangeTokens.push_back(entry.get<std::string>());
+            }
+        }
+        else
+        {
+            rangeTokens.push_back(rangeArgument.get<std::string>());
+        }
+
+        if (rangeTokens.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A rule needs at least one range.", "range");
+        }
+
+        std::vector<Excel::CellRange> ranges;
+        std::string rangeText;
+        for (const auto& token : rangeTokens)
+        {
+            const auto parsed = ExcelAddressing::ParseRange(token, failure);
+            if (!parsed.has_value())
+            {
+                return failure;
+            }
+            ranges.push_back(*parsed);
+            if (!rangeText.empty())
+            {
+                rangeText.push_back(' ');
+            }
+            rangeText.append(parsed->ToA1());
         }
 
         const auto& rule = arguments.at("rule");
         const auto type = rule.value("type", std::string());
-        const std::vector<Excel::CellRange> ranges{*range};
         const auto formula1 = rule.value("formula1", std::string());
         const auto formula2 = rule.value("formula2", std::string());
         const auto text = rule.value("text", std::string());
@@ -2850,29 +5047,96 @@ private:
         {
             definition = Excel::ExcelConditionalFormattingDefinition::NotContainsBlanks(ranges);
         }
+        else if (type == "containsErrors")
+        {
+            definition = Excel::ExcelConditionalFormattingDefinition::ContainsErrors(ranges);
+        }
+        else if (type == "notContainsErrors")
+        {
+            definition = Excel::ExcelConditionalFormattingDefinition::NotContainsErrors(ranges);
+        }
+        else if (type == "top" || type == "bottom")
+        {
+            // The schema bounds the rank, so a value outside it never arrives;
+            // the fallback only has to match the published default.
+            const auto rank = static_cast<UInt32>(rule.value("rank", 10));
+            const auto percent = rule.value("percent", false);
+            definition = type == "top" ? Excel::ExcelConditionalFormattingDefinition::Top(ranges, rank, percent)
+                                       : Excel::ExcelConditionalFormattingDefinition::Bottom(ranges, rank, percent);
+        }
+        else if (type == "aboveAverage" || type == "belowAverage")
+        {
+            const auto equalAverage = rule.value("equal_average", false);
+            std::optional<Int32> deviation;
+            if (rule.contains("standard_deviation"))
+            {
+                deviation = static_cast<Int32>(rule.value("standard_deviation", 0));
+            }
+            definition = type == "aboveAverage"
+                             ? Excel::ExcelConditionalFormattingDefinition::AboveAverage(ranges, equalAverage,
+                                                                                        deviation)
+                             : Excel::ExcelConditionalFormattingDefinition::BelowAverage(ranges, equalAverage,
+                                                                                         deviation);
+        }
         else
         {
             return MakeError(ErrorCode::Unsupported, "The rule kind '" + type + "' is not offered by this server.",
-                             type, "Use cellIs or expression, or set the formatting with format_range.");
+                             type,
+                             "Color scales, data bars and icon sets are not written by this version; use cellIs "
+                             "or expression and pass the appearance in 'format'.");
         }
 
         definition->StopIfTrue = rule.value("stop_if_true", false);
 
+        if (!Excel::IsValidExcelConditionalFormatting(*definition))
+        {
+            return MakeError(ErrorCode::InputInvalid, "The rule is incomplete for its kind.", type,
+                             "A cellIs rule needs one formula, or two for between and notBetween; a text rule "
+                             "needs 'text'; the remaining kinds take neither.");
+        }
+
         MutationGuard guard(session.Session());
+
+        // The appearance is registered as a workbook differential format and
+        // the rule refers to it by index; that reference is the whole of what
+        // a matching cell ends up looking like.
+        const auto format = arguments.find("format");
+        if (format != arguments.end() && format->is_object())
+        {
+            Excel::ExcelStyle appearance;
+            if (!ReadStyleArguments(*format, appearance, failure))
+            {
+                return failure;
+            }
+
+            auto styles = session.Editor().Styles();
+            const auto registration = styles.GetOrAddDifferentialFormat(appearance);
+            if (!registration.Succeeded())
+            {
+                return MakeError(ErrorCode::InputInvalid, registration.Status.Message, "format",
+                                 "Pass at least one of number_format, font, fill, border or alignment.");
+            }
+
+            definition->DifferentialFormatId = registration.StyleIndex;
+        }
 
         if (sheet->CreateConditionalFormatting(*definition) == nullptr)
         {
             return MakeError(ErrorCode::OperationFailed, "The conditional formatting could not be created.",
-                             range->ToA1());
+                             rangeText);
         }
 
         guard.Commit();
 
         nlohmann::json data = nlohmann::json::object();
-        data["range"] = range->ToA1();
+        data["range"] = rangeText;
         data["type"] = type;
+        if (definition->DifferentialFormatId.has_value())
+        {
+            data["differentialFormatId"] = *definition->DifferentialFormatId;
+        }
 
-        return ResultBuilder("Added a '" + type + "' rule to " + range->ToA1() + ".")
+        return ResultBuilder("Added a '" + type + "' rule to " + rangeText + ".")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();
@@ -2883,38 +5147,60 @@ private:
         nlohmann::json properties = nlohmann::json::object();
         ToolSupport::AddDocumentIdProperty(properties);
         properties["sheet"] = SheetProperty();
-        properties["type"] = Schema::Enumeration("Chart type.", {"bar", "column", "line", "pie", "scatter", "area"});
+        properties["type"] = Schema::Enumeration("Chart type.", ToolSupport::ChartTypeTokens());
         properties["data_range"] = Schema::String(
-            "A1 range holding the series values. A range spanning several columns becomes one series per column; "
-            "see series_in.");
+            "A1 range holding the series values, optionally on another worksheet (Data!B2:D10, or 'My Data'!B2:D10 "
+            "for a name with spaces); unqualified, it is read from the chart's own sheet. A range spanning several "
+            "columns becomes one series per column; see series_in.");
         properties["series_in"] = Schema::EnumerationWithDefault(
             "Whether each column or each row of data_range is one series.", {"columns", "rows"}, "columns");
         properties["series_names"] =
             Schema::Array("Series names in data order; generated names are used for the rest.",
                           Schema::String("One series name."));
-        properties["categories_range"] = Schema::String(
-            "A1 range holding the category labels, shared by every series; the X values of a scatter chart.");
+        properties["series_options"] = Schema::Array(
+            "How each series is drawn, in data order; series beyond the list keep the chart's type on the primary "
+            "axis. Giving a series another type makes a combination chart, such as columns with a line over them.",
+            Schema::Object(
+                "Drawing of one series.", {},
+                nlohmann::json{
+                    {"type", Schema::Enumeration("Type this series is drawn as. Column, line and area combine with "
+                                                 "each other; bar, scatter, bubble and pie only with their own kind.",
+                                                 ToolSupport::ChartTypeTokens())},
+                    {"secondary_axis",
+                     Schema::BooleanWithDefault("Plot the series against a secondary value axis on the opposite "
+                                                "side, for values on a different scale. At least one series has "
+                                                "to stay on the primary axis.",
+                                                false)}}));
+        properties["categories_range"] =
+            Schema::String("A1 range holding the category labels, shared by every series; the X values of a scatter "
+                           "or bubble chart. Must be on the same worksheet as data_range.");
+        properties["sizes_range"] =
+            Schema::String("Bubble sizes, shaped like data_range and on the same worksheet. Required for a bubble "
+                           "chart and refused for any other.");
         properties["anchor_cell"] = Schema::String("A1 cell the chart's top-left corner sits on.");
         properties["width"] = Schema::Length("Chart width; defaults to about 15 cm.");
         properties["height"] = Schema::Length("Chart height; defaults to about 8 cm.");
         properties["title"] = Schema::String("Chart title.");
+        ToolSupport::AddChartAppearanceProperties(properties);
 
-        auto definition = MakeDefinition("add_chart", "Add chart",
-                                         "Add a chart driven by a range of values and optional category labels. A "
-                                         "multi-column data range plots one series per column, or per row when "
-                                         "series_in is \"rows\". A pie chart plots one series and warns when the "
-                                         "range holds more. This version offers the basic chart types only.",
-                                         "analysis");
+        auto definition = MakeDefinition(
+            "add_chart", "Add chart",
+            "Add a chart driven by a range of values and optional category labels, from this worksheet or another. "
+            "A multi-column data range plots one series per column, or per row when series_in is \"rows\"; "
+            "series_options draws a series as another type or against a secondary axis. A pie chart plots one "
+            "series and warns when the range holds more.",
+            "analysis");
         definition.InputSchema = Schema::Object("Arguments of add_chart.",
                                                 {"documentId", "type", "data_range", "anchor_cell"},
                                                 std::move(properties));
-        definition.OutputSchema =
-            Schema::Envelope(Schema::Object("New chart.", {"chartId"},
-                                            nlohmann::json{{"chartId", Schema::Integer("Chart identifier.")},
-                                                           {"anchor", Schema::String("A1 anchor cell.")},
-                                                           {"seriesCount", Schema::Integer("Series the chart "
-                                                                                           "plots.")}}),
-                             true);
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object(
+                "New chart.", {"chartId"},
+                nlohmann::json{{"chartId", Schema::Integer("Chart identifier.")},
+                               {"anchor", Schema::String("A1 anchor cell.")},
+                               {"seriesCount", Schema::Integer("Series the chart plots.")},
+                               {"sourceSheet", Schema::String("Worksheet the series are read from.")}}),
+            true);
         definition.Example = nlohmann::json{{"documentId", "doc-1"},
                                             {"type", "column"},
                                             {"data_range", "B2:B10"},
@@ -2951,7 +5237,68 @@ private:
             return Excel::ExcelChartType::Area;
         }
 
+        if (token == "bubble")
+        {
+            return Excel::ExcelChartType::Bubble;
+        }
+
         return Excel::ExcelChartType::Column;
+    }
+
+    static Excel::ExcelLegendPosition ParseLegendPosition(const std::string& token)
+    {
+        if (token == "left")
+        {
+            return Excel::ExcelLegendPosition::Left;
+        }
+
+        if (token == "top")
+        {
+            return Excel::ExcelLegendPosition::Top;
+        }
+
+        if (token == "bottom")
+        {
+            return Excel::ExcelLegendPosition::Bottom;
+        }
+
+        return token == "none" ? Excel::ExcelLegendPosition::None : Excel::ExcelLegendPosition::Right;
+    }
+
+    /**
+     * @brief Parses a chart source range that may name its worksheet.
+     *
+     * A chart often sits on a summary sheet and plots data kept elsewhere, so
+     * the range carries the worksheet rather than the chart. @p sheetName is
+     * the resolved worksheet's own name, or empty for an unqualified range,
+     * which is read from the chart's sheet.
+     */
+    static std::optional<Excel::CellRange> ParseChartRange(Excel::ExcelDocumentEditor& editor,
+                                                           const std::string& text, std::string& sheetName,
+                                                           ToolOutcome& failure)
+    {
+        sheetName.clear();
+        if (text.find('!') == std::string::npos)
+        {
+            return ExcelAddressing::ParseRange(text, failure);
+        }
+
+        const auto qualified = Excel::SheetCellRange::Parse(text);
+        if (!qualified.has_value() || !qualified->Range().IsValid())
+        {
+            failure = MakeError(ErrorCode::RangeInvalid, "'" + text + "' is not a valid sheet-qualified A1 range.",
+                                text, "Write it as Data!B2:B10, quoting a name with spaces: 'My Data'!B2:B10.");
+            return std::nullopt;
+        }
+
+        const auto sheet = ExcelAddressing::FindSheet(editor, nlohmann::json{{"sheet", qualified->Sheet()}}, failure);
+        if (sheet == nullptr)
+        {
+            return std::nullopt;
+        }
+
+        sheetName = sheet->Name();
+        return qualified->Range();
     }
 
     /**
@@ -3001,11 +5348,17 @@ private:
     /// of columns and rows at the default column width and row height.
     static Excel::CellAddress ChartAnchorEnd(Excel::CellAddress from, const nlohmann::json& arguments)
     {
+        return AnchorEnd(from, arguments, 425.0, 227.0);
+    }
+
+    static Excel::CellAddress AnchorEnd(Excel::CellAddress from, const nlohmann::json& arguments,
+                                        Real defaultWidthPt, Real defaultHeightPt)
+    {
         constexpr Real DefaultColumnWidthPt = 48.0;
         constexpr Real DefaultRowHeightPt = 15.0;
 
-        Real widthPt = 425.0;
-        Real heightPt = 227.0;
+        Real widthPt = defaultWidthPt;
+        Real heightPt = defaultHeightPt;
         const auto width = arguments.find("width");
         if (width != arguments.end())
         {
@@ -3048,7 +5401,9 @@ private:
             return failure;
         }
 
-        const auto dataRange = ExcelAddressing::ParseRange(arguments.value("data_range", std::string()), failure);
+        std::string dataSheet;
+        const auto dataRange =
+            ParseChartRange(session.Editor(), arguments.value("data_range", std::string()), dataSheet, failure);
         if (!dataRange.has_value())
         {
             return failure;
@@ -3060,21 +5415,69 @@ private:
             return failure;
         }
 
+        const auto type = arguments.value("type", std::string("column"));
+        const auto legend = arguments.value("legend", std::string("right"));
         Excel::ExcelChartDefinition chart;
-        chart.Type = ParseChartType(arguments.value("type", std::string("column")));
+        chart.Type = ParseChartType(type);
         chart.Title = arguments.value("title", std::string());
+        chart.CategoryAxisTitle = arguments.value("category_axis_title", std::string());
+        chart.ValueAxisTitle = arguments.value("value_axis_title", std::string());
+        chart.SecondaryValueAxisTitle = arguments.value("secondary_axis_title", std::string());
+        chart.ShowLegend = legend != "none";
+        chart.LegendPosition = ParseLegendPosition(legend);
+        chart.ShowGridLines = arguments.value("gridlines", true);
         chart.From = *anchor;
         chart.To = ChartAnchorEnd(*anchor, arguments);
 
-        std::optional<Excel::CellRange> categoryRange;
-        const auto categories = arguments.value("categories_range", std::string());
-        if (!categories.empty())
+        // A series names one worksheet for all of its ranges, so the labels and
+        // sizes have to come from the sheet the values come from.
+        const std::string source = dataSheet.empty() ? sheet->Name() : dataSheet;
+        const auto readCompanionRange = [&](const std::string& member, std::optional<Excel::CellRange>& range)
         {
-            categoryRange = ExcelAddressing::ParseRange(categories, failure);
-            if (!categoryRange.has_value())
+            const auto text = arguments.value(member, std::string());
+            if (text.empty())
             {
-                return failure;
+                return true;
             }
+
+            std::string rangeSheet;
+            range = ParseChartRange(session.Editor(), text, rangeSheet, failure);
+            if (!range.has_value())
+            {
+                return false;
+            }
+
+            if ((rangeSheet.empty() ? sheet->Name() : rangeSheet) != source)
+            {
+                failure = MakeError(ErrorCode::InputInvalid,
+                                    "'" + member + "' is on a different worksheet from data_range, which reads from '" +
+                                        source + "'.",
+                                    text, "Qualify both ranges with the same worksheet name.");
+                return false;
+            }
+
+            return true;
+        };
+
+        std::optional<Excel::CellRange> categoryRange;
+        if (!readCompanionRange("categories_range", categoryRange))
+        {
+            return failure;
+        }
+
+        std::optional<Excel::CellRange> sizesRange;
+        if (!readCompanionRange("sizes_range", sizesRange))
+        {
+            return failure;
+        }
+
+        const bool bubble = chart.Type == Excel::ExcelChartType::Bubble;
+        if (bubble != sizesRange.has_value())
+        {
+            return bubble ? MakeError(ErrorCode::InputInvalid, "A bubble chart needs 'sizes_range'.", "sizes_range",
+                                      "Pass a range shaped like data_range holding the size of each bubble.")
+                          : MakeError(ErrorCode::InputInvalid, "'sizes_range' applies only to a bubble chart.",
+                                      "sizes_range", "Remove sizes_range, or set type to \"bubble\".");
         }
 
         const bool byColumns = arguments.value("series_in", std::string("columns")) != "rows";
@@ -3082,6 +5485,40 @@ private:
         if (seriesRanges.empty())
         {
             seriesRanges.push_back(*dataRange);
+        }
+
+        std::vector<Excel::CellRange> sizeRanges;
+        if (sizesRange.has_value())
+        {
+            sizeRanges = SplitSeriesRanges(*sizesRange, byColumns);
+            if (sizeRanges.size() != seriesRanges.size())
+            {
+                return MakeError(ErrorCode::InputInvalid,
+                                 "'sizes_range' holds " + std::to_string(sizeRanges.size()) +
+                                     " series of sizes, but data_range holds " + std::to_string(seriesRanges.size()) +
+                                     " series of values.",
+                                 sizesRange->ToA1(), "Give sizes_range the same shape as data_range.");
+            }
+        }
+
+        std::vector<ToolSupport::ChartSeriesPlan> plans(seriesRanges.size());
+        const auto options = arguments.find("series_options");
+        if (options != arguments.end())
+        {
+            if (options->size() > seriesRanges.size())
+            {
+                return MakeError(ErrorCode::InputInvalid,
+                                 "'series_options' has " + std::to_string(options->size()) +
+                                     " entries, but data_range holds " + std::to_string(seriesRanges.size()) +
+                                     " series.",
+                                 "series_options", "Give at most one entry per series, in data order.");
+            }
+
+            for (Size index = 0; index < options->size(); ++index)
+            {
+                plans[index].Type = (*options)[index].value("type", std::string());
+                plans[index].SecondaryAxis = (*options)[index].value("secondary_axis", false);
+            }
         }
 
         std::string warning;
@@ -3092,6 +5529,14 @@ private:
             warning = std::string("A pie chart plots one series, so only the first ") +
                       (byColumns ? "column" : "row") + " of " + dataRange->ToA1() + " is charted.";
             seriesRanges.resize(1);
+            plans.resize(1);
+        }
+
+        const auto combination = ToolSupport::ChartCombinationError(type, plans);
+        if (!combination.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, combination, "series_options",
+                             "Change the series type, or leave it out to draw the series as the chart's own type.");
         }
 
         const auto seriesNames = arguments.find("series_names");
@@ -3110,6 +5555,22 @@ private:
             }
 
             series.Values = seriesRanges[index];
+            if (!plans[index].Type.empty())
+            {
+                series.Type = ParseChartType(plans[index].Type);
+            }
+
+            series.SecondaryAxis = plans[index].SecondaryAxis;
+            if (source != sheet->Name())
+            {
+                series.SourceSheet = source;
+            }
+
+            if (!sizeRanges.empty())
+            {
+                series.BubbleSizes = sizeRanges[index];
+            }
+
             if (categoryRange.has_value())
             {
                 // Scatter and bubble charts pair X values with the values;
@@ -3144,6 +5605,7 @@ private:
         data["chartId"] = *id;
         data["anchor"] = anchor->ToA1();
         data["seriesCount"] = static_cast<UInt64>(chart.Series.size());
+        data["sourceSheet"] = source;
 
         ResultBuilder builder("Added a chart with " + std::to_string(chart.Series.size()) +
                               " series anchored at " + anchor->ToA1() + ".");
@@ -3154,6 +5616,350 @@ private:
         }
 
         return builder.Build();
+    }
+
+    static std::string SlicerSortToken(Excel::SlicerSortOrder value)
+    {
+        return value == Excel::SlicerSortOrder::Descending ? "descending" : "ascending";
+    }
+
+    static void RegisterAddSlicer(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["sheet"] = SheetProperty();
+        properties["source_kind"] =
+            Schema::EnumerationWithDefault("What the slicer filters.", {"pivot_table", "table"}, "pivot_table");
+        properties["source"] = Schema::String("Name of the pivot table or worksheet table to filter. A pivot "
+                                              "table may live on any sheet of the workbook.");
+        properties["field"] = Schema::String("Source column the buttons come from, matched case-insensitively.");
+        properties["anchor_cell"] = Schema::String("A1 cell the slicer's top-left corner sits on.");
+        properties["width"] = Schema::Length("Slicer width; defaults to about 4 cm.");
+        properties["height"] = Schema::Length("Slicer height; defaults to about 5 cm.");
+        properties["name"] = Schema::String("Slicer name, unique in the workbook; generated when omitted.");
+        properties["caption"] = Schema::String("Header caption; the field name is used when omitted.");
+        properties["columns"] = Schema::Integer("Number of button columns.", 1, 20000);
+        properties["style"] = Schema::StringWithDefault("Slicer style name.", "SlicerStyleLight1");
+        properties["sort_order"] =
+            Schema::EnumerationWithDefault("Button order.", {"ascending", "descending"}, "ascending");
+        properties["selected"] =
+            Schema::Array("Captions of the selected items; an empty list selects everything.",
+                          Schema::String("One item caption."));
+
+        auto definition = MakeDefinition(
+            "add_slicer", "Add slicer",
+            "Add a slicer filtering a pivot table or a worksheet table by one of its columns. The source has "
+            "to exist already; build it with add_pivot_table or add_table first.",
+            "analysis");
+        definition.InputSchema = Schema::Object("Arguments of add_slicer.",
+                                                {"documentId", "source", "field", "anchor_cell"},
+                                                std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("New slicer.", {"name"},
+                                            nlohmann::json{{"name", Schema::String("Slicer name.")},
+                                                           {"anchor", Schema::String("A1 anchor cell.")},
+                                                           {"itemCount", Schema::Integer("Buttons the slicer "
+                                                                                         "offers.")}}),
+                             true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"source", "SalesByRegion"},
+                                            {"field", "Region"},
+                                            {"anchor_cell", "F2"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddSlicer(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome AddSlicer(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto sheet = ExcelAddressing::FindSheet(session.Editor(), arguments, failure);
+        if (sheet == nullptr)
+        {
+            return failure;
+        }
+
+        const auto anchorText = arguments.value("anchor_cell", std::string());
+        const auto anchor = ExcelAddressing::ParseCell(anchorText, failure);
+        if (!anchor.has_value())
+        {
+            return failure;
+        }
+
+        Excel::ExcelSlicerDefinition slicer;
+        slicer.Name = arguments.value("name", std::string());
+        slicer.Caption = arguments.value("caption", std::string());
+        slicer.SourceField = arguments.value("field", std::string());
+        slicer.From = *anchor;
+        slicer.To = AnchorEnd(*anchor, arguments, 113.0, 142.0);
+        slicer.ColumnCount = arguments.value("columns", 1U);
+        slicer.Style = arguments.value("style", std::string("SlicerStyleLight1"));
+        slicer.SortOrder = arguments.value("sort_order", std::string("ascending")) == "descending"
+                               ? Excel::SlicerSortOrder::Descending
+                               : Excel::SlicerSortOrder::Ascending;
+
+        const auto source = arguments.value("source", std::string());
+        if (arguments.value("source_kind", std::string("pivot_table")) == "table")
+        {
+            slicer.SourceKind = Excel::SlicerSourceKind::Table;
+            slicer.TableName = source;
+        }
+        else
+        {
+            slicer.SourceKind = Excel::SlicerSourceKind::PivotTable;
+            slicer.PivotTableName = source;
+        }
+
+        if (const auto selected = arguments.find("selected"); selected != arguments.end())
+        {
+            slicer.SelectedItems = selected->get<std::vector<std::string>>();
+        }
+
+        MutationGuard guard(session.Session());
+
+        const auto result = sheet->CreateSlicer(slicer);
+        if (result.Status.Error != Excel::SlicerError::None || result.Slicer == nullptr)
+        {
+            // The library distinguishes an unknown source from an unknown field
+            // and from a bad anchor, and the difference is exactly what tells an
+            // agent whether to build the pivot table or to fix the column name.
+            return MakeError(ErrorCode::OperationFailed,
+                             result.Status.Message.empty() ? "The slicer could not be created."
+                                                           : result.Status.Message,
+                             source + "." + slicer.SourceField,
+                             "The pivot table or table has to exist in the workbook, and the field has to be "
+                             "one of its columns.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = result.Slicer->Name();
+        data["anchor"] = anchor->ToA1();
+        data["itemCount"] = static_cast<UInt64>(result.Slicer->Items().size());
+
+        return ResultBuilder("Added slicer " + result.Slicer->Name() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterListSlicers(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        properties["sheet"] = SheetReferenceProperty(
+            "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.");
+
+        nlohmann::json item =
+            Schema::Object("One slicer button.", {"caption", "selected"},
+                           nlohmann::json{{"caption", Schema::String("Button caption.")},
+                                          {"selected", Schema::Boolean("True when the item is not filtered "
+                                                                       "out.")},
+                                          {"hasNoData", Schema::Boolean("True when no source row matches.")}});
+
+        nlohmann::json slicer =
+            Schema::Object("One slicer.", {"name", "sheet"},
+                           nlohmann::json{{"name", Schema::String("Slicer name.")},
+                                          {"sheet", Schema::String("Worksheet that hosts it.")},
+                                          {"caption", Schema::String("Header caption.")},
+                                          {"sourceKind", Schema::String("pivot_table or table.")},
+                                          {"source", Schema::String("Name of the filtered object.")},
+                                          {"field", Schema::String("Source column.")},
+                                          {"anchor", Schema::String("A1 anchor cell.")},
+                                          {"columns", Schema::Integer("Button columns.")},
+                                          {"style", Schema::String("Slicer style name.")},
+                                          {"sortOrder", Schema::String("ascending or descending.")},
+                                          {"items", Schema::Array("Buttons.", std::move(item))}});
+
+        auto definition = MakeDefinition("list_slicers", "List slicers",
+                                         "List the slicers of the workbook with their buttons and which of "
+                                         "them are selected.",
+                                         "analysis");
+        definition.InputSchema = Schema::Object("Arguments of list_slicers.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Slicers.", {"slicers"},
+                           nlohmann::json{{"slicers", Schema::Array("Slicers.", std::move(slicer))}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListSlicers(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListSlicers(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        std::string only;
+        if (arguments.contains("sheet"))
+        {
+            ToolOutcome failure;
+            auto sheet = ExcelAddressing::FindSheet(reader.Editor(), arguments, failure);
+            if (sheet == nullptr)
+            {
+                return failure;
+            }
+
+            only = sheet->Name();
+        }
+
+        nlohmann::json slicers = nlohmann::json::array();
+        for (const auto& sheet : reader.Editor().Worksheets())
+        {
+            if (sheet == nullptr || (!only.empty() && sheet->Name() != only))
+            {
+                continue;
+            }
+
+            for (const auto& slicer : sheet->Slicers())
+            {
+                if (slicer == nullptr)
+                {
+                    continue;
+                }
+
+                nlohmann::json items = nlohmann::json::array();
+                for (const auto& item : slicer->Items())
+                {
+                    items.push_back(nlohmann::json{{"caption", item.Caption},
+                                                   {"selected", item.Selected},
+                                                   {"hasNoData", item.HasNoData}});
+                }
+
+                const auto anchor = slicer->Anchor();
+
+                nlohmann::json entry = nlohmann::json::object();
+                entry["name"] = slicer->Name();
+                entry["sheet"] = sheet->Name();
+                entry["caption"] = slicer->Caption();
+                entry["sourceKind"] =
+                    slicer->SourceKind() == Excel::SlicerSourceKind::Table ? "table" : "pivot_table";
+                entry["source"] = slicer->SourceObjectName();
+                entry["field"] = slicer->SourceField();
+                entry["anchor"] = anchor.has_value() ? anchor->first.ToA1() : std::string();
+                entry["columns"] = static_cast<UInt64>(slicer->ColumnCount());
+                entry["style"] = slicer->Style();
+                entry["sortOrder"] = SlicerSortToken(slicer->SortOrder());
+                entry["items"] = std::move(items);
+                slicers.push_back(std::move(entry));
+            }
+        }
+
+        const bool truncated = TruncateArrayToBudget(slicers);
+
+        nlohmann::json data = nlohmann::json::object();
+        const auto count = slicers.size();
+        data["slicers"] = std::move(slicers);
+
+        return ResultBuilder("The workbook holds " + std::to_string(count) + " slicer(s).")
+            .WithData(std::move(data))
+            .WithTruncated(truncated)
+            .Build();
+    }
+
+    static void RegisterSetSlicerSelection(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slicer"] = Schema::String("Slicer name from list_slicers.");
+        properties["selected"] =
+            Schema::Array("Captions to select; an empty list selects everything, which is what clearing the "
+                          "filter means.",
+                          Schema::String("One item caption."));
+
+        auto definition = MakeDefinition(
+            "set_slicer_selection", "Set slicer selection",
+            "Choose which of a slicer's buttons are selected, which is what the slicer filters its source "
+            "down to. Items are named by caption, because cache indexes move when the source is refreshed.",
+            "analysis");
+        definition.InputSchema = Schema::Object("Arguments of set_slicer_selection.",
+                                                {"documentId", "slicer", "selected"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("Selection.", {"name", "selectedCount"},
+                                            nlohmann::json{{"name", Schema::String("Slicer name.")},
+                                                           {"selectedCount", Schema::Integer("Items now "
+                                                                                             "selected.")}}),
+                             true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"slicer", "Slicer1"},
+                                            {"selected", nlohmann::json::array({"North", "South"})}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetSlicerSelection(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome SetSlicerSelection(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ExcelSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto name = arguments.value("slicer", std::string());
+
+        // A slicer name is unique workbook-wide, so it is looked up across every
+        // sheet rather than needing the caller to remember where it sits.
+        Excel::ExcelSlicer::Ptr target;
+        for (const auto& sheet : session.Editor().Worksheets())
+        {
+            if (sheet == nullptr)
+            {
+                continue;
+            }
+
+            for (const auto& slicer : sheet->Slicers())
+            {
+                if (slicer != nullptr && AsciiText::EqualsIgnoreCase(slicer->Name(), name))
+                {
+                    target = slicer;
+                    break;
+                }
+            }
+        }
+
+        if (target == nullptr)
+        {
+            return MakeError(ErrorCode::MediaNotFound, "No slicer has that name.", name,
+                             "Call list_slicers to see them.");
+        }
+
+        const auto selected = arguments.value("selected", std::vector<std::string>());
+
+        MutationGuard guard(session.Session());
+
+        const auto result = target->SelectItems(selected);
+        if (result.Error != Excel::SlicerError::None)
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             result.Message.empty() ? "The selection could not be written." : result.Message,
+                             name, "Every caption has to be one the slicer offers; list_slicers reports them.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = target->Name();
+        data["selectedCount"] = static_cast<UInt64>(selected.size());
+
+        return ResultBuilder("Set the selection of " + target->Name() + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
     }
 
     static void RegisterAddPivotTable(ToolRegistry& registry)

@@ -84,8 +84,9 @@ if (model)
 
 ## Related topics
 
-Conditional formatting references *differential* formats (`dxfs`), a
-separate catalog this API preserves but does not author — see
+Conditional formatting paints with *differential* formats (`dxfs`), a
+separate catalog with its own counter, registered through
+`GetOrAddDifferentialFormat()` — see
 [Data validation and conditional formatting](validation.md). Row heights and
 column widths are dimensions, not styles — see
 [Layout and annotations](layout.md).

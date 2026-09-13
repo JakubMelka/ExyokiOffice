@@ -99,6 +99,85 @@ TEST_CASE("Threaded comments create replies and clean supporting parts [unit] [e
     CHECK(sheet->GetPart()->GetWorksheetThreadedCommentsParts().empty());
 }
 
+TEST_CASE("A threaded comment is backed by a legacy note and its drawing [unit] [excel] [layout]")
+{
+    auto editor = ExcelDocumentEditor::CreateNew();
+    auto sheet = editor->FirstWorksheet();
+    const auto address = *CellAddress::ParseA1("B2");
+
+    ExcelThreadedComment root;
+    root.Address = address;
+    root.PersonName = "Ada";
+    root.Text = "Review this";
+    const auto rootId = sheet->AddThreadedComment(root);
+    REQUIRE(rootId);
+
+    // Excel discards the whole threaded comments part unless the thread is also
+    // present as a plain note carrying its own VML box, so all three go together.
+    REQUIRE(sheet->GetPart()->GetWorksheetCommentsPart() != nullptr);
+    CHECK(sheet->GetPart()->GetVmlDrawingParts().size() == 1);
+    CHECK(sheet->GetPart()->GetXmlString().find("legacyDrawing") != std::string::npos);
+
+    const auto commentsXml = sheet->GetPart()->GetWorksheetCommentsPart()->GetXmlString();
+    // The backing note names the thread rather than a person, which is how a
+    // reader tells it apart from a note the user wrote.
+    CHECK(commentsXml.find("tc=" + *rootId) != std::string::npos);
+    CHECK(commentsXml.find("Review this") != std::string::npos);
+
+    // It is an implementation detail of the thread, so it is not reported as a
+    // note of its own.
+    CHECK(sheet->Comments().empty());
+    CHECK_FALSE(sheet->GetComment(address));
+
+    ExcelThreadedComment reply;
+    reply.Address = address;
+    reply.PersonName = "Grace";
+    reply.Text = "Done";
+    reply.ParentId = *rootId;
+    REQUIRE(sheet->AddThreadedComment(reply));
+    CHECK(sheet->GetPart()->GetWorksheetCommentsPart()->GetXmlString().find("Done") != std::string::npos);
+    CHECK(sheet->Comments().empty());
+
+    REQUIRE(sheet->RemoveThreadedComment(*rootId));
+    CHECK(sheet->GetPart()->GetWorksheetCommentsPart() == nullptr);
+    CHECK(sheet->GetPart()->GetVmlDrawingParts().empty());
+    CHECK(sheet->GetPart()->GetXmlString().find("legacyDrawing") == std::string::npos);
+}
+
+TEST_CASE("A plain note and a threaded comment survive each other [unit] [excel] [layout]")
+{
+    auto editor = ExcelDocumentEditor::CreateNew();
+    auto sheet = editor->FirstWorksheet();
+    const auto noteAddress = *CellAddress::ParseA1("D4");
+
+    ExcelThreadedComment root;
+    root.Address = *CellAddress::ParseA1("B2");
+    root.PersonName = "Ada";
+    root.Text = "Review this";
+    const auto rootId = sheet->AddThreadedComment(root);
+    REQUIRE(rootId);
+
+    // Writing a note rewrites the comments part as a whole, and the backing note
+    // has to come back with it or the thread is lost.
+    REQUIRE(sheet->SetComment({noteAddress, "Grace", "Just a note"}));
+    REQUIRE(sheet->Comments().size() == 1);
+    CHECK(sheet->Comments().front().Address.ToA1() == "D4");
+    CHECK(sheet->ThreadedComments().size() == 1);
+
+    const auto reopened = ExcelDocumentEditor::Open(editor->SaveToMemory());
+    REQUIRE(reopened != nullptr);
+    auto reloaded = reopened->FirstWorksheet();
+    REQUIRE(reloaded->ThreadedComments().size() == 1);
+    REQUIRE(reloaded->Comments().size() == 1);
+
+    // Removing the note leaves the thread and its backing behind.
+    REQUIRE(reloaded->RemoveComment(noteAddress));
+    CHECK(reloaded->Comments().empty());
+    CHECK(reloaded->ThreadedComments().size() == 1);
+    CHECK(reloaded->GetPart()->GetWorksheetCommentsPart() != nullptr);
+    CHECK(reloaded->GetPart()->GetVmlDrawingParts().size() == 1);
+}
+
 TEST_CASE("Threaded comments report their author [unit] [excel] [layout]")
 {
     auto editor = ExcelDocumentEditor::CreateNew();

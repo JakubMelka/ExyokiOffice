@@ -31,8 +31,24 @@ struct ExtensionUris
     static constexpr std::string_view WorkbookSlicerCaches = "{BBE1A952-AA13-448e-AADC-164F8A28A991}";
     /** @brief `x15:slicerCaches` inside `x:workbook/x:extLst`, used by table slicers. */
     static constexpr std::string_view WorkbookSlicerCachesX15 = "{46BE6895-7355-4a93-B00E-2C351335B9C9}";
-    /** @brief `x14:slicerList` inside `x:worksheet/x:extLst`. */
-    static constexpr std::string_view WorksheetSlicerList = "{A8765BA9-456A-4dab-B4F3-ACF1056F45CF}";
+    /**
+     * @brief `x14:slicerList` inside `x:worksheet/x:extLst` for a pivot table slicer.
+     *
+     * The two slicer kinds do not share this URI. Registering a slicer under the
+     * wrong one leaves the slicer part in the package and the drawing on the
+     * sheet, both well-formed, and Excel discards all three on open.
+     */
+    static constexpr std::string_view WorksheetPivotSlicerList = "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}";
+    /** @brief `x14:slicerList` inside `x:worksheet/x:extLst` for a worksheet table slicer. */
+    static constexpr std::string_view WorksheetTableSlicerList = "{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}";
+    /**
+     * @brief `x14:pivotCacheDefinition` inside `x:pivotCacheDefinition/x:extLst`.
+     *
+     * A pivot slicer cache names its pivot cache by the identifier this
+     * extension carries, not by the workbook's `cacheId`. Excel refuses to open
+     * a workbook whose slicer cache names an identifier no extension declares.
+     */
+    static constexpr std::string_view PivotCacheDefinition = "{725AE2AE-9491-48be-B2B4-4EB974FC3084}";
     /** @brief `x15:tableSlicerCache` inside `x14:slicerCacheDefinition/x14:extLst`. */
     static constexpr std::string_view TableSlicerCache = "{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}";
 };

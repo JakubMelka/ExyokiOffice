@@ -19,6 +19,7 @@ exyokioffice_add_test_executable(ExyokiOfficeMcpTests
         SharedToolTests.cpp
         SharedFamilyToolTests.cpp
         McpBoundaryTests.cpp
+        McpInvalidInputTests.cpp
         WordToolTests.cpp
         ExcelToolTests.cpp
         PowerPointToolTests.cpp

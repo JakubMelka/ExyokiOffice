@@ -351,3 +351,97 @@ TEST_SUITE("PowerPointChartTests")
         CHECK(reReadColor->find("id=\"10\"") != std::string::npos);
     }
 }
+
+TEST_SUITE("PowerPointCombinationChartTests")
+{
+    TEST_CASE("a combination chart reads back each series with its own type and axis [unit] [powerpoint] [chart]")
+    {
+        auto editor = PowerPointDocumentEditor::CreateNew();
+        auto tree = editor->AddSlide()->ShapeTree();
+        auto definition = ColumnChart();
+        PresentationChartSeries margin;
+        margin.Name = "Margin";
+        margin.Values = {0.25, 0.5, 0.125, 0.75};
+        margin.Categories = definition.Series[0].Categories;
+        margin.Type = PresentationChartType::Line;
+        margin.SecondaryAxis = true;
+        definition.Series.push_back(margin);
+        definition.SecondaryValueAxisTitle = "Margin";
+
+        auto shape = tree->AddChart(definition);
+        REQUIRE(shape);
+        auto info = shape->GetChart();
+        REQUIRE(info);
+        CHECK(info->Type == PresentationChartType::Column);
+        REQUIRE(info->Series.size() == 2);
+        CHECK(info->Series[0] == definition.Series[0]);
+        CHECK(info->Series[1] == definition.Series[1]);
+
+        auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
+        REQUIRE(reopened);
+        auto reread = FirstChartShape(reopened)->GetChart();
+        REQUIRE(reread);
+        REQUIRE(reread->Series.size() == 2);
+        CHECK(reread->Series[1] == definition.Series[1]);
+    }
+
+    TEST_CASE("rewriting a combination chart keeps every series in its group [unit] [powerpoint] [chart]")
+    {
+        auto editor = PowerPointDocumentEditor::CreateNew();
+        auto tree = editor->AddSlide()->ShapeTree();
+        auto definition = ColumnChart();
+        auto margin = definition.Series[0];
+        margin.Name = "Margin";
+        margin.Type = PresentationChartType::Line;
+        margin.SecondaryAxis = true;
+        definition.Series.push_back(margin);
+        auto shape = tree->AddChart(definition);
+        REQUIRE(shape);
+
+        // Reading only the first group and rewriting it with every series used
+        // to duplicate the line series into the column group.
+        auto updated = definition.Series;
+        updated[0].Values = {1.0, 2.0, 3.0, 4.0};
+        updated[1].Values = {4.0, 3.0, 2.0, 1.0};
+        REQUIRE(shape->UpdateChartData(updated, std::string("Updated")));
+        auto info = shape->GetChart();
+        REQUIRE(info);
+        CHECK(info->Title == "Updated");
+        REQUIRE(info->Series.size() == 2);
+        CHECK(info->Series[0].Values == updated[0].Values);
+        CHECK_FALSE(info->Series[0].Type.has_value());
+        CHECK(info->Series[1].Values == updated[1].Values);
+        REQUIRE(info->Series[1].Type.has_value());
+        CHECK(*info->Series[1].Type == PresentationChartType::Line);
+        CHECK(info->Series[1].SecondaryAxis);
+
+        // A different count gives no way to tell which group a series belongs
+        // to, so it is refused and the chart is left as it was.
+        CHECK_FALSE(shape->UpdateChartData({updated[0]}, std::nullopt));
+        const auto untouched = shape->GetChart();
+        REQUIRE(untouched);
+        CHECK(untouched->Title == "Updated");
+        CHECK(untouched->Series.size() == 2);
+    }
+
+    TEST_CASE("series types that cannot share axes add no chart [unit] [powerpoint] [chart]")
+    {
+        auto editor = PowerPointDocumentEditor::CreateNew();
+        auto tree = editor->AddSlide()->ShapeTree();
+        const auto before = tree->Count();
+
+        auto pie = ColumnChart();
+        pie.Type = PresentationChartType::Pie;
+        auto column = pie.Series[0];
+        column.Type = PresentationChartType::Column;
+        pie.Series.push_back(column);
+        CHECK(tree->AddChart(pie) == nullptr);
+
+        auto allSecondary = ColumnChart();
+        allSecondary.Series[0].SecondaryAxis = true;
+        CHECK(tree->AddChart(allSecondary) == nullptr);
+
+        CHECK(tree->Count() == before);
+        CHECK(editor->GetSlide(0)->GetPart()->GetChartParts().empty());
+    }
+}

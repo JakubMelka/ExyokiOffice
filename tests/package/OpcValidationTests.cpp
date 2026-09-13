@@ -916,9 +916,21 @@ TEST_SUITE("OpcValidationTests")
         auto settings = main->AddDocumentSettingsPart();
         REQUIRE(settings);
 
+        auto styles = main->AddStyleDefinitionsPart();
+        REQUIRE(styles);
+
         main->SetContentType("application/x-wrong-main");
         settings->SetContentType("application/x-wrong-settings");
-        REQUIRE_FALSE(main->AddPartReference(settings, "urn:wrong-relationship-type").empty());
+
+        // The main part relates the settings correctly and then relates it a
+        // second time under another type. That is the shape PowerPoint writes
+        // for embedded media, and it is not an error: what OPC cares about is
+        // that the part is reachable under its own type.
+        REQUIRE_FALSE(main->AddPartReference(settings, "urn:companion-relationship").empty());
+
+        // The styles part, on the other hand, reaches the settings only through
+        // a relationship of the wrong type, and nothing else says what it is.
+        REQUIRE_FALSE(styles->AddPartReference(settings, "urn:wrong-relationship-type").empty());
 
         const auto result = ExyokiOffice::OpenXmlPackageValidator().Validate(*word);
         const auto contentIssues = FindIssues(result, ExyokiOffice::ValidationErrorId::PackageContentTypeMismatch);
@@ -929,7 +941,7 @@ TEST_SUITE("OpcValidationTests")
         CHECK(std::any_of(contentIssues.begin(), contentIssues.end(), [&](const auto& issue)
                           { return issue.PartUri == settings->Uri(); }));
         REQUIRE(relationshipIssues.size() == 1);
-        CHECK(relationshipIssues.front().RelationshipSourceUri == main->Uri());
+        CHECK(relationshipIssues.front().RelationshipSourceUri == styles->Uri());
         CHECK(relationshipIssues.front().TargetUri == settings->Uri());
     }
 

@@ -35,12 +35,34 @@ charts on creation. The chart-space assembly and cache rewriting are shared
 with the [Excel](../excel/charts.md) and [Word](../word/charts.md) chart
 APIs.
 
+A series can be drawn as another type and against a secondary value axis,
+which makes a combination chart:
+
+```cpp
+PresentationChartSeries margin;
+margin.Name = "Margin";
+margin.Values = {0.12, 0.18, 0.09, 0.21};
+margin.Categories = series.Categories;
+margin.Type = PresentationChartType::Line;   // a line over the columns
+margin.SecondaryAxis = true;                 // on its own scale, on the right
+chart.Series.push_back(margin);
+chart.SecondaryValueAxisTitle = "Margin";
+```
+
+Only kinds that share axes combine: column, line and area with each other, and
+bar, scatter, bubble and pie only with their own kind. At least one series has
+to stay on the primary axis. `AddChart` returns null for any other combination
+and adds nothing.
+
 ## Reading and updating
 
 Reading and updating work off the same cached values. `UpdateChartData`
 preserves the chart's plot type, formatting, and series source formulas, and
 `std::nullopt` for the title leaves it untouched (an empty string removes
-it):
+it). `GetChart` reads every series of a combination chart with its `Type` and
+`SecondaryAxis`; `UpdateChartData` keeps each series in its own plot group, so
+a combination chart takes exactly as many series as it has and refuses a
+different count:
 
 ```cpp
 auto info = chartShape->GetChart();          // std::nullopt for non-chart shapes

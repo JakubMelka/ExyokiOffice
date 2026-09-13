@@ -343,3 +343,78 @@ TEST_CASE("opening a package through the wrong family is rejected [mcp-lifecycle
     CHECK((refused["error"]["code"] == "family_mismatch" ||
            refused["error"]["code"] == "package_load_failed"));
 }
+
+TEST_CASE("the theme reads and writes for every document family [mcp-lifecycle]")
+{
+    using TestFamily = SharedFamilyFixture::TestFamily;
+
+    for (const auto family : {TestFamily::Word, TestFamily::Excel, TestFamily::PowerPoint})
+    {
+        auto server = SharedFamilyFixture::MakeFamilyServer(family);
+        server->Initialize();
+
+        const auto created = server->Call(
+            "create_document", nlohmann::json{{"path", "themed" + SharedFamilyFixture::Extension(family)}});
+        REQUIRE(created["ok"] == true);
+        const auto documentId = created["data"]["documentId"].get<std::string>();
+
+        // A presentation keeps its theme on a slide master, so an empty one has
+        // nowhere to put it; the other two hang it off their main part.
+        if (family == TestFamily::PowerPoint)
+        {
+            const auto empty = server->Call(
+                "set_theme", nlohmann::json{{"documentId", documentId}, {"colors", nlohmann::json{{"accent1",
+                                                                                                   "1F6FEB"}}}});
+            CHECK(empty["ok"] == false);
+            CHECK(empty["error"]["code"] == "operation_failed");
+            REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId},
+                                                             {"title", "Hello"}})["ok"] == true);
+        }
+
+        // A document this library creates has no theme part at all, so the first
+        // write has to make one rather than refuse.
+        const auto before = server->Call("get_theme", nlohmann::json{{"documentId", documentId}});
+        if (before["ok"] == false)
+        {
+            CHECK(before["error"]["code"] == "media_not_found");
+        }
+
+        const auto written = server->Call(
+            "set_theme", nlohmann::json{{"documentId", documentId},
+                                        {"name", "House style"},
+                                        {"colors", nlohmann::json{{"accent1", "1F6FEB"}, {"dark1", "#101010"}}},
+                                        {"minor_fonts", nlohmann::json{{"latin", "Calibri"}}}});
+        REQUIRE(written["ok"] == true);
+        CHECK(written["data"]["name"] == "House style");
+        CHECK(written["data"]["changed"].size() == 4);
+
+        const auto after = server->Call("get_theme", nlohmann::json{{"documentId", documentId}});
+        REQUIRE(after["ok"] == true);
+        CHECK(after["data"]["name"] == "House style");
+        CHECK(after["data"]["colors"]["accent1"] == "1F6FEB");
+        CHECK(after["data"]["colors"]["dark1"] == "101010");
+        CHECK(after["data"]["minorFonts"]["latin"] == "Calibri");
+        // A slot nobody named keeps the value the default theme gave it.
+        CHECK(after["data"]["colors"]["accent2"] == "ED7D31");
+
+        // A colour that does not parse changes nothing.
+        const auto refused = server->Call(
+            "set_theme",
+            nlohmann::json{{"documentId", documentId}, {"colors", nlohmann::json{{"accent3", "mauve"}}}});
+        CHECK(refused["ok"] == false);
+        CHECK(refused["error"]["code"] == "input_invalid");
+
+        const auto nothing = server->Call("set_theme", nlohmann::json{{"documentId", documentId}});
+        CHECK(nothing["ok"] == false);
+        CHECK(nothing["error"]["code"] == "input_invalid");
+
+        const auto unchanged = server->Call("get_theme", nlohmann::json{{"documentId", documentId}});
+        CHECK(unchanged["data"]["colors"]["accent3"] == "A5A5A5");
+
+        REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+        const auto report =
+            ExyokiOffice::Tools::Run(server->Path("themed" + SharedFamilyFixture::Extension(family)));
+        CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+    }
+}

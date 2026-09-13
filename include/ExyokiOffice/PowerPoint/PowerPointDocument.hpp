@@ -619,6 +619,11 @@ struct PresentationChartSeries
     std::vector<Real> Values;                           ///< Series numeric (Y) values in point order.
     std::optional<std::vector<std::string>> Categories; ///< Category labels, or X-value text for scatter/bubble.
     std::optional<std::vector<Real>> BubbleSizes;       ///< Bubble sizes; used only when creating a bubble chart.
+    /// Plot type this series is drawn as when it differs from the chart's, which makes a combination chart.
+    /// Column, line and area combine with each other; bar, scatter, bubble and pie only with themselves.
+    std::optional<PresentationChartType> Type;
+    /// Plots the series against a secondary value axis; at least one series has to stay on the primary one.
+    bool SecondaryAxis = false;
     bool operator==(const PresentationChartSeries&) const = default;
 };
 
@@ -637,6 +642,7 @@ struct PresentationChartDefinition
     std::string Title;                                                                       ///< Chart title; no title element is written when empty.
     std::string CategoryAxisTitle;                                                           ///< Category (X) axis title; ignored by pie charts.
     std::string ValueAxisTitle;                                                              ///< Value (Y) axis title; ignored by pie charts.
+    std::string SecondaryValueAxisTitle;                                                     ///< Secondary value axis title; used only when a series is on that axis.
     bool ShowLegend = true;                                                                  ///< Whether the legend is drawn.
     PresentationChartLegendPosition LegendPosition = PresentationChartLegendPosition::Right; ///< Legend placement.
     bool ShowGridLines = true;                                                               ///< Whether major value-axis gridlines are drawn.

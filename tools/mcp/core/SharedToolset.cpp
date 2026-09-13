@@ -8,6 +8,8 @@
 
 #include "ExyokiOffice/ImageFormat.hpp"
 #include "ExyokiOffice/Packaging/DocumentProperties.hpp"
+#include "ExyokiOffice/Packaging/GeneratedParts.hpp"
+#include "ExyokiOffice/ThemeService.hpp"
 #include "ExyokiOffice/Tools/DocumentConverter.hpp"
 #include "ExyokiOffice/Tools/DocumentModelIO.hpp"
 #include "ExyokiOffice/Tools/DocumentRedactor.hpp"
@@ -37,6 +39,42 @@ namespace ExyokiOffice::Mcp
 class SharedToolsetHelper
 {
 public:
+    /// The scheme colour slots, in the fixed order DrawingML stores them.
+    static const std::vector<std::pair<const char*, ThemeColorSlot>>& ThemeColorSlots()
+    {
+        static const std::vector<std::pair<const char*, ThemeColorSlot>> slots{
+            {"dark1", ThemeColorSlot::Dark1},
+            {"light1", ThemeColorSlot::Light1},
+            {"dark2", ThemeColorSlot::Dark2},
+            {"light2", ThemeColorSlot::Light2},
+            {"accent1", ThemeColorSlot::Accent1},
+            {"accent2", ThemeColorSlot::Accent2},
+            {"accent3", ThemeColorSlot::Accent3},
+            {"accent4", ThemeColorSlot::Accent4},
+            {"accent5", ThemeColorSlot::Accent5},
+            {"accent6", ThemeColorSlot::Accent6},
+            {"hyperlink", ThemeColorSlot::Hyperlink},
+            {"followedHyperlink", ThemeColorSlot::FollowedHyperlink}};
+        return slots;
+    }
+
+    /// Renders one font collection the way both theme tools describe it.
+    static nlohmann::json DescribeFonts(const ThemeFontCollection& fonts)
+    {
+        nlohmann::json entry = nlohmann::json::object();
+        entry["latin"] = fonts.Latin;
+        if (!fonts.EastAsian.empty())
+        {
+            entry["eastAsian"] = fonts.EastAsian;
+        }
+        if (!fonts.ComplexScript.empty())
+        {
+            entry["complexScript"] = fonts.ComplexScript;
+        }
+        return entry;
+    }
+
+
     /// Content types and URI shapes MediaExporter treats as media payloads.
     static bool IsMediaPart(const OpenXmlPackagePart& part)
     {
@@ -644,6 +682,222 @@ std::string ToolSupport::EncodeBase64(std::span<const Byte> bytes)
     return Base64::Encode(bytes);
 }
 
+std::optional<ToolOutcome> ToolSupport::DescribeUnavailableTool(const ToolContext& context, std::string_view name)
+{
+    const std::string tool(name);
+    if (const auto* registry = context.Registry(); registry != nullptr)
+    {
+        if (const auto* withheld = registry->FindWithheld(name); withheld != nullptr)
+        {
+            if (withheld->ByReadOnly)
+            {
+                return MakeError(ErrorCode::Unsupported,
+                                 "'" + tool + "' changes documents, and this server was started with --read-only.",
+                                 tool, "Restart the server without --read-only to edit documents.");
+            }
+
+            return MakeError(ErrorCode::Unsupported,
+                             "'" + tool + "' is in the '" + withheld->Group +
+                                 "' toolset, which this server was started without.",
+                             tool, "Add " + withheld->Group + " to --toolsets, or start the server without it.");
+        }
+    }
+
+    // The name as lower-case words and as one run of letters, so that
+    // insert_equation, insert-equation and InsertEquation all read alike.
+    std::vector<std::string> words;
+    std::string joined;
+    std::string word;
+    for (const char character : name)
+    {
+        const bool separator = character == '_' || character == '-' || character == '.' || character == ' ';
+        const bool upper = character >= 'A' && character <= 'Z';
+        if ((separator || upper) && !word.empty())
+        {
+            words.push_back(word);
+            word.clear();
+        }
+
+        if (!separator)
+        {
+            const char lower = upper ? static_cast<char>(character - 'A' + 'a') : character;
+            word.push_back(lower);
+            joined.push_back(lower);
+        }
+    }
+
+    if (!word.empty())
+    {
+        words.push_back(word);
+    }
+
+    // A key starting with '=' matches a whole word; any other key matches
+    // anywhere in the joined name. Whole words keep "sign" from matching
+    // "design" and "sort" from matching "resort".
+    const auto matches = [&](std::string_view key)
+    {
+        if (key.starts_with('='))
+        {
+            key.remove_prefix(1);
+            return std::find(words.begin(), words.end(), key) != words.end();
+        }
+
+        return joined.find(key) != std::string::npos;
+    };
+
+    using Family = Tools::DocumentFamily;
+    struct Boundary
+    {
+        std::vector<std::string_view> Keys;
+        /// Families the boundary applies to; empty for all three.
+        std::vector<Family> Families;
+        std::string_view Reason;
+        std::string_view Hint;
+    };
+
+    static const std::vector<Boundary> boundaries{
+        {{"smartart"},
+         {},
+         "SmartArt has no typed API in this version. A diagram already in the document round-trips untouched, "
+         "but none can be created or edited.",
+         "Present the content as a table, or in PowerPoint build it from shapes with add_shape."},
+        {{"equation", "=math", "omml"},
+         {Family::Word, Family::PowerPoint},
+         "Equations have no typed API in this version. One already in the document round-trips untouched.",
+         "Write the expression as plain text, or insert it as a picture."},
+        {{"textbox"},
+         {Family::Word},
+         "Word text boxes have no typed API in this version. One already in the document round-trips untouched.",
+         "Use a paragraph, a table cell, or a floating picture (insert_image with layout) instead."},
+        {{"addchart", "insertchart", "createchart", "newchart"},
+         {Family::Word},
+         "A Word document cannot gain a new chart in this version; nothing anchors one.",
+         "update_chart rewrites the series of a chart the document already has."},
+        {{"colorscale", "colourscale", "databar", "iconset"},
+         {Family::Excel},
+         "Colour scales, data bars and icon sets are not implemented in this version.",
+         "add_conditional_formatting offers the other rule kinds, each painting the cells it matches."},
+        {{"=sort"},
+         {Family::Excel},
+         "This server does not sort, and a table records no sort state.",
+         "Read the range, sort the rows yourself, and write them back with write_range."},
+        {{"richtext"},
+         {Family::Excel},
+         "Rich text inside one cell is not implemented; a cell carries a single format.",
+         "format_range sets the font of the whole cell."},
+        {{"encrypt", "decrypt", "=password"},
+         {},
+         "OOXML package encryption is not implemented. An encrypted file is a compound-file container this server "
+         "can neither open nor write.",
+         "set_protection restricts editing, but it is not encryption: every part stays readable."},
+        {{"signature", "=sign", "=signed"},
+         {},
+         "Digital signatures are not offered over MCP.",
+         "The exyoki command-line tool lists signatures and checks their signed content: exyoki signatures."},
+        {{"writexml", "setxml", "editxml", "patchxml", "replacexml", "updatexml", "insertxml"},
+         {},
+         "Nothing writes markup directly: a hand-written fragment can break the package in ways no validator "
+         "reports until Office refuses the file.",
+         "query_xml reads the markup; change it through the typed tools."},
+        {{"=unpack", "=pack", "=parts", "relationships", "flatopc", "=dedup"},
+         {},
+         "Package utilities are not offered over MCP.",
+         "Use the exyoki command-line tool, which has unpack, pack, parts, relationships, to-flat-opc and dedup."},
+    };
+
+    const auto family = context.Adapter().Family();
+    for (const auto& boundary : boundaries)
+    {
+        const bool applies = boundary.Families.empty() ||
+                             std::find(boundary.Families.begin(), boundary.Families.end(), family) !=
+                                 boundary.Families.end();
+        if (applies && std::any_of(boundary.Keys.begin(), boundary.Keys.end(), matches))
+        {
+            return MakeError(ErrorCode::Unsupported,
+                             "'" + tool + "' is not a tool of this server. " + std::string(boundary.Reason), tool,
+                             std::string(boundary.Hint));
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::vector<std::string> ToolSupport::ChartTypeTokens()
+{
+    return {"bar", "column", "line", "pie", "scatter", "area", "bubble"};
+}
+
+void ToolSupport::AddChartAppearanceProperties(nlohmann::json& properties)
+{
+    properties["category_axis_title"] =
+        Schema::String("Title of the category axis; of the X axis in a scatter or bubble chart.");
+    properties["value_axis_title"] = Schema::String("Title of the value axis.");
+    properties["secondary_axis_title"] =
+        Schema::String("Title of the secondary value axis, which is drawn only when a series is on it.");
+    properties["legend"] = Schema::EnumerationWithDefault("Where the legend is drawn, or none.",
+                                                          {"right", "left", "top", "bottom", "none"}, "right");
+    properties["gridlines"] = Schema::BooleanWithDefault("Whether major value-axis gridlines are drawn.", true);
+}
+
+std::string ToolSupport::ChartCombinationError(const std::string& chartType, const std::vector<ChartSeriesPlan>& series)
+{
+    // Kinds in one family share their axes, so they can be drawn over each other.
+    const auto family = [](const std::string& type)
+    {
+        if (type == "column" || type == "line" || type == "area")
+        {
+            return 0;
+        }
+
+        if (type == "bar")
+        {
+            return 1;
+        }
+
+        if (type == "scatter")
+        {
+            return 2;
+        }
+
+        return type == "bubble" ? 3 : 4;
+    };
+
+    bool primary = series.empty();
+    for (Size index = 0; index < series.size(); ++index)
+    {
+        const auto& type = series[index].Type.empty() ? chartType : series[index].Type;
+        const auto which = "Series " + std::to_string(index + 1);
+        if (type == "pie" || chartType == "pie")
+        {
+            if (type != chartType)
+            {
+                return which + " is drawn as '" + type + "' in a '" + chartType +
+                       "' chart, but a pie has no axes to share and combines with nothing.";
+            }
+
+            if (series[index].SecondaryAxis)
+            {
+                return which + " asks for a secondary axis, but a pie chart has no axis.";
+            }
+        }
+        else if (family(type) != family(chartType))
+        {
+            return which + " is drawn as '" + type + "', which cannot share axes with a '" + chartType +
+                   "' chart. Column, line and area combine with each other; bar, scatter and bubble only with "
+                   "their own kind.";
+        }
+
+        primary = primary || !series[index].SecondaryAxis;
+    }
+
+    if (!primary)
+    {
+        return "Every series is on the secondary axis; at least one has to stay on the primary axis.";
+    }
+
+    return {};
+}
+
 bool ToolSupport::LoadImagePayload(ToolContext& context, const nlohmann::json& arguments, std::vector<Byte>& bytes,
                                    std::string& contentType, ToolOutcome& failure)
 {
@@ -1230,6 +1484,7 @@ public:
         RegisterValidateDocument(registry);
         RegisterQueryXml(registry);
         RegisterGetProperties(registry);
+        RegisterGetTheme(registry);
         RegisterListMedia(registry);
         RegisterGetMedia(registry);
     }
@@ -1262,7 +1517,13 @@ private:
                                           {"relationshipCount", Schema::Integer("Number of relationships.")},
                                           {"totalPartSize", Schema::Integer("Uncompressed size of all parts.")},
                                           {"properties", Schema::FreeObject("Core and extended properties.")},
-                                          {"statistics", Schema::FreeObject("Family-specific content statistics.")}});
+                                          {"statistics", Schema::FreeObject("Family-specific content statistics.")},
+                                          {"protection", Schema::FreeObject(
+                                                             "What the document restricts, absent when it "
+                                                             "restricts nothing. Word reports an editing mode, "
+                                                             "Excel the workbook structure and each protected "
+                                                             "sheet, a presentation a password to modify. None "
+                                                             "of it is encryption: every part stays readable.")}});
 
         auto definition = MakeReadDefinition(
             "get_document_info", "Get document info",
@@ -1306,6 +1567,13 @@ private:
                                  ? SharedToolsetHelper::StatsToJson(
                                        context.Adapter().Stat(statistics.Document()))
                                  : nlohmann::json::object();
+
+        // Reported only when there is something to report, so an unrestricted
+        // document does not carry an empty object saying so.
+        if (auto protection = access.Document().Protection(); !protection.is_null())
+        {
+            data["protection"] = std::move(protection);
+        }
 
         return ResultBuilder("Read the overview of a " + std::string(Tools::ToString(info.Family)) + " document.")
             .WithData(std::move(data))
@@ -1797,6 +2065,73 @@ private:
             .Build();
     }
 
+    static void RegisterGetTheme(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+
+        nlohmann::json fonts =
+            Schema::Object("One font collection.", {"latin"},
+                           nlohmann::json{{"latin", Schema::String("Latin typeface.")},
+                                          {"eastAsian", Schema::String("East Asian typeface, when one is set.")},
+                                          {"complexScript",
+                                           Schema::String("Complex-script typeface, when one is set.")}});
+
+        auto definition = MakeReadDefinition(
+            "get_theme", "Get theme",
+            "Read the theme a document draws its scheme colours and fonts from. Every colour a document names as "
+            "a scheme colour resolves through this.");
+        definition.InputSchema = Schema::Object("Arguments of get_theme.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Theme.", {"name", "colors"},
+                           nlohmann::json{{"name", Schema::String("Theme name.")},
+                                          {"colorSchemeName", Schema::String("Colour scheme name.")},
+                                          {"fontSchemeName", Schema::String("Font scheme name.")},
+                                          {"colors", Schema::FreeObject(
+                                                         "Scheme colours by slot name, as RRGGBB hex.")},
+                                          {"majorFonts", fonts},
+                                          {"minorFonts", fonts}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return GetTheme(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome GetTheme(ToolContext& context, const nlohmann::json& arguments)
+    {
+        DocumentAccess access(context, arguments);
+        if (!access.IsValid())
+        {
+            return access.Failure();
+        }
+
+        const auto part = access.Document().Theme();
+        const auto settings = part ? ThemeService::ReadSettings(part) : std::nullopt;
+        if (!settings.has_value())
+        {
+            return MakeError(ErrorCode::MediaNotFound, "The document carries no theme.", {},
+                             "A document without a theme resolves its scheme colours to the application "
+                             "default; set_theme writes one.");
+        }
+
+        nlohmann::json colors = nlohmann::json::object();
+        for (const auto& [name, slot] : SharedToolsetHelper::ThemeColorSlots())
+        {
+            colors[name] = settings->Colors[static_cast<Size>(slot)].ToHexString();
+        }
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = settings->Name;
+        data["colorSchemeName"] = settings->ColorSchemeName;
+        data["fontSchemeName"] = settings->FontSchemeName;
+        data["colors"] = std::move(colors);
+        data["majorFonts"] = SharedToolsetHelper::DescribeFonts(settings->MajorFonts);
+        data["minorFonts"] = SharedToolsetHelper::DescribeFonts(settings->MinorFonts);
+
+        return ResultBuilder("Read the theme '" + settings->Name + "'.").WithData(std::move(data)).Build();
+    }
+
     static void RegisterGetProperties(ToolRegistry& registry)
     {
         nlohmann::json properties = nlohmann::json::object();
@@ -2021,6 +2356,7 @@ public:
     {
         RegisterReplaceText(registry);
         RegisterSetProperties(registry);
+        RegisterSetTheme(registry);
         RegisterBatch(registry);
     }
 
@@ -2129,6 +2465,173 @@ private:
             .WithSession(*session)
             .WithData(std::move(data))
             .WithDiagnostics(result.Diagnostics)
+            .Build();
+    }
+
+    static void RegisterSetTheme(ToolRegistry& registry)
+    {
+        nlohmann::json colors = nlohmann::json::object();
+        colors["additionalProperties"] = false;
+        colors["type"] = "object";
+        colors["description"] = "Scheme colours to change, by slot name; the rest keep their current value.";
+        nlohmann::json slots = nlohmann::json::object();
+        for (const auto& [name, slot] : SharedToolsetHelper::ThemeColorSlots())
+        {
+            slots[name] = Schema::String("Colour as RRGGBB or #RRGGBB hex.");
+        }
+        colors["properties"] = std::move(slots);
+
+        nlohmann::json fonts = Schema::Object(
+            "Typefaces to change; the rest keep their current value.", {},
+            nlohmann::json{{"latin", Schema::String("Latin typeface.")},
+                           {"eastAsian", Schema::String("East Asian typeface.")},
+                           {"complexScript", Schema::String("Complex-script typeface.")}});
+
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["name"] = Schema::String("Theme name.");
+        properties["colors"] = std::move(colors);
+        properties["major_fonts"] = fonts;
+        properties["minor_fonts"] = fonts;
+
+        ToolDefinition definition;
+        definition.Name = "set_theme";
+        definition.Title = "Set theme";
+        definition.Description =
+            "Change the scheme colours and fonts a document resolves its theme references against. Only the "
+            "members you pass are changed, and everything the theme carries beyond colours and fonts - the "
+            "effect and format matrices - is left as it was. A document that has no theme yet is given the "
+            "Office default first, so this always has something to change.";
+        definition.Group = "edit";
+        definition.InputSchema =
+            Schema::Object("Arguments of set_theme.", {"documentId"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Written theme.", {"name", "changed"},
+                           nlohmann::json{{"name", Schema::String("Theme name after the change.")},
+                                          {"changed", Schema::Array("What was changed.",
+                                                                    Schema::String("A slot or font name."))}}),
+            true);
+        definition.Example = nlohmann::json{
+            {"documentId", "doc-1"},
+            {"colors", nlohmann::json{{"accent1", "1F6FEB"}}},
+            {"minor_fonts", nlohmann::json{{"latin", "Calibri"}}}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetTheme(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    /// Applies the typefaces @p source names to @p target, reporting what changed.
+    static void ApplyThemeFonts(const nlohmann::json& source, ThemeFontCollection& target,
+                                std::string_view label, nlohmann::json& changed)
+    {
+        const auto apply = [&](const char* key, std::string& field)
+        {
+            const auto member = source.find(key);
+            if (member == source.end() || !member->is_string())
+            {
+                return;
+            }
+
+            field = member->get<std::string>();
+            changed.push_back(std::string(label) + "." + key);
+        };
+
+        apply("latin", target.Latin);
+        apply("eastAsian", target.EastAsian);
+        apply("complexScript", target.ComplexScript);
+    }
+
+    static ToolOutcome SetTheme(ToolContext& context, const nlohmann::json& arguments)
+    {
+        ToolOutcome failure;
+        auto* session = ToolSupport::RequireSession(context, arguments, failure);
+        if (session == nullptr)
+        {
+            return failure;
+        }
+
+        // A document this library creates carries no theme part, so the first
+        // call writes the Office default and changes that, rather than refusing
+        // the case the caller is most likely to be in.
+        const auto part = session->Document().EnsureTheme();
+        auto settings = part ? ThemeService::ReadSettings(part) : std::nullopt;
+        if (!settings.has_value())
+        {
+            return MakeError(ErrorCode::OperationFailed, "The document has nowhere to keep a theme.",
+                             session->Id(),
+                             "A presentation keeps its theme on a slide master, so an empty one has no place "
+                             "for it; add a slide first.");
+        }
+
+        // Every argument is resolved before the theme is touched, so a colour
+        // that does not parse leaves the document alone rather than half
+        // rewritten.
+        nlohmann::json changed = nlohmann::json::array();
+        const auto colors = arguments.find("colors");
+        if (colors != arguments.end())
+        {
+            for (const auto& [name, slot] : SharedToolsetHelper::ThemeColorSlots())
+            {
+                const auto member = colors->find(name);
+                if (member == colors->end() || !member->is_string())
+                {
+                    continue;
+                }
+
+                const auto text = member->get<std::string>();
+                const auto parsed = ParseColor(text);
+                if (!parsed.has_value())
+                {
+                    return MakeError(ErrorCode::InputInvalid, "'" + text + "' is not a colour.", name,
+                                     "Write a colour as RRGGBB or #RRGGBB hex.");
+                }
+
+                settings->Colors[static_cast<Size>(slot)] = *parsed;
+                changed.push_back(std::string("colors.") + name);
+            }
+        }
+
+        if (const auto major = arguments.find("major_fonts"); major != arguments.end())
+        {
+            ApplyThemeFonts(*major, settings->MajorFonts, "majorFonts", changed);
+        }
+
+        if (const auto minor = arguments.find("minor_fonts"); minor != arguments.end())
+        {
+            ApplyThemeFonts(*minor, settings->MinorFonts, "minorFonts", changed);
+        }
+
+        if (arguments.contains("name"))
+        {
+            settings->Name = arguments.value("name", std::string());
+            changed.push_back("name");
+        }
+
+        if (changed.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "Nothing to change.", session->Id(),
+                             "Pass a name, colours, or fonts.");
+        }
+
+        MutationGuard guard(*session);
+
+        if (!ThemeService::WriteSettings(part, *settings))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The theme could not be written.", session->Id());
+        }
+
+        guard.Commit();
+
+        const auto count = changed.size();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = settings->Name;
+        data["changed"] = std::move(changed);
+
+        return ResultBuilder("Changed " + std::to_string(count) + " theme setting(s).")
+            .WithSession(*session)
+            .WithData(std::move(data))
             .Build();
     }
 
@@ -2320,6 +2823,11 @@ private:
             const auto* tool = registry->Find(toolName);
             if (tool == nullptr)
             {
+                if (auto declined = ToolSupport::DescribeUnavailableTool(context, toolName); declined.has_value())
+                {
+                    return std::move(*declined);
+                }
+
                 return MakeError(ErrorCode::InputInvalid, "Unknown tool '" + toolName + "' in operation " + std::to_string(index + 1) + ".",
                                  toolName, "Call tools/list to see what this server offers.");
             }
@@ -2715,8 +3223,11 @@ private:
         const auto result = Tools::Compare(*left, *right);
         if (!result.Ok)
         {
-            return MakeErrorFromDiagnostics(ErrorCode::OperationFailed, "The packages could not be compared.",
-                                            result.Diagnostics);
+            // Comparing reads nothing but the two packages, so a failure means
+            // one of them is not a package that opens.
+            return MakeErrorFromDiagnostics(ErrorCode::PackageLoadFailed, "The packages could not be compared.",
+                                            result.Diagnostics,
+                                            "Both paths must name Office packages such as .docx, .xlsx or .pptx.");
         }
 
         nlohmann::json partChanges = nlohmann::json::array();
@@ -3060,7 +3571,10 @@ private:
                                                                             "thumbnail or customXml.")},
                                                            {"outputPath",
                                                             Schema::String("File written, when working on paths.")}}),
-                             false);
+                             // Redacting an open session reports the session like any other
+                             // mutation; without these fields a conformant client rejected
+                             // that answer as violating the schema.
+                             true);
         definition.Example = nlohmann::json{{"input_path", "draft" + adapter.FileExtension()},
                                             {"output_path", "public" + adapter.FileExtension()}};
         definition.Annotations.Destructive = true;

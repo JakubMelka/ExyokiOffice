@@ -9,6 +9,7 @@
 #include "ExyokiOffice/StandardTypes.hpp"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -56,6 +57,10 @@ struct ChartSeriesData
     ChartSeriesRef values;
     ChartSeriesRef category;
     ChartSeriesRef bubble;
+    /** Plot type of this series; Unknown means the chart's own type. */
+    ChartPlotKind kind = ChartPlotKind::Unknown;
+    /** Whether the series is plotted against the secondary axis pair. */
+    bool secondaryAxis = false;
 };
 
 /** Host-neutral chart-space layout consumed by ChartDom::BuildChartSpace. */
@@ -65,9 +70,39 @@ struct ChartLayout
     std::string title;
     std::string categoryAxisTitle;
     std::string valueAxisTitle;
+    /** Title of the secondary value axis; used only when a series is on it. */
+    std::string secondaryValueAxisTitle;
     bool showLegend = true;
     ChartLegendPosition legendPosition = ChartLegendPosition::Right;
     bool showGridLines = true;
+};
+
+/** One series of an existing chart, with the group it sits in, as ChartDom::AllSeries reads it. */
+struct ChartSeriesNode
+{
+    std::shared_ptr<OpenXMLElement> series;
+    std::shared_ptr<OpenXMLElement> group;
+    /**
+     * Position of @ref group among ChartDom::PlotGroups. Element wrappers are
+     * not guaranteed to be the same objects across two reads of the tree, so a
+     * series is matched to its group by position rather than by pointer.
+     */
+    Size groupIndex = 0;
+    ChartPlotKind kind = ChartPlotKind::Unknown;
+    bool scatterLike = false;
+    bool secondaryAxis = false;
+    /** The series' `c:order`: its position across every group of the chart. */
+    UInt32 order = 0;
+};
+
+/** One plot-type group of an existing chart, as ChartDom::PlotGroups reads it. */
+struct ChartPlotGroup
+{
+    std::shared_ptr<OpenXMLElement> group;
+    ChartPlotKind kind = ChartPlotKind::Unknown;
+    bool scatterLike = false;
+    /** True when the group names a different axis pair than the first group. */
+    bool secondaryAxis = false;
 };
 
 /**
@@ -90,6 +125,31 @@ public:
     using Element = std::shared_ptr<OpenXMLElement>;
 
     static Element FindPlotGroup(const Element& plotArea, ChartPlotKind& kind, bool& scatterLike);
+
+    /**
+     * Every plot-type group of @p plotArea in document order. A combination
+     * chart has one group per plot type and axis pair; the first group's axes
+     * are taken as the primary pair.
+     */
+    static std::vector<ChartPlotGroup> PlotGroups(const Element& plotArea);
+
+    /**
+     * Every series of @p plotArea across all of its groups, in `c:order`. A
+     * reader that walks only the first group of a combination chart sees part
+     * of it, and a writer that rewrites that part with the whole list
+     * duplicates the rest.
+     */
+    static std::vector<ChartSeriesNode> AllSeries(const Element& plotArea);
+
+    /**
+     * Whether @p series can share one plot area under a chart of type
+     * @p chartKind. Kinds that need different axes cannot be combined: a pie
+     * has none, scatter and bubble plot two value axes, and a horizontal bar
+     * swaps the axes of every other category kind. Bubble does not combine
+     * with scatter, and at least one series must stay on the primary axis.
+     */
+    static bool IsValidCombination(ChartPlotKind chartKind, const std::vector<ChartSeriesData>& series);
+
     static std::vector<Element> Series(const Element& group);
     static std::string ReadTitle(const Element& chart);
     static std::string ReadSeriesName(const Element& series);
@@ -114,7 +174,15 @@ public:
     /**
      * Replaces the cached values (and optionally the title) of an existing chart
      * while preserving its plot type, formatting, and series source formulas.
-     * @return false when @p chart has no recognized plot-type group.
+     *
+     * A chart with one plot-type group takes any number of series. A combination
+     * chart keeps each series in the group it is in, matched by `c:order`, so it
+     * takes exactly as many series as it has; changing the count would leave no
+     * way to say which group a new series belongs to.
+     *
+     * @return false when @p chart has no recognized plot-type group, or when a
+     * combination chart is given a different number of series than it has. The
+     * chart is left untouched in both cases.
      */
     static bool RewriteSeries(const Element& chart, const std::vector<ChartLiteralSeries>& data,
                               const std::optional<std::string>& title);

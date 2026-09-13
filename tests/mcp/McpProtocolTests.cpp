@@ -377,6 +377,129 @@ TEST_CASE("an unknown tool is an invalid-params error, not a tool failure [mcp-p
     CHECK(response["error"]["code"] == -32602);
 }
 
+/// Sends `tools/call` for @p name with no arguments and returns the whole response.
+static nlohmann::json CallByName(McpTestServer& server, const std::string& name)
+{
+    nlohmann::json call = nlohmann::json::object();
+    call["jsonrpc"] = "2.0";
+    call["id"] = 9;
+    call["method"] = "tools/call";
+    call["params"] = nlohmann::json{{"name", name}, {"arguments", nlohmann::json::object()}};
+    return server.Send(call);
+}
+
+/// Checks that @p response is an `unsupported` tool failure carrying a hint.
+static void CheckDeclined(const nlohmann::json& response, const std::string& name)
+{
+    INFO(name);
+    REQUIRE(response.contains("result"));
+    CHECK(response["result"]["isError"] == true);
+    const auto& error = response["result"]["structuredContent"]["error"];
+    CHECK(error["code"] == "unsupported");
+    CHECK(error["target"] == name);
+    CHECK_FALSE(error["message"].get<std::string>().empty());
+    CHECK_FALSE(error["hint"].get<std::string>().empty());
+}
+
+TEST_CASE("a capability this version leaves out is answered as unsupported with a hint [mcp-protocol]")
+{
+    auto word = MakeWordServer();
+    word->Initialize();
+    for (const std::string name : {"insert_equation", "add_smartart", "EncryptDocument", "sign-document",
+                                   "insert_chart", "insert_text_box", "write_xml", "unpack_package"})
+    {
+        CheckDeclined(CallByName(*word, name), name);
+    }
+
+    // A boundary belongs to its family, and a whole-word key does not match
+    // inside another word: the Word server knows nothing of a colour scale,
+    // and "design" is not a request to sign.
+    for (const std::string name : {"add_color_scale", "design_page", "resort_sections", "no_such_tool"})
+    {
+        INFO(name);
+        CHECK(CallByName(*word, name)["error"]["code"] == -32602);
+    }
+
+    auto excel = MakeExcelServer();
+    excel->Initialize();
+    for (const std::string name : {"add_data_bar", "add_icon_set", "sort_range", "set_rich_text"})
+    {
+        CheckDeclined(CallByName(*excel, name), name);
+    }
+    CHECK(CallByName(*excel, "insert_equation")["error"]["code"] == -32602);
+
+    auto powerPoint = MakePowerPointServer();
+    powerPoint->Initialize();
+    CheckDeclined(CallByName(*powerPoint, "add_equation"), "add_equation");
+    CheckDeclined(CallByName(*powerPoint, "add_smart_art"), "add_smart_art");
+}
+
+TEST_CASE("a tool the read-only filter withheld says so instead of not existing [mcp-protocol]")
+{
+    auto server = MakeWordServer(true);
+    server->Initialize();
+
+    const auto response = CallByName(*server, "insert_paragraph");
+    CheckDeclined(response, "insert_paragraph");
+    CHECK(response["result"]["structuredContent"]["error"]["message"].get<std::string>().find("--read-only") !=
+          std::string::npos);
+
+    // A tool the filter kept still runs, and a name it never had is still unknown.
+    CHECK(CallByName(*server, "list_documents")["result"]["isError"] == false);
+    CHECK(CallByName(*server, "insert_paragraphs")["error"]["code"] == -32602);
+}
+
+TEST_CASE("the registry remembers why each filter withheld a tool [mcp-protocol]")
+{
+    const auto definition = [](const std::string& name, const std::string& group, bool readOnly)
+    {
+        ToolDefinition tool;
+        tool.Name = name;
+        tool.Title = name;
+        tool.Description = "A tool used only by this test.";
+        tool.Group = group;
+        tool.InputSchema = Schema::Object("Arguments.", {}, nlohmann::json::object());
+        tool.Annotations.ReadOnly = readOnly;
+        tool.Handler = [](ToolContext&, const nlohmann::json&)
+        { return ToolOutcome{}; };
+        return tool;
+    };
+
+    ToolRegistry registry(true, {"content"});
+    registry.Add(definition("read_content", "content", true));
+    registry.Add(definition("edit_content", "content", false));
+    registry.Add(definition("read_layout", "layout", true));
+
+    CHECK(registry.Find("read_content") != nullptr);
+    CHECK(registry.FindWithheld("read_content") == nullptr);
+
+    const auto* mutating = registry.FindWithheld("edit_content");
+    REQUIRE(mutating != nullptr);
+    CHECK(mutating->ByReadOnly);
+
+    const auto* filtered = registry.FindWithheld("read_layout");
+    REQUIRE(filtered != nullptr);
+    CHECK_FALSE(filtered->ByReadOnly);
+    CHECK(filtered->Group == "layout");
+
+    CHECK(registry.FindWithheld("never_registered") == nullptr);
+}
+
+TEST_CASE("a batch naming a capability this version leaves out is refused as unsupported [mcp-protocol]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+    const auto created = server->Call("create_document", nlohmann::json::object());
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto batch = server->Call(
+        "batch", nlohmann::json{{"documentId", documentId},
+                                {"operations", nlohmann::json::array({nlohmann::json{
+                                                   {"tool", "insert_equation"}, {"arguments", nlohmann::json::object()}}})}});
+    CHECK(batch["ok"] == false);
+    CHECK(batch["error"]["code"] == "unsupported");
+}
+
 TEST_CASE("a tool failure is a successful response with isError [mcp-protocol]")
 {
     auto server = MakeWordServer();

@@ -61,12 +61,15 @@ public:
             return;
         }
         info.Title = ChartDom::ReadTitle(chart);
-        ChartPlotKind kind{};
-        bool scatter = false;
-        auto group = ChartDom::FindPlotGroup(chart->GetFirstChildOfType<C::PlotArea>(), kind, scatter);
-        info.Type = WordChartTypeMap::ToPublic(kind);
-        for (const auto& series : ChartDom::Series(group))
+        const auto plotArea = chart->GetFirstChildOfType<C::PlotArea>();
+        const auto groups = ChartDom::PlotGroups(plotArea);
+        info.Type = WordChartTypeMap::ToPublic(groups.empty() ? ChartPlotKind::Unknown : groups.front().kind);
+        // Every group, not just the first: a combination chart Word wrote keeps
+        // its series in one group per type, and update_chart rewrites them all.
+        for (const auto& node : ChartDom::AllSeries(plotArea))
         {
+            const auto& series = node.series;
+            const bool scatter = node.scatterLike;
             WordChartSeries entry;
             entry.Name = ChartDom::ReadSeriesName(series);
             auto values = scatter ? std::static_pointer_cast<OpenXMLElement>(series->GetFirstChildOfType<C::YValues>())

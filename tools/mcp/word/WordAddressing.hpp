@@ -102,6 +102,14 @@ public:
     [[nodiscard]] static std::optional<DocumentFormat::OpenXml::Wordprocessing::JustificationValues> ParseAlignment(
         const std::string& token);
 
+    /// Resolves a `ST_NumberFormat` token; std::nullopt when the schema has no such value.
+    [[nodiscard]] static std::optional<DocumentFormat::OpenXml::Wordprocessing::NumberFormatValues>
+    ParseNumberFormat(const std::string& token);
+
+    /// Renders a numbering format back as the token `ST_NumberFormat` defines for it.
+    [[nodiscard]] static std::string NumberFormatToken(
+        DocumentFormat::OpenXml::Wordprocessing::NumberFormatValues format);
+
     /// Renders a block type as its tool-facing token.
     [[nodiscard]] static std::string BlockTypeToken(Word::BodyBlockType type);
 

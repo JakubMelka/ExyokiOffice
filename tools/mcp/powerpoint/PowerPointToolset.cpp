@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: MIT
 // See LICENSE file in the project root for full license text.
 
+#include "ExyokiOffice/ThemeService.hpp"
 #include "PowerPointToolset.hpp"
 
 #include "PptAddressing.hpp"
 #include "SharedToolset.hpp"
 #include "Units.hpp"
+
+#include "AsciiText.hpp"
 
 #include "ExyokiOffice/Tools/DocumentModelIO.hpp"
 #include "ExyokiOffice/Guid.hpp"
@@ -18,6 +21,7 @@ namespace ExyokiOffice::Mcp
 {
 
 namespace P = ExyokiOffice::DocumentFormat::OpenXml::Presentation;
+namespace Drawing = ExyokiOffice::DocumentFormat::OpenXml::Drawing;
 
 /// Open settings that carry the configured safety limits and nothing else.
 static Packaging::OpenSettings SettingsWithLimits(const OpenXmlPackageLimits& limits)
@@ -67,6 +71,65 @@ bool PowerPointDocumentHandle::LoadFromMemory(std::span<const Byte> bytes)
 std::shared_ptr<OpenXmlPackage> PowerPointDocumentHandle::Package() const
 {
     return m_editor ? m_editor->GetDocument() : nullptr;
+}
+
+nlohmann::json PowerPointDocumentHandle::Protection() const
+{
+    const auto info = m_editor ? m_editor->GetModifyProtection() : std::nullopt;
+    if (!info.has_value() || !info->HasPassword)
+    {
+        return {};
+    }
+
+    nlohmann::json data = nlohmann::json::object();
+    data["kind"] = "modify";
+    data["hasPassword"] = true;
+    // A verifier this library cannot compute still stops PowerPoint; it only
+    // stops the server from removing the protection, which the caller has to
+    // know before it tries.
+    data["verifierSupported"] = info->VerifierSupported;
+    return data;
+}
+
+std::shared_ptr<Packaging::ThemePart> PowerPointDocumentHandle::Theme() const
+{
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto presentation = document ? document->GetPresentationPart() : nullptr;
+    if (!presentation)
+    {
+        return nullptr;
+    }
+    if (const auto own = presentation->GetThemePart())
+    {
+        return own;
+    }
+
+    // A presentation usually hangs its theme off the first slide master rather
+    // than off the presentation part, and that is the one its slides inherit.
+    const auto masters = presentation->GetSlideMasterParts();
+    return masters.empty() || !masters.front() ? nullptr : masters.front()->GetThemePart();
+}
+
+std::shared_ptr<Packaging::ThemePart> PowerPointDocumentHandle::EnsureTheme()
+{
+    if (const auto existing = Theme())
+    {
+        return existing;
+    }
+
+    // A slide reads its theme through its master, so a theme created here has
+    // to hang off the master rather than off the presentation part.
+    const auto document = m_editor ? m_editor->GetDocument() : nullptr;
+    const auto presentation = document ? document->GetPresentationPart() : nullptr;
+    const auto masters = presentation ? presentation->GetSlideMasterParts()
+                                      : std::vector<std::shared_ptr<Packaging::SlideMasterPart>>{};
+    if (masters.empty() || !masters.front())
+    {
+        return nullptr;
+    }
+
+    const auto created = masters.front()->AddThemePart();
+    return created && ThemeService::WriteDefaultTheme(created) ? created : nullptr;
 }
 
 nlohmann::json PowerPointDocumentHandle::Summary() const
@@ -200,6 +263,8 @@ public:
         RegisterSetSlideHidden(registry);
         RegisterSetPlaceholderText(registry);
         RegisterAddTextBox(registry);
+        RegisterAddShape(registry);
+        RegisterFormatShape(registry);
         RegisterEditTextFrame(registry);
         RegisterDeleteShape(registry);
         RegisterSetShapeTransform(registry);
@@ -210,9 +275,20 @@ public:
         RegisterSetNotes(registry);
         RegisterListComments(registry);
         RegisterAddComment(registry);
+        RegisterListAnimations(registry);
+        RegisterAddAnimation(registry);
+        RegisterUpdateAnimation(registry);
+        RegisterRemoveAnimation(registry);
         RegisterSetTransition(registry);
         RegisterAddSection(registry);
         RegisterSetSlideSize(registry);
+        RegisterSetProtection(registry);
+        RegisterAddLayout(registry);
+        RegisterDeleteLayout(registry);
+        RegisterSetSlideLayout(registry);
+        RegisterListCustomShows(registry);
+        RegisterSetCustomShow(registry);
+        RegisterAddMedia(registry);
     }
 
 private:
@@ -1641,6 +1717,631 @@ private:
             .Build();
     }
 
+    /**
+     * @brief Resolves a DrawingML preset name such as `roundRect`.
+     *
+     * The preset list is the schema's, not this server's: there are 187 of
+     * them, and publishing an enumeration of that size in the catalog would
+     * cost every client more context than the whole rest of the tool. The name
+     * is therefore a string, resolved through the generated enumeration's own
+     * table, and matched loosely — case and separators are ignored — because an
+     * agent writes `round_rect` as readily as `roundRect`.
+     */
+    static std::optional<Drawing::ShapeTypeValues::Value> ParsePreset(const std::string& token)
+    {
+        const auto normalize = [](std::string_view text)
+        {
+            std::string result;
+            for (const char character : text)
+            {
+                if (character != '_' && character != '-' && character != ' ')
+                {
+                    result.push_back(AsciiText::ToLower(character));
+                }
+            }
+
+            return result;
+        };
+
+        const auto* meta = Drawing::ShapeTypeValues::GetMetaEnum();
+        if (meta == nullptr)
+        {
+            return std::nullopt;
+        }
+
+        // The exact spelling is by far the common case, so it is tried first
+        // and the normalized walk is only the fallback.
+        const auto exact = meta->FromString(token);
+        if (exact != Drawing::ShapeTypeValues::NotDefinedEnumValue &&
+            exact != Drawing::ShapeTypeValues::InvalidEnumValue)
+        {
+            return static_cast<Drawing::ShapeTypeValues::Value>(exact);
+        }
+
+        const auto wanted = normalize(token);
+        for (UInt32 raw = Drawing::ShapeTypeValues::Line; raw <= Drawing::ShapeTypeValues::ChartPlus; ++raw)
+        {
+            if (normalize(meta->ToString(raw)) == wanted)
+            {
+                return static_cast<Drawing::ShapeTypeValues::Value>(raw);
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    static std::string PresetToken(Drawing::ShapeTypeValues::Value preset)
+    {
+        const auto* meta = Drawing::ShapeTypeValues::GetMetaEnum();
+        return meta == nullptr ? std::string() : std::string(meta->ToString(static_cast<UInt32>(preset)));
+    }
+
+    /// Schema of the `fill` argument, shared by the shape tools.
+    static nlohmann::json FillSchema()
+    {
+        nlohmann::json stop =
+            Schema::Object("One gradient stop.", {"color", "position"},
+                           nlohmann::json{{"color", Schema::String("Stop color as \"#RRGGBB\".")},
+                                          {"position", Schema::Number("Stop position from 0 through 100.")}});
+
+        return Schema::Object(
+            "Shape fill. Omit to leave the fill alone; \"inherited\" removes an explicit fill so theme and "
+            "placeholder inheritance applies again.",
+            {"kind"},
+            nlohmann::json{{"kind", Schema::Enumeration("Fill model.", {"inherited", "none", "solid", "gradient"})},
+                           {"color", Schema::String("Solid fill color as \"#RRGGBB\".")},
+                           {"gradient_stops", Schema::Array("At least two stops.", std::move(stop))},
+                           {"gradient_angle", Schema::Number("Linear sweep direction in degrees.")}});
+    }
+
+    /// Schema of the `outline` argument, shared by the shape tools.
+    static nlohmann::json OutlineSchema()
+    {
+        return Schema::Object(
+            "Shape outline. Omit to leave the outline alone. A gradient outline is not representable and is "
+            "refused.",
+            {"kind"},
+            nlohmann::json{
+                {"kind", Schema::Enumeration("Outline color model.", {"inherited", "none", "solid"})},
+                {"color", Schema::String("Solid outline color as \"#RRGGBB\".")},
+                {"width", Schema::Length("Line width.")},
+                {"dash", Schema::Enumeration("Dash pattern.",
+                                             {"solid", "dot", "dash", "lgDash", "dashDot", "lgDashDot",
+                                              "lgDashDotDot", "sysDash", "sysDot", "sysDashDot", "sysDashDotDot"})},
+                {"cap", Schema::Enumeration("Line-end cap.", {"rnd", "sq", "flat"})},
+                {"compound", Schema::Enumeration("Compound line type.",
+                                                 {"sng", "dbl", "thickThin", "thinThick", "tri"})}});
+    }
+
+    static PowerPoint::PresentationFillKind ParseFillKind(const std::string& token)
+    {
+        if (token == "none")
+        {
+            return PowerPoint::PresentationFillKind::None;
+        }
+
+        if (token == "solid")
+        {
+            return PowerPoint::PresentationFillKind::Solid;
+        }
+
+        if (token == "gradient")
+        {
+            return PowerPoint::PresentationFillKind::Gradient;
+        }
+
+        return PowerPoint::PresentationFillKind::Inherited;
+    }
+
+    /// Reads the `fill` argument; false leaves @p failure set.
+    static bool ReadFill(const nlohmann::json& source, PowerPoint::PresentationShapeFill& fill,
+                         ToolOutcome& failure)
+    {
+        fill.Kind = ParseFillKind(source.value("kind", std::string("inherited")));
+
+        if (fill.Kind == PowerPoint::PresentationFillKind::Solid)
+        {
+            const auto color = ParseColor(source.value("color", std::string()));
+            if (!color.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "A solid fill needs a \"#RRGGBB\" color.", "fill.color");
+                return false;
+            }
+
+            fill.ColorValue = *color;
+            return true;
+        }
+
+        if (fill.Kind != PowerPoint::PresentationFillKind::Gradient)
+        {
+            return true;
+        }
+
+        const auto stops = source.find("gradient_stops");
+        if (stops == source.end() || stops->size() < 2)
+        {
+            failure = MakeError(ErrorCode::InputInvalid, "A gradient fill needs at least two stops.",
+                                "fill.gradient_stops");
+            return false;
+        }
+
+        for (const auto& entry : *stops)
+        {
+            const auto color = ParseColor(entry.value("color", std::string()));
+            if (!color.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "A gradient stop needs a \"#RRGGBB\" color.",
+                                    "fill.gradient_stops");
+                return false;
+            }
+
+            const auto position = entry.value("position", -1.0);
+            if (position < 0.0 || position > 100.0)
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "A gradient stop position runs from 0 through 100.",
+                                    "fill.gradient_stops");
+                return false;
+            }
+
+            fill.GradientStops.push_back(PowerPoint::PresentationGradientStop{*color, position});
+        }
+
+        fill.GradientAngle = MeasuringAngle{source.value("gradient_angle", 0.0), AngleUnit::Degree};
+        return true;
+    }
+
+    /// Reads the `outline` argument; false leaves @p failure set.
+    static bool ReadOutline(const nlohmann::json& source, PowerPoint::PresentationShapeOutline& outline,
+                            ToolOutcome& failure)
+    {
+        // DrawingML has no gradient outline, and the schema's enumeration says
+        // so: the three tokens it publishes are the three that exist, which
+        // refuses a gradient before the call is made rather than after.
+        outline.Fill = ParseFillKind(source.value("kind", std::string("inherited")));
+
+        if (outline.Fill == PowerPoint::PresentationFillKind::Solid)
+        {
+            const auto color = ParseColor(source.value("color", std::string()));
+            if (!color.has_value())
+            {
+                failure =
+                    MakeError(ErrorCode::InputInvalid, "A solid outline needs a \"#RRGGBB\" color.", "outline.color");
+                return false;
+            }
+
+            outline.ColorValue = *color;
+        }
+
+        if (const auto width = source.find("width"); width != source.end())
+        {
+            const auto parsed = ParseLength(*width);
+            if (!parsed.has_value() || ToPointValue(*parsed) < 0.0)
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "The outline width is not a non-negative length.",
+                                    "outline.width");
+                return false;
+            }
+
+            outline.Width = *parsed;
+        }
+
+        // The three remaining attributes are plain enumeration tokens the
+        // schema already bounded, so a value that arrives here is known good.
+        if (const auto dash = source.find("dash"); dash != source.end())
+        {
+            outline.Dash = static_cast<Drawing::PresetLineDashValues::Value>(
+                Drawing::PresetLineDashValues::GetMetaEnum()->FromString(dash->get<std::string>()));
+        }
+
+        if (const auto cap = source.find("cap"); cap != source.end())
+        {
+            outline.Cap = static_cast<Drawing::LineCapValues::Value>(
+                Drawing::LineCapValues::GetMetaEnum()->FromString(cap->get<std::string>()));
+        }
+
+        if (const auto compound = source.find("compound"); compound != source.end())
+        {
+            outline.Compound = static_cast<Drawing::CompoundLineValues::Value>(
+                Drawing::CompoundLineValues::GetMetaEnum()->FromString(compound->get<std::string>()));
+        }
+
+        return true;
+    }
+
+    /**
+     * @brief Spans a connector across the two shapes it joins.
+     *
+     * A connection records which shapes a connector belongs to; it does not
+     * place it. PowerPoint re-routes a connected connector when either shape
+     * moves, but what it draws when the file is opened is the stored geometry,
+     * so a connector left at the default zero extent is invisible. Spanning the
+     * centres of the two shapes puts it where the caller plainly meant it,
+     * and an explicit width or height still wins.
+     */
+    static void SpanConnector(const PowerPoint::PresentationShape& from, const PowerPoint::PresentationShape& to,
+                              PowerPoint::PresentationShapeTransform& transform)
+    {
+        const auto first = from.GetTransform();
+        const auto second = to.GetTransform();
+        if (!first.has_value() || !second.has_value())
+        {
+            return;
+        }
+
+        const auto centre = [](const PowerPoint::PresentationShapeTransform& shape)
+        {
+            return std::pair<Int64, Int64>{ToEmuValue(shape.Position.X) + ToEmuValue(shape.Size.Width) / 2,
+                                           ToEmuValue(shape.Position.Y) + ToEmuValue(shape.Size.Height) / 2};
+        };
+
+        const auto [fromX, fromY] = centre(*first);
+        const auto [toX, toY] = centre(*second);
+
+        transform.Position = PowerPoint::PresentationPoint{std::min(fromX, toX), std::min(fromY, toY)};
+        transform.Size = PowerPoint::PresentationSize{std::abs(toX - fromX), std::abs(toY - fromY)};
+
+        // A connector drawn right to left, or bottom to top, is expressed as a
+        // flip rather than as a negative extent, which OOXML has no room for.
+        transform.FlipHorizontal = toX < fromX;
+        transform.FlipVertical = toY < fromY;
+    }
+
+    /// Resolves one `{shape, site}` connector endpoint against the slide.
+    static bool ReadEndpoint(const PowerPoint::PresentationSlide& slide, const nlohmann::json& source,
+                             PowerPoint::PresentationConnectorEndpoint& endpoint,
+                             PowerPoint::PresentationShape::Ptr& target, ToolOutcome& failure)
+    {
+        const auto path = source.value("shape", std::string());
+        target = PptAddressing::FindShape(slide, path, failure);
+        if (target == nullptr)
+        {
+            return false;
+        }
+
+        // A shape with no non-visual identity cannot be the target of a
+        // connection, and writing zero would silently produce a connector
+        // attached to nothing.
+        const auto id = target->Id();
+        if (id == 0)
+        {
+            failure = MakeError(ErrorCode::ShapeNotFound, "The shape has no identifier to connect to.", path);
+            return false;
+        }
+
+        endpoint.ShapeId = id;
+        endpoint.SiteIndex = source.value("site", static_cast<UInt32>(0));
+        return true;
+    }
+
+    static nlohmann::json EndpointSchema(std::string description)
+    {
+        return Schema::Object(std::move(description), {"shape"},
+                              nlohmann::json{{"shape", Schema::String("Shape path from get_slide.")},
+                                             {"site", Schema::IntegerWithDefault("Connection-site index on that "
+                                                                                 "shape.",
+                                                                                 0, 0)}});
+    }
+
+    static void RegisterAddShape(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["preset"] = Schema::StringWithDefault(
+            "DrawingML preset geometry name, such as \"rect\", \"roundRect\", \"ellipse\", \"triangle\", "
+            "\"diamond\", \"rightArrow\", \"flowChartDecision\", \"star5\", or \"wedgeRectCallout\". Underscores "
+            "and case are ignored. A connector takes a connector preset such as \"straightConnector1\" or "
+            "\"bentConnector3\".",
+            "rect");
+        properties["x"] = Schema::Length("Distance from the left edge.");
+        properties["y"] = Schema::Length("Distance from the top edge.");
+        properties["width"] = Schema::Length("Shape width.");
+        properties["height"] = Schema::Length("Shape height.");
+        properties["rotation"] = PptAddressing::RotationSchema();
+        properties["text"] = Schema::String("Text placed in the shape.");
+        properties["paragraphs"] = PptAddressing::ParagraphsSchema();
+        properties["bullets"] = Schema::Array("Bullet lines placed in the shape.", Schema::String("One line."));
+        properties["fill"] = FillSchema();
+        properties["outline"] = OutlineSchema();
+        properties["connect_from"] = EndpointSchema("Shape the connector starts at; makes this a connector.");
+        properties["connect_to"] = EndpointSchema("Shape the connector ends at; makes this a connector.");
+        properties["name"] = Schema::String("Non-visual shape name.");
+
+        auto definition =
+            MakeDefinition("add_shape", "Add shape",
+                           "Add a shape with preset geometry, optionally carrying text, a fill, and an outline. "
+                           "Passing connect_from or connect_to makes it a connector between two shapes.",
+                           "content");
+        definition.InputSchema = Schema::Object("Arguments of add_shape.", {"documentId", "slide", "x", "y"},
+                                                std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New shape.", {"shape"},
+                           nlohmann::json{{"shape", Schema::String("Shape path of the new shape.")},
+                                          {"preset", Schema::String("Preset geometry that was written.")},
+                                          {"connector", Schema::Boolean("True when a connector was added.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"slide", 1},   {"preset", "roundRect"},
+                                            {"x", "2cm"},           {"y", "3cm"},   {"width", "6cm"},
+                                            {"height", "2cm"},      {"text", "Start"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddShape(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome AddShape(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const auto presetToken = arguments.value("preset", std::string("rect"));
+        const auto preset = ParsePreset(presetToken);
+        if (!preset.has_value())
+        {
+            return MakeError(ErrorCode::InputInvalid, "No preset geometry has that name.", presetToken);
+        }
+
+        const bool connector = arguments.contains("connect_from") || arguments.contains("connect_to");
+
+        PowerPoint::PresentationShapeTransform transform;
+        // A connector between two shapes gets its extent from where they sit,
+        // so only a plain shape has to be given a size.
+        if (!PptAddressing::ReadTransform(arguments, transform, !connector, failure))
+        {
+            return failure;
+        }
+
+        PowerPoint::PresentationShapeFill fill;
+        const bool hasFill = arguments.contains("fill");
+        if (hasFill && !ReadFill(arguments["fill"], fill, failure))
+        {
+            return failure;
+        }
+
+        PowerPoint::PresentationShapeOutline outline;
+        bool hasOutline = arguments.contains("outline");
+        if (hasOutline && !ReadOutline(arguments["outline"], outline, failure))
+        {
+            return failure;
+        }
+
+        // A new shape is a bare p:sp with no style reference, so nothing is
+        // inherited and a shape given neither a fill nor an outline draws
+        // nothing at all - PowerPoint shows its text floating over the slide,
+        // and a connector disappears entirely. Supplying an outline in that
+        // case is what makes the geometry the caller asked for visible; naming
+        // either one is taken as knowing what the shape should look like.
+        if (!hasFill && !hasOutline)
+        {
+            outline.Fill = PowerPoint::PresentationFillKind::Solid;
+            outline.ColorValue = Color(0x40, 0x40, 0x40);
+            outline.Width = MeasuringUnits{1.0, MeasurementUnit::Point};
+            hasOutline = true;
+        }
+
+        PowerPoint::PresentationTextFrame frame;
+        const bool hasText = PptAddressing::HasText(arguments);
+        if (hasText && !PptAddressing::ReadTextFrame(arguments, frame, failure))
+        {
+            return failure;
+        }
+
+        std::optional<PowerPoint::PresentationConnectorEndpoint> start;
+        std::optional<PowerPoint::PresentationConnectorEndpoint> end;
+        PowerPoint::PresentationShape::Ptr fromShape;
+        PowerPoint::PresentationShape::Ptr toShape;
+        if (const auto from = arguments.find("connect_from"); from != arguments.end())
+        {
+            PowerPoint::PresentationConnectorEndpoint endpoint;
+            if (!ReadEndpoint(*slide, *from, endpoint, fromShape, failure))
+            {
+                return failure;
+            }
+
+            start = endpoint;
+        }
+
+        if (const auto to = arguments.find("connect_to"); to != arguments.end())
+        {
+            PowerPoint::PresentationConnectorEndpoint endpoint;
+            if (!ReadEndpoint(*slide, *to, endpoint, toShape, failure))
+            {
+                return failure;
+            }
+
+            end = endpoint;
+        }
+
+        // Only a connector that joins two shapes and was given no size of its
+        // own has anything to derive.
+        if (fromShape != nullptr && toShape != nullptr && !arguments.contains("width") &&
+            !arguments.contains("height"))
+        {
+            SpanConnector(*fromShape, *toShape, transform);
+        }
+
+        MutationGuard guard(session.Session());
+
+        auto tree = slide->ShapeTree();
+        if (tree == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The slide has no shape tree.");
+        }
+
+        const auto name = arguments.value("name", std::string());
+        auto shape = connector ? tree->AddConnector(name) : tree->AddShape(name);
+        if (shape == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The shape could not be added.");
+        }
+
+        if (!shape->SetPresetGeometry(*preset))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The preset geometry could not be written.", presetToken);
+        }
+
+        shape->SetTransform(transform);
+
+        if (hasFill && !shape->SetFill(fill))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The fill could not be written.");
+        }
+
+        if (hasOutline && !shape->SetOutline(outline))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The outline could not be written.");
+        }
+
+        if (hasText && !shape->SetTextFrame(frame))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The text could not be written into the new shape.");
+        }
+
+        if (connector && !shape->SetConnectorEndpoints(start, end))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The connector endpoints could not be written.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["shape"] = std::to_string(tree->Count());
+        data["preset"] = PresetToken(*preset);
+        data["connector"] = connector;
+
+        return ResultBuilder("Added a shape to slide " + std::to_string(arguments.value("slide", 0)) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterFormatShape(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["shape"] = Schema::String("Shape path from get_slide.");
+        properties["preset"] = Schema::String("Replace the preset geometry; see add_shape for the names.");
+        properties["fill"] = FillSchema();
+        properties["outline"] = OutlineSchema();
+
+        auto definition = MakeDefinition("format_shape", "Format shape",
+                                         "Change the fill, the outline, or the preset geometry of a shape that is "
+                                         "already on the slide. Omitted members are left alone.",
+                                         "content");
+        definition.InputSchema =
+            Schema::Object("Arguments of format_shape.", {"documentId", "slide", "shape"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Formatted shape.", {"shape"},
+                           nlohmann::json{{"shape", Schema::String("Shape path.")},
+                                          {"preset", Schema::String("Effective preset geometry, when it has "
+                                                                    "one.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"slide", 1},
+                                            {"shape", "2"},
+                                            {"fill", nlohmann::json{{"kind", "solid"}, {"color", "#2F6FED"}}}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return FormatShape(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome FormatShape(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const auto path = arguments.value("shape", std::string());
+        auto shape = PptAddressing::FindShape(*slide, path, failure);
+        if (shape == nullptr)
+        {
+            return failure;
+        }
+
+        // Nothing to do is a mistake worth reporting: the caller believes it
+        // asked for a change, and a silent success would hide the typo.
+        const bool hasPreset = arguments.contains("preset");
+        const bool hasFill = arguments.contains("fill");
+        const bool hasOutline = arguments.contains("outline");
+        if (!hasPreset && !hasFill && !hasOutline)
+        {
+            return MakeError(ErrorCode::InputInvalid, "Pass at least one of preset, fill, and outline.", path);
+        }
+
+        std::optional<Drawing::ShapeTypeValues::Value> preset;
+        if (hasPreset)
+        {
+            const auto token = arguments.value("preset", std::string());
+            preset = ParsePreset(token);
+            if (!preset.has_value())
+            {
+                return MakeError(ErrorCode::InputInvalid, "No preset geometry has that name.", token);
+            }
+        }
+
+        PowerPoint::PresentationShapeFill fill;
+        if (hasFill && !ReadFill(arguments["fill"], fill, failure))
+        {
+            return failure;
+        }
+
+        PowerPoint::PresentationShapeOutline outline;
+        if (hasOutline && !ReadOutline(arguments["outline"], outline, failure))
+        {
+            return failure;
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (preset.has_value() && !shape->SetPresetGeometry(*preset))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The preset geometry could not be written.", path);
+        }
+
+        if (hasFill && !shape->SetFill(fill))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The fill could not be written.", path);
+        }
+
+        if (hasOutline && !shape->SetOutline(outline))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The outline could not be written.", path);
+        }
+
+        guard.Commit();
+
+        const auto effective = shape->GetPresetGeometry();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["shape"] = path;
+        data["preset"] = effective.has_value() ? PresetToken(*effective) : std::string();
+
+        return ResultBuilder("Formatted shape " + path + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
     static void RegisterSetShapeTransform(ToolRegistry& registry)
     {
         nlohmann::json properties = nlohmann::json::object();
@@ -2087,24 +2788,41 @@ private:
         nlohmann::json properties = nlohmann::json::object();
         ToolSupport::AddDocumentIdProperty(properties);
         properties["slide"] = SlideProperty();
-        properties["type"] = Schema::Enumeration("Chart type.", {"bar", "column", "line", "pie", "scatter", "area"});
-        properties["categories"] = Schema::Array("Category labels shared by every series.",
-                                                 Schema::String("One category label."));
+        properties["type"] = Schema::Enumeration("Chart type.", ToolSupport::ChartTypeTokens());
+        properties["categories"] =
+            Schema::Array("Category labels shared by every series; for a scatter or bubble chart, the X values "
+                          "written as numbers in text.",
+                          Schema::String("One category label."));
         properties["series"] = Schema::Array(
             "Data series.",
-            Schema::Object("One series.", {"name", "values"},
-                           nlohmann::json{{"name", Schema::String("Series name shown in the legend.")},
-                                          {"values", Schema::Array("Numeric values in category order.",
-                                                                   Schema::Number("One value."))}}));
+            Schema::Object(
+                "One series.", {"name", "values"},
+                nlohmann::json{
+                    {"name", Schema::String("Series name shown in the legend.")},
+                    {"values", Schema::Array("Numeric values in category order.", Schema::Number("One value."))},
+                    {"type", Schema::Enumeration("Type this series is drawn as, which makes a combination chart. "
+                                                 "Column, line and area combine with each other; bar, scatter, "
+                                                 "bubble and pie only with their own kind.",
+                                                 ToolSupport::ChartTypeTokens())},
+                    {"secondary_axis",
+                     Schema::BooleanWithDefault("Plot the series against a secondary value axis on the opposite "
+                                                "side, for values on a different scale. At least one series has "
+                                                "to stay on the primary axis.",
+                                                false)},
+                    {"sizes", Schema::Array("Bubble sizes, one per value. Required for a bubble chart and refused "
+                                            "for any other.",
+                                            Schema::Number("One bubble size."))}}));
         properties["x"] = Schema::Length("Distance from the left edge of the slide.");
         properties["y"] = Schema::Length("Distance from the top edge of the slide.");
         properties["width"] = Schema::Length("Chart width.");
         properties["height"] = Schema::Length("Chart height.");
         properties["title"] = Schema::String("Chart title.");
+        ToolSupport::AddChartAppearanceProperties(properties);
 
         auto definition = MakeDefinition("add_chart", "Add chart",
-                                         "Add a chart built from categories and series values. This version offers "
-                                         "the basic chart types only.",
+                                         "Add a chart built from categories and series values. A series can be "
+                                         "drawn as another type or against a secondary axis, which makes a "
+                                         "combination chart such as columns with a line over them.",
                                          "content");
         definition.InputSchema = Schema::Object(
             "Arguments of add_chart.", {"documentId", "slide", "type", "series", "x", "y", "width", "height"},
@@ -2156,7 +2874,33 @@ private:
             return PowerPoint::PresentationChartType::Area;
         }
 
+        if (token == "bubble")
+        {
+            return PowerPoint::PresentationChartType::Bubble;
+        }
+
         return PowerPoint::PresentationChartType::Column;
+    }
+
+    static PowerPoint::PresentationChartLegendPosition ParseLegendPosition(const std::string& token)
+    {
+        if (token == "left")
+        {
+            return PowerPoint::PresentationChartLegendPosition::Left;
+        }
+
+        if (token == "top")
+        {
+            return PowerPoint::PresentationChartLegendPosition::Top;
+        }
+
+        if (token == "bottom")
+        {
+            return PowerPoint::PresentationChartLegendPosition::Bottom;
+        }
+
+        return token == "none" ? PowerPoint::PresentationChartLegendPosition::None
+                               : PowerPoint::PresentationChartLegendPosition::Right;
     }
 
     static ToolOutcome AddChart(ToolContext& context, const nlohmann::json& arguments)
@@ -2190,13 +2934,24 @@ private:
             }
         }
 
+        const auto type = arguments.value("type", std::string("column"));
+        const auto legend = arguments.value("legend", std::string("right"));
         PowerPoint::PresentationChartDefinition chart;
-        chart.Type = ParseChartType(arguments.value("type", std::string("column")));
+        chart.Type = ParseChartType(type);
         chart.Title = arguments.value("title", std::string());
+        chart.CategoryAxisTitle = arguments.value("category_axis_title", std::string());
+        chart.ValueAxisTitle = arguments.value("value_axis_title", std::string());
+        chart.SecondaryValueAxisTitle = arguments.value("secondary_axis_title", std::string());
+        chart.ShowLegend = legend != "none";
+        chart.LegendPosition = ParseLegendPosition(legend);
+        chart.ShowGridLines = arguments.value("gridlines", true);
         chart.Transform = transform;
 
+        const bool bubble = chart.Type == PowerPoint::PresentationChartType::Bubble;
+        std::vector<ToolSupport::ChartSeriesPlan> plans;
         for (const auto& value : arguments.at("series"))
         {
+            const auto position = std::to_string(chart.Series.size() + 1);
             PowerPoint::PresentationChartSeries series;
             series.Name = value.value("name", std::string());
             for (const auto& number : value.at("values"))
@@ -2204,17 +2959,70 @@ private:
                 series.Values.push_back(number.get<Real>());
             }
 
+            if (series.Values.empty())
+            {
+                return MakeError(ErrorCode::InputInvalid, "Series " + position + " has no values.",
+                                 "series[" + position + "]", "Give every series at least one value.");
+            }
+
             if (!categories.empty())
             {
                 series.Categories = categories;
             }
 
+            const auto sizes = value.find("sizes");
+            if (bubble != (sizes != value.end()))
+            {
+                return bubble ? MakeError(ErrorCode::InputInvalid,
+                                          "Series " + position + " of a bubble chart has no 'sizes'.",
+                                          "series[" + position + "]", "Give each series one bubble size per value.")
+                              : MakeError(ErrorCode::InputInvalid,
+                                          "Series " + position + " has 'sizes', which apply only to a bubble chart.",
+                                          "series[" + position + "]", "Remove sizes, or set type to \"bubble\".");
+            }
+
+            if (sizes != value.end())
+            {
+                std::vector<Real> bubbleSizes;
+                for (const auto& number : *sizes)
+                {
+                    bubbleSizes.push_back(number.get<Real>());
+                }
+
+                if (bubbleSizes.size() != series.Values.size())
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "Series " + position + " has " + std::to_string(series.Values.size()) +
+                                         " values but " + std::to_string(bubbleSizes.size()) + " bubble sizes.",
+                                     "series[" + position + "]", "Give one bubble size per value.");
+                }
+
+                series.BubbleSizes = std::move(bubbleSizes);
+            }
+
+            ToolSupport::ChartSeriesPlan plan;
+            plan.Type = value.value("type", std::string());
+            plan.SecondaryAxis = value.value("secondary_axis", false);
+            if (!plan.Type.empty())
+            {
+                series.Type = ParseChartType(plan.Type);
+            }
+
+            series.SecondaryAxis = plan.SecondaryAxis;
+            plans.push_back(std::move(plan));
             chart.Series.push_back(std::move(series));
         }
 
         if (chart.Series.empty())
         {
             return MakeError(ErrorCode::InputInvalid, "'series' must hold at least one series.");
+        }
+
+        const auto combination = ToolSupport::ChartCombinationError(type, plans);
+        if (!combination.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, combination, "series",
+                             "Change the series type, or leave it out to draw the series as the chart's own type.");
         }
 
         MutationGuard guard(session.Session());
@@ -2493,6 +3301,800 @@ private:
 
     // --- design -------------------------------------------------------------
 
+    /**
+     * @brief Path of the shape carrying @p id, or an empty string.
+     *
+     * Animations address their target by non-visual identifier, which is what
+     * PresentationML stores, but every other tool of this server addresses a
+     * shape by its path. Reporting both means an agent can feed a listed
+     * animation straight back into the shape tools without a second lookup.
+     */
+    static std::string ShapePathOfId(const std::vector<PowerPoint::PresentationShape::Ptr>& level, UInt32 id,
+                                     const std::string& prefix)
+    {
+        for (Size index = 0; index < level.size(); ++index)
+        {
+            if (level[index] == nullptr)
+            {
+                continue;
+            }
+
+            const auto path = prefix.empty() ? std::to_string(index + 1)
+                                             : prefix + "/" + std::to_string(index + 1);
+            if (level[index]->Id() == id)
+            {
+                return path;
+            }
+
+            const auto nested = ShapePathOfId(level[index]->Children(), id, path);
+            if (!nested.empty())
+            {
+                return nested;
+            }
+        }
+
+        return std::string();
+    }
+
+    static std::string ShapePathOfId(const PowerPoint::PresentationSlide& slide, UInt32 id)
+    {
+        auto tree = slide.ShapeTree();
+        return tree == nullptr ? std::string() : ShapePathOfId(tree->Shapes(), id, std::string());
+    }
+
+    static std::string AnimationClassToken(PowerPoint::PresentationAnimationEffectClass value)
+    {
+        switch (value)
+        {
+            case PowerPoint::PresentationAnimationEffectClass::Entrance:
+                return "entrance";
+            case PowerPoint::PresentationAnimationEffectClass::Emphasis:
+                return "emphasis";
+            case PowerPoint::PresentationAnimationEffectClass::Exit:
+                return "exit";
+            case PowerPoint::PresentationAnimationEffectClass::MotionPath:
+                return "motion_path";
+        }
+
+        return "entrance";
+    }
+
+    static PowerPoint::PresentationAnimationEffectClass ParseAnimationClass(const std::string& token)
+    {
+        if (token == "emphasis")
+        {
+            return PowerPoint::PresentationAnimationEffectClass::Emphasis;
+        }
+
+        if (token == "exit")
+        {
+            return PowerPoint::PresentationAnimationEffectClass::Exit;
+        }
+
+        if (token == "motion_path")
+        {
+            return PowerPoint::PresentationAnimationEffectClass::MotionPath;
+        }
+
+        return PowerPoint::PresentationAnimationEffectClass::Entrance;
+    }
+
+    static std::string AnimationEffectToken(PowerPoint::PresentationAnimationEffect value)
+    {
+        switch (value)
+        {
+            case PowerPoint::PresentationAnimationEffect::Appear:
+                return "appear";
+            case PowerPoint::PresentationAnimationEffect::Fade:
+                return "fade";
+            case PowerPoint::PresentationAnimationEffect::Fly:
+                return "fly";
+            case PowerPoint::PresentationAnimationEffect::Wipe:
+                return "wipe";
+            case PowerPoint::PresentationAnimationEffect::Zoom:
+                return "zoom";
+            case PowerPoint::PresentationAnimationEffect::GrowShrink:
+                return "grow_shrink";
+            case PowerPoint::PresentationAnimationEffect::Spin:
+                return "spin";
+            case PowerPoint::PresentationAnimationEffect::ChangeFillColor:
+                return "change_fill_color";
+            case PowerPoint::PresentationAnimationEffect::MotionPath:
+                return "motion_path";
+            case PowerPoint::PresentationAnimationEffect::Unsupported:
+                break;
+        }
+
+        return "unsupported";
+    }
+
+    static PowerPoint::PresentationAnimationEffect ParseAnimationEffect(const std::string& token)
+    {
+        if (token == "appear")
+        {
+            return PowerPoint::PresentationAnimationEffect::Appear;
+        }
+
+        if (token == "fly")
+        {
+            return PowerPoint::PresentationAnimationEffect::Fly;
+        }
+
+        if (token == "wipe")
+        {
+            return PowerPoint::PresentationAnimationEffect::Wipe;
+        }
+
+        if (token == "zoom")
+        {
+            return PowerPoint::PresentationAnimationEffect::Zoom;
+        }
+
+        if (token == "grow_shrink")
+        {
+            return PowerPoint::PresentationAnimationEffect::GrowShrink;
+        }
+
+        if (token == "spin")
+        {
+            return PowerPoint::PresentationAnimationEffect::Spin;
+        }
+
+        if (token == "change_fill_color")
+        {
+            return PowerPoint::PresentationAnimationEffect::ChangeFillColor;
+        }
+
+        if (token == "motion_path")
+        {
+            return PowerPoint::PresentationAnimationEffect::MotionPath;
+        }
+
+        return PowerPoint::PresentationAnimationEffect::Fade;
+    }
+
+    static std::string AnimationTriggerToken(PowerPoint::PresentationAnimationTrigger value)
+    {
+        switch (value)
+        {
+            case PowerPoint::PresentationAnimationTrigger::WithPrevious:
+                return "with_previous";
+            case PowerPoint::PresentationAnimationTrigger::AfterPrevious:
+                return "after_previous";
+            case PowerPoint::PresentationAnimationTrigger::OnClick:
+                break;
+        }
+
+        return "on_click";
+    }
+
+    static PowerPoint::PresentationAnimationTrigger ParseAnimationTrigger(const std::string& token)
+    {
+        if (token == "with_previous")
+        {
+            return PowerPoint::PresentationAnimationTrigger::WithPrevious;
+        }
+
+        if (token == "after_previous")
+        {
+            return PowerPoint::PresentationAnimationTrigger::AfterPrevious;
+        }
+
+        return PowerPoint::PresentationAnimationTrigger::OnClick;
+    }
+
+    static std::string AnimationDirectionToken(PowerPoint::PresentationAnimationDirection value)
+    {
+        switch (value)
+        {
+            case PowerPoint::PresentationAnimationDirection::Left:
+                return "left";
+            case PowerPoint::PresentationAnimationDirection::Up:
+                return "up";
+            case PowerPoint::PresentationAnimationDirection::Right:
+                return "right";
+            case PowerPoint::PresentationAnimationDirection::Down:
+                return "down";
+            case PowerPoint::PresentationAnimationDirection::In:
+                return "in";
+            case PowerPoint::PresentationAnimationDirection::Out:
+                return "out";
+        }
+
+        return "left";
+    }
+
+    static PowerPoint::PresentationAnimationDirection ParseAnimationDirection(const std::string& token)
+    {
+        if (token == "up")
+        {
+            return PowerPoint::PresentationAnimationDirection::Up;
+        }
+
+        if (token == "right")
+        {
+            return PowerPoint::PresentationAnimationDirection::Right;
+        }
+
+        if (token == "down")
+        {
+            return PowerPoint::PresentationAnimationDirection::Down;
+        }
+
+        if (token == "in")
+        {
+            return PowerPoint::PresentationAnimationDirection::In;
+        }
+
+        if (token == "out")
+        {
+            return PowerPoint::PresentationAnimationDirection::Out;
+        }
+
+        return PowerPoint::PresentationAnimationDirection::Left;
+    }
+
+    /// Schema of the `timing` argument, shared by the writing animation tools.
+    static nlohmann::json AnimationTimingSchema()
+    {
+        return Schema::Object(
+            "Effect timing. Every time is in milliseconds.", {},
+            nlohmann::json{
+                {"delay", Schema::IntegerWithDefault("Delay before the effect starts once triggered.", 0, 0)},
+                {"duration", Schema::IntegerWithDefault("Duration of one iteration; may not be zero.", 500, 1)},
+                {"repeat_count", Schema::Integer("Total iterations; omit for a single pass.", 1)},
+                {"repeat_indefinitely",
+                 Schema::BooleanWithDefault("Repeat until the slide advances; excludes repeat_count.", false)},
+                {"auto_reverse", Schema::BooleanWithDefault("Play backwards after each forward pass.", false)},
+                {"acceleration",
+                 Schema::Integer("Ease-in fraction in thousandths of one percent.", 0, 100000)},
+                {"deceleration",
+                 Schema::Integer("Ease-out fraction in thousandths of one percent.", 0, 100000)}});
+    }
+
+    /// Properties every writing animation tool shares, beyond its addressing.
+    static void AddAnimationProperties(nlohmann::json& properties)
+    {
+        properties["effect_class"] = Schema::EnumerationWithDefault(
+            "Effect gallery. Entrance and exit take appear, fade, fly, wipe, or zoom; emphasis takes "
+            "grow_shrink, spin, or change_fill_color; motion_path takes motion_path.",
+            {"entrance", "emphasis", "exit", "motion_path"}, "entrance");
+        properties["effect"] = Schema::EnumerationWithDefault(
+            "Effect to play.",
+            {"appear", "fade", "fly", "wipe", "zoom", "grow_shrink", "spin", "change_fill_color", "motion_path"},
+            "fade");
+        properties["trigger"] = Schema::EnumerationWithDefault(
+            "How this effect chains onto the one before it.",
+            {"on_click", "with_previous", "after_previous"}, "on_click");
+        properties["trigger_shape"] =
+            Schema::String("Shape whose click starts this effect; omit to place it in the main sequence.");
+        properties["timing"] = AnimationTimingSchema();
+        properties["direction"] =
+            Schema::Enumeration("Required by fly and wipe (left, up, right, down) and by zoom (in, out).",
+                                {"left", "up", "right", "down", "in", "out"});
+        properties["scale_percent"] = Schema::Integer("Target size for grow_shrink, in percent.", 1);
+        properties["rotation_degrees"] = Schema::Integer("Signed rotation for spin, in whole degrees.");
+        properties["color"] = Schema::String("Target fill color for change_fill_color as \"#RRGGBB\".");
+        properties["motion_path"] =
+            Schema::String("DrawingML motion path for motion_path, for example \"M 0 0 L 0.5 0.25 E\".");
+    }
+
+    /**
+     * @brief Reads the shared animation members onto @p effect.
+     *
+     * The library validates the whole effect before it writes anything - the
+     * effect and class have to form a supported pair, and the parameters have
+     * to match the effect exactly - so this only has to translate. What it does
+     * decide is the target and trigger shapes, because those arrive as paths
+     * and PresentationML stores identifiers.
+     */
+    static bool ReadAnimation(const PowerPoint::PresentationSlide& slide, const nlohmann::json& arguments,
+                              PowerPoint::PresentationAnimationEffectData& effect, ToolOutcome& failure)
+    {
+        const auto path = arguments.value("shape", std::string());
+        auto target = PptAddressing::FindShape(slide, path, failure);
+        if (target == nullptr)
+        {
+            return false;
+        }
+
+        effect.TargetShapeId = target->Id();
+        if (effect.TargetShapeId == 0)
+        {
+            failure = MakeError(ErrorCode::ShapeNotFound, "The shape has no identifier to animate.", path);
+            return false;
+        }
+
+        if (const auto trigger = arguments.find("trigger_shape"); trigger != arguments.end())
+        {
+            auto shape = PptAddressing::FindShape(slide, trigger->get<std::string>(), failure);
+            if (shape == nullptr)
+            {
+                return false;
+            }
+
+            effect.TriggerShapeId = shape->Id();
+            if (effect.TriggerShapeId == 0)
+            {
+                failure = MakeError(ErrorCode::ShapeNotFound, "The trigger shape has no identifier.",
+                                    trigger->get<std::string>());
+                return false;
+            }
+        }
+
+        effect.Class = ParseAnimationClass(arguments.value("effect_class", std::string("entrance")));
+        effect.Effect = ParseAnimationEffect(arguments.value("effect", std::string("fade")));
+        effect.Trigger = ParseAnimationTrigger(arguments.value("trigger", std::string("on_click")));
+
+        if (const auto timing = arguments.find("timing"); timing != arguments.end())
+        {
+            effect.Timing.Delay = timing->value("delay", 0U);
+            effect.Timing.Duration = timing->value("duration", 500U);
+            effect.Timing.RepeatIndefinitely = timing->value("repeat_indefinitely", false);
+            effect.Timing.AutoReverse = timing->value("auto_reverse", false);
+            effect.Timing.Acceleration = timing->value("acceleration", 0U);
+            effect.Timing.Deceleration = timing->value("deceleration", 0U);
+            if (const auto repeat = timing->find("repeat_count"); repeat != timing->end())
+            {
+                effect.Timing.RepeatCount = repeat->get<UInt32>();
+            }
+        }
+
+        if (const auto direction = arguments.find("direction"); direction != arguments.end())
+        {
+            effect.Direction = ParseAnimationDirection(direction->get<std::string>());
+        }
+
+        if (const auto scale = arguments.find("scale_percent"); scale != arguments.end())
+        {
+            effect.ScalePercent = scale->get<Int32>();
+        }
+
+        if (const auto rotation = arguments.find("rotation_degrees"); rotation != arguments.end())
+        {
+            effect.RotationDegrees = rotation->get<Int32>();
+        }
+
+        if (const auto color = arguments.find("color"); color != arguments.end())
+        {
+            // The library takes six hexadecimal digits; the servers speak
+            // "#RRGGBB" everywhere, so the leading hash is parsed off here
+            // rather than leaving two spellings in the catalog.
+            const auto text = color->get<std::string>();
+            const auto parsed = ParseColor(text);
+            if (!parsed.has_value())
+            {
+                failure = MakeError(ErrorCode::InputInvalid, "The color is not \"#RRGGBB\".", "color");
+                return false;
+            }
+
+            effect.Color = text.front() == '#' ? text.substr(1) : text;
+        }
+
+        if (const auto motion = arguments.find("motion_path"); motion != arguments.end())
+        {
+            effect.MotionPath = motion->get<std::string>();
+        }
+
+        return true;
+    }
+
+    static nlohmann::json AnimationToJson(const PowerPoint::PresentationSlide& slide,
+                                          const PowerPoint::PresentationAnimationEffectData& effect)
+    {
+        nlohmann::json timing = nlohmann::json::object();
+        timing["delay"] = effect.Timing.Delay;
+        timing["duration"] = effect.Timing.Duration;
+        timing["repeatIndefinitely"] = effect.Timing.RepeatIndefinitely;
+        timing["autoReverse"] = effect.Timing.AutoReverse;
+        timing["acceleration"] = effect.Timing.Acceleration;
+        timing["deceleration"] = effect.Timing.Deceleration;
+        if (effect.Timing.RepeatCount.has_value())
+        {
+            timing["repeatCount"] = *effect.Timing.RepeatCount;
+        }
+
+        nlohmann::json entry = nlohmann::json::object();
+        entry["animationId"] = effect.Id;
+        entry["shape"] = ShapePathOfId(slide, effect.TargetShapeId);
+        entry["shapeId"] = effect.TargetShapeId;
+        entry["effectClass"] = AnimationClassToken(effect.Class);
+        entry["effect"] = AnimationEffectToken(effect.Effect);
+        entry["trigger"] = AnimationTriggerToken(effect.Trigger);
+        entry["timing"] = std::move(timing);
+        if (effect.TriggerShapeId != 0)
+        {
+            entry["triggerShape"] = ShapePathOfId(slide, effect.TriggerShapeId);
+        }
+
+        if (effect.Direction.has_value())
+        {
+            entry["direction"] = AnimationDirectionToken(*effect.Direction);
+        }
+
+        if (effect.ScalePercent.has_value())
+        {
+            entry["scalePercent"] = *effect.ScalePercent;
+        }
+
+        if (effect.RotationDegrees.has_value())
+        {
+            entry["rotationDegrees"] = *effect.RotationDegrees;
+        }
+
+        if (effect.Color.has_value())
+        {
+            entry["color"] = "#" + *effect.Color;
+        }
+
+        if (effect.MotionPath.has_value())
+        {
+            entry["motionPath"] = *effect.MotionPath;
+        }
+
+        return entry;
+    }
+
+    static void RegisterListAnimations(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+        properties["slide"] = Schema::Integer("1-based slide index; omit to list every slide.", 1);
+
+        auto definition = MakeDefinition(
+            "list_animations", "List animations",
+            "List the animation effects of the presentation in playback order, optionally narrowed to one "
+            "slide. An effect this version does not model is reported as \"unsupported\" and is left alone by "
+            "the writing tools.",
+            "animation");
+        definition.InputSchema = Schema::Object("Arguments of list_animations.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Animations.", {"animations"},
+                           nlohmann::json{{"animations", Schema::Array("Effects in playback order.",
+                                                                       Schema::FreeObject("One effect: its "
+                                                                                          "animationId, slide, "
+                                                                                          "shape path, class, "
+                                                                                          "effect, trigger, "
+                                                                                          "timing, and any "
+                                                                                          "effect-specific "
+                                                                                          "parameter."))}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListAnimations(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome ListAnimations(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        const Size wanted = arguments.value("slide", static_cast<Size>(0));
+        nlohmann::json animations = nlohmann::json::array();
+        const auto slides = reader.Editor().Slides();
+        for (Size index = 0; index < slides.size(); ++index)
+        {
+            if ((wanted > 0 && index + 1 != wanted) || slides[index] == nullptr)
+            {
+                continue;
+            }
+
+            for (const auto& effect : slides[index]->AnimationEffects())
+            {
+                auto entry = AnimationToJson(*slides[index], effect);
+                entry["slide"] = static_cast<UInt64>(index + 1);
+                animations.push_back(std::move(entry));
+            }
+        }
+
+        const bool truncated = TruncateArrayToBudget(animations);
+
+        nlohmann::json data = nlohmann::json::object();
+        const auto count = animations.size();
+        data["animations"] = std::move(animations);
+
+        return ResultBuilder("The presentation holds " + std::to_string(count) + " animation effect(s).")
+            .WithData(std::move(data))
+            .WithTruncated(truncated)
+            .Build();
+    }
+
+    static void RegisterAddAnimation(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["shape"] = Schema::String("Shape path from get_slide.");
+        AddAnimationProperties(properties);
+
+        auto definition = MakeDefinition(
+            "add_animation", "Add animation",
+            "Animate a shape, appending the effect to the end of the slide's playback order. The effect and "
+            "its class have to form a supported pair and the effect-specific parameter has to match, or "
+            "nothing is written.",
+            "animation");
+        definition.InputSchema =
+            Schema::Object("Arguments of add_animation.", {"documentId", "slide", "shape"},
+                           std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New animation.", {"animationId"},
+                           nlohmann::json{{"animationId", Schema::Integer("Stable effect identifier.")},
+                                          {"shape", Schema::String("Shape path that was animated.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"slide", 1},
+                                            {"shape", "2"},
+                                            {"effect_class", "entrance"},
+                                            {"effect", "fly"},
+                                            {"direction", "left"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddAnimation(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome AddAnimation(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        PowerPoint::PresentationAnimationEffectData effect;
+        if (!ReadAnimation(*slide, arguments, effect, failure))
+        {
+            return failure;
+        }
+
+        MutationGuard guard(session.Session());
+
+        const auto written = slide->AddAnimationEffect(effect);
+        if (!written.has_value())
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "The effect was refused: the class and effect must form a supported pair, and the "
+                             "effect-specific parameter must match the effect exactly.",
+                             arguments.value("effect", std::string()),
+                             "Entrance and exit take appear, fade, fly, wipe, zoom; emphasis takes grow_shrink, "
+                             "spin, change_fill_color; motion_path takes motion_path.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["animationId"] = *written;
+        data["shape"] = arguments.value("shape", std::string());
+
+        return ResultBuilder("Animated shape " + arguments.value("shape", std::string()) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterUpdateAnimation(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["animation_id"] = Schema::Integer("Effect identifier from list_animations.", 1);
+        properties["shape"] = Schema::String("Shape path the effect targets; omit to keep the current one.");
+        properties["index"] =
+            Schema::Integer("Move the effect to this 1-based position in the slide's playback order.", 1);
+        AddAnimationProperties(properties);
+
+        auto definition = MakeDefinition(
+            "update_animation", "Update animation",
+            "Replace one animation effect, and optionally move it to another position in the playback order. "
+            "The whole effect is rewritten, so members left out fall back to their defaults rather than to "
+            "what the effect carried.",
+            "animation");
+        definition.InputSchema = Schema::Object("Arguments of update_animation.",
+                                                {"documentId", "slide", "animation_id"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Updated animation.", {"animationId"},
+                           nlohmann::json{{"animationId", Schema::Integer("Stable effect identifier.")},
+                                          {"index", Schema::Integer("1-based playback position.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"slide", 1},
+                                            {"animation_id", 2},
+                                            {"effect", "fade"},
+                                            {"trigger", "after_previous"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return UpdateAnimation(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome UpdateAnimation(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const auto animationId = arguments.value("animation_id", 0U);
+        const auto existing = slide->AnimationEffects();
+        const auto match = std::find_if(existing.begin(), existing.end(),
+                                        [animationId](const PowerPoint::PresentationAnimationEffectData& effect)
+                                        { return effect.Id == animationId; });
+        if (match == existing.end())
+        {
+            return MakeError(ErrorCode::ShapeNotFound, "No animation effect has that identifier.",
+                             std::to_string(animationId), "Call list_animations to see them.");
+        }
+
+        // The target shape is the one member worth carrying over: re-pointing
+        // an effect at a different shape is a deliberate act, while restating
+        // the shape on every timing tweak is friction.
+        nlohmann::json merged = arguments;
+        if (!merged.contains("shape"))
+        {
+            merged["shape"] = ShapePathOfId(*slide, match->TargetShapeId);
+        }
+
+        PowerPoint::PresentationAnimationEffectData effect;
+        if (!ReadAnimation(*slide, merged, effect, failure))
+        {
+            return failure;
+        }
+
+        effect.Id = animationId;
+
+        MutationGuard guard(session.Session());
+
+        if (!slide->UpdateAnimationEffect(animationId, effect))
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "The replacement effect was refused: the class and effect must form a supported "
+                             "pair, and the effect-specific parameter must match the effect exactly.",
+                             std::to_string(animationId));
+        }
+
+        Size position = static_cast<Size>(std::distance(existing.begin(), match));
+        if (const auto index = arguments.find("index"); index != arguments.end())
+        {
+            const Size wanted = index->get<Size>();
+            if (wanted == 0 || wanted > existing.size())
+            {
+                return MakeError(ErrorCode::InputInvalid,
+                                 "The slide has " + std::to_string(existing.size()) + " effect(s).",
+                                 std::to_string(wanted));
+            }
+
+            if (!slide->MoveAnimationEffect(animationId, wanted - 1))
+            {
+                return MakeError(ErrorCode::OperationFailed, "The effect could not be moved.",
+                                 std::to_string(wanted));
+            }
+
+            position = wanted - 1;
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["animationId"] = animationId;
+        data["index"] = static_cast<UInt64>(position + 1);
+
+        return ResultBuilder("Updated animation " + std::to_string(animationId) + ".")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterRemoveAnimation(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = SlideProperty();
+        properties["animation_id"] = Schema::Integer("Effect identifier from list_animations.", 1);
+        properties["all"] =
+            Schema::BooleanWithDefault("Remove every effect on the slide instead of naming one.", false);
+
+        auto definition = MakeDefinition(
+            "remove_animation", "Remove animation",
+            "Remove one animation effect, or every effect on the slide. Free-standing behaviors and media "
+            "timing are left in place. Pass exactly one of animation_id and all.",
+            "animation");
+        definition.InputSchema =
+            Schema::Object("Arguments of remove_animation.", {"documentId", "slide"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Removed animations.", {"removed"},
+                           nlohmann::json{{"removed", Schema::Integer("Effects the call removed.")}}),
+            true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"slide", 1}, {"animation_id", 2}};
+        definition.Annotations.Destructive = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return RemoveAnimation(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome RemoveAnimation(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const bool all = arguments.value("all", false);
+        const bool named = arguments.contains("animation_id");
+
+        // Clearing a slide and removing one effect are different enough that
+        // guessing between them from an omission would be a poor trade.
+        if (all == named)
+        {
+            return MakeError(ErrorCode::InputInvalid, "Pass exactly one of animation_id and all.",
+                             "animation_id");
+        }
+
+        const auto before = slide->AnimationEffects().size();
+
+        MutationGuard guard(session.Session());
+
+        Size removed = 0;
+        if (all)
+        {
+            if (!slide->ClearAnimationEffects())
+            {
+                return MakeError(ErrorCode::OperationFailed, "The animations could not be cleared.");
+            }
+
+            removed = before;
+        }
+        else
+        {
+            const auto animationId = arguments.value("animation_id", 0U);
+            if (!slide->RemoveAnimationEffect(animationId))
+            {
+                return MakeError(ErrorCode::ShapeNotFound, "No animation effect has that identifier.",
+                                 std::to_string(animationId), "Call list_animations to see them.");
+            }
+
+            removed = 1;
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["removed"] = static_cast<UInt64>(removed);
+
+        return ResultBuilder("Removed " + std::to_string(removed) + " animation effect(s).")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
     static void RegisterSetTransition(ToolRegistry& registry)
     {
         nlohmann::json properties = nlohmann::json::object();
@@ -2596,8 +4198,19 @@ private:
             return MakeError(ErrorCode::InputInvalid, "Unknown transition '" + token + "'.", token);
         }
 
+        // Exactly one of the two says which slides change. Without either the
+        // slide lookup used to report a slide 0; with both, `all` quietly won.
+        const bool all = arguments.value("all", false);
+        if (all == arguments.contains("slide"))
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             all ? "Pass either 'slide' or 'all', not both."
+                                 : "Pass 'slide' for one slide, or 'all' set to true for every slide.",
+                             token, "Name one slide with 'slide', or set 'all' to true.");
+        }
+
         std::vector<PowerPoint::PresentationSlide::Ptr> targets;
-        if (arguments.value("all", false))
+        if (all)
         {
             targets = session.Editor().Slides();
         }
@@ -2740,6 +4353,1004 @@ private:
             .Build();
     }
 
+    // -----------------------------------------------------------------------
+    // Modify protection
+    //
+    // A presentation restricts one thing: the password PowerPoint asks for
+    // before it will let anyone save over the file. It is a restriction
+    // PowerPoint honours, not encryption; every part of the package stays plain,
+    // readable OOXML, and the password is stored only as a verifier.
+    // -----------------------------------------------------------------------
+
+    static void RegisterSetProtection(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["protect"] =
+            Schema::BooleanWithDefault("True to apply protection, false to remove it.", true);
+        properties["password"] = Schema::String(
+            "Password to require when protecting, or the one it was applied with when removing it.");
+
+        auto definition = MakeDefinition(
+            "set_protection", "Set modify protection",
+            "Require a password before a presentation may be saved over, or remove that requirement. "
+            "PowerPoint opens a protected presentation read-only until the password is given. This is not "
+            "encryption: every part stays readable and any tool that ignores the setting can still rewrite the "
+            "presentation, so use it to state intent rather than to keep a secret.",
+            "review");
+        definition.InputSchema =
+            Schema::Object("Arguments of set_protection.", {"documentId", "password"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Protection state.", {"protected"},
+                           nlohmann::json{{"protected", Schema::Boolean("True when a password is now "
+                                                                        "required to save over the file.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"password", "secret"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetProtection(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome SetProtection(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const bool protect = arguments.value("protect", true);
+        const auto password = arguments.value("password", std::string());
+        if (password.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A password is required.", "password",
+                             protect ? "Protecting a presentation means requiring a password to save over it."
+                                     : "Removing the protection needs the password it was applied with.");
+        }
+
+        MutationGuard guard(session.Session());
+
+        const auto result = protect ? session.Editor().ProtectFromModification(password)
+                                    : session.Editor().UnprotectFromModification(password);
+        if (!result.Succeeded())
+        {
+            switch (result.Error)
+            {
+                case PowerPoint::PresentationProtectionError::PasswordMismatch:
+                case PowerPoint::PresentationProtectionError::InvalidPassword:
+                    return MakeError(ErrorCode::InputInvalid, result.Message, "password",
+                                     "Removing the protection needs the password it was applied with.");
+                case PowerPoint::PresentationProtectionError::UnsupportedVerifier:
+                    return MakeError(ErrorCode::Unsupported, result.Message, session.Session().Id(),
+                                     "The stored verifier uses an algorithm this server cannot compute, so it "
+                                     "cannot tell a right password from a wrong one; remove the protection in "
+                                     "PowerPoint.");
+                default:
+                    return MakeError(ErrorCode::OperationFailed, result.Message, session.Session().Id());
+            }
+        }
+
+        guard.Commit();
+
+        const auto state = session.Editor().GetModifyProtection();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["protected"] = state.has_value() && state->HasPassword;
+
+        return ResultBuilder(protect ? "A password is now required to save over the presentation."
+                                     : "Removed the modify protection.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    // -----------------------------------------------------------------------
+    // Slide masters and layouts
+    //
+    // A slide inherits almost everything it looks like from its layout, and the
+    // layout from its master. Writing that inheritance rather than repeating
+    // formatting on every slide is what makes a deck restyleable, so the layout
+    // side is addressable here and not only readable.
+    // -----------------------------------------------------------------------
+
+    /// Resolves a master by name or position; the presentation's first when unnamed.
+    static PowerPoint::PresentationSlideMaster::Ptr ResolveMaster(PowerPoint::PowerPointDocumentEditor& editor,
+                                                                  const nlohmann::json& arguments,
+                                                                  ToolOutcome& failure)
+    {
+        const auto masters = editor.SlideMasters();
+        if (masters.empty())
+        {
+            failure = MakeError(ErrorCode::LayoutNotFound, "The presentation has no slide master.", {},
+                                "A presentation without a master cannot carry a layout either.");
+            return nullptr;
+        }
+
+        const auto name = arguments.value("master", std::string());
+        if (name.empty())
+        {
+            return masters.front();
+        }
+
+        for (const auto& master : masters)
+        {
+            if (master != nullptr && master->Name() == name)
+            {
+                return master;
+            }
+        }
+
+        failure = MakeError(ErrorCode::LayoutNotFound, "No slide master is named '" + name + "'.", name,
+                            "list_layouts reports the master each layout belongs to.");
+        return nullptr;
+    }
+
+    /// Resolves a layout by name across every master.
+    static PowerPoint::PresentationSlideLayout::Ptr FindLayout(PowerPoint::PowerPointDocumentEditor& editor,
+                                                               const std::string& name)
+    {
+        for (const auto& layout : editor.SlideLayouts())
+        {
+            if (layout != nullptr && layout->Name() == name)
+            {
+                return layout;
+            }
+        }
+
+        return nullptr;
+    }
+
+    static void RegisterAddLayout(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["name"] = Schema::String("Name of the new layout; this is what add_slide takes.");
+        properties["master"] = Schema::String(
+            "Name of the master the layout belongs to; the presentation's first master when omitted.");
+        properties["type"] = Schema::EnumerationWithDefault(
+            "What PowerPoint calls the layout in its own list. \"custom\" is a layout of your own, and the "
+            "others name the standard slots a deck usually has.",
+            {"custom", "title", "titleOnly", "object", "twoObjects", "blank", "picture", "objectText",
+             "sectionHeader", "verticalTitleAndText"},
+            "custom");
+        properties["placeholders"] = Schema::Array(
+            "Placeholders the layout offers, in order. A slide made from the layout inherits these, and "
+            "set_placeholder_text fills them.",
+            Schema::Object("One placeholder.", {"type"},
+                           nlohmann::json{{"type", Schema::Enumeration("Placeholder kind.",
+                                                                       PptAddressing::PlaceholderTokens())},
+                                          {"index", Schema::Integer("Inheritance key; a placeholder at a lower "
+                                                                    "level with the same index overrides this "
+                                                                    "one.",
+                                                                    0)}}));
+
+        auto definition = MakeDefinition(
+            "add_layout", "Add slide layout",
+            "Add a slide layout to a master and give it the placeholders slides made from it will inherit. A "
+            "deck whose slides carry meaningful layouts can be restyled by changing the layout; one that "
+            "repeats formatting on every slide cannot.",
+            "slides");
+        definition.InputSchema =
+            Schema::Object("Arguments of add_layout.", {"documentId", "name"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New layout.", {"name", "master"},
+                           nlohmann::json{{"name", Schema::String("Name add_slide takes.")},
+                                          {"master", Schema::String("Master the layout belongs to.")},
+                                          {"placeholders", Schema::Integer("Placeholders declared on it.")}}),
+            true);
+        definition.Example = nlohmann::json{
+            {"documentId", "doc-1"},
+            {"name", "Quote"},
+            {"type", "titleOnly"},
+            {"placeholders", nlohmann::json::array({nlohmann::json{{"type", "title"}},
+                                                    nlohmann::json{{"type", "body"}, {"index", 1}}})}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddLayout(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static P::SlideLayoutValues::Value ParseLayoutType(const std::string& token)
+    {
+        using V = P::SlideLayoutValues;
+        if (token == "title")
+        {
+            return V::Title;
+        }
+
+        if (token == "titleOnly")
+        {
+            return V::TitleOnly;
+        }
+
+        if (token == "objectText")
+        {
+            return V::ObjectText;
+        }
+
+        if (token == "blank")
+        {
+            return V::Blank;
+        }
+
+        if (token == "object")
+        {
+            return V::Object;
+        }
+
+        if (token == "twoObjects")
+        {
+            return V::TwoObjects;
+        }
+
+        if (token == "picture")
+        {
+            return V::PictureText;
+        }
+
+        if (token == "sectionHeader")
+        {
+            return V::SectionHeader;
+        }
+
+        if (token == "verticalTitleAndText")
+        {
+            return V::VerticalTitleAndText;
+        }
+
+        return V::Custom;
+    }
+
+    static ToolOutcome AddLayout(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto name = arguments.value("name", std::string());
+        if (name.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A layout needs a name.", "name");
+        }
+
+        if (FindLayout(session.Editor(), name) != nullptr)
+        {
+            return MakeError(ErrorCode::InputInvalid, "A layout named '" + name + "' already exists.", name,
+                             "add_slide picks a layout by name, so two layouts cannot share one.");
+        }
+
+        ToolOutcome failure;
+        auto master = ResolveMaster(session.Editor(), arguments, failure);
+        if (master == nullptr)
+        {
+            return failure;
+        }
+
+        // Every placeholder is resolved before the layout is created, so an
+        // unknown kind leaves no half-built layout behind.
+        std::vector<std::pair<P::PlaceholderValues::Value, std::optional<UInt32>>> placeholders;
+        if (const auto requested = arguments.find("placeholders");
+            requested != arguments.end() && requested->is_array())
+        {
+            for (const auto& entry : *requested)
+            {
+                const auto token = entry.value("type", std::string());
+                const auto parsed = PptAddressing::ParsePlaceholderType(token);
+                if (!parsed.has_value())
+                {
+                    return MakeError(ErrorCode::InputInvalid, "'" + token + "' is not a placeholder kind.",
+                                     "placeholders");
+                }
+
+                std::optional<UInt32> index;
+                if (const auto member = entry.find("index");
+                    member != entry.end() && member->is_number_integer())
+                {
+                    index = static_cast<UInt32>(member->get<Int64>());
+                }
+
+                placeholders.emplace_back(*parsed, index);
+            }
+        }
+
+        MutationGuard guard(session.Session());
+
+        auto layout = session.Editor().AddSlideLayout(
+            master, name, ParseLayoutType(arguments.value("type", std::string("custom"))));
+        if (layout == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The layout could not be created.", name);
+        }
+
+        for (const auto& [type, index] : placeholders)
+        {
+            if (layout->AddPlaceholder(type, index) == nullptr)
+            {
+                return MakeError(ErrorCode::OperationFailed, "A placeholder could not be added to the layout.",
+                                 name);
+            }
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = layout->Name();
+        data["master"] = master->Name();
+        data["placeholders"] = static_cast<UInt64>(placeholders.size());
+
+        return ResultBuilder("Added the layout '" + name + "'.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterDeleteLayout(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["name"] = Schema::String("Name of the layout to remove.");
+        properties["replacement"] = Schema::String(
+            "Layout the slides currently using this one move to. Required when any slide uses it, because a "
+            "slide without a layout has nothing to inherit from.");
+
+        auto definition = MakeDefinition(
+            "delete_layout", "Delete slide layout",
+            "Remove a slide layout. Slides using it move to the replacement layout and keep their own content "
+            "unchanged; without a replacement, a layout still in use is refused rather than leaving slides "
+            "pointing at nothing.",
+            "slides");
+        definition.InputSchema =
+            Schema::Object("Arguments of delete_layout.", {"documentId", "name"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Removal.", {"name", "removed"},
+                           nlohmann::json{{"name", Schema::String("Layout that was removed.")},
+                                          {"removed", Schema::Boolean("The layout is gone.")}}),
+            true);
+        definition.Example =
+            nlohmann::json{{"documentId", "doc-1"}, {"name", "Quote"}, {"replacement", "Title and Content"}};
+        definition.Annotations.Destructive = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return DeleteLayout(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome DeleteLayout(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto name = arguments.value("name", std::string());
+        auto layout = FindLayout(session.Editor(), name);
+        if (layout == nullptr)
+        {
+            return MakeError(ErrorCode::LayoutNotFound, "No layout is named '" + name + "'.", name,
+                             "list_layouts reports the layouts this presentation carries.");
+        }
+
+        PowerPoint::PresentationSlideLayout::Ptr replacement;
+        if (const auto token = arguments.value("replacement", std::string()); !token.empty())
+        {
+            replacement = FindLayout(session.Editor(), token);
+            if (replacement == nullptr)
+            {
+                return MakeError(ErrorCode::LayoutNotFound, "No layout is named '" + token + "'.", token);
+            }
+        }
+
+        MutationGuard guard(session.Session());
+
+        if (!session.Editor().RemoveSlideLayout(layout, replacement))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The layout could not be removed.", name,
+                             "A layout that slides still use needs a 'replacement' they can move to.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = name;
+        data["removed"] = true;
+
+        return ResultBuilder("Removed the layout '" + name + "'.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterSetSlideLayout(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = Schema::Integer("1-based slide index.", 1);
+        properties["layout"] = Schema::String("Layout name from list_layouts.");
+
+        auto definition = MakeDefinition(
+            "set_slide_layout", "Set slide layout",
+            "Point a slide at a different layout. The slide keeps every shape it carries; what changes is what "
+            "it inherits, so a slide whose content came from the old layout's placeholders may need "
+            "set_placeholder_text again.",
+            "slides");
+        definition.InputSchema = Schema::Object("Arguments of set_slide_layout.",
+                                                {"documentId", "slide", "layout"}, std::move(properties));
+        definition.OutputSchema =
+            Schema::Envelope(Schema::Object("New layout.", {"slide", "layout"},
+                                            nlohmann::json{{"slide", Schema::Integer("Slide that was changed.")},
+                                                           {"layout", Schema::String("Layout it now uses.")}}),
+                             true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"slide", 2}, {"layout", "Quote"}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetSlideLayout(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    static ToolOutcome SetSlideLayout(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const auto name = arguments.value("layout", std::string());
+        auto layout = FindLayout(session.Editor(), name);
+        if (layout == nullptr)
+        {
+            return MakeError(ErrorCode::LayoutNotFound, "No layout is named '" + name + "'.", name,
+                             "list_layouts reports the layouts this presentation carries.");
+        }
+
+        // FindSlide resolved the 1-based argument; the editor indexes from zero.
+        const Size index = static_cast<Size>(arguments.value("slide", 1)) - 1;
+
+        MutationGuard guard(session.Session());
+
+        if (!session.Editor().SetSlideLayout(index, layout))
+        {
+            return MakeError(ErrorCode::OperationFailed, "The slide could not be pointed at that layout.", name);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["slide"] = static_cast<UInt64>(index + 1);
+        data["layout"] = name;
+
+        return ResultBuilder("Slide " + std::to_string(index + 1) + " now uses '" + name + "'.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    // -----------------------------------------------------------------------
+    // Custom shows
+    //
+    // A custom show is a named path through the deck: the same slides in a
+    // different order, or a subset for a shorter audience. It names slides by
+    // their persistent identifier rather than by position, so reordering the
+    // deck does not silently rewrite the show.
+    // -----------------------------------------------------------------------
+
+    static void RegisterListCustomShows(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentSourceProperties(properties);
+
+        nlohmann::json show = Schema::Object(
+            "One custom show.", {"id", "name"},
+            nlohmann::json{{"id", Schema::Integer("Identifier set_custom_show addresses it by.")},
+                           {"name", Schema::String("Display name.")},
+                           {"slides", Schema::Array("1-based slide positions in playback order.",
+                                                    Schema::Integer("Slide position."))},
+                           {"slideIds", Schema::Array("Persistent slide identifiers, as stored.",
+                                                      Schema::Integer("Slide identifier."))}});
+
+        auto definition = MakeDefinition(
+            "list_custom_shows", "List custom shows",
+            "List the named slide sequences the presentation carries, with the slides each one plays. Slides "
+            "are reported both as current positions and as the persistent identifiers the file stores.",
+            "slides");
+        definition.InputSchema = Schema::Object("Arguments of list_custom_shows.", {}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Custom shows.", {"shows"},
+                           nlohmann::json{{"shows", Schema::Array("Shows in presentation order.",
+                                                                  std::move(show))}}),
+            false);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}};
+        definition.Annotations.ReadOnly = true;
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return ListCustomShows(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    /// Maps persistent slide identifiers to their current 1-based positions.
+    static std::map<UInt32, Size> SlidePositionsById(PowerPoint::PowerPointDocumentEditor& editor)
+    {
+        std::map<UInt32, Size> positions;
+        Size index = 0;
+        for (const auto& slide : editor.Slides())
+        {
+            ++index;
+            if (slide != nullptr)
+            {
+                positions[slide->Id()] = index;
+            }
+        }
+
+        return positions;
+    }
+
+    static ToolOutcome ListCustomShows(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptReader reader(context, arguments);
+        if (!reader.IsValid())
+        {
+            return reader.Failure();
+        }
+
+        const auto positions = SlidePositionsById(reader.Editor());
+
+        nlohmann::json shows = nlohmann::json::array();
+        for (const auto& show : reader.Editor().CustomShows())
+        {
+            nlohmann::json slides = nlohmann::json::array();
+            nlohmann::json slideIds = nlohmann::json::array();
+            for (const auto id : show.SlideIds)
+            {
+                slideIds.push_back(id);
+                // A show may name a slide that has since been deleted; the
+                // identifier is reported either way so the gap is visible.
+                if (const auto found = positions.find(id); found != positions.end())
+                {
+                    slides.push_back(static_cast<UInt64>(found->second));
+                }
+            }
+
+            shows.push_back(nlohmann::json{{"id", show.Id},
+                                           {"name", show.Name},
+                                           {"slides", std::move(slides)},
+                                           {"slideIds", std::move(slideIds)}});
+        }
+
+        const auto count = shows.size();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["shows"] = std::move(shows);
+
+        return ResultBuilder("The presentation carries " + std::to_string(count) + " custom show(s).")
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    static void RegisterSetCustomShow(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["id"] = Schema::Integer(
+            "Identifier of the show to change or remove, from list_custom_shows. Omitted, a new show is "
+            "created.",
+            1);
+        properties["name"] = Schema::String("Display name; required for a new show and unique among them.");
+        properties["slides"] = Schema::Array(
+            "1-based slide positions in playback order. A slide may appear more than once.",
+            Schema::Integer("Slide position.", 1));
+        properties["remove"] =
+            Schema::BooleanWithDefault("Remove the show named by 'id'; the slides themselves are untouched.",
+                                       false);
+
+        auto definition = MakeDefinition(
+            "set_custom_show", "Set custom show",
+            "Create, change or remove a named slide sequence. The slides are given as positions and stored as "
+            "the persistent identifiers those positions currently have, so reordering the deck afterwards "
+            "leaves the show playing the same slides.",
+            "slides");
+        definition.InputSchema =
+            Schema::Object("Arguments of set_custom_show.", {"documentId"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("Custom show.", {"id"},
+                           nlohmann::json{{"id", Schema::Integer("Identifier of the show.")},
+                                          {"name", Schema::String("Name after the change.")},
+                                          {"slides", Schema::Integer("Slides it plays.")},
+                                          {"removed", Schema::Boolean("The show is gone.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"name", "Short version"},
+                                            {"slides", nlohmann::json::array({1, 3, 7})}};
+        definition.Annotations.Idempotent = true;
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return SetCustomShow(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    /// Lowest positive identifier no existing custom show claims.
+    static UInt32 NextCustomShowId(const std::vector<PowerPoint::PresentationCustomShow>& shows)
+    {
+        UInt32 candidate = 1;
+        bool taken = true;
+        while (taken)
+        {
+            taken = std::any_of(shows.begin(), shows.end(),
+                                [candidate](const auto& show)
+                                { return show.Id == candidate; });
+            if (taken)
+            {
+                ++candidate;
+            }
+        }
+
+        return candidate;
+    }
+
+    static ToolOutcome SetCustomShow(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        const auto existing = session.Editor().CustomShows();
+        const bool hasId = arguments.contains("id");
+        const auto id = static_cast<UInt32>(arguments.value("id", 0));
+
+        const PowerPoint::PresentationCustomShow* current = nullptr;
+        if (hasId)
+        {
+            for (const auto& show : existing)
+            {
+                if (show.Id == id)
+                {
+                    current = &show;
+                    break;
+                }
+            }
+
+            if (current == nullptr)
+            {
+                return MakeError(ErrorCode::SlideNotFound,
+                                 "The presentation has no custom show " + std::to_string(id) + ".",
+                                 std::to_string(id),
+                                 "list_custom_shows reports the identifiers this presentation carries.");
+            }
+        }
+
+        if (arguments.value("remove", false))
+        {
+            if (!hasId)
+            {
+                return MakeError(ErrorCode::InputInvalid, "Removing a show needs its 'id'.", "id");
+            }
+
+            MutationGuard guard(session.Session());
+
+            if (!session.Editor().RemoveCustomShow(id))
+            {
+                return MakeError(ErrorCode::OperationFailed, "The custom show could not be removed.",
+                                 std::to_string(id));
+            }
+
+            guard.Commit();
+
+            nlohmann::json data = nlohmann::json::object();
+            data["id"] = id;
+            data["removed"] = true;
+
+            return ResultBuilder("Removed custom show " + std::to_string(id) + ".")
+                .WithSession(session.Session())
+                .WithData(std::move(data))
+                .Build();
+        }
+
+        PowerPoint::PresentationCustomShow show;
+        // The identifier is the caller's to choose and the library allocates
+        // none, so a new show takes the lowest one nothing else is using.
+        show.Id = hasId ? id : NextCustomShowId(existing);
+        show.Name = arguments.value("name", current != nullptr ? current->Name : std::string());
+        if (show.Name.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A custom show needs a name.", "name");
+        }
+
+        if (const auto slides = arguments.find("slides"); slides != arguments.end() && slides->is_array())
+        {
+            const auto all = session.Editor().Slides();
+            for (const auto& entry : *slides)
+            {
+                const auto position = static_cast<Size>(entry.get<Int64>());
+                if (position == 0 || position > all.size() || all[position - 1] == nullptr)
+                {
+                    return MakeError(ErrorCode::SlideNotFound,
+                                     "The presentation has " + std::to_string(all.size()) + " slide(s); slide " +
+                                         std::to_string(position) + " does not exist.",
+                                     std::to_string(position));
+                }
+
+                show.SlideIds.push_back(all[position - 1]->Id());
+            }
+        }
+        else if (current != nullptr)
+        {
+            show.SlideIds = current->SlideIds;
+        }
+
+        if (show.SlideIds.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A custom show needs at least one slide.", "slides");
+        }
+
+        MutationGuard guard(session.Session());
+
+        const bool written = hasId ? session.Editor().UpdateCustomShow(id, show)
+                                   : session.Editor().AddCustomShow(show);
+        if (!written)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The custom show could not be written.", show.Name,
+                             "A show's name has to be unique among the shows of the presentation.");
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["id"] = show.Id;
+        data["name"] = show.Name;
+        data["slides"] = static_cast<UInt64>(show.SlideIds.size());
+        data["removed"] = false;
+
+        return ResultBuilder((hasId ? "Changed custom show '" : "Added custom show '") + show.Name + "'.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
+    // -----------------------------------------------------------------------
+    // Audio and video
+    //
+    // The bytes are opaque from end to end: nothing here decodes, transcodes,
+    // inspects or plays them, and a linked URI is stored as a relationship and
+    // never opened. What the tool writes is where the media sits, what it looks
+    // like before it plays, and how PowerPoint should play it.
+    // -----------------------------------------------------------------------
+
+    static void RegisterAddMedia(ToolRegistry& registry)
+    {
+        nlohmann::json properties = nlohmann::json::object();
+        ToolSupport::AddDocumentIdProperty(properties);
+        properties["slide"] = Schema::Integer("1-based slide index.", 1);
+        properties["kind"] = Schema::Enumeration("Whether the file is audio or video.", {"audio", "video"});
+        properties["path"] = Schema::String("Workspace-relative media file to embed; the bytes are stored "
+                                            "verbatim.");
+        properties["uri"] = Schema::String(
+            "External media address to link instead of embedding. It is kept as a relationship and never "
+            "opened by this server; mutually exclusive with 'path'.");
+        properties["contentType"] = Schema::String(
+            "Media type of an embedded file, for example \"audio/mpeg\" or \"video/mp4\"; guessed from the "
+            "file extension when omitted.");
+        properties["poster_path"] = Schema::String(
+            "Workspace-relative image shown before the media plays; video usually wants one.");
+        properties["name"] = Schema::String("Name of the shape; generated when omitted.");
+        properties["alt"] = Schema::String("Accessibility description of the media.");
+        properties["x"] = Schema::Length("Left edge of the media shape.");
+        properties["y"] = Schema::Length("Top edge of the media shape.");
+        properties["width"] = Schema::Length("Width of the media shape.");
+        properties["height"] = Schema::Length("Height of the media shape.");
+        properties["playback"] = Schema::Object(
+            "How PowerPoint plays it.", {},
+            nlohmann::json{{"volume", Schema::Integer("Volume as a percentage.", 0, 100)},
+                           {"muted", Schema::Boolean("Play without sound.")},
+                           {"loop", Schema::Boolean("Repeat until the slide moves on.")},
+                           {"full_screen", Schema::Boolean("Play a video full screen.")},
+                           {"show_when_stopped", Schema::Boolean("Keep the shape visible while stopped.")}});
+
+        auto definition = MakeDefinition(
+            "add_media", "Add audio or video",
+            "Place an audio or video shape on a slide, embedding a workspace file or linking an external "
+            "address. The payload is opaque: nothing here decodes, transcodes, inspects or plays it, and a "
+            "linked address is stored as a relationship and never fetched.",
+            "media");
+        definition.InputSchema =
+            Schema::Object("Arguments of add_media.", {"documentId", "kind"}, std::move(properties));
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New media shape.", {"slide", "kind"},
+                           nlohmann::json{{"slide", Schema::Integer("Slide it was placed on.")},
+                                          {"kind", Schema::String("audio or video.")},
+                                          {"shape", Schema::String("Shape path the other tools address it by.")},
+                                          {"bytes", Schema::Integer("Size of an embedded payload.")},
+                                          {"linked", Schema::Boolean("The media is linked rather than "
+                                                                     "embedded.")}}),
+            true);
+        definition.Example = nlohmann::json{{"documentId", "doc-1"},
+                                            {"slide", 1},
+                                            {"kind", "video"},
+                                            {"path", "intro.mp4"},
+                                            {"width", "16cm"},
+                                            {"height", "9cm"}};
+        definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
+        { return AddMedia(context, arguments); };
+        registry.Add(std::move(definition));
+    }
+
+    /// Guesses a media type from a file extension; empty when nothing fits.
+    static std::string MediaContentType(const std::filesystem::path& path)
+    {
+        auto extension = path.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+                       [](unsigned char ch)
+                       { return static_cast<char>(std::tolower(ch)); });
+
+        static const std::map<std::string, std::string> kTypes{
+            {".mp3", "audio/mpeg"}, {".m4a", "audio/mp4"}, {".wav", "audio/wav"}, {".aac", "audio/aac"}, {".ogg", "audio/ogg"}, {".flac", "audio/flac"}, {".mp4", "video/mp4"}, {".m4v", "video/mp4"}, {".mov", "video/quicktime"}, {".avi", "video/x-msvideo"}, {".wmv", "video/x-ms-wmv"}, {".webm", "video/webm"}};
+
+        const auto found = kTypes.find(extension);
+        return found != kTypes.end() ? found->second : std::string();
+    }
+
+    static ToolOutcome AddMedia(ToolContext& context, const nlohmann::json& arguments)
+    {
+        PptSession session(context, arguments);
+        if (!session.IsValid())
+        {
+            return session.Failure();
+        }
+
+        ToolOutcome failure;
+        auto slide = PptAddressing::FindSlide(session.Editor(), arguments, failure);
+        if (slide == nullptr)
+        {
+            return failure;
+        }
+
+        const auto kind = arguments.value("kind", std::string());
+        if (kind != "audio" && kind != "video")
+        {
+            return MakeError(ErrorCode::InputInvalid, "'kind' has to be \"audio\" or \"video\".", "kind");
+        }
+
+        const auto path = arguments.value("path", std::string());
+        const auto uri = arguments.value("uri", std::string());
+        if (path.empty() == uri.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "Pass either 'path' to embed a file or 'uri' to link one.",
+                             {}, "The two are mutually exclusive and one of them is required.");
+        }
+
+        PowerPoint::PresentationMediaData media;
+        media.Kind = kind == "audio" ? PowerPoint::PresentationMediaKind::Audio
+                                     : PowerPoint::PresentationMediaKind::Video;
+        media.Name = arguments.value("name", std::string());
+        media.AltText = arguments.value("alt", std::string());
+
+        if (!path.empty())
+        {
+            const auto resolved = ToolSupport::ResolveExistingFile(context, path, failure);
+            if (!resolved.has_value())
+            {
+                return failure;
+            }
+
+            auto contentType = arguments.value("contentType", std::string());
+            if (contentType.empty())
+            {
+                contentType = MediaContentType(*resolved);
+                if (contentType.empty())
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "The media type could not be guessed from the file name.", path,
+                                     "Pass 'contentType', for example \"video/mp4\".");
+                }
+            }
+
+            std::vector<Byte> bytes;
+            if (!ToolSupport::ReadFileBytes(*resolved, bytes))
+            {
+                return MakeError(ErrorCode::OperationFailed, "The media file could not be read.", path);
+            }
+
+            if (bytes.empty())
+            {
+                return MakeError(ErrorCode::InputInvalid, "The media file is empty.", path);
+            }
+
+            media.Embedded = PowerPoint::PresentationEmbeddedMedia{std::move(bytes), std::move(contentType)};
+        }
+        else
+        {
+            media.LinkedUri = uri;
+        }
+
+        if (const auto poster = arguments.value("poster_path", std::string()); !poster.empty())
+        {
+            const auto resolved = ToolSupport::ResolveExistingFile(context, poster, failure);
+            if (!resolved.has_value())
+            {
+                return failure;
+            }
+
+            std::vector<Byte> bytes;
+            if (!ToolSupport::ReadFileBytes(*resolved, bytes) || bytes.empty())
+            {
+                return MakeError(ErrorCode::OperationFailed, "The poster image could not be read.", poster);
+            }
+
+            const auto detected = DetectImageFormat(bytes);
+            if (!detected.has_value())
+            {
+                return MakeError(ErrorCode::InputInvalid, "The poster image format was not recognized.", poster,
+                                 "Use a PNG, JPEG, GIF, BMP, TIFF or WebP image.");
+            }
+
+            PowerPoint::PresentationEmbeddedPicture picture;
+            picture.Data = std::move(bytes);
+            picture.ContentType = detected->ContentType;
+            media.PosterFrame = std::move(picture);
+        }
+
+        if (!PptAddressing::ReadTransform(arguments, media.Transform, false, failure))
+        {
+            return failure;
+        }
+
+        if (const auto playback = arguments.find("playback");
+            playback != arguments.end() && playback->is_object())
+        {
+            if (const auto volume = playback->find("volume");
+                volume != playback->end() && volume->is_number())
+            {
+                // The schema speaks percent because that is what a caller
+                // means; the file stores thousandths of one percent.
+                media.Playback.Volume = static_cast<Int32>(std::lround(volume->get<Real>() * 1000.0));
+            }
+
+            media.Playback.Muted = playback->value("muted", media.Playback.Muted);
+            media.Playback.Loop = playback->value("loop", media.Playback.Loop);
+            media.Playback.FullScreen = playback->value("full_screen", media.Playback.FullScreen);
+            media.Playback.ShowWhenStopped =
+                playback->value("show_when_stopped", media.Playback.ShowWhenStopped);
+        }
+
+        MutationGuard guard(session.Session());
+
+        auto tree = slide->ShapeTree();
+        if (tree == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The slide has no shape tree.");
+        }
+
+        auto shape = tree->AddMedia(media);
+        if (shape == nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "The media shape could not be added.",
+                             path.empty() ? uri : path);
+        }
+
+        guard.Commit();
+
+        nlohmann::json data = nlohmann::json::object();
+        data["slide"] = arguments.value("slide", 1);
+        data["kind"] = kind;
+        data["shape"] = std::to_string(tree->Count());
+        data["bytes"] = media.Embedded.has_value() ? static_cast<UInt64>(media.Embedded->Data.size()) : 0u;
+        data["linked"] = media.LinkedUri.has_value();
+
+        return ResultBuilder("Added " + kind + " to the slide.")
+            .WithSession(session.Session())
+            .WithData(std::move(data))
+            .Build();
+    }
+
     static void RegisterSetSlideSize(ToolRegistry& registry)
     {
         nlohmann::json properties = nlohmann::json::object();
@@ -2773,6 +5384,12 @@ private:
 
         PowerPoint::PresentationSlideSize size;
         const auto preset = arguments.value("preset", std::string());
+        if (!preset.empty() && (arguments.contains("width") || arguments.contains("height")))
+        {
+            return MakeError(ErrorCode::InputInvalid, "Pass either 'preset' or 'width' and 'height', not both.",
+                             preset, "Drop the preset to set an exact size, or drop width and height.");
+        }
+
         if (!preset.empty())
         {
             if (preset == "16:9")
@@ -2810,6 +5427,19 @@ private:
             if (!parsedWidth.has_value() || !parsedHeight.has_value())
             {
                 return MakeError(ErrorCode::InputInvalid, "The slide width or height is not a valid length.");
+            }
+
+            // PresentationML allows one inch to 56 inches on either side; outside
+            // that the size is refused, which is the caller's to correct.
+            const auto withinLimits = [](const auto& length)
+            {
+                const auto points = ToPointValue(length);
+                return points >= 72.0 && points <= 4032.0;
+            };
+            if (!withinLimits(*parsedWidth) || !withinLimits(*parsedHeight))
+            {
+                return MakeError(ErrorCode::InputInvalid, "A slide measures from 1 to 56 inches on each side.", {},
+                                 "Pass a width and height from 2.54cm to 142.24cm.");
             }
 
             size.Size = PowerPoint::PresentationSize(*parsedWidth, *parsedHeight);

@@ -5,6 +5,7 @@
 #include "McpTestSupport.hpp"
 
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Wordprocessing.hpp"
+#include "ExyokiOffice/Packaging/GeneratedParts.hpp"
 #include "ExyokiOffice/Tools/ValidationRunner.hpp"
 #include "ExyokiOffice/Word/WordDocument.hpp"
 
@@ -1059,4 +1060,1103 @@ TEST_CASE("two documents are compared into a tracked-revision result [mcp-word]"
     REQUIRE(compared["ok"] == true);
     CHECK(compared["data"]["identical"] == false);
     CHECK(std::filesystem::exists(server->Path("compared.docx")));
+}
+
+TEST_CASE("a table is formatted down to the individual cell [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "grid.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto inserted = server->Call(
+        "insert_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"rows", 3},
+                       {"cols", 2},
+                       {"header_row", true},
+                       {"data", nlohmann::json::array({nlohmann::json::array({"Region", "Revenue"}),
+                                                       nlohmann::json::array({"North", "1200"}),
+                                                       nlohmann::json::array({"South", "900"})})}});
+    REQUIRE(inserted["ok"] == true);
+    const auto block = inserted["data"]["block"].get<int>();
+
+    const auto formatted = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"width", "14cm"},
+                       {"alignment", "center"},
+                       {"borders", nlohmann::json{{"style", "single"}, {"width", "1pt"}, {"color", "#808080"}}},
+                       {"cell_margins", nlohmann::json{{"left", "0.2cm"}, {"right", "0.2cm"}}},
+                       {"column_widths", nlohmann::json::array({"9cm", "5cm"})},
+                       {"cells", nlohmann::json::array(
+                                     {nlohmann::json{{"row", 1},
+                                                     {"col", 1},
+                                                     {"background", "#EFEFEF"},
+                                                     {"align", "center"},
+                                                     {"valign", "center"}},
+                                      nlohmann::json{{"row", 1}, {"col", 2}, {"background", "#EFEFEF"}},
+                                      nlohmann::json{{"row", 2},
+                                                     {"col", 2},
+                                                     {"align", "right"},
+                                                     {"borders", nlohmann::json{{"style", "double"}}}}})}});
+    REQUIRE(formatted["ok"] == true);
+    CHECK(formatted["data"]["rows"] == 3);
+    CHECK(formatted["data"]["columns"] == 2);
+    CHECK(formatted["data"]["cellsFormatted"] == 3);
+
+    // Omitted members leave the rest of the table alone, so a second call can
+    // adjust one thing without restating the first.
+    const auto again = server->Call(
+        "format_table", nlohmann::json{{"documentId", documentId}, {"block", block}, {"alignment", "left"}});
+    REQUIRE(again["ok"] == true);
+    CHECK(again["data"]["cellsFormatted"] == 0);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("grid.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("format_table refuses what it cannot apply [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json::object());
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto inserted = server->Call("insert_table", nlohmann::json{{"documentId", documentId},
+                                                                      {"anchor", nlohmann::json{{"position", "end"}}},
+                                                                      {"rows", 2},
+                                                                      {"cols", 2}});
+    REQUIRE(inserted["ok"] == true);
+    const auto block = inserted["data"]["block"].get<int>();
+
+    const auto noTable =
+        server->Call("format_table", nlohmann::json{{"documentId", documentId}, {"block", 99}, {"width", "10cm"}});
+    CHECK(noTable["ok"] == false);
+
+    const auto badWidth = server->Call(
+        "format_table", nlohmann::json{{"documentId", documentId}, {"block", block}, {"width", "0cm"}});
+    CHECK(badWidth["ok"] == false);
+    CHECK(badWidth["error"]["code"] == "input_invalid");
+
+    const auto badBorderColor = server->Call(
+        "format_table", nlohmann::json{{"documentId", documentId},
+                                       {"block", block},
+                                       {"borders", nlohmann::json{{"style", "single"}, {"color", "puce"}}}});
+    CHECK(badBorderColor["ok"] == false);
+    CHECK(badBorderColor["error"]["code"] == "input_invalid");
+
+    const auto negativeMargin =
+        server->Call("format_table", nlohmann::json{{"documentId", documentId},
+                                                    {"block", block},
+                                                    {"cell_margins", nlohmann::json{{"left", "-1cm"}}}});
+    CHECK(negativeMargin["ok"] == false);
+    CHECK(negativeMargin["error"]["code"] == "input_invalid");
+
+    const auto outsideGrid = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array({nlohmann::json{{"row", 5}, {"col", 1}}})}});
+    CHECK(outsideGrid["ok"] == false);
+    CHECK(outsideGrid["error"]["code"] == "anchor_invalid");
+
+    // A row index below one is bounded by the schema, so it never reaches the
+    // handler and comes back as a schema violation rather than a bad anchor.
+    const auto zeroRow = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array({nlohmann::json{{"row", 0}, {"col", 1}}})}});
+    CHECK(zeroRow["ok"] == false);
+    CHECK(zeroRow["error"]["code"] == "input_invalid");
+
+    const auto badCellColor = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array(
+                                     {nlohmann::json{{"row", 1}, {"col", 1}, {"background", "#GGGGGG"}}})}});
+    CHECK(badCellColor["ok"] == false);
+    CHECK(badCellColor["error"]["code"] == "input_invalid");
+
+    // A merge leaves covered positions that render nothing of their own, and
+    // formatting one of those would write properties no reader ever shows.
+    const auto merged = server->Call(
+        "modify_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"operation", "merge_cells"},
+                       {"range", nlohmann::json{{"row", 1}, {"col", 1}, {"rowSpan", 1}, {"colSpan", 2}}}});
+    REQUIRE(merged["ok"] == true);
+
+    const auto covered = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array(
+                                     {nlohmann::json{{"row", 1}, {"col", 2}, {"background", "#EEEEEE"}}})}});
+    CHECK(covered["ok"] == false);
+    CHECK(covered["error"]["code"] == "anchor_invalid");
+
+    // The anchor of that same merge is still formattable.
+    const auto anchor = server->Call(
+        "format_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"block", block},
+                       {"cells", nlohmann::json::array(
+                                     {nlohmann::json{{"row", 1}, {"col", 1}, {"background", "#EEEEEE"}}})}});
+    CHECK(anchor["ok"] == true);
+}
+
+/// Writes a document carrying one column chart, which no helper can author.
+static bool WriteChartCarrier(const std::filesystem::path& path)
+{
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::CreateNew();
+    if (editor == nullptr || editor->AddParagraph("Chart carrier") == nullptr)
+    {
+        return false;
+    }
+
+    auto mainPart = editor->GetDocument()->GetMainDocumentPart();
+    if (mainPart == nullptr)
+    {
+        return false;
+    }
+
+    auto chartPart = mainPart->AddChartPart();
+    if (chartPart == nullptr)
+    {
+        return false;
+    }
+
+    chartPart->SetXmlString(
+        R"(<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart")"
+        R"( xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">)"
+        R"(<c:chart><c:plotArea><c:layout/><c:barChart><c:barDir val="col"/>)"
+        R"(<c:grouping val="clustered"/><c:varyColors val="0"/>)"
+        R"(<c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>North</c:v></c:tx>)"
+        R"(<c:val><c:numRef><c:f>Sheet1!$B$1:$B$2</c:f><c:numCache>)"
+        R"(<c:formatCode>General</c:formatCode><c:ptCount val="2"/>)"
+        R"(<c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>2</c:v></c:pt>)"
+        R"(</c:numCache></c:numRef></c:val></c:ser>)"
+        R"(<c:axId val="1"/><c:axId val="2"/></c:barChart>)"
+        R"(<c:catAx><c:axId val="1"/><c:scaling><c:orientation val="minMax"/></c:scaling>)"
+        R"(<c:delete val="0"/><c:axPos val="b"/><c:crossAx val="2"/></c:catAx>)"
+        R"(<c:valAx><c:axId val="2"/><c:scaling><c:orientation val="minMax"/></c:scaling>)"
+        R"(<c:delete val="0"/><c:axPos val="l"/><c:crossAx val="1"/></c:valAx>)"
+        R"(</c:plotArea></c:chart></c:chartSpace>)");
+
+    // A chart part on its own is not a chart in the document; the body has to
+    // reference it through a drawing.
+    auto documentXml = mainPart->GetXmlString();
+    const auto bodyEnd = documentXml.find("</w:body>");
+    if (bodyEnd == std::string::npos)
+    {
+        return false;
+    }
+
+    documentXml.insert(
+        bodyEnd,
+        R"(<w:p><w:r><w:drawing>)"
+        R"(<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">)"
+        R"(<wp:extent cx="5486400" cy="3200400"/><wp:docPr id="1" name="Chart 1"/>)"
+        R"(<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">)"
+        R"(<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">)"
+        R"(<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart")"
+        R"( xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id=")" +
+            chartPart->RelationshipId() +
+            R"("/></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>)");
+    mainPart->SetXmlString(documentXml);
+
+    return editor->SaveToFile(path);
+}
+
+TEST_CASE("an embedded chart is listed and its series rewritten [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    REQUIRE(WriteChartCarrier(server->Path("charted.docx")));
+
+    const auto opened = server->Call("open_document", nlohmann::json{{"path", "charted.docx"}});
+    REQUIRE(opened["ok"] == true);
+    const auto documentId = opened["data"]["documentId"].get<std::string>();
+
+    const auto listed = server->Call("list_charts", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    REQUIRE(listed["data"]["charts"].size() == 1);
+
+    const auto& chart = listed["data"]["charts"][0];
+    CHECK(chart["chart"] == 1);
+    CHECK(chart["type"] == "column");
+    CHECK_FALSE(chart["relationshipId"].get<std::string>().empty());
+    REQUIRE(chart["series"].size() == 1);
+    CHECK(chart["series"][0]["name"] == "North");
+    CHECK(chart["series"][0]["values"].size() == 2);
+
+    const auto updated = server->Call(
+        "update_chart",
+        nlohmann::json{{"documentId", documentId},
+                       {"chart", 1},
+                       {"title", "Q3 results"},
+                       {"series", nlohmann::json::array(
+                                      {nlohmann::json{{"name", "Actuals"},
+                                                      {"values", nlohmann::json::array({12, 18, 9})},
+                                                      {"categories", nlohmann::json::array({"Jul", "Aug", "Sep"})}},
+                                       nlohmann::json{{"name", "Forecast"},
+                                                      {"values", nlohmann::json::array({10, 20, 15})}}})}});
+    REQUIRE(updated["ok"] == true);
+    CHECK(updated["data"]["seriesCount"] == 2);
+    CHECK(updated["data"]["chart"] == 1);
+
+    // The same chart is addressable by its relationship id, which survives a
+    // reordering that would move the index.
+    const auto relationshipId = chart["relationshipId"].get<std::string>();
+    const auto byId = server->Call(
+        "update_chart",
+        nlohmann::json{{"documentId", documentId},
+                       {"relationship_id", relationshipId},
+                       {"series", nlohmann::json::array({nlohmann::json{
+                           {"name", "Only"}, {"values", nlohmann::json::array({1, 2, 3})}}})}});
+    REQUIRE(byId["ok"] == true);
+    CHECK(byId["data"]["seriesCount"] == 1);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("charted.docx"));
+    REQUIRE(editor != nullptr);
+    const auto charts = editor->Charts();
+    REQUIRE(charts.size() == 1);
+    REQUIRE(charts.front().Series.size() == 1);
+    CHECK(charts.front().Series.front().Name == "Only");
+    CHECK(charts.front().Title == "Q3 results");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("charted.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("update_chart refuses what it cannot plot [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "plain.docx"}});
+    const auto plainId = created["data"]["documentId"].get<std::string>();
+
+    // A document with no chart cannot grow one: this version updates charts, it
+    // does not anchor them, and saying so is more use than a bare failure.
+    const auto none = server->Call(
+        "update_chart", nlohmann::json{{"documentId", plainId},
+                                       {"series", nlohmann::json::array({nlohmann::json{
+                                           {"name", "A"}, {"values", nlohmann::json::array({1})}}})}});
+    CHECK(none["ok"] == false);
+    CHECK(none["error"]["code"] == "unsupported");
+
+    const auto empty = server->Call("list_charts", nlohmann::json{{"documentId", plainId}});
+    REQUIRE(empty["ok"] == true);
+    CHECK(empty["data"]["charts"].empty());
+
+    REQUIRE(WriteChartCarrier(server->Path("charted2.docx")));
+    const auto opened = server->Call("open_document", nlohmann::json{{"path", "charted2.docx"}});
+    REQUIRE(opened["ok"] == true);
+    const auto documentId = opened["data"]["documentId"].get<std::string>();
+
+    const auto series = nlohmann::json::array(
+        {nlohmann::json{{"name", "A"}, {"values", nlohmann::json::array({1, 2})}}});
+
+    const auto outOfRange = server->Call(
+        "update_chart", nlohmann::json{{"documentId", documentId}, {"chart", 7}, {"series", series}});
+    CHECK(outOfRange["ok"] == false);
+    CHECK(outOfRange["error"]["code"] == "media_not_found");
+
+    const auto unknownId = server->Call(
+        "update_chart",
+        nlohmann::json{{"documentId", documentId}, {"relationship_id", "rIdNope"}, {"series", series}});
+    CHECK(unknownId["ok"] == false);
+    CHECK(unknownId["error"]["code"] == "media_not_found");
+
+    const auto noSeries =
+        server->Call("update_chart", nlohmann::json{{"documentId", documentId},
+                                                    {"chart", 1},
+                                                    {"series", nlohmann::json::array()}});
+    CHECK(noSeries["ok"] == false);
+    CHECK(noSeries["error"]["code"] == "input_invalid");
+
+    // Category labels that do not line up with the values would mislabel every
+    // point after the mismatch.
+    const auto mismatched = server->Call(
+        "update_chart",
+        nlohmann::json{{"documentId", documentId},
+                       {"chart", 1},
+                       {"series", nlohmann::json::array({nlohmann::json{
+                           {"name", "A"},
+                           {"values", nlohmann::json::array({1, 2, 3})},
+                           {"categories", nlohmann::json::array({"Jan", "Feb"})}}})}});
+    CHECK(mismatched["ok"] == false);
+    CHECK(mismatched["error"]["code"] == "input_invalid");
+
+    // Every refusal left the chart as it was.
+    const auto still = server->Call("list_charts", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(still["data"]["charts"].size() == 1);
+    CHECK(still["data"]["charts"][0]["series"][0]["name"] == "North");
+}
+
+TEST_CASE("document protection is applied, reported and removed [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "restricted.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("insert_paragraph",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"anchor", nlohmann::json{{"position", "end"}}},
+                                        {"text", "Body"}})["ok"] == true);
+
+    // A document nobody restricted says so by leaving the field out rather than
+    // by reporting an empty restriction.
+    const auto before = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(before["ok"] == true);
+    CHECK_FALSE(before["data"].contains("protection"));
+
+    const auto applied = server->Call("set_protection", nlohmann::json{{"documentId", documentId},
+                                                                       {"editing", "comments"},
+                                                                       {"password", "secret"}});
+    REQUIRE(applied["ok"] == true);
+    CHECK(applied["data"]["protected"] == true);
+    CHECK(applied["data"]["editing"] == "comments");
+    CHECK(applied["data"]["hasPassword"] == true);
+
+    const auto reported = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(reported["data"].contains("protection"));
+    CHECK(reported["data"]["protection"]["kind"] == "document");
+    CHECK(reported["data"]["protection"]["editing"] == "comments");
+    CHECK(reported["data"]["protection"]["enforced"] == true);
+    CHECK(reported["data"]["protection"]["hasPassword"] == true);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    // The restriction is a setting in the package, not a lock on it: the
+    // document is still readable and still rewritable by this server.
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("restricted.docx"));
+    REQUIRE(editor != nullptr);
+    const auto state = editor->GetDocumentProtection();
+    REQUIRE(state.has_value());
+    CHECK(state->Options.Editing == ExyokiOffice::Word::WordProtectionType::Comments);
+    CHECK(state->HasPassword);
+
+    const auto removed = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId}, {"protect", false}, {"password", "secret"}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["protected"] == false);
+
+    const auto after = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    CHECK_FALSE(after["data"].contains("protection"));
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("restricted.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("protection is not removed by the wrong password or an unknown mode [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "locked.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto unknownMode = server->Call(
+        "set_protection", nlohmann::json{{"documentId", documentId}, {"editing", "sealed"}});
+    CHECK(unknownMode["ok"] == false);
+    CHECK(unknownMode["error"]["code"] == "input_invalid");
+
+    REQUIRE(server->Call("set_protection", nlohmann::json{{"documentId", documentId},
+                                                          {"editing", "readOnly"},
+                                                          {"password", "right"}})["ok"] == true);
+
+    const auto wrong = server->Call(
+        "set_protection",
+        nlohmann::json{{"documentId", documentId}, {"protect", false}, {"password", "wrong"}});
+    CHECK(wrong["ok"] == false);
+    CHECK(wrong["error"]["code"] == "input_invalid");
+
+    const auto none = server->Call(
+        "set_protection", nlohmann::json{{"documentId", documentId}, {"protect", false}});
+    CHECK(none["ok"] == false);
+
+    // A refused removal leaves the restriction exactly as it was.
+    const auto still = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(still["data"].contains("protection"));
+    CHECK(still["data"]["protection"]["editing"] == "readOnly");
+    CHECK(still["data"]["protection"]["hasPassword"] == true);
+
+    // A restriction recorded without enforcement is a different state, and the
+    // report distinguishes the two.
+    REQUIRE(server->Call("set_protection", nlohmann::json{{"documentId", documentId},
+                                                          {"editing", "forms"},
+                                                          {"enforce", false},
+                                                          {"password", "right"}})["ok"] == true);
+    const auto relaxed = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
+    CHECK(relaxed["data"]["protection"]["enforced"] == false);
+}
+
+TEST_CASE("a style definition carries the formatting it was given [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "styled.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    // A built-in name belongs to Word; a custom style given one is renamed on
+    // open, so redefining Heading 1 has to say that is what it means.
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Heading1"},
+                                                        {"name", "heading 1"},
+                                                        {"built_in", true},
+                                                        {"font", nlohmann::json{{"sizePt", 20},
+                                                                                {"bold", true}}}})["ok"] == true);
+
+    const auto defined = server->Call(
+        "define_style",
+        nlohmann::json{{"documentId", documentId},
+                       {"style_id", "ReportHeading"},
+                       {"name", "Report Heading"},
+                       {"based_on", "Heading1"},
+                       {"next", "Normal"},
+                       {"ui_priority", 11},
+                       {"quick_style", true},
+                       {"font", nlohmann::json{{"name", "Georgia"},
+                                               {"sizePt", 16},
+                                               {"bold", true},
+                                               {"italic", false},
+                                               {"smallCaps", true},
+                                               {"color", "#1F4E79"}}},
+                       {"paragraph", nlohmann::json{{"alignment", "center"},
+                                                    {"space_before", 18},
+                                                    {"space_after", 6},
+                                                    {"line_spacing", 1.5},
+                                                    {"indent_left", 14.4},
+                                                    {"indent_first_line", -14.4},
+                                                    {"keep_next", true},
+                                                    {"outline_level", 0}}}});
+    REQUIRE(defined["ok"] == true);
+    CHECK(defined["data"]["styleId"] == "ReportHeading");
+    CHECK(defined["data"]["kind"] == "paragraph");
+    CHECK(defined["data"]["created"] == true);
+
+    // A second call adds to the definition instead of replacing it.
+    const auto changed = server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                                     {"style_id", "ReportHeading"},
+                                                                     {"paragraph", nlohmann::json{{"page_break_before",
+                                                                                                   true}}}});
+    REQUIRE(changed["ok"] == true);
+    CHECK(changed["data"]["created"] == false);
+
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Caution"},
+                                                        {"kind", "character"},
+                                                        {"font", nlohmann::json{{"bold", true},
+                                                                                {"color", "#C00000"}}}})["ok"] ==
+            true);
+
+    const auto listed = server->Call("list_styles", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    CHECK(listed["data"]["styles"].size() == 3);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("styled.docx"));
+    REQUIRE(editor != nullptr);
+    const auto style = editor->Styles().GetStyle("ReportHeading");
+    REQUIRE(style.has_value());
+    CHECK(style->Name == "Report Heading");
+    CHECK(style->BasedOnStyleId == "Heading1");
+    CHECK(style->NextStyleId == "Normal");
+    CHECK(style->UiPriority == 11);
+    CHECK(style->IsPrimary);
+
+    const auto part = editor->GetDocument()->GetMainDocumentPart()->GetStyleDefinitionsPart();
+    REQUIRE(part != nullptr);
+    const auto xml = part->GetXmlString();
+    // Word stores a font size in half-points and a length in twips.
+    CHECK(xml.find("w:sz w:val=\"32\"") != std::string::npos);
+    CHECK(xml.find("w:before=\"360\"") != std::string::npos);
+    CHECK(xml.find("w:line=\"360\"") != std::string::npos);
+    // A negative first-line indent is a hanging indent, which is its own
+    // attribute rather than a negative firstLine.
+    CHECK(xml.find("w:hanging=\"288\"") != std::string::npos);
+    CHECK(xml.find("w:firstLine=\"-") == std::string::npos);
+    // An explicit false is written rather than dropped: that is the only way a
+    // style cancels something the style it is based on turns on.
+    CHECK(xml.find("<w:i w:val=\"false\" />") != std::string::npos);
+    CHECK(xml.find("w:color w:val=\"1F4E79\"") != std::string::npos);
+    CHECK(xml.find("w:outlineLvl w:val=\"0\"") != std::string::npos);
+    CHECK(xml.find("<w:pageBreakBefore w:val=\"true\" />") != std::string::npos);
+    // A style carrying a built-in name must not claim to be a custom style, or
+    // Word renames it: "heading 1" opens as "Heading 11".
+    CHECK(xml.find("w:styleId=\"Heading1\" w:customStyle") == std::string::npos);
+    CHECK(xml.find("w:styleId=\"ReportHeading\" w:customStyle=\"true\"") != std::string::npos);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("styled.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a style definition is refused when it cannot be built [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badstyles.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto emptyId =
+        server->Call("define_style", nlohmann::json{{"documentId", documentId}, {"style_id", ""}});
+    CHECK(emptyId["ok"] == false);
+    CHECK(emptyId["error"]["code"] == "input_invalid");
+
+    const auto unknownKind = server->Call(
+        "define_style", nlohmann::json{{"documentId", documentId}, {"style_id", "Odd"}, {"kind", "footnote"}});
+    CHECK(unknownKind["ok"] == false);
+    CHECK(unknownKind["error"]["code"] == "input_invalid");
+
+    const auto badColor = server->Call(
+        "define_style",
+        nlohmann::json{{"documentId", documentId},
+                       {"style_id", "Odd"},
+                       {"font", nlohmann::json{{"color", "crimson"}}}});
+    CHECK(badColor["ok"] == false);
+    CHECK(badColor["error"]["code"] == "input_invalid");
+
+    // A character style formats runs; it has no paragraph to format.
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Inline"},
+                                                        {"kind", "character"}})["ok"] == true);
+    const auto wrongFamily = server->Call(
+        "define_style",
+        nlohmann::json{{"documentId", documentId},
+                       {"style_id", "Inline"},
+                       {"paragraph", nlohmann::json{{"alignment", "center"}}}});
+    CHECK(wrongFamily["ok"] == false);
+    CHECK(wrongFamily["error"]["code"] == "input_invalid");
+
+    const auto badLength = server->Call(
+        "define_style",
+        nlohmann::json{{"documentId", documentId},
+                       {"style_id", "Body"},
+                       {"paragraph", nlohmann::json{{"indent_left", "a bit"}}}});
+    CHECK(badLength["ok"] == false);
+    CHECK(badLength["error"]["code"] == "input_invalid");
+
+    const auto missing =
+        server->Call("delete_style", nlohmann::json{{"documentId", documentId}, {"style_id", "Nowhere"}});
+    CHECK(missing["ok"] == false);
+    CHECK(missing["error"]["code"] == "style_not_found");
+
+    // 'Inline' was created above, so only that one style may exist.
+    const auto listed = server->Call("list_styles", nlohmann::json{{"documentId", documentId}});
+    CHECK(listed["data"]["styles"].size() == 1);
+}
+
+TEST_CASE("deleting a style reports the blocks left pointing at it [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "orphans.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Callout"},
+                                                        {"font", nlohmann::json{{"italic", true}}}})["ok"] ==
+            true);
+
+    for (const auto* text : {"One", "Two", "Three"})
+    {
+        REQUIRE(server->Call("insert_paragraph",
+                             nlohmann::json{{"documentId", documentId},
+                                            {"anchor", nlohmann::json{{"position", "end"}}},
+                                            {"text", text}})["ok"] == true);
+    }
+
+    REQUIRE(server->Call("apply_style",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"blocks", nlohmann::json::array({1, 3})},
+                                        {"style_id", "Callout"}})["ok"] == true);
+
+    const auto removed =
+        server->Call("delete_style", nlohmann::json{{"documentId", documentId}, {"style_id", "Callout"}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["removed"] == true);
+    // Reported rather than repaired: which style those blocks should carry
+    // instead is not this tool's decision.
+    REQUIRE(removed["data"]["danglingBlocks"].size() == 2);
+    CHECK(removed["data"]["danglingBlocks"][0] == 1);
+    CHECK(removed["data"]["danglingBlocks"][1] == 3);
+
+    const auto listed = server->Call("list_styles", nlohmann::json{{"documentId", documentId}});
+    CHECK(listed["data"]["styles"].empty());
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    const auto report = ExyokiOffice::Tools::Run(server->Path("orphans.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a multi-level list definition is written, reused and laid out [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "outline.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto empty = server->Call("list_numbering", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(empty["ok"] == true);
+    CHECK(empty["data"]["definitions"].empty());
+    CHECK(empty["data"]["instances"].empty());
+
+    const auto defined = server->Call(
+        "define_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Outline"},
+                       {"levels", nlohmann::json::array(
+                                      {nlohmann::json{{"level", 0},
+                                                      {"format", "upperRoman"},
+                                                      {"text", "%1."},
+                                                      {"indent_left", 18},
+                                                      {"indent_hanging", 18}},
+                                       nlohmann::json{{"level", 1},
+                                                      {"format", "lowerLetter"},
+                                                      {"text", "%2)"},
+                                                      {"suffix", "space"},
+                                                      {"start", 2}}})}});
+    REQUIRE(defined["ok"] == true);
+    CHECK(defined["data"]["created"] == true);
+    const auto numberingId = defined["data"]["numberingId"].get<int>();
+    CHECK(numberingId > 0);
+
+    // The same name resolves to the same definition rather than a second one.
+    const auto reused =
+        server->Call("define_list", nlohmann::json{{"documentId", documentId}, {"name", "Outline"}});
+    REQUIRE(reused["ok"] == true);
+    CHECK(reused["data"]["created"] == false);
+    CHECK(reused["data"]["definitionId"] == defined["data"]["definitionId"]);
+
+    const auto inserted = server->Call(
+        "insert_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"numbering_id", numberingId},
+                       {"items", nlohmann::json::array({nlohmann::json{{"text", "First"}},
+                                                        nlohmann::json{{"text", "Nested"}, {"level", 1}},
+                                                        nlohmann::json{{"text", "Second"}}})}});
+    REQUIRE(inserted["ok"] == true);
+    CHECK(inserted["data"]["numberingId"] == numberingId);
+
+    const auto reported = server->Call("list_numbering", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(reported["data"]["definitions"].size() == 1);
+    const auto& levels = reported["data"]["definitions"][0]["levels"];
+    REQUIRE(levels.size() == 2);
+    CHECK(reported["data"]["definitions"][0]["name"] == "Outline");
+    CHECK(levels[0]["format"] == "upperRoman");
+    CHECK(levels[0]["text"] == "%1.");
+    CHECK(levels[1]["format"] == "lowerLetter");
+    CHECK(levels[1]["start"] == 2);
+
+    // A restart is a second instance over the same definition, which is how
+    // WordprocessingML makes a list start over without redefining its shape.
+    const auto restarted = server->Call(
+        "define_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Outline"},
+                       {"restart", nlohmann::json::array({nlohmann::json{{"level", 0}, {"start", 1}}})}});
+    REQUIRE(restarted["ok"] == true);
+    CHECK(restarted["data"]["numberingId"] != numberingId);
+    CHECK(restarted["data"]["definitionId"] == defined["data"]["definitionId"]);
+
+    const auto afterRestart = server->Call("list_numbering", nlohmann::json{{"documentId", documentId}});
+    CHECK(afterRestart["data"]["definitions"].size() == 1);
+    CHECK(afterRestart["data"]["instances"].size() == 2);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("outline.docx"));
+    REQUIRE(editor != nullptr);
+    CHECK(editor->Numbering().Instances().size() == 2);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("outline.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a list definition is refused when it cannot be built [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badlist.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto noName = server->Call("define_list", nlohmann::json{{"documentId", documentId}, {"name", ""}});
+    CHECK(noName["ok"] == false);
+    CHECK(noName["error"]["code"] == "input_invalid");
+
+    // A name nothing defines yet has to arrive with the levels that define it.
+    const auto noLevels =
+        server->Call("define_list", nlohmann::json{{"documentId", documentId}, {"name", "Ghost"}});
+    CHECK(noLevels["ok"] == false);
+    CHECK(noLevels["error"]["code"] == "input_invalid");
+
+    const auto twice = server->Call(
+        "define_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Twice"},
+                       {"levels", nlohmann::json::array({nlohmann::json{{"level", 0}},
+                                                         nlohmann::json{{"level", 0}}})}});
+    CHECK(twice["ok"] == false);
+    CHECK(twice["error"]["code"] == "input_invalid");
+
+    const auto unknownFormat = server->Call(
+        "define_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"name", "Odd"},
+                       {"levels", nlohmann::json::array({nlohmann::json{{"level", 0},
+                                                                        {"format", "hieroglyph"}}})}});
+    CHECK(unknownFormat["ok"] == false);
+    CHECK(unknownFormat["error"]["code"] == "input_invalid");
+
+    const auto unknownInstance = server->Call(
+        "insert_list",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"numbering_id", 4242},
+                       {"items", nlohmann::json::array({nlohmann::json{{"text", "Orphan"}}})}});
+    CHECK(unknownInstance["ok"] == false);
+    CHECK(unknownInstance["error"]["code"] == "input_invalid");
+
+    // Nothing above may have written a definition or a paragraph.
+    const auto numbering = server->Call("list_numbering", nlohmann::json{{"documentId", documentId}});
+    CHECK(numbering["data"]["definitions"].empty());
+    CHECK(numbering["data"]["instances"].empty());
+}
+
+TEST_CASE("a content control is inserted, read back, changed and removed [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "form.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto empty = server->Call("list_content_controls", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(empty["ok"] == true);
+    CHECK(empty["data"]["controls"].empty());
+
+    const auto block = server->Call("insert_content_control",
+                                    nlohmann::json{{"documentId", documentId},
+                                                   {"anchor", nlohmann::json{{"position", "end"}}},
+                                                   {"tag", "customerName"},
+                                                   {"alias", "Customer name"},
+                                                   {"text", "Acme Corp."},
+                                                   {"lock", "content"}});
+    REQUIRE(block["ok"] == true);
+    CHECK(block["data"]["level"] == "block");
+    const auto blockId = block["data"]["id"].get<int>();
+
+    REQUIRE(server->Call("insert_paragraph",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"anchor", nlohmann::json{{"position", "end"}}},
+                                        {"text", "Status: "}})["ok"] == true);
+    const auto paragraphIndex = server->Call("read_blocks", nlohmann::json{{"documentId", documentId}})
+                                    ["data"]["blockCount"]
+                                        .get<int>();
+
+    const auto inlineControl = server->Call("insert_content_control",
+                                            nlohmann::json{{"documentId", documentId},
+                                                           {"level", "inline"},
+                                                           {"block", paragraphIndex},
+                                                           {"tag", "status"},
+                                                           {"text", "Draft"}});
+    REQUIRE(inlineControl["ok"] == true);
+    CHECK(inlineControl["data"]["level"] == "inline");
+    CHECK(inlineControl["data"]["block"] == paragraphIndex);
+
+    const auto listed = server->Call("list_content_controls", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["data"]["controls"].size() == 2);
+    CHECK(listed["data"]["controls"][0]["tag"] == "customerName");
+    CHECK(listed["data"]["controls"][0]["alias"] == "Customer name");
+    CHECK(listed["data"]["controls"][0]["lock"] == "content");
+    CHECK(listed["data"]["controls"][0]["text"] == "Acme Corp.");
+    CHECK(listed["data"]["controls"][1]["level"] == "inline");
+
+    // The tag is what code finds a control by, so filtering on it is the
+    // lookup a template actually performs.
+    const auto filtered = server->Call("list_content_controls",
+                                       nlohmann::json{{"documentId", documentId}, {"tag", "status"}});
+    REQUIRE(filtered["data"]["controls"].size() == 1);
+    CHECK(filtered["data"]["controls"][0]["text"] == "Draft");
+
+    const auto changed = server->Call("update_content_control",
+                                      nlohmann::json{{"documentId", documentId},
+                                                     {"id", blockId},
+                                                     {"text", "Globex"},
+                                                     {"alias", "Client"},
+                                                     {"lock", "both"}});
+    REQUIRE(changed["ok"] == true);
+    CHECK(changed["data"]["text"] == "Globex");
+    CHECK(changed["data"]["removed"] == false);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("form.docx"));
+    REQUIRE(editor != nullptr);
+    const auto control = editor->FindContentControl(blockId);
+    REQUIRE(control != nullptr);
+    CHECK(control->GetTag() == "customerName");
+    CHECK(control->GetAlias() == "Client");
+    CHECK(control->PlainText() == "Globex");
+
+    const auto removed = server->Call(
+        "update_content_control",
+        nlohmann::json{{"documentId", documentId}, {"id", blockId}, {"remove", true}});
+    REQUIRE(removed["ok"] == true);
+    CHECK(removed["data"]["removed"] == true);
+
+    const auto after = server->Call("list_content_controls", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(after["data"]["controls"].size() == 1);
+    CHECK(after["data"]["controls"][0]["tag"] == "status");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("form.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a content control is refused when it cannot be addressed [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "badform.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    // An inline control lives inside a paragraph and has to name one.
+    const auto noBlock = server->Call(
+        "insert_content_control", nlohmann::json{{"documentId", documentId}, {"level", "inline"}});
+    CHECK(noBlock["ok"] == false);
+    CHECK(noBlock["error"]["code"] == "block_not_found");
+
+    const auto outOfRange = server->Call(
+        "insert_content_control",
+        nlohmann::json{{"documentId", documentId}, {"level", "inline"}, {"block", 99}});
+    CHECK(outOfRange["ok"] == false);
+    CHECK(outOfRange["error"]["code"] == "block_not_found");
+
+    const auto badLock = server->Call("insert_content_control",
+                                      nlohmann::json{{"documentId", documentId},
+                                                     {"anchor", nlohmann::json{{"position", "end"}}},
+                                                     {"lock", "sealed"}});
+    CHECK(badLock["ok"] == false);
+    CHECK(badLock["error"]["code"] == "input_invalid");
+
+    const auto unknown = server->Call("update_content_control",
+                                      nlohmann::json{{"documentId", documentId}, {"id", 4242}, {"text", "x"}});
+    CHECK(unknown["ok"] == false);
+    CHECK(unknown["error"]["code"] == "block_not_found");
+
+    const auto none = server->Call("list_content_controls", nlohmann::json{{"documentId", documentId}});
+    CHECK(none["data"]["controls"].empty());
+}
+
+TEST_CASE("a section is laid out in columns [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "columns.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("insert_paragraph",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"anchor", nlohmann::json{{"position", "end"}}},
+                                        {"text", "Lorem ipsum dolor sit amet."}})["ok"] == true);
+
+    const auto applied = server->Call(
+        "set_section",
+        nlohmann::json{{"documentId", documentId},
+                       {"columns", nlohmann::json{{"count", 2}, {"spacing", 24}, {"separator", true}}}});
+    REQUIRE(applied["ok"] == true);
+    CHECK(applied["data"]["columns"] == 2);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("columns.docx"));
+    REQUIRE(editor != nullptr);
+    const auto sections = editor->Sections();
+    REQUIRE_FALSE(sections.empty());
+    const auto columns = sections.back()->GetColumns();
+    REQUIRE(columns.has_value());
+    CHECK(columns->Count == 2);
+    CHECK(columns->Separator);
+    // 24 points is 480 twips, which is what the element stores.
+    CHECK(columns->Spacing.ToTw().GetValue() == doctest::Approx(480.0));
+
+    // A caller that asks for columns without a gap gets Word's own default
+    // rather than columns that touch each other.
+    const auto defaulted = server->Call(
+        "set_section", nlohmann::json{{"documentId", documentId}, {"columns", nlohmann::json{{"count", 3}}}});
+    REQUIRE(defaulted["ok"] == true);
+    CHECK(defaulted["data"]["columns"] == 3);
+
+    const auto badSpacing = server->Call(
+        "set_section",
+        nlohmann::json{{"documentId", documentId},
+                       {"columns", nlohmann::json{{"count", 2}, {"spacing", "a lot"}}}});
+    CHECK(badSpacing["ok"] == false);
+    CHECK(badSpacing["error"]["code"] == "input_invalid");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("columns.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+/// A 1x1 PNG; what the wrapping does with it is what matters here.
+static const std::string kFloatingPng =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+TEST_CASE("a picture floats with text wrapped around it [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "floating.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("insert_paragraph",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"anchor", nlohmann::json{{"position", "end"}}},
+                                        {"text", "Lorem ipsum dolor sit amet."}})["ok"] == true);
+
+    const auto floated = server->Call(
+        "insert_image",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"dataBase64", kFloatingPng},
+                       {"width", 80},
+                       {"alt", "Blue box"},
+                       {"layout", nlohmann::json{{"mode", "floating"},
+                                                 {"wrap", "square"},
+                                                 {"wrap_side", "bothSides"},
+                                                 {"horizontal", nlohmann::json{{"from", "margin"},
+                                                                               {"align", "right"}}},
+                                                 {"vertical", nlohmann::json{{"from", "paragraph"},
+                                                                             {"offset", 6}}},
+                                                 {"distance", nlohmann::json{{"left", 6}, {"right", 6}}},
+                                                 {"allow_overlap", false}}}});
+    REQUIRE(floated["ok"] == true);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("floating.docx"));
+    REQUIRE(editor != nullptr);
+    std::vector<std::shared_ptr<ExyokiOffice::Word::Image>> images;
+    for (const auto& block : editor->BodyBlocks())
+    {
+        if (auto paragraph = block.AsParagraph())
+        {
+            for (const auto& image : paragraph->Images())
+            {
+                images.push_back(image);
+            }
+        }
+    }
+    REQUIRE(images.size() == 1);
+
+    ExyokiOffice::Word::ImageWrapSettings wrap;
+    REQUIRE(images.front()->TryGetWrap(wrap));
+    CHECK(wrap.Wrap == ExyokiOffice::Word::ImageWrap::Square);
+
+    // Alt text belongs on the drawing's own properties as well as the
+    // picture's: Word reads the first and ignores the second, so a picture
+    // labelled only on the picture is unlabelled as far as Word is concerned.
+    CHECK(images.front()->GetDescription() == "Blue box");
+    const auto xml = editor->GetDocument()->GetMainDocumentPart()->GetXmlString();
+    CHECK(xml.find("<wp:anchor") != std::string::npos);
+    CHECK(xml.find("<wp:docPr") != std::string::npos);
+    const auto docPr = xml.find("<wp:docPr");
+    CHECK(xml.find("descr=\"Blue box\"", docPr) < xml.find('>', docPr));
+
+    const auto badOffset = server->Call(
+        "insert_image",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"dataBase64", kFloatingPng},
+                       {"layout", nlohmann::json{{"mode", "floating"},
+                                                 {"horizontal", nlohmann::json{{"offset", "far"}}}}}});
+    CHECK(badOffset["ok"] == false);
+    CHECK(badOffset["error"]["code"] == "input_invalid");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("floating.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("a character style goes on the runs and a paragraph style on the block [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "runs.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Caution"},
+                                                        {"kind", "character"},
+                                                        {"font", nlohmann::json{{"bold", true}}}})["ok"] == true);
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Quote"},
+                                                        {"paragraph", nlohmann::json{{"alignment",
+                                                                                      "center"}}}})["ok"] == true);
+
+    REQUIRE(server->Call("insert_paragraph",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"anchor", nlohmann::json{{"position", "end"}}},
+                                        {"inlines", nlohmann::json::array({nlohmann::json{{"text", "Mind "}},
+                                                                           nlohmann::json{{"text", "the gap"}}})}})
+                ["ok"] == true);
+
+    // A character style cannot sit on a paragraph, so it goes on every run the
+    // paragraph holds; the answer says how many that was.
+    const auto character =
+        server->Call("apply_style", nlohmann::json{{"documentId", documentId},
+                                                   {"blocks", nlohmann::json::array({1})},
+                                                   {"style_id", "Caution"}});
+    REQUIRE(character["ok"] == true);
+    CHECK(character["data"]["styled"] == 1);
+    CHECK(character["data"]["runs"] == 2);
+
+    const auto paragraph =
+        server->Call("apply_style", nlohmann::json{{"documentId", documentId},
+                                                   {"blocks", nlohmann::json::array({1})},
+                                                   {"style_id", "Quote"}});
+    REQUIRE(paragraph["ok"] == true);
+    CHECK(paragraph["data"]["runs"] == 0);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("runs.docx"));
+    REQUIRE(editor != nullptr);
+    const auto blocks = editor->BodyBlocks();
+    REQUIRE_FALSE(blocks.empty());
+    auto block = blocks.front().AsParagraph();
+    REQUIRE(block != nullptr);
+    CHECK(block->GetStyleId() == "Quote");
+    const auto runs = block->Runs();
+    REQUIRE(runs.size() == 2);
+    CHECK(runs.front()->GetStyleId() == "Caution");
+    CHECK(runs.back()->GetStyleId() == "Caution");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("runs.docx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }

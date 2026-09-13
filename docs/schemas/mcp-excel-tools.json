@@ -1,7 +1,7 @@
 {
   "server": "exyoki-mcp-excel",
   "title": "ExyokiOffice Excel MCP Server",
-  "toolCount": 48,
+  "toolCount": 67,
   "tools": [
     {
       "annotations": {
@@ -945,6 +945,10 @@
               },
               "properties": {
                 "description": "Core and extended properties.",
+                "type": "object"
+              },
+              "protection": {
+                "description": "What the document restricts, absent when it restricts nothing. Word reports an editing mode, Excel the workbook structure and each protected sheet, a presentation a password to modify. None of it is encryption: every part stays readable.",
                 "type": "object"
               },
               "relationshipCount": {
@@ -2207,6 +2211,191 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
+      "description": "Read the theme a document draws its scheme colours and fonts from. Every colour a document names as a scheme colour resolves through this.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "read",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of get_theme.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "get_theme",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Theme.",
+            "properties": {
+              "colorSchemeName": {
+                "description": "Colour scheme name.",
+                "type": "string"
+              },
+              "colors": {
+                "description": "Scheme colours by slot name, as RRGGBB hex.",
+                "type": "object"
+              },
+              "fontSchemeName": {
+                "description": "Font scheme name.",
+                "type": "string"
+              },
+              "majorFonts": {
+                "additionalProperties": false,
+                "description": "One font collection.",
+                "properties": {
+                  "complexScript": {
+                    "description": "Complex-script typeface, when one is set.",
+                    "type": "string"
+                  },
+                  "eastAsian": {
+                    "description": "East Asian typeface, when one is set.",
+                    "type": "string"
+                  },
+                  "latin": {
+                    "description": "Latin typeface.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "latin"
+                ],
+                "type": "object"
+              },
+              "minorFonts": {
+                "additionalProperties": false,
+                "description": "One font collection.",
+                "properties": {
+                  "complexScript": {
+                    "description": "Complex-script typeface, when one is set.",
+                    "type": "string"
+                  },
+                  "eastAsian": {
+                    "description": "East Asian typeface, when one is set.",
+                    "type": "string"
+                  },
+                  "latin": {
+                    "description": "Latin typeface.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "latin"
+                ],
+                "type": "object"
+              },
+              "name": {
+                "description": "Theme name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "colors"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Get theme"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
       "description": "List every image, audio, video, and embedded-object part of the document without transferring any payload.",
       "example": {
         "documentId": "doc-1"
@@ -2889,6 +3078,768 @@
     {
       "annotations": {
         "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the comments of the workbook, optionally narrowed to one sheet. Both threaded comments and plain notes are reported.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "review",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_comments.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_comments",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Comments.",
+            "properties": {
+              "comments": {
+                "description": "Comments.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One comment.",
+                  "properties": {
+                    "author": {
+                      "description": "Author display name.",
+                      "type": "string"
+                    },
+                    "cell": {
+                      "description": "A1 address.",
+                      "type": "string"
+                    },
+                    "id": {
+                      "description": "Thread entry identifier; empty for a plain note.",
+                      "type": "string"
+                    },
+                    "parentId": {
+                      "description": "Identifier of the entry this one replies to.",
+                      "type": "string"
+                    },
+                    "sheet": {
+                      "description": "Worksheet name.",
+                      "type": "string"
+                    },
+                    "text": {
+                      "description": "Comment text.",
+                      "type": "string"
+                    },
+                    "threaded": {
+                      "description": "True for a threaded comment.",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "sheet",
+                    "cell",
+                    "text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "comments"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List comments"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the structured tables of the workbook with their columns and the filters currently applied to them.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_tables.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_tables",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Tables.",
+            "properties": {
+              "tables": {
+                "description": "Tables.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One table.",
+                  "properties": {
+                    "autoFilter": {
+                      "description": "The table carries filter buttons.",
+                      "type": "boolean"
+                    },
+                    "columns": {
+                      "description": "Columns in worksheet order.",
+                      "items": {
+                        "additionalProperties": false,
+                        "description": "One table column.",
+                        "properties": {
+                          "id": {
+                            "description": "Stable column identifier.",
+                            "type": "integer"
+                          },
+                          "name": {
+                            "description": "Column name.",
+                            "type": "string"
+                          },
+                          "totalsLabel": {
+                            "description": "Label shown in the totals row.",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "filters": {
+                      "description": "Active column filters.",
+                      "items": {
+                        "additionalProperties": false,
+                        "description": "One column filter.",
+                        "properties": {
+                          "column": {
+                            "description": "Filtered column.",
+                            "type": "string"
+                          },
+                          "columnIndex": {
+                            "description": "1-based column position.",
+                            "type": "integer"
+                          },
+                          "includeBlank": {
+                            "description": "Blank cells are kept too.",
+                            "type": "boolean"
+                          },
+                          "values": {
+                            "description": "Values kept visible.",
+                            "items": {
+                              "description": "One value.",
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "column",
+                          "values"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "description": "Table name.",
+                      "type": "string"
+                    },
+                    "range": {
+                      "description": "A1 range, header and totals rows included.",
+                      "type": "string"
+                    },
+                    "sheet": {
+                      "description": "Worksheet that holds it.",
+                      "type": "string"
+                    },
+                    "totalsRow": {
+                      "description": "The totals row is visible.",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "sheet",
+                    "range"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "tables"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List tables"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Report whether the workbook carries a VBA project and, when a path is given, write the opaque vbaProject.bin to it. The payload is never parsed or executed.",
+      "example": {
+        "documentId": "doc-1",
+        "output_path": "macros.bin"
+      },
+      "group": "vba",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of get_vba_project.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "output_path": {
+            "description": "Workspace file to write vbaProject.bin to; omitted, only the report is returned.",
+            "type": "string"
+          },
+          "overwrite": {
+            "default": false,
+            "description": "Replace an existing file at that path.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "get_vba_project",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "VBA project.",
+            "properties": {
+              "bytes": {
+                "description": "Size of the project payload.",
+                "type": "integer"
+              },
+              "path": {
+                "description": "Workspace file it was written to.",
+                "type": "string"
+              },
+              "present": {
+                "description": "A project is embedded.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "present"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Get VBA project"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List the slicers of the workbook with their buttons and which of them are selected.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of list_slicers.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of an open document; mutually exclusive with 'path'.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative file to read without opening a session; mutually exclusive with 'documentId'. Reads the file as it is on disk, so unsaved changes of a session holding the same file are not included.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit to list every sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "list_slicers",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Slicers.",
+            "properties": {
+              "slicers": {
+                "description": "Slicers.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One slicer.",
+                  "properties": {
+                    "anchor": {
+                      "description": "A1 anchor cell.",
+                      "type": "string"
+                    },
+                    "caption": {
+                      "description": "Header caption.",
+                      "type": "string"
+                    },
+                    "columns": {
+                      "description": "Button columns.",
+                      "type": "integer"
+                    },
+                    "field": {
+                      "description": "Source column.",
+                      "type": "string"
+                    },
+                    "items": {
+                      "description": "Buttons.",
+                      "items": {
+                        "additionalProperties": false,
+                        "description": "One slicer button.",
+                        "properties": {
+                          "caption": {
+                            "description": "Button caption.",
+                            "type": "string"
+                          },
+                          "hasNoData": {
+                            "description": "True when no source row matches.",
+                            "type": "boolean"
+                          },
+                          "selected": {
+                            "description": "True when the item is not filtered out.",
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "caption",
+                          "selected"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "description": "Slicer name.",
+                      "type": "string"
+                    },
+                    "sheet": {
+                      "description": "Worksheet that hosts it.",
+                      "type": "string"
+                    },
+                    "sortOrder": {
+                      "description": "ascending or descending.",
+                      "type": "string"
+                    },
+                    "source": {
+                      "description": "Name of the filtered object.",
+                      "type": "string"
+                    },
+                    "sourceKind": {
+                      "description": "pivot_table or table.",
+                      "type": "string"
+                    },
+                    "style": {
+                      "description": "Slicer style name.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "sheet"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "slicers"
+            ],
+            "type": "object"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "List slicers"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
         "idempotentHint": false,
         "openWorldHint": false,
         "readOnlyHint": false
@@ -3233,6 +4184,258 @@
         "type": "object"
       },
       "title": "Set document properties"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Change the scheme colours and fonts a document resolves its theme references against. Only the members you pass are changed, and everything the theme carries beyond colours and fonts - the effect and format matrices - is left as it was. A document that has no theme yet is given the Office default first, so this always has something to change.",
+      "example": {
+        "colors": {
+          "accent1": "1F6FEB"
+        },
+        "documentId": "doc-1",
+        "minor_fonts": {
+          "latin": "Calibri"
+        }
+      },
+      "group": "edit",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_theme.",
+        "properties": {
+          "colors": {
+            "additionalProperties": false,
+            "description": "Scheme colours to change, by slot name; the rest keep their current value.",
+            "properties": {
+              "accent1": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent2": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent3": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent4": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent5": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "accent6": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "dark1": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "dark2": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "followedHyperlink": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "hyperlink": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "light1": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              },
+              "light2": {
+                "description": "Colour as RRGGBB or #RRGGBB hex.",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "major_fonts": {
+            "additionalProperties": false,
+            "description": "Typefaces to change; the rest keep their current value.",
+            "properties": {
+              "complexScript": {
+                "description": "Complex-script typeface.",
+                "type": "string"
+              },
+              "eastAsian": {
+                "description": "East Asian typeface.",
+                "type": "string"
+              },
+              "latin": {
+                "description": "Latin typeface.",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "minor_fonts": {
+            "additionalProperties": false,
+            "description": "Typefaces to change; the rest keep their current value.",
+            "properties": {
+              "complexScript": {
+                "description": "Complex-script typeface.",
+                "type": "string"
+              },
+              "eastAsian": {
+                "description": "East Asian typeface.",
+                "type": "string"
+              },
+              "latin": {
+                "description": "Latin typeface.",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "name": {
+            "description": "Theme name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "set_theme",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Written theme.",
+            "properties": {
+              "changed": {
+                "description": "What was changed.",
+                "items": {
+                  "description": "A slot or font name.",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "description": "Theme name after the change.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set theme"
     },
     {
       "annotations": {
@@ -3890,6 +5093,324 @@
         "type": "object"
       },
       "title": "Delete worksheet"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Move a worksheet to another position in the workbook.",
+      "example": {
+        "documentId": "doc-1",
+        "sheet": "Data",
+        "to_index": 1
+      },
+      "group": "sheets",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of move_sheet.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "to_index": {
+            "description": "1-based position the sheet moves to.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documentId",
+          "to_index"
+        ],
+        "type": "object"
+      },
+      "name": "move_sheet",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Moved sheet.",
+            "properties": {
+              "index": {
+                "description": "New 1-based position.",
+                "type": "integer"
+              },
+              "name": {
+                "description": "Worksheet name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "index"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Move worksheet"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Copy a worksheet, either within this workbook or from another one in the workspace. The copy is appended at the end.",
+      "example": {
+        "documentId": "doc-1",
+        "name": "Data backup",
+        "sheet": "Data"
+      },
+      "group": "sheets",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of copy_sheet.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name for the copy; one is generated when omitted.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "source_path": {
+            "description": "Workspace-relative workbook to copy the sheet from; omit to copy within this one.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "copy_sheet",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New sheet.",
+            "properties": {
+              "index": {
+                "description": "1-based position.",
+                "type": "integer"
+              },
+              "name": {
+                "description": "Name of the copy.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "index"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Copy worksheet"
     },
     {
       "annotations": {
@@ -4596,6 +6117,177 @@
     {
       "annotations": {
         "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Copy a rectangular range to another position on the same sheet, or move it. Source and destination may overlap. A copy writes formulas verbatim, without adjusting their references; a move retargets the local A1 references that pointed into the source and clears it.",
+      "example": {
+        "destination": "E1",
+        "documentId": "doc-1",
+        "source": "A1:C5"
+      },
+      "group": "cells",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of copy_range.",
+        "properties": {
+          "destination": {
+            "description": "A1 cell the range's top-left corner lands on.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "move": {
+            "default": false,
+            "description": "Clear the source after copying, and rewrite formulas that referred to it.",
+            "type": "boolean"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "source": {
+            "description": "A1 range to copy.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "source",
+          "destination"
+        ],
+        "type": "object"
+      },
+      "name": "copy_range",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Copied range.",
+            "properties": {
+              "destination": {
+                "description": "A1 destination range.",
+                "type": "string"
+              },
+              "moved": {
+                "description": "True when the source was cleared.",
+                "type": "boolean"
+              },
+              "source": {
+                "description": "A1 source range.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "destination"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Copy or move range"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
         "idempotentHint": true,
         "openWorldHint": false,
         "readOnlyHint": false
@@ -4760,6 +6452,1124 @@
         "type": "object"
       },
       "title": "Set cell hyperlink"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Protect a worksheet or the workbook structure, or remove that protection. This is an editing restriction with a password verifier, not encryption: every part stays readable and any tool that ignores the setting can still rewrite the document.",
+      "example": {
+        "documentId": "doc-1",
+        "password": "secret",
+        "scope": "sheet"
+      },
+      "group": "review",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_protection.",
+        "properties": {
+          "allow": {
+            "additionalProperties": false,
+            "description": "Operations that stay available while sheet protection is active.",
+            "properties": {
+              "auto_filter": {
+                "description": "Permit changing auto-filter criteria.",
+                "type": "boolean"
+              },
+              "delete_columns": {
+                "description": "Permit deleting unlocked columns.",
+                "type": "boolean"
+              },
+              "delete_rows": {
+                "description": "Permit deleting unlocked rows.",
+                "type": "boolean"
+              },
+              "format_cells": {
+                "description": "Permit changing cell formats.",
+                "type": "boolean"
+              },
+              "format_columns": {
+                "description": "Permit changing column widths and formats.",
+                "type": "boolean"
+              },
+              "format_rows": {
+                "description": "Permit changing row heights and formats.",
+                "type": "boolean"
+              },
+              "insert_columns": {
+                "description": "Permit inserting columns.",
+                "type": "boolean"
+              },
+              "insert_hyperlinks": {
+                "description": "Permit inserting hyperlinks.",
+                "type": "boolean"
+              },
+              "insert_rows": {
+                "description": "Permit inserting rows.",
+                "type": "boolean"
+              },
+              "pivot_tables": {
+                "description": "Permit interacting with pivot tables.",
+                "type": "boolean"
+              },
+              "select_locked_cells": {
+                "description": "Permit selecting locked cells.",
+                "type": "boolean"
+              },
+              "select_unlocked_cells": {
+                "description": "Permit selecting unlocked cells.",
+                "type": "boolean"
+              },
+              "sort": {
+                "description": "Permit sorting unlocked ranges.",
+                "type": "boolean"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "lock_structure": {
+            "default": true,
+            "description": "Workbook scope: prevent adding, deleting, renaming, hiding, moving and copying sheets.",
+            "type": "boolean"
+          },
+          "lock_windows": {
+            "default": false,
+            "description": "Workbook scope: prevent moving and resizing the workbook windows.",
+            "type": "boolean"
+          },
+          "password": {
+            "description": "Password; the same one is required to remove the protection.",
+            "type": "string"
+          },
+          "protect": {
+            "default": true,
+            "description": "True to apply protection, false to remove it.",
+            "type": "boolean"
+          },
+          "scope": {
+            "default": "sheet",
+            "description": "What to protect.",
+            "enum": [
+              "sheet",
+              "workbook"
+            ],
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "set_protection",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Protection state.",
+            "properties": {
+              "protected": {
+                "description": "True when protection is now active.",
+                "type": "boolean"
+              },
+              "scope": {
+                "description": "sheet or workbook.",
+                "type": "string"
+              },
+              "sheet": {
+                "description": "Worksheet name, for sheet scope.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "scope",
+              "protected"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set protection"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Set how a worksheet prints: orientation, paper, scaling, margins, print area, repeated titles, headers and footers. Every member is optional and the ones left out keep their current value.",
+      "example": {
+        "documentId": "doc-1",
+        "fit_to_width": 1,
+        "orientation": "landscape"
+      },
+      "group": "layout",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_print_setup.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "fit_to_height": {
+            "description": "Pages to fit the height into; 0 means unrestricted.",
+            "maximum": 32767,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fit_to_width": {
+            "description": "Pages to fit the width into; 0 means unrestricted.",
+            "maximum": 32767,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "header_footer": {
+            "additionalProperties": false,
+            "description": "Header and footer strings, using Excel's formatting codes such as \"&P\" for the page number.",
+            "properties": {
+              "different_first": {
+                "description": "Use the first-page strings.",
+                "type": "boolean"
+              },
+              "different_odd_even": {
+                "description": "Use the even-page strings.",
+                "type": "boolean"
+              },
+              "even_footer": {
+                "description": "Footer of even pages.",
+                "type": "string"
+              },
+              "even_header": {
+                "description": "Header of even pages.",
+                "type": "string"
+              },
+              "first_footer": {
+                "description": "Footer of the first page.",
+                "type": "string"
+              },
+              "first_header": {
+                "description": "Header of the first page.",
+                "type": "string"
+              },
+              "odd_footer": {
+                "description": "Footer of every page, or of odd pages.",
+                "type": "string"
+              },
+              "odd_header": {
+                "description": "Header of every page, or of odd pages.",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "margins": {
+            "additionalProperties": false,
+            "description": "Page margins; omitted members keep their current value.",
+            "properties": {
+              "bottom": {
+                "description": "Bottom margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "footer": {
+                "description": "Footer margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "header": {
+                "description": "Header margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "left": {
+                "description": "Left margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "right": {
+                "description": "Right margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "top": {
+                "description": "Top margin.",
+                "type": [
+                  "number",
+                  "string"
+                ]
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "options": {
+            "additionalProperties": false,
+            "description": "Print decorations and alignment.",
+            "properties": {
+              "grid_lines": {
+                "description": "Print grid lines.",
+                "type": "boolean"
+              },
+              "headings": {
+                "description": "Print row and column headings.",
+                "type": "boolean"
+              },
+              "horizontal_centered": {
+                "description": "Center the page horizontally.",
+                "type": "boolean"
+              },
+              "vertical_centered": {
+                "description": "Center the page vertically.",
+                "type": "boolean"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "orientation": {
+            "description": "Page orientation.",
+            "enum": [
+              "portrait",
+              "landscape"
+            ],
+            "type": "string"
+          },
+          "paper_size": {
+            "description": "Paper size.",
+            "enum": [
+              "letter",
+              "letter_small",
+              "tabloid",
+              "ledger",
+              "legal",
+              "statement",
+              "executive",
+              "a3",
+              "a4",
+              "a4_small",
+              "a5",
+              "b4",
+              "b5",
+              "folio"
+            ],
+            "type": "string"
+          },
+          "print_area": {
+            "description": "A1 ranges printed from this sheet; an empty array clears the print area.",
+            "items": {
+              "description": "One A1 range.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "repeat_columns": {
+            "description": "Column band repeated on every page, such as \"A:B\"; an empty string clears it.",
+            "type": "string"
+          },
+          "repeat_rows": {
+            "description": "Row band repeated on every page, such as \"1:2\"; an empty string clears it.",
+            "type": "string"
+          },
+          "scale": {
+            "description": "Print scale in percent; ignored when a fit-to-page value is set.",
+            "maximum": 400,
+            "minimum": 10,
+            "type": "integer"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "set_print_setup",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Effective print setup.",
+            "properties": {
+              "orientation": {
+                "description": "Page orientation.",
+                "type": "string"
+              },
+              "paperSize": {
+                "description": "Paper size token.",
+                "type": "string"
+              },
+              "printArea": {
+                "description": "A1 ranges printed from this sheet.",
+                "items": {
+                  "description": "One A1 range.",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "sheet": {
+                "description": "Worksheet name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "sheet"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set print setup"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Place a picture on the worksheet, anchored to a cell rectangle. PNG, JPEG, GIF, BMP, and TIFF payloads are accepted.",
+      "example": {
+        "anchor_cell": "D2",
+        "documentId": "doc-1",
+        "path": "logo.png"
+      },
+      "group": "media",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_image.",
+        "properties": {
+          "alt": {
+            "description": "Alternative text for accessibility.",
+            "type": "string"
+          },
+          "anchor_cell": {
+            "description": "A1 cell the image's top-left corner sits on.",
+            "type": "string"
+          },
+          "contentType": {
+            "description": "Media type; detected when omitted.",
+            "type": "string"
+          },
+          "dataBase64": {
+            "description": "Base64 image payload; mutually exclusive with path.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "height": {
+            "description": "Image height; defaults to about 7.5 cm.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "name": {
+            "description": "Non-visual drawing name.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Workspace-relative image file; mutually exclusive with dataBase64.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "width": {
+            "description": "Image width; defaults to about 10 cm.",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "documentId",
+          "anchor_cell"
+        ],
+        "type": "object"
+      },
+      "name": "add_image",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New image.",
+            "properties": {
+              "anchor": {
+                "description": "A1 anchor cell.",
+                "type": "string"
+              },
+              "contentType": {
+                "description": "Media type that was stored.",
+                "type": "string"
+              },
+              "imageId": {
+                "description": "Drawing object identifier.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "imageId"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add image"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Attach a comment to a cell, as a plain note by default or as a threaded comment. Pass reply_to to answer an existing thread entry.",
+      "example": {
+        "cell": "B4",
+        "documentId": "doc-1",
+        "text": "Check this number."
+      },
+      "group": "review",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_comment.",
+        "properties": {
+          "author": {
+            "default": "ExyokiOffice",
+            "description": "Author display name.",
+            "type": "string"
+          },
+          "cell": {
+            "description": "A1 address of the annotated cell.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "reply_to": {
+            "description": "Identifier of the thread entry this one replies to; implies a threaded comment.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "text": {
+            "description": "Comment text.",
+            "type": "string"
+          },
+          "threaded": {
+            "default": true,
+            "description": "Address the modern threaded comment model rather than the plain note model.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documentId",
+          "cell",
+          "text"
+        ],
+        "type": "object"
+      },
+      "name": "add_comment",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New comment.",
+            "properties": {
+              "cell": {
+                "description": "A1 address.",
+                "type": "string"
+              },
+              "commentId": {
+                "description": "Thread entry identifier; empty for a plain note.",
+                "type": "string"
+              },
+              "threaded": {
+                "description": "True for a threaded comment.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "cell"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add comment"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Remove one comment: a thread entry by its identifier, or the plain note of a cell. Pass exactly one of comment_id and cell.",
+      "example": {
+        "cell": "B4",
+        "documentId": "doc-1"
+      },
+      "group": "review",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of delete_comment.",
+        "properties": {
+          "cell": {
+            "description": "A1 address whose plain note is removed.",
+            "type": "string"
+          },
+          "comment_id": {
+            "description": "Thread entry identifier reported by list_comments.",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "delete_comment",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Deleted comment.",
+            "properties": {
+              "cell": {
+                "description": "A1 address, when one was named.",
+                "type": "string"
+              },
+              "commentId": {
+                "description": "Identifier, when one was named.",
+                "type": "string"
+              },
+              "removed": {
+                "description": "True when a comment was removed.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "removed"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Delete comment"
     },
     {
       "annotations": {
@@ -5862,7 +8672,7 @@
           },
           "header_row": {
             "default": true,
-            "description": "Take the column names from the first row of the range.",
+            "description": "Take the column names from the first row of the range. The first row is the table's header row either way: an empty header cell, or every header cell when this is false, is given a generated name such as Column1, and the result warns when that overwrote a value.",
             "type": "boolean"
           },
           "name": {
@@ -6011,6 +8821,529 @@
         "type": "object"
       },
       "title": "Add table"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Rename a table, show or hide its filter buttons and totals row, and set which values each column keeps visible. Rows the filters exclude are hidden, not deleted; clearing the filters brings them back.",
+      "example": {
+        "documentId": "doc-1",
+        "filters": [
+          {
+            "column": "Region",
+            "values": [
+              "North",
+              "South"
+            ]
+          }
+        ],
+        "table": "Sales"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of update_table.",
+        "properties": {
+          "auto_filter": {
+            "description": "Show or hide the column filter buttons.",
+            "type": "boolean"
+          },
+          "clear_filters": {
+            "default": false,
+            "description": "Drop every column filter first.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "filters": {
+            "description": "Column filters to set or drop.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One column filter.",
+              "properties": {
+                "clear": {
+                  "default": false,
+                  "description": "Drop this column's filter instead of setting one.",
+                  "type": "boolean"
+                },
+                "column": {
+                  "description": "Column name (case-insensitive) or 1-based position.",
+                  "type": [
+                    "string",
+                    "integer"
+                  ]
+                },
+                "include_blank": {
+                  "default": false,
+                  "description": "Keep blank cells visible as well.",
+                  "type": "boolean"
+                },
+                "values": {
+                  "description": "Values to keep visible; the others are hidden.",
+                  "items": {
+                    "description": "One value, as it is written in the cell.",
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "column"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "New table name.",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Worksheet holding the table, by name or 1-based index; omit to search the whole workbook.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "table": {
+            "description": "Name of the table to update, matched case-insensitively.",
+            "type": "string"
+          },
+          "totals_row": {
+            "description": "Show or hide the totals row; showing it needs two data rows.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documentId",
+          "table"
+        ],
+        "type": "object"
+      },
+      "name": "update_table",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Updated table.",
+            "properties": {
+              "autoFilter": {
+                "description": "Filter buttons are shown.",
+                "type": "boolean"
+              },
+              "filterCount": {
+                "description": "Column filters now in force.",
+                "type": "integer"
+              },
+              "name": {
+                "description": "Table name.",
+                "type": "string"
+              },
+              "range": {
+                "description": "A1 range of the table.",
+                "type": "string"
+              },
+              "sheet": {
+                "description": "Worksheet that holds it.",
+                "type": "string"
+              },
+              "totalsRow": {
+                "description": "The totals row is shown.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "sheet"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Update table"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Embed or replace the workbook's VBA project from a workspace file, which makes the workbook macro-enabled. The bytes are stored exactly as given: nothing here parses, rewrites or runs them, and saving under an .xlsx name produces a macro-enabled package a reader will question.",
+      "example": {
+        "documentId": "doc-1",
+        "source_path": "macros.bin"
+      },
+      "group": "vba",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_vba_project.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "source_path": {
+            "description": "Workspace file holding the vbaProject.bin to embed.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "source_path"
+        ],
+        "type": "object"
+      },
+      "name": "set_vba_project",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Embedded project.",
+            "properties": {
+              "bytes": {
+                "description": "Size of the embedded payload.",
+                "type": "integer"
+              },
+              "macroEnabled": {
+                "description": "The package is now macro-enabled.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "bytes"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set VBA project"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Remove the workbook's VBA project and turn the package back into its macro-free counterpart.",
+      "example": {
+        "documentId": "doc-1"
+      },
+      "group": "vba",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of remove_vba_project.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId"
+        ],
+        "type": "object"
+      },
+      "name": "remove_vba_project",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Removal.",
+            "properties": {
+              "removed": {
+                "description": "A project was there and is gone.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "removed"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Remove VBA project"
     },
     {
       "annotations": {
@@ -6418,9 +9751,14 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Add a conditional formatting rule to a range. Color scales and data bars are not offered in this version; use a cellIs or expression rule instead.",
+      "description": "Add a conditional formatting rule to one or several ranges. The rule decides which cells match and 'format' decides what they then look like; a rule without a format matches cells and changes nothing about them. Color scales, data bars and icon sets are not offered by this version.",
       "example": {
         "documentId": "doc-1",
+        "format": {
+          "fill": {
+            "color": "#FFC7CE"
+          }
+        },
         "range": "B2:B20",
         "rule": {
           "formula1": "100",
@@ -6437,14 +9775,141 @@
             "description": "Identifier of the open document to modify.",
             "type": "string"
           },
+          "format": {
+            "additionalProperties": false,
+            "description": "Appearance painted over the cells the rule matches. Only the members you pass take part; every other aspect of a matching cell keeps the look it already had.",
+            "properties": {
+              "alignment": {
+                "additionalProperties": false,
+                "description": "Cell alignment.",
+                "properties": {
+                  "horizontal": {
+                    "description": "Horizontal alignment.",
+                    "enum": [
+                      "general",
+                      "left",
+                      "center",
+                      "right",
+                      "fill",
+                      "justify",
+                      "distributed"
+                    ],
+                    "type": "string"
+                  },
+                  "vertical": {
+                    "description": "Vertical alignment.",
+                    "enum": [
+                      "top",
+                      "center",
+                      "bottom",
+                      "justify",
+                      "distributed"
+                    ],
+                    "type": "string"
+                  },
+                  "wrap": {
+                    "description": "Wrap text inside the cell.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "border": {
+                "additionalProperties": false,
+                "description": "Outline border applied to all four sides.",
+                "properties": {
+                  "color": {
+                    "description": "Border color as \"#RRGGBB\".",
+                    "type": "string"
+                  },
+                  "style": {
+                    "description": "Border line style.",
+                    "enum": [
+                      "none",
+                      "thin",
+                      "medium",
+                      "thick",
+                      "dashed",
+                      "dotted",
+                      "double"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "fill": {
+                "additionalProperties": false,
+                "description": "Solid cell background.",
+                "properties": {
+                  "color": {
+                    "description": "Fill color as \"#RRGGBB\".",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "color"
+                ],
+                "type": "object"
+              },
+              "font": {
+                "additionalProperties": false,
+                "description": "Font settings.",
+                "properties": {
+                  "bold": {
+                    "description": "Bold text.",
+                    "type": "boolean"
+                  },
+                  "color": {
+                    "description": "Font color as \"#RRGGBB\".",
+                    "type": "string"
+                  },
+                  "italic": {
+                    "description": "Italic text.",
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "description": "Font family.",
+                    "type": "string"
+                  },
+                  "sizePt": {
+                    "description": "Font size in points.",
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "number_format": {
+                "description": "Number format code, for example \"#,##0.00\".",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
           "range": {
-            "description": "A1 range the rule applies to.",
-            "type": "string"
+            "description": "A1 range the rule applies to, or a list of them evaluated as one population.",
+            "items": {
+              "description": "One A1 range.",
+              "type": "string"
+            },
+            "type": [
+              "string",
+              "array"
+            ]
           },
           "rule": {
             "additionalProperties": false,
             "description": "Conditional formatting rule.",
             "properties": {
+              "equal_average": {
+                "default": false,
+                "description": "Include values equal to the average in an average rule.",
+                "type": "boolean"
+              },
               "formula1": {
                 "description": "First formula or bound.",
                 "type": "string"
@@ -6467,6 +9932,24 @@
                 ],
                 "type": "string"
               },
+              "percent": {
+                "default": false,
+                "description": "Read 'rank' as a percentage of the range rather than a count of items.",
+                "type": "boolean"
+              },
+              "rank": {
+                "default": 10,
+                "description": "How many items a top or bottom rule selects.",
+                "maximum": 1000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "standard_deviation": {
+                "description": "Shift an average rule's boundary by this many standard deviations.",
+                "maximum": 3,
+                "minimum": 0,
+                "type": "integer"
+              },
               "stop_if_true": {
                 "description": "Stop evaluating further rules when this one matches.",
                 "type": "boolean"
@@ -6487,7 +9970,13 @@
                   "uniqueValues",
                   "duplicateValues",
                   "containsBlanks",
-                  "notContainsBlanks"
+                  "notContainsBlanks",
+                  "containsErrors",
+                  "notContainsErrors",
+                  "top",
+                  "bottom",
+                  "aboveAverage",
+                  "belowAverage"
                 ],
                 "type": "string"
               }
@@ -6521,6 +10010,10 @@
             "additionalProperties": false,
             "description": "New rule.",
             "properties": {
+              "differentialFormatId": {
+                "description": "Workbook differential format the rule paints with; absent when the rule carries no appearance.",
+                "type": "integer"
+              },
               "range": {
                 "description": "A1 range.",
                 "type": "string"
@@ -6635,7 +10128,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Add a chart driven by a range of values and optional category labels. A multi-column data range plots one series per column, or per row when series_in is \"rows\". A pie chart plots one series and warns when the range holds more. This version offers the basic chart types only.",
+      "description": "Add a chart driven by a range of values and optional category labels, from this worksheet or another. A multi-column data range plots one series per column, or per row when series_in is \"rows\"; series_options draws a series as another type or against a secondary axis. A pie chart plots one series and warns when the range holds more.",
       "example": {
         "anchor_cell": "E2",
         "data_range": "B2:B10",
@@ -6652,16 +10145,25 @@
             "type": "string"
           },
           "categories_range": {
-            "description": "A1 range holding the category labels, shared by every series; the X values of a scatter chart.",
+            "description": "A1 range holding the category labels, shared by every series; the X values of a scatter or bubble chart. Must be on the same worksheet as data_range.",
+            "type": "string"
+          },
+          "category_axis_title": {
+            "description": "Title of the category axis; of the X axis in a scatter or bubble chart.",
             "type": "string"
           },
           "data_range": {
-            "description": "A1 range holding the series values. A range spanning several columns becomes one series per column; see series_in.",
+            "description": "A1 range holding the series values, optionally on another worksheet (Data!B2:D10, or 'My Data'!B2:D10 for a name with spaces); unqualified, it is read from the chart's own sheet. A range spanning several columns becomes one series per column; see series_in.",
             "type": "string"
           },
           "documentId": {
             "description": "Identifier of the open document to modify.",
             "type": "string"
+          },
+          "gridlines": {
+            "default": true,
+            "description": "Whether major value-axis gridlines are drawn.",
+            "type": "boolean"
           },
           "height": {
             "description": "Chart height; defaults to about 8 cm.",
@@ -6669,6 +10171,22 @@
               "number",
               "string"
             ]
+          },
+          "legend": {
+            "default": "right",
+            "description": "Where the legend is drawn, or none.",
+            "enum": [
+              "right",
+              "left",
+              "top",
+              "bottom",
+              "none"
+            ],
+            "type": "string"
+          },
+          "secondary_axis_title": {
+            "description": "Title of the secondary value axis, which is drawn only when a series is on it.",
+            "type": "string"
           },
           "series_in": {
             "default": "columns",
@@ -6687,12 +10205,46 @@
             },
             "type": "array"
           },
+          "series_options": {
+            "description": "How each series is drawn, in data order; series beyond the list keep the chart's type on the primary axis. Giving a series another type makes a combination chart, such as columns with a line over them.",
+            "items": {
+              "additionalProperties": false,
+              "description": "Drawing of one series.",
+              "properties": {
+                "secondary_axis": {
+                  "default": false,
+                  "description": "Plot the series against a secondary value axis on the opposite side, for values on a different scale. At least one series has to stay on the primary axis.",
+                  "type": "boolean"
+                },
+                "type": {
+                  "description": "Type this series is drawn as. Column, line and area combine with each other; bar, scatter, bubble and pie only with their own kind.",
+                  "enum": [
+                    "bar",
+                    "column",
+                    "line",
+                    "pie",
+                    "scatter",
+                    "area",
+                    "bubble"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "sheet": {
             "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
             "type": [
               "string",
               "integer"
             ]
+          },
+          "sizes_range": {
+            "description": "Bubble sizes, shaped like data_range and on the same worksheet. Required for a bubble chart and refused for any other.",
+            "type": "string"
           },
           "title": {
             "description": "Chart title.",
@@ -6706,8 +10258,13 @@
               "line",
               "pie",
               "scatter",
-              "area"
+              "area",
+              "bubble"
             ],
+            "type": "string"
+          },
+          "value_axis_title": {
+            "description": "Title of the value axis.",
             "type": "string"
           },
           "width": {
@@ -6746,6 +10303,10 @@
               "seriesCount": {
                 "description": "Series the chart plots.",
                 "type": "integer"
+              },
+              "sourceSheet": {
+                "description": "Worksheet the series are read from.",
+                "type": "string"
               }
             },
             "required": [
@@ -7079,6 +10640,398 @@
         "type": "object"
       },
       "title": "Add pivot table"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Add a slicer filtering a pivot table or a worksheet table by one of its columns. The source has to exist already; build it with add_pivot_table or add_table first.",
+      "example": {
+        "anchor_cell": "F2",
+        "documentId": "doc-1",
+        "field": "Region",
+        "source": "SalesByRegion"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of add_slicer.",
+        "properties": {
+          "anchor_cell": {
+            "description": "A1 cell the slicer's top-left corner sits on.",
+            "type": "string"
+          },
+          "caption": {
+            "description": "Header caption; the field name is used when omitted.",
+            "type": "string"
+          },
+          "columns": {
+            "description": "Number of button columns.",
+            "maximum": 20000,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "field": {
+            "description": "Source column the buttons come from, matched case-insensitively.",
+            "type": "string"
+          },
+          "height": {
+            "description": "Slicer height; defaults to about 5 cm.",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "name": {
+            "description": "Slicer name, unique in the workbook; generated when omitted.",
+            "type": "string"
+          },
+          "selected": {
+            "description": "Captions of the selected items; an empty list selects everything.",
+            "items": {
+              "description": "One item caption.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sheet": {
+            "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "sort_order": {
+            "default": "ascending",
+            "description": "Button order.",
+            "enum": [
+              "ascending",
+              "descending"
+            ],
+            "type": "string"
+          },
+          "source": {
+            "description": "Name of the pivot table or worksheet table to filter. A pivot table may live on any sheet of the workbook.",
+            "type": "string"
+          },
+          "source_kind": {
+            "default": "pivot_table",
+            "description": "What the slicer filters.",
+            "enum": [
+              "pivot_table",
+              "table"
+            ],
+            "type": "string"
+          },
+          "style": {
+            "default": "SlicerStyleLight1",
+            "description": "Slicer style name.",
+            "type": "string"
+          },
+          "width": {
+            "description": "Slicer width; defaults to about 4 cm.",
+            "type": [
+              "number",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "documentId",
+          "source",
+          "field",
+          "anchor_cell"
+        ],
+        "type": "object"
+      },
+      "name": "add_slicer",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "New slicer.",
+            "properties": {
+              "anchor": {
+                "description": "A1 anchor cell.",
+                "type": "string"
+              },
+              "itemCount": {
+                "description": "Buttons the slicer offers.",
+                "type": "integer"
+              },
+              "name": {
+                "description": "Slicer name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Add slicer"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Choose which of a slicer's buttons are selected, which is what the slicer filters its source down to. Items are named by caption, because cache indexes move when the source is refreshed.",
+      "example": {
+        "documentId": "doc-1",
+        "selected": [
+          "North",
+          "South"
+        ],
+        "slicer": "Slicer1"
+      },
+      "group": "analysis",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Arguments of set_slicer_selection.",
+        "properties": {
+          "documentId": {
+            "description": "Identifier of the open document to modify.",
+            "type": "string"
+          },
+          "selected": {
+            "description": "Captions to select; an empty list selects everything, which is what clearing the filter means.",
+            "items": {
+              "description": "One item caption.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "slicer": {
+            "description": "Slicer name from list_slicers.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "slicer",
+          "selected"
+        ],
+        "type": "object"
+      },
+      "name": "set_slicer_selection",
+      "outputSchema": {
+        "additionalProperties": false,
+        "description": "Result envelope shared by every tool of this server.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "description": "Selection.",
+            "properties": {
+              "name": {
+                "description": "Slicer name.",
+                "type": "string"
+              },
+              "selectedCount": {
+                "description": "Items now selected.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "selectedCount"
+            ],
+            "type": "object"
+          },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
+          "error": {
+            "additionalProperties": false,
+            "description": "Failure detail; present only when the call reports isError.",
+            "properties": {
+              "code": {
+                "description": "Machine-readable failure code.",
+                "type": "string"
+              },
+              "details": {
+                "description": "Additional structured detail.",
+                "items": {
+                  "description": "One detail entry."
+                },
+                "type": "array"
+              },
+              "hint": {
+                "description": "Tool call that resolves the situation.",
+                "type": "string"
+              },
+              "message": {
+                "description": "Human-readable failure description.",
+                "type": "string"
+              },
+              "target": {
+                "description": "Subject of the failure, such as a sheet or block.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ok": {
+            "description": "True when the call succeeded.",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "One-sentence human-readable summary of what happened.",
+            "type": "string"
+          },
+          "truncated": {
+            "description": "True when the payload was shortened to fit the response budget.",
+            "type": "boolean"
+          },
+          "warnings": {
+            "description": "Non-fatal diagnostics.",
+            "items": {
+              "additionalProperties": false,
+              "description": "One non-fatal diagnostic raised while the tool ran.",
+              "properties": {
+                "code": {
+                  "description": "Diagnostic category.",
+                  "type": "string"
+                },
+                "context": {
+                  "description": "Where the diagnostic applies.",
+                  "type": "string"
+                },
+                "message": {
+                  "description": "Human-readable description.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
+      "title": "Set slicer selection"
     },
     {
       "annotations": {
@@ -8057,6 +12010,14 @@
             ],
             "type": "object"
           },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
           "error": {
             "additionalProperties": false,
             "description": "Failure detail; present only when the call reports isError.",
@@ -8094,6 +12055,10 @@
           "ok": {
             "description": "True when the call succeeded.",
             "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
           },
           "summary": {
             "description": "One-sentence human-readable summary of what happened.",

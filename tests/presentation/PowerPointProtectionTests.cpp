@@ -45,7 +45,7 @@ TEST_SUITE("PowerPointProtectionTests")
         CHECK_FALSE(editor->GetModifyProtection().has_value());
     }
 
-    TEST_CASE("modify protection writes an ISO password verifier [unit] [powerpoint] [protection]")
+    TEST_CASE("modify protection writes the verifier PowerPoint writes [unit] [powerpoint] [protection]")
     {
         auto editor = PowerPointDocumentEditor::CreateNew();
         REQUIRE(editor);
@@ -57,14 +57,71 @@ TEST_SUITE("PowerPointProtectionTests")
         CHECK(info->HasPassword);
         CHECK(info->VerifierSupported);
 
+        // Transcribed from a presentation PowerPoint wrote. `CT_ModifyVerifier`
+        // declares these seven attributes required and the ISO group
+        // (algorithmName, hashValue, saltValue, spinValue) optional, and
+        // PowerPoint writes the required seven and none of the ISO ones. The
+        // two groups hold the same values under different names: recomputing
+        // PowerPoint's own hashData with the ISO formula reproduces it byte for
+        // byte, with cryptAlgorithmSid 14 naming SHA-512.
         const auto xml = PresentationXml(editor);
         CHECK(xml.find("<p:modifyVerifier") != std::string::npos);
-        CHECK(xml.find("algorithmName=\"SHA-512\"") != std::string::npos);
-        CHECK(xml.find("hashValue=") != std::string::npos);
-        CHECK(xml.find("saltValue=") != std::string::npos);
-        CHECK(xml.find("spinValue=\"100000\"") != std::string::npos);
+        CHECK(xml.find("cryptProviderType=\"rsaAES\"") != std::string::npos);
+        CHECK(xml.find("cryptAlgorithmClass=\"hash\"") != std::string::npos);
+        CHECK(xml.find("cryptAlgorithmType=\"typeAny\"") != std::string::npos);
+        CHECK(xml.find("cryptAlgorithmSid=\"14\"") != std::string::npos);
+        CHECK(xml.find("spinCount=\"100000\"") != std::string::npos);
+        CHECK(xml.find("saltData=") != std::string::npos);
+        CHECK(xml.find("hashData=") != std::string::npos);
         // The verifier is a user-interface restriction, not encryption.
         CHECK(xml.find("board only") == std::string::npos);
+    }
+
+    TEST_CASE("a verifier written under either attribute group is validated [unit] [powerpoint] [protection]")
+    {
+        // The ISO group is what this library used to write and what a document
+        // from another producer may still carry, so reading has to accept both
+        // spellings even though writing settles on one.
+        auto editor = PowerPointDocumentEditor::CreateNew();
+        REQUIRE(editor);
+        REQUIRE(editor->ProtectFromModification("shared"));
+
+        const auto part = editor->GetDocument()->GetPresentationPart();
+        REQUIRE(part);
+        auto xml = part->GetXmlString();
+
+        const auto value = [&xml](std::string_view name)
+        {
+            const auto start = xml.find(std::string(name) + "=\"");
+            if (start == std::string::npos)
+            {
+                return std::string();
+            }
+            const auto from = start + name.size() + 2;
+            return xml.substr(from, xml.find('"', from) - from);
+        };
+        const auto salt = value("saltData");
+        const auto hash = value("hashData");
+        const auto spin = value("spinCount");
+        REQUIRE_FALSE(salt.empty());
+        REQUIRE_FALSE(hash.empty());
+        REQUIRE_FALSE(spin.empty());
+
+        const auto start = xml.find("<p:modifyVerifier");
+        const auto end = xml.find('>', start);
+        xml.replace(start, end - start + 1,
+                    "<p:modifyVerifier algorithmName=\"SHA-512\" saltValue=\"" + salt + "\" hashValue=\"" + hash +
+                        "\" spinValue=\"" + spin + "\"/>");
+        part->SetXmlString(xml);
+
+        auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
+        REQUIRE(reopened);
+        const auto info = reopened->GetModifyProtection();
+        REQUIRE(info.has_value());
+        CHECK(info->HasPassword);
+        CHECK(info->VerifierSupported);
+        CHECK_FALSE(reopened->UnprotectFromModification("guessed").Succeeded());
+        CHECK(reopened->UnprotectFromModification("shared"));
     }
 
     TEST_CASE("the password is validated before protection is removed [unit] [powerpoint] [protection]")

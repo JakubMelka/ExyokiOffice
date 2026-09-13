@@ -4,6 +4,7 @@
 
 #include "McpServer.hpp"
 
+#include "SharedToolset.hpp"
 #include "ToolContext.hpp"
 
 #include <algorithm>
@@ -380,9 +381,19 @@ nlohmann::json McpServer::HandleToolsCall(const nlohmann::json& id, const nlohma
 
     const auto toolName = name->get<std::string>();
     const auto* tool = m_registry->Find(toolName);
+    std::optional<ToolOutcome> declined;
     if (tool == nullptr)
     {
-        return MakeJsonRpcError(id, JsonRpcErrorCode::InvalidParams, "Unknown tool '" + toolName + "'.");
+        // A name the server recognizes but does not offer - withheld by a
+        // catalog filter, or a capability this version leaves out - comes back
+        // as a tool failure, which the model sees, with the reason and what to
+        // do instead. Only a name it knows nothing about is a protocol error.
+        declined = ToolSupport::DescribeUnavailableTool(*m_context, toolName);
+        if (!declined.has_value())
+        {
+            return MakeJsonRpcError(id, JsonRpcErrorCode::InvalidParams,
+                                    "Unknown tool '" + toolName + "'. Call tools/list to see what this server offers.");
+        }
     }
 
     nlohmann::json arguments = nlohmann::json::object();
@@ -400,7 +411,7 @@ nlohmann::json McpServer::HandleToolsCall(const nlohmann::json& id, const nlohma
         arguments = *suppliedArguments;
     }
 
-    auto outcome = m_registry->Call(*m_context, *tool, arguments);
+    auto outcome = declined.has_value() ? std::move(*declined) : m_registry->Call(*m_context, *tool, arguments);
 
     nlohmann::json content = nlohmann::json::array();
     nlohmann::json textBlock = nlohmann::json::object();

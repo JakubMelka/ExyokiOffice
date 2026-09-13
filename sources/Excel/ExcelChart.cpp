@@ -112,6 +112,43 @@ public:
         return ChartLegendPosition::Right;
     }
 
+    /// Whether the series types and axes of @p definition can share one plot area.
+    static bool IsValidCombination(const ExcelChartDefinition& definition)
+    {
+        std::vector<ChartSeriesData> plan(definition.Series.size());
+        for (Size index = 0; index < plan.size(); ++index)
+        {
+            const auto& series = definition.Series[index];
+            plan[index].kind = series.Type ? PlotKind(*series.Type) : ChartPlotKind::Unknown;
+            plan[index].secondaryAxis = series.SecondaryAxis;
+        }
+        return ChartDom::IsValidCombination(PlotKind(definition.Type), plan);
+    }
+
+    static std::optional<ExcelChartType> TypeOf(ChartPlotKind kind)
+    {
+        switch (kind)
+        {
+            case ChartPlotKind::Column:
+                return ExcelChartType::Column;
+            case ChartPlotKind::Bar:
+                return ExcelChartType::Bar;
+            case ChartPlotKind::Line:
+                return ExcelChartType::Line;
+            case ChartPlotKind::Pie:
+                return ExcelChartType::Pie;
+            case ChartPlotKind::Area:
+                return ExcelChartType::Area;
+            case ChartPlotKind::XyScatter:
+                return ExcelChartType::XyScatter;
+            case ChartPlotKind::Bubble:
+                return ExcelChartType::Bubble;
+            case ChartPlotKind::Unknown:
+                break;
+        }
+        return std::nullopt;
+    }
+
     static void Build(const std::shared_ptr<Packaging::ChartPart>& part, const ExcelChartDefinition& definition,
                       const std::vector<ChartSeriesData>& series)
     {
@@ -120,13 +157,16 @@ public:
         layout.title = definition.Title;
         layout.categoryAxisTitle = definition.CategoryAxisTitle;
         layout.valueAxisTitle = definition.ValueAxisTitle;
+        layout.secondaryValueAxisTitle = definition.SecondaryValueAxisTitle;
         layout.showLegend = definition.ShowLegend;
         layout.legendPosition = LegendKind(definition.LegendPosition);
         layout.showGridLines = definition.ShowGridLines;
         ChartDom::BuildChartSpace(part->GetChartSpace(), layout, series);
     }
 
-    static void Parse(const std::shared_ptr<Packaging::ChartPart>& part, ExcelChartDefinition& definition)
+    /// @p host is the name of the worksheet the chart is anchored in.
+    static void Parse(const std::shared_ptr<Packaging::ChartPart>& part, ExcelChartDefinition& definition,
+                      const std::string& host)
     {
         auto chart = Child<C::Chart>(part->GetChartSpace());
         if (!chart)
@@ -134,62 +174,64 @@ public:
             return;
         }
         definition.Title = ChartDom::ReadTitle(chart);
-        ChartPlotKind kind{};
-        bool scatter = false;
-        auto group = ChartDom::FindPlotGroup(Child<C::PlotArea>(chart), kind, scatter);
-        switch (kind)
+        const auto plotArea = Child<C::PlotArea>(chart);
+        const auto groups = ChartDom::PlotGroups(plotArea);
+        const auto chartType = groups.empty() ? std::nullopt : TypeOf(groups.front().kind);
+        if (!chartType)
         {
-            case ChartPlotKind::Column:
-                definition.Type = ExcelChartType::Column;
-                break;
-            case ChartPlotKind::Bar:
-                definition.Type = ExcelChartType::Bar;
-                break;
-            case ChartPlotKind::Line:
-                definition.Type = ExcelChartType::Line;
-                break;
-            case ChartPlotKind::Pie:
-                definition.Type = ExcelChartType::Pie;
-                break;
-            case ChartPlotKind::Area:
-                definition.Type = ExcelChartType::Area;
-                break;
-            case ChartPlotKind::XyScatter:
-                definition.Type = ExcelChartType::XyScatter;
-                break;
-            case ChartPlotKind::Bubble:
-                definition.Type = ExcelChartType::Bubble;
-                break;
-            default:
-                return;
+            return;
         }
-        for (const auto& node : ChartDom::Series(group))
+        definition.Type = *chartType;
+
+        // A combination chart keeps its series in one group per type and axis;
+        // AllSeries collects them across the groups in `c:order`.
+        for (const auto& node : ChartDom::AllSeries(plotArea))
         {
-            ExcelChartSeries item;
-            item.Name = ChartDom::ReadSeriesName(node);
-            auto values = scatter ? std::static_pointer_cast<OpenXMLElement>(Child<C::YValues>(node)) : std::static_pointer_cast<OpenXMLElement>(Child<C::Values>(node));
-            auto categories = scatter ? std::static_pointer_cast<OpenXMLElement>(Child<C::XValues>(node)) : std::static_pointer_cast<OpenXMLElement>(Child<C::CategoryAxisData>(node));
-            if (auto range = ChartFormulaText::Parse(ChartDom::ReadRefFormula(values)))
+            auto item = ParseSeries(node.series, node.scatterLike, host);
+            if (node.kind != groups.front().kind)
             {
-                item.Values = *range;
+                item.Type = TypeOf(node.kind);
             }
-            if (auto range = ChartFormulaText::Parse(ChartDom::ReadRefFormula(categories)))
-            {
-                if (scatter)
-                {
-                    item.XValues = *range;
-                }
-                else
-                {
-                    item.Categories = *range;
-                }
-            }
-            if (auto range = ChartFormulaText::Parse(ChartDom::ReadRefFormula(Child<C::BubbleSize>(node))))
-            {
-                item.BubbleSizes = *range;
-            }
+            item.SecondaryAxis = node.secondaryAxis;
             definition.Series.push_back(std::move(item));
         }
+    }
+
+    static ExcelChartSeries ParseSeries(const std::shared_ptr<OpenXMLElement>& node, bool scatter,
+                                        const std::string& host)
+    {
+        ExcelChartSeries item;
+        item.Name = ChartDom::ReadSeriesName(node);
+        auto values = scatter ? std::static_pointer_cast<OpenXMLElement>(Child<C::YValues>(node)) : std::static_pointer_cast<OpenXMLElement>(Child<C::Values>(node));
+        auto categories = scatter ? std::static_pointer_cast<OpenXMLElement>(Child<C::XValues>(node)) : std::static_pointer_cast<OpenXMLElement>(Child<C::CategoryAxisData>(node));
+        // The ranges of a series share one worksheet. Reading it back matters:
+        // without it, updating a chart read from here would re-resolve a
+        // series kept on another sheet against the chart's own sheet.
+        if (const auto qualified = SheetCellRange::Parse(ChartDom::ReadRefFormula(values));
+            qualified.has_value() && qualified->Sheet() != host)
+        {
+            item.SourceSheet = qualified->Sheet();
+        }
+        if (auto range = ChartFormulaText::Parse(ChartDom::ReadRefFormula(values)))
+        {
+            item.Values = *range;
+        }
+        if (auto range = ChartFormulaText::Parse(ChartDom::ReadRefFormula(categories)))
+        {
+            if (scatter)
+            {
+                item.XValues = *range;
+            }
+            else
+            {
+                item.Categories = *range;
+            }
+        }
+        if (auto range = ChartFormulaText::Parse(ChartDom::ReadRefFormula(Child<C::BubbleSize>(node))))
+        {
+            item.BubbleSizes = *range;
+        }
+        return item;
     }
 
     static void AppendAnchor(const std::shared_ptr<X::WorksheetDrawing>& root, const ExcelChartDefinition& definition,
@@ -290,7 +332,8 @@ static bool DrawingIdExists(const std::shared_ptr<X::WorksheetDrawing>& root, UI
 std::optional<UInt32> Worksheet::AddChart(ExcelChartDefinition chart)
 {
     if (!m_part || chart.Series.empty() || !chart.From.IsValid() || !chart.To.IsValid() ||
-        chart.To.Row().Value() < chart.From.Row().Value() || chart.To.Column().Value() < chart.From.Column().Value())
+        chart.To.Row().Value() < chart.From.Row().Value() || chart.To.Column().Value() < chart.From.Column().Value() ||
+        !Detail::ExcelChartDom::IsValidCombination(chart))
     {
         return std::nullopt;
     }
@@ -391,6 +434,8 @@ std::optional<UInt32> Worksheet::AddChart(ExcelChartDefinition chart)
         const bool same = sheet == host;
         Detail::ChartSeriesData data;
         data.name = series.Name;
+        data.kind = series.Type ? Detail::ExcelChartDom::PlotKind(*series.Type) : Detail::ChartPlotKind::Unknown;
+        data.secondaryAxis = series.SecondaryAxis;
         data.values = makeRef(sheet, series.Values, same, true);
         auto categories = scatter ? (series.XValues ? series.XValues : series.Categories) : (series.Categories ? series.Categories : series.XValues);
         if (categories && categories->IsValid())
@@ -417,7 +462,7 @@ bool Worksheet::UpdateChart(const ExcelChartDefinition& chart)
 {
     if (!m_part || chart.Series.empty() || chart.Id == 0 || !chart.From.IsValid() || !chart.To.IsValid() ||
         chart.To.Row().Value() < chart.From.Row().Value() ||
-        chart.To.Column().Value() < chart.From.Column().Value())
+        chart.To.Column().Value() < chart.From.Column().Value() || !Detail::ExcelChartDom::IsValidCombination(chart))
     {
         return false;
     }
@@ -523,6 +568,8 @@ bool Worksheet::UpdateChart(const ExcelChartDefinition& chart)
         const bool same = sheet == host;
         Detail::ChartSeriesData data;
         data.name = series.Name;
+        data.kind = series.Type ? Detail::ExcelChartDom::PlotKind(*series.Type) : Detail::ChartPlotKind::Unknown;
+        data.secondaryAxis = series.SecondaryAxis;
         data.values = makeRef(sheet, series.Values, same, true);
         auto categories = scatter ? (series.XValues ? series.XValues : series.Categories) : (series.Categories ? series.Categories : series.XValues);
         if (categories && categories->IsValid())
@@ -590,7 +637,7 @@ std::vector<ExcelChartDefinition> Worksheet::Charts() const
         {
             if (part->RelationshipId() == relationshipId)
             {
-                Detail::ExcelChartDom::Parse(part, definition);
+                Detail::ExcelChartDom::Parse(part, definition, Name());
                 break;
             }
         }

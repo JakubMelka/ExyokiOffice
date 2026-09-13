@@ -32,10 +32,18 @@ namespace A = ExyokiOffice::DocumentFormat::OpenXml::Drawing;
 namespace XDR = ExyokiOffice::DocumentFormat::OpenXml::Drawing::Spreadsheet;
 namespace SLE = ExyokiOffice::DocumentFormat::OpenXml::Office2010::Drawing::Slicer;
 
-/** The four well-known extension URIs, asserted literally by the tests. */
+/**
+ * The well-known extension URIs, asserted literally by the tests.
+ *
+ * They are transcribed from files Excel itself wrote. Excel ignores an extension
+ * whose URI it does not recognize, so a wrong digit here produces a workbook
+ * that opens, validates, and silently lacks the feature.
+ */
 constexpr const char* kWorkbookSlicerCachesUri = "{BBE1A952-AA13-448e-AADC-164F8A28A991}";
 constexpr const char* kWorkbookSlicerCachesX15Uri = "{46BE6895-7355-4a93-B00E-2C351335B9C9}";
-constexpr const char* kWorksheetSlicerListUri = "{A8765BA9-456A-4dab-B4F3-ACF1056F45CF}";
+constexpr const char* kWorksheetPivotSlicerListUri = "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}";
+constexpr const char* kWorksheetTableSlicerListUri = "{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}";
+constexpr const char* kPivotCacheDefinitionUri = "{725AE2AE-9491-48be-B2B4-4EB974FC3084}";
 constexpr const char* kTableSlicerCacheUri = "{2F2917AC-EB37-4324-AD4E-5DD8C200BD13}";
 constexpr const char* kSlicerGraphicUri = "http://schemas.microsoft.com/office/drawing/2010/slicer";
 
@@ -238,7 +246,7 @@ TEST_SUITE("ExcelSlicerTests")
         CHECK(workbookExt->GetFirstChildOfType<X14::SlicerCaches>() != nullptr);
 
         const auto worksheetExt = FindExtension<S::WorksheetExtensionList, S::WorksheetExtension>(
-            report->GetLowLevelApi(), kWorksheetSlicerListUri);
+            report->GetLowLevelApi(), kWorksheetPivotSlicerListUri);
         REQUIRE(worksheetExt);
         CHECK(worksheetExt->GetFirstChildOfType<X14::SlicerList>() != nullptr);
     }
@@ -327,7 +335,7 @@ TEST_SUITE("ExcelSlicerTests")
         CHECK_FALSE(slicersRoot->Elements<X14::SlicerRef>()[0]->GetId().IsDefined());
 
         const auto worksheetExt = FindExtension<S::WorksheetExtensionList, S::WorksheetExtension>(
-            report->GetLowLevelApi(), kWorksheetSlicerListUri);
+            report->GetLowLevelApi(), kWorksheetPivotSlicerListUri);
         const auto list = worksheetExt ? worksheetExt->GetFirstChildOfType<X14::SlicerList>() : nullptr;
         REQUIRE(list);
         const auto references = list->Elements<X14::SlicerRef>();
@@ -1042,6 +1050,145 @@ TEST_SUITE("ExcelSlicerTests")
 
         CHECK(report->RemoveSlicer(slicers[0]));
         CHECK(report->Slicers().empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // What Excel needs beyond the slicer parts themselves. Each of these was
+    // missing once, and each time the workbook validated and opened while Excel
+    // discarded the slicer without a word, so they are asserted explicitly.
+    // -----------------------------------------------------------------------
+
+    TEST_CASE("A table slicer registers under the table slicer list URI, not the pivot one "
+              "[unit] [excel] [excel-slicer]")
+    {
+        auto editor = MakeWorkbook();
+        AddTable(editor);
+        auto data = editor->GetWorksheet("Data");
+        REQUIRE(data->CreateSlicer(BasicTableSlicer()).Slicer);
+
+        const auto worksheet = data->GetLowLevelApi();
+        const auto tableExt = FindExtension<S::WorksheetExtensionList, S::WorksheetExtension>(
+            worksheet, kWorksheetTableSlicerListUri);
+        REQUIRE(tableExt);
+        CHECK(tableExt->GetFirstChildOfType<X14::SlicerList>() != nullptr);
+
+        CHECK(FindExtension<S::WorksheetExtensionList, S::WorksheetExtension>(
+                  worksheet, kWorksheetPivotSlicerListUri) == nullptr);
+    }
+
+    TEST_CASE("Every slicer cache is declared as a workbook defined name [unit] [excel] [excel-slicer]")
+    {
+        const auto definedNameValue = [](const ExcelDocumentEditor::Ptr& editor, std::string_view name)
+        {
+            const auto workbook = editor->GetDocument()->GetWorkbookPart()->GetTypedRootElement();
+            const auto names = workbook ? workbook->GetFirstChildOfType<S::DefinedNames>() : nullptr;
+            std::string found;
+            if (names)
+            {
+                for (const auto& entry : names->Elements<S::DefinedName>())
+                {
+                    if (entry && entry->GetName().ToString() == name)
+                    {
+                        found = std::string(entry->GetText());
+                    }
+                }
+            }
+            return found;
+        };
+
+        SUBCASE("pivot slicer")
+        {
+            auto editor = MakeWorkbook();
+            AddPivotTable(editor);
+            auto report = editor->GetWorksheet("Report");
+            REQUIRE(report->CreateSlicer(BasicPivotSlicer()).Slicer);
+            CHECK(definedNameValue(editor, "Slicer_Region") == "#N/A");
+        }
+
+        SUBCASE("table slicer")
+        {
+            auto editor = MakeWorkbook();
+            AddTable(editor);
+            auto data = editor->GetWorksheet("Data");
+            REQUIRE(data->CreateSlicer(BasicTableSlicer()).Slicer);
+            CHECK(definedNameValue(editor, "Slicer_Quarter") == "#N/A");
+        }
+    }
+
+    TEST_CASE("A pivot slicer cache names an identifier its pivot cache declares "
+              "[unit] [excel] [excel-slicer]")
+    {
+        auto editor = MakeWorkbook();
+        auto pivot = AddPivotTable(editor);
+        auto report = editor->GetWorksheet("Report");
+        auto slicer = report->CreateSlicer(BasicPivotSlicer()).Slicer;
+        REQUIRE(slicer);
+
+        const auto cacheRoot = slicer->GetCachePart()->GetSlicerCacheDefinition();
+        REQUIRE(cacheRoot);
+        const auto data = cacheRoot->GetFirstChildOfType<X14::SlicerCacheData>();
+        const auto tabular = data ? data->GetFirstChildOfType<X14::TabularSlicerCache>() : nullptr;
+        REQUIRE(tabular);
+
+        const auto pivotCacheRoot = pivot->GetCacheDefinitionPart()->GetPivotCacheDefinition();
+        REQUIRE(pivotCacheRoot);
+        const auto extension =
+            FindExtension<S::PivotCacheDefinitionExtensionList, S::PivotCacheDefinitionExtension>(
+                pivotCacheRoot, kPivotCacheDefinitionUri);
+        REQUIRE(extension);
+        const auto declaration = extension->GetFirstChildOfType<X14::PivotCacheDefinition>();
+        REQUIRE(declaration);
+
+        // Excel refuses to open the workbook outright when these disagree.
+        CHECK(declaration->GetPivotCacheId().ValueOr(0) != 0);
+        CHECK(tabular->GetPivotCacheId().ValueOr(0) == declaration->GetPivotCacheId().ValueOr(0));
+    }
+
+    TEST_CASE("Hosting a slicer raises the pivot table past the 2007 feature version "
+              "[unit] [excel] [excel-slicer]")
+    {
+        auto editor = MakeWorkbook();
+        auto pivot = AddPivotTable(editor);
+        const auto definition = pivot->GetPart()->GetTypedRootElement();
+        REQUIRE(definition);
+        // Slicers arrived with Excel 2010; a pivot table left at the 2007
+        // version keeps working and loses its slicer.
+        REQUIRE(definition->GetUpdatedVersion().ValueOr(0) < 4);
+
+        auto report = editor->GetWorksheet("Report");
+        REQUIRE(report->CreateSlicer(BasicPivotSlicer()).Slicer);
+        CHECK(definition->GetUpdatedVersion().ValueOr(0) >= 4);
+    }
+
+    TEST_CASE("A pivot slicer cache names its sheet by sheetId, not by tab position "
+              "[unit] [excel] [excel-slicer]")
+    {
+        auto editor = MakeWorkbook();
+        AddPivotTable(editor);
+
+        // Move the report to the front, so its position and its sheetId differ.
+        // Excel drops the slicer when the cache names the position instead.
+        REQUIRE(editor->MoveWorksheet(1, 0));
+        auto report = editor->GetWorksheet("Report");
+        REQUIRE(report);
+        auto slicer = report->CreateSlicer(BasicPivotSlicer()).Slicer;
+        REQUIRE(slicer);
+
+        const auto workbook = editor->GetDocument()->GetWorkbookPart()->GetTypedRootElement();
+        const auto sheets = workbook->GetFirstChildOfType<S::Sheets>();
+        REQUIRE(sheets);
+        const auto elements = sheets->Elements<S::Sheet>();
+        REQUIRE(elements.size() == 2);
+        REQUIRE(elements[0]->GetName().ToString() == "Report");
+        const auto reportSheetId = elements[0]->GetSheetId().ValueOr(0);
+        REQUIRE(reportSheetId != 1);
+
+        const auto cacheRoot = slicer->GetCachePart()->GetSlicerCacheDefinition();
+        REQUIRE(cacheRoot);
+        const auto tables = cacheRoot->GetFirstChildOfType<X14::SlicerCachePivotTables>();
+        const auto entry = tables ? tables->GetFirstChildOfType<X14::SlicerCachePivotTable>() : nullptr;
+        REQUIRE(entry);
+        CHECK(entry->GetTabId().ValueOr(0) == reportSheetId);
     }
 
     TEST_CASE("IsValidSlicerName enforces Excel's naming rules [unit] [excel] [excel-slicer]")

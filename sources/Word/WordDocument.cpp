@@ -13357,27 +13357,70 @@ Image& Image::ClearCrop()
 
 Image& Image::SetAltText(std::string_view title, std::string_view description)
 {
-    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing);
-    if (!cNvPr)
+    // A drawing carries the text twice: on the picture's own non-visual
+    // properties and on the drawing's `wp:docPr`. Word reads the second one -
+    // its Alt Text pane and AlternativeText property both report it - and
+    // ignores the first, so writing only the picture's leaves the image
+    // unlabelled for every reader that matters. Word itself writes both.
+    if (auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing))
     {
-        return *this;
+        cNvPr->SetTitle(StringValue(std::string(title)));
+        cNvPr->SetDescription(StringValue(std::string(description)));
     }
 
-    cNvPr->SetTitle(StringValue(std::string(title)));
-    cNvPr->SetDescription(StringValue(std::string(description)));
+    for (auto& docProps :
+         m_drawing ? m_drawing->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>()
+                   : std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>>{})
+    {
+        if (docProps)
+        {
+            docProps->SetTitle(StringValue(std::string(title)));
+            docProps->SetDescription(StringValue(std::string(description)));
+        }
+    }
+
     return *this;
+}
+
+/// Reads one alt-text attribute, preferring the `wp:docPr` Word writes and reads.
+template <typename TPicture, typename TDoc>
+static std::string ReadAltTextValue(
+    const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Drawing>& drawing,
+    TDoc fromDocProps, TPicture fromPicture)
+{
+    for (auto& docProps :
+         drawing ? drawing->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>()
+                 : std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Drawing::Wordprocessing::DocProperties>>{})
+    {
+        if (docProps)
+        {
+            if (auto value = fromDocProps(docProps); !value.empty())
+            {
+                return value;
+            }
+        }
+    }
+
+    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(drawing);
+    return cNvPr ? fromPicture(cNvPr) : std::string();
 }
 
 std::string Image::GetTitle() const
 {
-    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing);
-    return cNvPr ? cNvPr->GetTitle().ToString() : std::string();
+    return ReadAltTextValue(
+        m_drawing, [](const auto& node)
+        { return node->GetTitle().ToString(); },
+        [](const auto& node)
+        { return node->GetTitle().ToString(); });
 }
 
 std::string Image::GetDescription() const
 {
-    auto cNvPr = WordDrawingHelper::FindPictureNonVisualProperties(m_drawing);
-    return cNvPr ? cNvPr->GetDescription().ToString() : std::string();
+    return ReadAltTextValue(
+        m_drawing, [](const auto& node)
+        { return node->GetDescription().ToString(); },
+        [](const auto& node)
+        { return node->GetDescription().ToString(); });
 }
 
 Image& Image::SetRotation(Real degrees)

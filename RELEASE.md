@@ -162,6 +162,28 @@ source directories, so regenerated files can appear without being asked for.
 Regenerated output that is not part of the release belongs in its own commit,
 not in the release commit.
 
+### 4.1 Open what the MCP servers write in Microsoft Office
+
+Validation proves a document is well formed, not that Office accepts it, and
+the defects that matter most here were all in files that validated. This step
+needs Windows with Microsoft Office and the Python environment of
+[tests/mcp_python](tests/mcp_python/README.md):
+
+```powershell
+$env:EXYOKI_MCP_WORD_EXE = (Resolve-Path build\vs\tools\mcp\RelWithDebInfo\exyoki-mcp-word.exe).Path
+$env:EXYOKI_MCP_EXCEL_EXE = (Resolve-Path build\vs\tools\mcp\RelWithDebInfo\exyoki-mcp-excel.exe).Path
+$env:EXYOKI_MCP_POWERPOINT_EXE = (Resolve-Path build\vs\tools\mcp\RelWithDebInfo\exyoki-mcp-power-point.exe).Path
+tests\mcp_python\.venv\Scripts\python tests\mcp_python\oracle_corpus.py build\oracle
+.\tests\office-oracle\Invoke-OfficeOracle.ps1 -Path build\oracle
+```
+
+The first command writes one document per server through every mutating tool;
+the second opens each in its application, has Office save a copy, and fails
+when Office cannot open a document or drops a kind of content from it. Set the
+binaries explicitly, as above: the suite otherwise takes the first build tree
+it finds, which may be an older one. A failure here is a release blocker, and
+so is a `changed` line nobody can explain.
+
 ## 5. Verify the installed package
 
 This is the step that catches a stale `find_package` minimum, and it is not
@@ -358,6 +380,7 @@ will download.
 [ ] WinBuild.ps1 -Clean -Test        RelWithDebInfo and Debug both green
 [ ] WinLint.ps1 -Check               clean
 [ ] git diff after the build         no unintended generated churn
+[ ] Office oracle                    oracle_corpus.py + Invoke-OfficeOracle.ps1, no failures
 [ ] git status before the commit     nothing untracked that should not ship
 [ ] Version.hpp / .rc                carry X.Y.Z, Version::Abi is X.Y
 [ ] install smoke test               configures, links, prints X.Y.Z

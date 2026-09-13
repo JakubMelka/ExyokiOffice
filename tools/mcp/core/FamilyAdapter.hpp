@@ -23,6 +23,11 @@
 #include <string_view>
 #include <vector>
 
+namespace ExyokiOffice::Packaging
+{
+class ThemePart;
+}
+
 namespace ExyokiOffice::Mcp
 {
 
@@ -60,6 +65,39 @@ public:
 
     /// Family-specific structural counts reported by `open_document`.
     [[nodiscard]] virtual nlohmann::json Summary() const = 0;
+
+    /**
+     * @brief The theme this document reads its scheme colours and fonts from.
+     *
+     * Each family hangs the part off a different main part, which is the only
+     * reason this is virtual; the theme itself is the same DrawingML in all
+     * three. Null when the document carries none.
+     */
+    [[nodiscard]] virtual std::shared_ptr<Packaging::ThemePart> Theme() const { return nullptr; }
+
+    /**
+     * @brief The theme part, created with the default scheme when absent.
+     *
+     * A document this library creates carries no theme, so a caller that wants
+     * to change one has nothing to change; this gives it the Office default to
+     * start from. Null only when the family has nowhere to hang the part.
+     */
+    [[nodiscard]] virtual std::shared_ptr<Packaging::ThemePart> EnsureTheme() { return nullptr; }
+
+    /**
+     * @brief What the document currently restricts, reported by `get_document_info`.
+     *
+     * The three families restrict different things - Word an editing mode,
+     * Excel the workbook structure and each sheet, a presentation only
+     * modification - so the shape is family-specific and documented by the
+     * family, exactly as Summary() is. Null when nothing is restricted.
+     *
+     * None of this is encryption. Every part stays readable and any tool that
+     * ignores the setting can rewrite the document, which is why the report
+     * exists: a caller has to be able to see the restriction before deciding
+     * whether honouring it is its job.
+     */
+    [[nodiscard]] virtual nlohmann::json Protection() const { return {}; }
 };
 
 /**

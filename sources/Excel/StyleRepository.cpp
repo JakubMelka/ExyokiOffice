@@ -154,6 +154,131 @@ public:
         return {RangeOperationResult{RangeOperationError::None, {}, 1}, *styleIndex};
     }
 
+    static UInt32 DifferentialFormatCount(const ExcelDocument::Ptr& document)
+    {
+        const auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
+        const auto part = workbookPart ? workbookPart->GetWorkbookStylesPart() : nullptr;
+        const auto stylesheet = part ? part->GetTypedRootElement() : nullptr;
+        const auto formats = FindFirstChild<Spreadsheet::DifferentialFormats>(stylesheet);
+        return static_cast<UInt32>(FindChildren<Spreadsheet::DifferentialFormat>(formats).size());
+    }
+
+    static StyleRegistrationResult GetOrAddDifferentialFormat(const ExcelDocument::Ptr& document,
+                                                              const ExcelStyle& style)
+    {
+        // A differential format that changes nothing is not a format: it would
+        // be an empty `<dxf/>` a rule could point at and Excel would paint with
+        // nothing, which is exactly the outcome this API exists to prevent.
+        if (!style.NumberFormat && !style.Font && !style.Fill && !style.Border && !style.Alignment &&
+            !style.Protection)
+        {
+            return {Error(RangeOperationError::InvalidStyle,
+                          "A differential format has to change at least one of number format, font, fill, "
+                          "border, alignment, or protection."),
+                    0};
+        }
+        std::string validationMessage;
+        if (!Validate(style, validationMessage))
+        {
+            return {Error(RangeOperationError::InvalidStyle, std::move(validationMessage)), 0};
+        }
+        if (style.Fill && style.Fill->Kind != ExcelFillKind::Pattern)
+        {
+            return {Error(RangeOperationError::InvalidStyle,
+                          "A differential format cannot carry a gradient fill."),
+                    0};
+        }
+        auto context = EnsureContext(document);
+        if (!context)
+        {
+            return {Error(RangeOperationError::InvalidWorksheet,
+                          "The workbook does not contain a usable workbook part."),
+                    0};
+        }
+        const auto originalXml = context->part->GetXmlString();
+
+        std::optional<UInt32> numberFormatId;
+        if (style.NumberFormat)
+        {
+            if (!style.NumberFormat->FormatCode.empty())
+            {
+                numberFormatId = GetOrAddNumberFormat(*context, style.NumberFormat->FormatCode);
+                if (!numberFormatId)
+                {
+                    context->part->SetXmlString(originalXml);
+                    return {Error(RangeOperationError::WriteFailed,
+                                  "The custom number format could not be registered."),
+                            0};
+                }
+            }
+            else
+            {
+                numberFormatId = style.NumberFormat->BuiltInId.value_or(0);
+            }
+        }
+
+        const auto formats = EnsureChild<Spreadsheet::DifferentialFormats>(context->stylesheet);
+        const auto index =
+            formats ? GetOrAddComponent<Spreadsheet::DifferentialFormats, Spreadsheet::DifferentialFormat>(
+                          formats, [&](const auto& node)
+                          { BuildDifferentialFormat(node, style, numberFormatId); })
+                    : std::nullopt;
+        if (!index)
+        {
+            context->part->SetXmlString(originalXml);
+            return {Error(RangeOperationError::WriteFailed, "The differential format could not be registered."), 0};
+        }
+        return {RangeOperationResult{RangeOperationError::None, {}, 1}, *index};
+    }
+
+    static std::optional<ExcelStyle> GetDifferentialFormat(const ExcelDocument::Ptr& document,
+                                                           UInt32 differentialFormatId)
+    {
+        const auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
+        const auto part = workbookPart ? workbookPart->GetWorkbookStylesPart() : nullptr;
+        const auto stylesheet = part ? part->GetTypedRootElement() : nullptr;
+        const auto formats = FindChildren<Spreadsheet::DifferentialFormat>(
+            FindFirstChild<Spreadsheet::DifferentialFormats>(stylesheet));
+        if (differentialFormatId >= formats.size())
+        {
+            return std::nullopt;
+        }
+        const auto& node = formats[differentialFormatId];
+
+        ExcelStyle style;
+        if (const auto numberFormat = FindFirstChild<Spreadsheet::NumberingFormat>(node))
+        {
+            // A dxf carries the format code with it rather than referring to
+            // the workbook table, so the code is what identifies a custom
+            // format here; the same convention as ReadNumberFormat.
+            auto code = numberFormat->GetFormatCode().ToString();
+            style.NumberFormat = code.empty()
+                                     ? ExcelNumberFormat{numberFormat->GetNumberFormatId().ValueOr(0), {}}
+                                     : ExcelNumberFormat{std::nullopt, std::move(code)};
+        }
+        if (const auto font = FindFirstChild<Spreadsheet::Font>(node))
+        {
+            style.Font = ReadFont(font);
+        }
+        if (const auto fill = FindFirstChild<Spreadsheet::Fill>(node))
+        {
+            style.Fill = ReadDifferentialFill(fill);
+        }
+        if (const auto border = FindFirstChild<Spreadsheet::Border>(node))
+        {
+            style.Border = ReadBorder(border);
+        }
+        if (const auto alignment = FindFirstChild<Spreadsheet::Alignment>(node))
+        {
+            style.Alignment = ReadAlignment(alignment);
+        }
+        if (const auto protection = FindFirstChild<Spreadsheet::Protection>(node))
+        {
+            style.Protection = ReadProtection(protection);
+        }
+        return style;
+    }
+
     static RangeOperationResult ApplyToCell(const ExcelDocument::Ptr& document,
                                             Worksheet& worksheet,
                                             CellAddress address,
@@ -883,6 +1008,127 @@ private:
         BuildBorderSide<Spreadsheet::HorizontalBorder>(node, border.Horizontal);
     }
 
+    /**
+     * @brief Writes the fill of a differential format.
+     *
+     * A dxf fill is not a cell fill. Excel writes a solid conditional-format
+     * background as `<patternFill><bgColor rgb="..."/></patternFill>`: no
+     * `patternType`, and the colour in `bgColor` rather than `fgColor`. A dxf
+     * carrying the cell form instead validates, opens without complaint, and
+     * paints nothing, so the two forms are not interchangeable. A genuine
+     * pattern keeps `patternType` and both colours, the way Excel writes it.
+     */
+    static void BuildDifferentialFill(const std::shared_ptr<Spreadsheet::Fill>& node, const ExcelFill& fill)
+    {
+        auto pattern = node->AppendChild<Spreadsheet::PatternFill>();
+        const bool solid = fill.Pattern == ExcelFillPattern::Solid || fill.Pattern == ExcelFillPattern::None;
+        if (solid)
+        {
+            if (const auto& color = fill.Foreground ? fill.Foreground : fill.Background)
+            {
+                ApplyColor(pattern->AppendChild<Spreadsheet::BackgroundColor>(), *color);
+            }
+            return;
+        }
+        pattern->SetPatternType(EnumValue<Spreadsheet::PatternValues>(Map(fill.Pattern)));
+        if (fill.Foreground)
+        {
+            ApplyColor(pattern->AppendChild<Spreadsheet::ForegroundColor>(), *fill.Foreground);
+        }
+        if (fill.Background)
+        {
+            ApplyColor(pattern->AppendChild<Spreadsheet::BackgroundColor>(), *fill.Background);
+        }
+    }
+
+    /** @brief Reads back what BuildDifferentialFill() wrote. */
+    static ExcelFill ReadDifferentialFill(const std::shared_ptr<Spreadsheet::Fill>& node)
+    {
+        const auto pattern = FindFirstChild<Spreadsheet::PatternFill>(node);
+        if (!pattern || pattern->GetPatternType().IsDefined())
+        {
+            return ReadFill(node);
+        }
+        ExcelFill fill;
+        fill.Kind = ExcelFillKind::Pattern;
+        fill.Pattern = ExcelFillPattern::Solid;
+        fill.Foreground = ReadColor(FindFirstChild<Spreadsheet::BackgroundColor>(pattern));
+        return fill;
+    }
+
+    template <typename TSide>
+    static void BuildDifferentialBorderSide(const std::shared_ptr<Spreadsheet::Border>& border,
+                                            const ExcelBorderSide& side)
+    {
+        if (side.Style == ExcelBorderStyle::None)
+        {
+            return;
+        }
+        BuildBorderSide<TSide>(border, side);
+    }
+
+    /**
+     * @brief Writes the border of a differential format.
+     *
+     * Only the sides that carry a line are written. A cell border states every
+     * side, because it replaces the whole border; a differential one states
+     * only what it changes, and a side written as `style="none"` would order
+     * Excel to erase a line the rule was never asked to touch.
+     */
+    static void BuildDifferentialBorder(const std::shared_ptr<Spreadsheet::Border>& node, const ExcelBorder& border)
+    {
+        BuildDifferentialBorderSide<Spreadsheet::LeftBorder>(node, border.Left);
+        BuildDifferentialBorderSide<Spreadsheet::RightBorder>(node, border.Right);
+        BuildDifferentialBorderSide<Spreadsheet::TopBorder>(node, border.Top);
+        BuildDifferentialBorderSide<Spreadsheet::BottomBorder>(node, border.Bottom);
+        BuildDifferentialBorderSide<Spreadsheet::DiagonalBorder>(node, border.Diagonal);
+        BuildDifferentialBorderSide<Spreadsheet::VerticalBorder>(node, border.Vertical);
+        BuildDifferentialBorderSide<Spreadsheet::HorizontalBorder>(node, border.Horizontal);
+    }
+
+    /**
+     * @brief Builds one `<dxf>` from the components @p style defines.
+     *
+     * Every component is optional and an absent one means "leave this alone",
+     * which is what makes the format differential. AppendChild() places each
+     * child where the CT_Dxf particle wants it, so the order written here is
+     * documentation rather than a requirement.
+     */
+    static void BuildDifferentialFormat(const std::shared_ptr<Spreadsheet::DifferentialFormat>& node,
+                                        const ExcelStyle& style,
+                                        std::optional<UInt32> numberFormatId)
+    {
+        if (style.Font)
+        {
+            BuildFont(node->AppendChild<Spreadsheet::Font>(), *style.Font);
+        }
+        if (style.NumberFormat && numberFormatId)
+        {
+            auto format = node->AppendChild<Spreadsheet::NumberingFormat>();
+            format->SetNumberFormatId(UInt32Value(*numberFormatId));
+            if (!style.NumberFormat->FormatCode.empty())
+            {
+                format->SetFormatCode(StringValue(style.NumberFormat->FormatCode));
+            }
+        }
+        if (style.Fill)
+        {
+            BuildDifferentialFill(node->AppendChild<Spreadsheet::Fill>(), *style.Fill);
+        }
+        if (style.Alignment)
+        {
+            BuildAlignment(node->AppendChild<Spreadsheet::Alignment>(), *style.Alignment);
+        }
+        if (style.Border)
+        {
+            BuildDifferentialBorder(node->AppendChild<Spreadsheet::Border>(), *style.Border);
+        }
+        if (style.Protection)
+        {
+            BuildProtection(node->AppendChild<Spreadsheet::Protection>(), *style.Protection);
+        }
+    }
+
     static void BuildAlignment(const std::shared_ptr<Spreadsheet::Alignment>& node, const ExcelAlignment& value)
     {
         if (value.Horizontal)
@@ -1157,6 +1403,18 @@ UInt32 StyleRepository::Count() const
 StyleRegistrationResult StyleRepository::GetOrAdd(const ExcelStyle& style)
 {
     return StyleRepositoryImplementation::GetOrAdd(m_document, style);
+}
+UInt32 StyleRepository::DifferentialFormatCount() const
+{
+    return StyleRepositoryImplementation::DifferentialFormatCount(m_document);
+}
+StyleRegistrationResult StyleRepository::GetOrAddDifferentialFormat(const ExcelStyle& style)
+{
+    return StyleRepositoryImplementation::GetOrAddDifferentialFormat(m_document, style);
+}
+std::optional<ExcelStyle> StyleRepository::GetDifferentialFormat(UInt32 differentialFormatId) const
+{
+    return StyleRepositoryImplementation::GetDifferentialFormat(m_document, differentialFormatId);
 }
 RangeOperationResult StyleRepository::ApplyToCell(Worksheet& worksheet, CellAddress address, UInt32 styleIndex)
 {

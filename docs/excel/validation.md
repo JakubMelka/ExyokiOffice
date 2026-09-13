@@ -52,7 +52,26 @@ rule shapes (`Expression`, `CellIs`, `Between`, `ContainsText`,
 `MoveConditionalFormatting` (rule priority), and
 `RemoveConditionalFormatting` complete the lifecycle.
 
-A rule's `DifferentialFormatId` references an existing workbook `dxfs`
-(differential formats) entry — the "what to apply" half of the rule. This
-API preserves that reference but does not create differential-format styles;
-authoring a new `dxfs` entry currently requires the low-level DOM.
+A rule's `DifferentialFormatId` references a workbook `dxfs` (differential
+formats) entry — the "what to apply" half of the rule. A rule without one
+matches cells and changes nothing about them. Register one with
+`StyleRepository::GetOrAddDifferentialFormat()`:
+
+```cpp
+ExcelStyle appearance;
+ExcelFill fill;
+fill.Pattern = ExcelFillPattern::Solid;
+fill.Foreground = ExcelColor::Rgb("FFFFC7CE");
+appearance.Fill = fill;
+
+auto rule = ExcelConditionalFormattingDefinition::CellIs(
+    {*CellRange::ParseA1("D2:D10")}, ConditionalFormattingOperator::GreaterThan, "100");
+rule.DifferentialFormatId = editor->Styles().GetOrAddDifferentialFormat(appearance).StyleIndex;
+sheet->CreateConditionalFormatting(rule);
+```
+
+A differential format is partial by design: every component it leaves empty
+keeps whatever the cell already had. Equal definitions resolve to the same
+index, and `GetDifferentialFormat()` reads one back. Gradient fills have no
+differential form and are refused; colour scales, data bars and icon sets are
+separate rule kinds this API does not write.

@@ -27,6 +27,9 @@ public:
     bool LoadFromMemory(std::span<const Byte> bytes) override;
     [[nodiscard]] std::shared_ptr<OpenXmlPackage> Package() const override;
     [[nodiscard]] nlohmann::json Summary() const override;
+    [[nodiscard]] nlohmann::json Protection() const override;
+    [[nodiscard]] std::shared_ptr<Packaging::ThemePart> Theme() const override;
+    [[nodiscard]] std::shared_ptr<Packaging::ThemePart> EnsureTheme() override;
 
     /// The editor the Word toolset drives; never null for a live handle.
     [[nodiscard]] Word::WordDocumentEditor& Editor() const noexcept { return *m_editor; }

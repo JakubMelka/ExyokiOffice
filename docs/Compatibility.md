@@ -302,7 +302,7 @@ See the [Excel quickstart](Excel.md) for the API tour.
 | [Pivot tables](excel/pivot-tables.md) | Yes | Yes | Yes | `excel-pivot` | Caches, records, definitions, aggregation, refresh. |
 | [Slicers](excel/slicers.md) | Yes | Yes | Yes | `excel-slicers` | Over pivot tables and worksheet tables, with shared caches. |
 | [Data validation](excel/validation.md) | Yes | Yes | Yes | `excel-validation` | |
-| [Conditional formatting](excel/validation.md) | Yes | Yes | Yes | `excel-conditional-formatting` | Rules reference `dxfs` differential formats by index but do not create them. |
+| [Conditional formatting](excel/validation.md) | Yes | Yes | Yes | `excel-conditional-formatting` | Rule kinds and their `dxfs` differential formats; colour scales, data bars and icon sets are preserved but not created. |
 | [Layout and annotations](excel/layout.md) | Yes | Yes | Yes | `excel-layout` | Row/column dimensions, views and frozen panes, hyperlinks, comments, threaded comments, images. |
 | [Printing](excel/printing.md) | Yes | Yes | Yes | `excel-printing` | Page setup, margins, print areas and titles, headers and footers. |
 

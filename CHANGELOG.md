@@ -15,6 +15,145 @@ in [docs/](docs/README.md).
 
 - `examples/ExampleWordDemo`, a one-page Word showcase document built with
   `Word::WordDocumentEditor`, enabled by `EXYOKIOFFICE_BUILD_EXAMPLE_WORD_DEMO`.
+- Ten MCP tools, closing the gaps between what the compatibility matrix grades
+  as supported and what the servers reach. See
+  [MCP servers](docs/tools/mcp-servers.md#tool-catalog).
+  - Word `format_table`: width, alignment, borders, cell padding, column
+    widths, and per-cell shading, alignment and borders.
+  - Word `list_charts` and `update_chart`: read and rewrite the series and
+    title of a chart the document already carries.
+  - Excel `add_comment`, `list_comments` and `delete_comment`, covering both
+    threaded comments and plain notes.
+  - Excel `add_image` and `set_print_setup`, the latter covering page setup,
+    margins, print area, repeated titles, and headers and footers.
+  - PowerPoint `add_shape` and `format_shape`: preset geometry, connectors,
+    fills and outlines.
+  - PowerPoint `list_animations`, `add_animation`, `update_animation` and
+    `remove_animation`, covering entrance, emphasis, exit and motion-path
+    effects with their triggers and timing.
+  - Excel `move_sheet`, `copy_sheet` (including from another workbook),
+    `copy_range` and `set_protection`.
+  - Excel `add_slicer`, `list_slicers` and `set_slicer_selection`, over pivot
+    tables and worksheet tables.
+  - Excel `list_tables` and `update_table`: rename a table, toggle its filter
+    buttons and totals row, and filter a column to a set of values, hiding the
+    rows the filter excludes.
+- Excel `add_conditional_formatting` takes the `containsErrors`,
+  `notContainsErrors`, `top`, `bottom`, `aboveAverage` and `belowAverage` rule
+  kinds, applies one rule to several ranges at once, and paints the cells a
+  rule matches with the appearance passed in `format`.
+- `StyleRepository::GetOrAddDifferentialFormat`, `GetDifferentialFormat` and
+  `DifferentialFormatCount` register and read the `dxfs` differential formats a
+  conditional formatting rule paints with. See
+  [Data validation and conditional formatting](docs/excel/validation.md).
+- `get_theme` and `set_theme` on all three servers read and change the scheme
+  colours and fonts a document resolves its theme references against; a
+  document without a theme is given the Office default first. See
+  [MCP servers](docs/tools/mcp-servers.md).
+- Excel `get_vba_project`, `set_vba_project` and `remove_vba_project` move the
+  opaque `vbaProject.bin` between a workbook and a workspace file; the payload
+  is never parsed or executed.
+- Word and PowerPoint `set_protection`, matching the Excel tool of the same
+  name: an editing restriction on a document, a password to modify on a
+  presentation. Excel's moved from the `layout` group to `review` so the three
+  can be filtered together with `--toolsets`.
+- Word `define_style` and `delete_style` write and remove style definitions,
+  including the run and paragraph formatting a style carries; `built_in` marks a
+  definition as Word's own style of that name rather than a new one.
+- Word `define_list` and `list_numbering` write and report multi-level list
+  definitions, and `insert_list` takes a `numbering_id` to continue an existing
+  sequence or lay out a definition.
+- Word `insert_content_control`, `list_content_controls` and
+  `update_content_control` write, read and remove content controls.
+- Word `insert_image` takes a `layout` object for a floating picture with text
+  wrapping, anchoring and distance from text; `set_section` takes `columns`; and
+  `apply_style` puts a character style on the runs of the named blocks.
+- PowerPoint `add_layout`, `delete_layout` and `set_slide_layout` write the
+  layout side of a presentation's design.
+- PowerPoint `list_custom_shows` and `set_custom_show` read and write the named
+  slide sequences a deck plays.
+- PowerPoint `add_media` places audio or video on a slide, embedded from a
+  workspace file or linked by address.
+- Excel and PowerPoint `add_chart` draw a series as another type or against a
+  secondary axis, create bubble charts, and take axis titles, legend and
+  gridlines; Excel's reads its ranges from another worksheet.
+- `ExcelChartSeries::Type`, `ExcelChartSeries::SecondaryAxis`,
+  `PresentationChartSeries::Type` and `PresentationChartSeries::SecondaryAxis`,
+  with `SecondaryValueAxisTitle` on both chart definitions, write combination
+  charts. See [Excel charts](docs/excel/charts.md) and
+  [PowerPoint charts](docs/powerpoint/charts.md).
+- A call to a tool that `--read-only` or `--toolsets` withheld, or to a
+  capability the servers leave out such as equations, SmartArt, encryption or
+  signatures, answers `unsupported` with a hint instead of `-32602`. See
+  [Limits of this version](docs/tools/mcp-servers.md#limits-of-this-version).
+- `tests/office-oracle/Invoke-OfficeOracle.ps1` opens documents in Microsoft
+  Office and reports what Office refuses or drops, and
+  `tests/mcp_python/oracle_corpus.py` writes a document per MCP server to run it
+  on. See [RELEASE.md](RELEASE.md).
+- `get_document_info` reports what a document restricts, on all three servers.
+
+### Fixed
+
+- Excel constructs that the library wrote as valid markup and Excel then threw
+  away. See [MCP servers](docs/tools/mcp-servers.md).
+  - `Worksheet::AddThreadedComment` writes the legacy note and VML drawing that
+    back a thread; without them Excel discarded `xl/threadedcomments`
+    altogether. `Worksheet::Comments` does not report the backing note.
+  - `Worksheet::CreateSlicer` registers a table slicer under the extension URI
+    `{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}` and a pivot slicer under
+    `{A8765BA9-456A-4dab-B4F3-ACF838C121DE}`; both were written under one wrong
+    URI and discarded on open.
+  - `Worksheet::CreateSlicer` declares the slicer cache as a workbook defined
+    name, declares the pivot cache identifier its slicer cache names, and
+    raises the pivot table's `updatedVersion` to 4. Without the first two Excel
+    refused the workbook; without the third it dropped the slicer.
+  - A pivot slicer cache names its sheet by `sheetId` rather than by tab
+    position, so a slicer survives on a workbook whose sheets were reordered.
+  - `ExcelTable::SetTotalsRowShown` grows the table reference by a row and keeps
+    the totals row outside `autoFilter`; Excel refused to open a workbook whose
+    auto-filter reached into it. `Resize` and `SetAutoFilterEnabled` hold the
+    same invariant.
+- `Worksheet::CreateTable` writes each column name into its header cell and
+  refuses a range holding merged cells, and `Worksheet::MergeRange` refuses a
+  range that overlaps a table; Excel refused to open a workbook breaking either
+  rule. MCP `add_table` warns with `table_header_rewritten` when it replaces a
+  header value.
+- MCP `redact_document` on an open session answers with an envelope its output
+  schema allows, `compare_documents` refuses an output name of another Office
+  family, and `diff_documents` reports `package_load_failed` for a file that is
+  not a package.
+- MCP `set_transition`, `set_slide_size` and `modify_sheet_structure` answer an
+  ambiguous or out-of-range request with `input_invalid` or `range_invalid`
+  instead of guessing or reporting `operation_failed`, and `resolve_revisions`
+  warns with `revision_not_found` about identifiers that name no revision.
+- MCP `delete_blocks` refuses a range that runs past the last block or ends
+  before it starts, instead of deleting what was left of it.
+- Reading a combination chart returns the series of every plot group rather
+  than the first one, in `Worksheet::Charts`, `PresentationShape::GetChart` and
+  `WordDocumentEditor::Charts`, and rewriting its data keeps each series in its
+  own group instead of duplicating them all into the first.
+- `Worksheet::Charts` reports `ExcelChartSeries::SourceSheet` for a series kept
+  on another worksheet, so updating a chart read back no longer re-resolves its
+  ranges against the chart's own sheet.
+- `PresentationShape::SetMedia` relates an embedded media part a second time as
+  `http://schemas.microsoft.com/office/2007/relationships/media` and names it
+  from a `p14:media` extension, which is how PowerPoint tells an embedded stream
+  from a linked one; without them PowerPoint rewrote the relationship as
+  external and dropped the media part on its next save.
+- `OpenXmlPackageValidator` no longer reports a relationship-type mismatch for a
+  part that is also related under its own descriptor type, which had made it
+  report an error on presentations PowerPoint itself wrote.
+- `Word::Image::SetAltText` writes the text on the drawing's `wp:docPr` as well
+  as the picture's `pic:cNvPr`; Word reads the first and ignores the second, so
+  a picture labelled through this API was unlabelled in Word's Alt Text pane and
+  for anything reading it.
+- `PowerPointDocumentEditor::ProtectFromModification` writes the seven
+  `p:modifyVerifier` attributes `CT_ModifyVerifier` requires and PowerPoint
+  itself writes; the ISO attribute group it wrote before is optional in the
+  schema, so the presentation failed validation on seven counts.
+  `UnprotectFromModification` now validates either attribute group, so a
+  presentation protected in PowerPoint can be unprotected rather than reported
+  as `UnsupportedVerifier`.
 
 ## [1.1.0] - 2026-08-20
 

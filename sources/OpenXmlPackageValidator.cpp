@@ -697,6 +697,14 @@ public:
             sink.Report(std::move(issue));
         }
 
+        // A part may be the target of more than one relationship, and the extra
+        // ones do not have to carry its own type. PowerPoint relates an
+        // embedded media part twice - once as `.../audio` and once as
+        // `.../office/2007/relationships/media` - and reading the second as a
+        // mismatch reported an error on files PowerPoint itself wrote. What is
+        // worth reporting is a part reached only by a relationship of the wrong
+        // type, so the descriptor-typed edges are collected first.
+        std::unordered_set<std::string> properlyTyped;
         for (const auto& relationship : part.Relationships())
         {
             if (relationship.IsExternal || relationship.Target.empty())
@@ -705,7 +713,23 @@ public:
             }
             const auto targetUri = Detail::ResolveRelationshipTarget(part.Uri(), relationship.Target);
             const auto target = package.GetPartByUri(targetUri);
-            if (target && !target->Descriptor().RelationshipType.empty() && relationship.Type != target->Descriptor().RelationshipType)
+            if (target && relationship.Type == target->Descriptor().RelationshipType)
+            {
+                properlyTyped.insert(targetUri);
+            }
+        }
+
+        for (const auto& relationship : part.Relationships())
+        {
+            if (relationship.IsExternal || relationship.Target.empty())
+            {
+                continue;
+            }
+            const auto targetUri = Detail::ResolveRelationshipTarget(part.Uri(), relationship.Target);
+            const auto target = package.GetPartByUri(targetUri);
+            if (target && !target->Descriptor().RelationshipType.empty() &&
+                relationship.Type != target->Descriptor().RelationshipType &&
+                !properlyTyped.contains(targetUri))
             {
                 auto issue = MakePackageIssue(ValidationErrorId::PackageRelationshipTypeMismatch,
                                               "Relationship type does not match the target part descriptor.",

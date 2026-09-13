@@ -695,7 +695,7 @@ Reading — each accepts `documentId` **or** `path`:
 
 | Tool | | Purpose |
 | --- | --- | --- |
-| `get_document_info` | R I | Package overview, properties, and content statistics |
+| `get_document_info` | R I | Package overview, properties, content statistics, and what the document restricts |
 | `get_document_model` | R I | The semantic `exyokioffice-document` JSON model |
 | `get_document_markdown` | R I | Structure-preserving Markdown rendering |
 | `get_document_text` | R I | Every readable text block as plain text |
@@ -703,6 +703,7 @@ Reading — each accepts `documentId` **or** `path`:
 | `validate_document` | R I | OPC and schema validation report |
 | `query_xml` | R I | XPath query over one XML part (read-only) |
 | `get_properties` | R I | Core, extended, and custom properties |
+| `get_theme` | R I | The scheme colours and fonts the document resolves against |
 | `list_media` | R I | Media inventory without payloads |
 | `get_media` | R I | One image or audio payload as a content block |
 
@@ -712,7 +713,15 @@ Editing:
 | --- | --- | --- |
 | `replace_text` | M | Replace text throughout the document |
 | `set_properties` | M I | Write core, extended, and custom properties |
+| `set_theme` | M I | Change the scheme colours and fonts |
 | `batch` | M | Apply several mutating tools as one transaction |
+
+A theme is the same DrawingML in all three families; only the part it hangs off
+differs, and a presentation keeps it on a slide master, so an empty one has
+nowhere to put it. A document this library creates carries no theme at all, so
+`set_theme` writes the Office default first and changes that. Everything the
+theme holds beyond colours and fonts — the effect and format matrices — is left
+untouched.
 
 File utilities — primarily path to path. `redact_document` and `export_media`
 also accept `documentId`, so they can operate on unsaved session content:
@@ -734,18 +743,28 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `get_outline` | content | R I | Headings and bookmarks with their block indices |
 | `read_blocks` | content | R I | A window of body blocks, as a model, Markdown, or text |
 | `list_styles` | content | R I | The style catalog of the document |
+| `list_charts` | content | R I | Embedded charts with their cached series |
+| `update_chart` | content | M | Rewrite the series and title of a chart already in the document |
 | `insert_paragraph` | content | M | Insert one paragraph at an anchor |
-| `insert_list` | content | M | Insert a bulleted or numbered list |
+| `insert_list` | content | M | Insert a bulleted or numbered list, optionally continuing an existing one |
+| `define_style` | content | M I | Create a style definition or change one |
+| `delete_style` | content | D I | Remove a style definition |
+| `list_numbering` | content | R I | List definitions and the instances paragraphs point at |
+| `define_list` | content | M | Define a multi-level list and get the instance paragraphs name |
 | `edit_paragraph` | content | M | Rewrite one paragraph |
 | `delete_blocks` | content | D | Delete a range of body blocks |
-| `apply_style` | content | M I | Apply a paragraph style to several blocks |
-| `insert_image` | content | M | Insert a picture as its own paragraph |
+| `apply_style` | content | M I | Apply a paragraph or character style to several blocks |
+| `insert_content_control` | content | M | Insert a named region a template fills or an editor is held to |
+| `list_content_controls` | content | R I | Controls with their tag, alias, lock and text |
+| `update_content_control` | content | M I | Change what one holds or how it is locked, or remove it |
+| `insert_image` | content | M | Insert a picture, inline or floating with text wrapped around it |
 | `add_bookmark` | content | M | Bookmark a paragraph, or the range from `block` to `end_block` |
 | `insert_table` | tables | M | Insert a table, optionally filled |
 | `edit_table_cell` | tables | M | Rewrite one table cell |
 | `modify_table` | tables | D | Add or delete rows and columns, or merge cells |
+| `format_table` | tables | M I | Table width, alignment, borders, cell padding, column widths, and per-cell shading, alignment and borders |
 | `set_header_footer` | layout | M I | Replace a header or footer, including fields such as PAGE |
-| `set_section` | layout | M I | Page size, orientation, and margins |
+| `set_section` | layout | M I | Page size, orientation, margins, and text columns |
 | `set_tracked_changes` | review | M I | Turn the revision-tracking flag on or off |
 | `list_revisions` | review | R I | List the tracked revisions |
 | `resolve_revisions` | review | M | Accept or reject revisions |
@@ -755,11 +774,37 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `add_note` | review | M | Add a footnote or endnote |
 | `fill_template` | automation | M | Fill MERGEFIELD, bookmark, and repeating-region placeholders in a session or a file |
 | `compare_documents` | automation | M | Write a tracked-revision comparison of two files |
+| `set_protection` | review | M I | Restrict how a word processor lets a reader edit the document, or lift it |
+
+`update_chart` rewrites a chart the document already carries; it cannot anchor
+a new one, because the library has no helper for that — see
+[Embedded charts](../word/charts.md). Rebuilding a series drops the per-series
+styling it had, which mirrors what writing a chart produces in the first place.
 
 `set_tracked_changes` writes the document's tracking flag, which governs
 editors that open the file. The tools of this server write content directly and
 do not generate revisions themselves; use `compare_documents` when you need
 tracked differences.
+
+`define_style` changes only the members it is given, so a definition can be
+built up over several calls and formatting the schema does not publish survives
+untouched. Word owns the built-in style names — `Normal`, `heading 1`, `Title`
+and the rest — and renames a custom style that claims one, so pass
+`built_in: true` when you mean to redefine what the document's own Heading 1
+looks like rather than to add a style of your own.
+
+A content control is a named, addressable region: a form field, a placeholder
+a template fills, a section an editor may not touch. The `tag` is what code
+looks it up by and the `alias` is what Word shows. The rich-text kind is what
+these tools write; a checkbox, date picker, drop-down or repeating section read
+from another document keeps its own markup and is reported with the rest.
+
+Numbering has two halves and both are addressable. `define_list` writes the
+shape of a list, reusing an existing definition when the name matches, and
+returns the numbering instance paragraphs point at; passing `restart` returns a
+second instance over the same shape, which is how a list starts over without
+being redefined. `insert_list` takes that `numbering_id`, and `list_numbering`
+reports what a document already carries.
 
 ### `exyoki-mcp-excel`
 
@@ -769,11 +814,14 @@ tracked differences.
 | `add_sheet` | sheets | M | Add a worksheet |
 | `rename_sheet` | sheets | M I | Rename a worksheet |
 | `delete_sheet` | sheets | D | Remove a worksheet |
+| `move_sheet` | sheets | M I | Move a worksheet to another position |
+| `copy_sheet` | sheets | M | Copy a worksheet, within this workbook or from another one |
 | `read_range` | cells | R I | Read cells as values, records, or CSV |
 | `write_cells` | cells | M | Write individually addressed cells; a null value skips the cell |
 | `write_range` | cells | M | Write a rectangular block from an origin |
 | `clear_range` | cells | D | Clear contents, formats, or both |
 | `modify_sheet_structure` | cells | D | Insert or delete rows and columns |
+| `copy_range` | cells | M | Copy a range, or move it and retarget the references into it |
 | `set_hyperlink` | cells | M I | Attach or remove a cell hyperlink |
 | `recalculate` | cells | M | Recompute formulas, rewrite cached results, and report cells left in error |
 | `merge_cells` | formatting | M | Merge or split a range |
@@ -782,11 +830,52 @@ tracked differences.
 | `set_row_height` | formatting | M I | Row heights in points |
 | `freeze_panes` | formatting | M I | Freeze rows and columns |
 | `add_table` | analysis | M | Turn a range into a structured table |
+| `list_tables` | analysis | R I | Tables with their columns and the filters in force |
+| `update_table` | analysis | M | Rename a table, toggle its filter buttons and totals row, filter its columns |
+| `get_vba_project` | vba | R I | Report the embedded VBA project, and write it to a file |
+| `set_vba_project` | vba | M | Embed or replace the VBA project from a workspace file |
+| `remove_vba_project` | vba | D | Remove the VBA project and make the package macro-free |
 | `add_named_range` | analysis | M | Define a workbook or sheet name |
 | `add_data_validation` | analysis | M | Constrain what a range accepts |
 | `add_conditional_formatting` | analysis | M | Add a conditional formatting rule |
 | `add_chart` | analysis | M | Add a chart anchored on the sheet, one series per column or row |
 | `add_pivot_table` | analysis | M | Build a pivot report from a source range |
+| `add_slicer` | analysis | M | Add a slicer filtering a pivot table or a worksheet table |
+| `list_slicers` | analysis | R I | Slicers with their buttons and which are selected |
+| `set_slicer_selection` | analysis | M I | Choose which of a slicer's buttons are selected |
+| `set_print_setup` | layout | M I | Orientation, paper, scaling, margins, print area, repeated titles, header and footer |
+| `add_image` | media | M | Place a picture, anchored to a cell rectangle |
+| `list_comments` | review | R I | List the comments of the workbook, threaded and plain alike |
+| `add_comment` | review | M | Comment a cell, or reply to a thread entry |
+| `set_protection` | review | M I | Protect a worksheet or the workbook structure, or lift it |
+| `delete_comment` | review | D | Remove one thread entry, or the plain note of a cell |
+
+SpreadsheetML carries two unrelated comment models, and the `threaded` flag
+says which one a call means rather than leaving it to be guessed: a plain note
+is addressed by its cell, a threaded comment by the identifier `add_comment`
+returns, and one cell can hold both. `reply_to` implies a threaded comment,
+since a plain note has no parent to point at.
+
+The flag defaults to the threaded model, which is the one Excel writes today
+and the only one a reply can attach to. A threaded comment is written together
+with the plain note that backs it, which is what a reader too old for threads
+shows and what Excel requires before it will accept the thread at all; that
+backing note is not reported by `list_comments` as a note of its own.
+
+A VBA project is carried as opaque bytes from end to end: nothing parses,
+rewrites, or executes the code it contains, and `get_vba_project` hands back
+exactly what `set_vba_project` was given. Embedding one makes the package
+macro-enabled, which is a property of the package rather than of the file name,
+so saving under an `.xlsx` name produces a workbook a reader will question.
+
+A table filter is two things in the file, and `update_table` writes both: the
+criteria the funnel button offers, and the `hidden` flag on each row the filter
+excludes. Excel recomputes neither on open, so a file carrying criteria alone
+would show a column marked as filtered with every row still in view. Clearing
+the filters unhides the rows again.
+
+Showing a totals row grows the table by one row, because the totals row is a row
+of the table; the filter buttons never act on it.
 
 CSV import and export run through `convert_document`, which takes
 `csv_separator` and `sheet` on this server.
@@ -798,6 +887,11 @@ CSV import and export run through `convert_document`, which takes
 | `list_slides` | slides | R I | Slides with layout, title, and shape counts |
 | `get_slide` | slides | R I | One slide as shapes with their paths, or as model, Markdown, or text |
 | `list_layouts` | slides | R I | Layouts and the placeholders each offers |
+| `add_layout` | slides | M | Add a layout to a master with the placeholders slides inherit |
+| `delete_layout` | slides | D I | Remove a layout, moving its slides to a replacement |
+| `set_slide_layout` | slides | M I | Point a slide at a different layout |
+| `list_custom_shows` | slides | R I | Named slide sequences with the slides each plays |
+| `set_custom_show` | slides | M I | Create, change or remove a named slide sequence |
 | `add_slide` | slides | M | Add a slide built from a layout |
 | `delete_slide` | slides | D | Remove a slide |
 | `move_slide` | slides | M | Move a slide to another position |
@@ -806,6 +900,8 @@ CSV import and export run through `convert_document`, which takes
 | `set_slide_hidden` | slides | M I | Show or hide a slide in a show |
 | `set_placeholder_text` | content | M I | Write text into a layout placeholder |
 | `add_text_box` | content | M | Add a free-floating text box |
+| `add_shape` | content | M | Add a shape with preset geometry, text, fill, and outline, or a connector between two shapes |
+| `format_shape` | content | M I | Change the fill, outline, or preset geometry of a shape |
 | `edit_text_frame` | content | M | Rewrite the text of a shape |
 | `delete_shape` | content | D | Remove a shape |
 | `set_shape_transform` | content | M I | Move, resize, or rotate a shape; rotation is in degrees |
@@ -816,9 +912,49 @@ CSV import and export run through `convert_document`, which takes
 | `list_comments` | content | R I | List comments, optionally per slide |
 | `add_comment` | content | M | Attach a comment to a slide |
 | `add_image` | media | M | Place a picture on a slide |
+| `add_media` | media | M | Place audio or video, embedded from a file or linked |
+| `list_animations` | animation | R I | Animation effects in playback order |
+| `add_animation` | animation | M | Animate a shape, appending the effect to the playback order |
+| `update_animation` | animation | M I | Replace one effect, and optionally move it in the order |
+| `remove_animation` | animation | D | Remove one effect, or every effect on a slide |
 | `set_transition` | design | M I | Set or remove a slide transition |
 | `add_section` | design | M | Group slides into a named section |
 | `set_slide_size` | design | M I | Slide size from a preset or dimensions |
+| `set_protection` | review | M I | Require a password before the presentation may be saved over, or lift it |
+
+A slide inherits what it looks like from its layout and the layout from its
+master, so `add_layout` and `set_slide_layout` are how a deck is made
+restyleable rather than repeating formatting on every slide. A layout still in
+use cannot simply be deleted: `delete_layout` wants a `replacement` the affected
+slides can move to.
+
+A custom show stores persistent slide identifiers rather than positions, so
+reordering the deck afterwards leaves the show playing the same slides;
+`list_custom_shows` reports both, and a slide a show names but that no longer
+exists shows up as an identifier with no position.
+
+`add_media` stores the payload verbatim. Nothing decodes, transcodes, inspects
+or plays it, and an address passed as `uri` is kept as a relationship and never
+fetched.
+
+An animation names its target by the shape's non-visual identifier, which is
+what PresentationML stores, but `list_animations` resolves it back to the shape
+path every other tool takes. The library validates a whole effect before writing
+any of it — the class and the effect have to form a pair PowerPoint offers, and
+the effect-specific parameter has to match the effect exactly — so an effect
+that is refused leaves the slide untouched. `update_animation` rewrites the
+whole effect rather than patching it, so a member left out falls back to its
+default rather than to what the effect carried; only the target shape is carried
+over.
+
+A new shape carries no style reference, so nothing is inherited: a shape given
+neither `fill` nor `outline` would draw nothing at all, and PowerPoint would
+show its text floating over the slide. `add_shape` therefore supplies a thin
+outline in that case, and naming either one is taken as knowing what the shape
+should look like. A connector joining two shapes is spanned across them unless
+a width or height says otherwise — a connection records which shapes a
+connector belongs to, but it does not place it, and one left at the default
+extent opens as nothing.
 
 `add_slide` writes the title and the bullets into real placeholders, not into
 plain text boxes, so the layout's formatting applies and the outline view sees
@@ -900,7 +1036,8 @@ needs this page to call a tool correctly — it needs it to decide *which* tool.
 | `-32002` on a `tools/*` call | The call arrived before `initialize`, or only `notifications/initialized` was sent, which alone negotiates nothing | A conformant client handles this; hand-written replay files must include the whole handshake |
 | `-32602` on `initialize` | `protocolVersion`, `capabilities`, or `clientInfo` is missing or malformed | The `data.required` member of the error names what the request must carry |
 | `-32600` on `initialize` | The connection was already initialized | Initialization happens once per connection; start a new process to renegotiate |
-| `-32602` with "Unknown tool" | Typo, or the tool is not in this family's catalog | Check `--print-tools` |
+| `-32602` with "Unknown tool" | A typo, or a name this server has never had | Check `--print-tools`; each family's tools are served only by that family's binary |
+| `unsupported` when calling a tool | The server has the tool but `--read-only` or `--toolsets` withheld it, or the name asks for something this version leaves out, such as an equation or a signature | The `hint` says what to do instead; see [Limits of this version](#limits-of-this-version) |
 | The client hangs at startup | Something is writing to standard output | Only the protocol may go there; all diagnostics belong on standard error |
 | Nothing is written to disk | `save_document` was never called | Sessions are in memory by design; `list_documents` shows `dirty: true` for unsaved work |
 
@@ -930,10 +1067,45 @@ Deliberately out of scope, and rejected rather than half-implemented:
   carries an embedded resource either: `get_media` hands back only the `image`
   and `audio` blocks every client understands, and video, OLE objects and
   embedded packages go to a file through `export_media`.
-- **Basic charts only.** Categories, series, and the common plot types;
-  anything richer answers `unsupported` with a hint.
-- **Colour scales and data bars** are not offered by
-  `add_conditional_formatting`; use a `cellIs` or `expression` rule.
+- **Chart types.** Column, bar, line, area, pie, scatter and bubble, with axis
+  titles, legend and gridlines. A series can be drawn as another type or against
+  a secondary axis where the two share axes: column, line and area combine with
+  each other, and bar, scatter, bubble and pie only with their own kind. There
+  are no stacked, 3-D, radar, stock, surface or waterfall charts, and a Word
+  document cannot gain a new chart; `update_chart` rewrites one it already has.
+- **No colour scales, data bars or icon sets.** The other conditional
+  formatting rule kinds are offered, each painting the cells it matches with the
+  appearance passed in `format`; a rule without one matches cells and changes
+  nothing about them.
+- **No sort state on a table.** `update_table` filters columns; it does not
+  record a sort order.
+- **No SmartArt.** A diagram already in a document round-trips untouched, but
+  none can be created or edited. Present the content as a table, or in
+  PowerPoint build it from shapes with `add_shape`.
+- **No equations, and no Word text boxes.** Both round-trip untouched when a
+  document already has them. Write an expression as text or insert it as a
+  picture; use a paragraph, a table cell or a floating picture instead of a
+  text box.
+- **No encryption.** An encrypted OOXML file is a compound-file container rather
+  than a ZIP package, so the servers can neither open nor write one.
+  `set_protection` restricts editing, but it is not encryption: every part stays
+  readable, and a tool that ignores the setting can rewrite the document.
+- **No signatures.** Nothing signs a document or checks a signature over MCP;
+  `exyoki signatures` lists the signatures of a package and checks their signed
+  content. Editing a signed document through a server does not re-sign it.
+- **VBA is carried, not run.** `get_vba_project`, `set_vba_project` and
+  `remove_vba_project` move `vbaProject.bin` in and out byte for byte and make the
+  workbook macro-enabled, and nothing decodes, inspects or runs the project.
+  That path is tested for fidelity - what comes out is exactly what went in -
+  and not for acceptance: whether Excel loads a given project is not something
+  the test suite can check, because producing a genuine project means turning on
+  trusted access to the VBA object model on the machine running the tests.
+
+Calling a tool that falls under one of these limits, or one that `--read-only`
+or `--toolsets` withheld, is not answered as an unknown tool. It comes back as
+an `unsupported` tool failure whose `hint` says what to do instead, so the
+boundary is visible from inside the conversation; only a name the server has
+never had is the JSON-RPC error `-32602`.
 
 `validate_document` checks OPC structure and markup schema, which is not the
 same as full Microsoft Office compatibility — see

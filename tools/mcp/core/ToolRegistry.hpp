@@ -63,6 +63,15 @@ struct RegisteredTool
     std::shared_ptr<SchemaCheck> InputCheck;
 };
 
+/** @brief A tool a catalog filter kept out, remembered so a call to it can say why. */
+struct WithheldTool
+{
+    std::string Name;
+    std::string Group;
+    /// True when `--read-only` dropped it; otherwise `--toolsets` did.
+    bool ByReadOnly = false;
+};
+
 /**
  * @brief The catalog of tools one server offers.
  *
@@ -83,6 +92,15 @@ public:
 
     [[nodiscard]] const RegisteredTool* Find(std::string_view name) const;
     [[nodiscard]] const std::vector<RegisteredTool>& Tools() const noexcept { return m_tools; }
+
+    /**
+     * @brief A tool this server has but a catalog filter left out, or nullptr.
+     *
+     * The filtered catalog is honest about what can be called, but an agent
+     * that knows a tool from documentation or an earlier session still asks
+     * for it, and "unknown tool" would tell it the tool does not exist.
+     */
+    [[nodiscard]] const WithheldTool* FindWithheld(std::string_view name) const;
 
     /// Payload of `tools/list`, in the stable catalog order.
     [[nodiscard]] nlohmann::json ListJson() const;
@@ -110,6 +128,7 @@ private:
     bool m_readOnly = false;
     std::vector<std::string> m_enabledGroups;
     std::vector<RegisteredTool> m_tools;
+    std::vector<WithheldTool> m_withheld;
 };
 
 /**

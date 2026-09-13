@@ -89,13 +89,20 @@ auto state = editor->GetModifyProtection();        // hasPassword, verifierSuppo
 auto removed = editor->UnprotectFromModification("board only");
 ```
 
-The password is stored in `p:modifyVerifier` as the ISO/IEC 29500 verifier —
-a salted SHA-512 hash iterated 100 000 times — matching what current
-PowerPoint writes. `ProtectFromModification` requires a non-empty password,
-and `UnprotectFromModification` validates it before removing the element,
-reporting structured `PresentationProtectionError` values. Presentations
-carrying a pre-2010 legacy `hashData` verifier report
-`verifierSupported == false` and `UnsupportedVerifier`.
+The password is stored in `p:modifyVerifier` as a salted SHA-512 hash
+iterated 100 000 times, written under the `cryptProviderType`,
+`cryptAlgorithmClass`, `cryptAlgorithmType`, `cryptAlgorithmSid`, `spinCount`,
+`saltData` and `hashData` attributes — the seven `CT_ModifyVerifier` declares
+required, and the seven PowerPoint itself writes. The ISO attribute group
+(`algorithmName`, `saltValue`, `hashValue`, `spinValue`) spells the same four
+values differently and is read as well, so a presentation from another producer
+validates either way.
+
+`ProtectFromModification` requires a non-empty password, and
+`UnprotectFromModification` validates it before removing the element, reporting
+structured `PresentationProtectionError` values. A verifier naming a hash this
+library cannot compute reports `verifierSupported == false` and
+`UnsupportedVerifier`.
 
 ## Escape hatch to the low-level DOM
 

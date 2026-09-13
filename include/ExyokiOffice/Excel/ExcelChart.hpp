@@ -87,6 +87,25 @@ struct EXYOKIOFFICE_EXPORT ExcelChartSeries
      * host worksheet; cross-sheet references still emit a valid formula.
      */
     std::optional<std::string> SourceSheet;
+
+    /**
+     * @brief Plot type this series is drawn as, when it differs from the chart's.
+     *
+     * Setting it makes a combination chart, such as columns with a line over
+     * them. Only kinds that share axes combine: column, line and area with each
+     * other; bar only with bar; scatter only with scatter; bubble only with
+     * bubble; and a pie with nothing. Empty means @ref ExcelChartDefinition::Type.
+     */
+    std::optional<ExcelChartType> Type;
+
+    /**
+     * @brief Plots the series against a secondary value axis on the opposite side.
+     *
+     * For a series whose values have a different scale from the rest, such as a
+     * percentage over amounts. At least one series of the chart has to stay on
+     * the primary axis, and a pie has no axis to add.
+     */
+    bool SecondaryAxis = false;
 };
 
 /**
@@ -121,6 +140,9 @@ struct EXYOKIOFFICE_EXPORT ExcelChartDefinition
 
     /** @brief Value (Y) axis title. */
     std::string ValueAxisTitle;
+
+    /** @brief Secondary value axis title; used only when a series sets @ref ExcelChartSeries::SecondaryAxis. */
+    std::string SecondaryValueAxisTitle;
 
     /** @brief Whether the legend is drawn. */
     bool ShowLegend = true;
