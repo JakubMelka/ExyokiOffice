@@ -97,6 +97,25 @@ Without that option every test receives a fresh temporary workspace and
 pytest removes it after the run. Tests never use the repository root as an MCP
 workspace.
 
+## Opening the output in Microsoft Office
+
+Passing this suite does not show that Office accepts what the servers write.
+`oracle_corpus.py` writes one document per server through every mutating tool,
+each called with the example its catalog entry carries, and
+[tests/office-oracle](../office-oracle/Invoke-OfficeOracle.ps1) opens those
+documents in Word, Excel and PowerPoint and reports anything Office refuses or
+drops when it saves them:
+
+```powershell
+.\.venv\Scripts\python oracle_corpus.py ..\..\build\oracle
+..\office-oracle\Invoke-OfficeOracle.ps1 -Path ..\..\build\oracle
+```
+
+The corpus script exits non-zero when a produced document fails validation;
+the gate exits non-zero when Office cannot open a document or drops a kind of
+content from it. It needs Windows with Microsoft Office installed, changes no
+Office setting, and runs no macros.
+
 ## Expected failures and interpretation
 
 Conformance tests express requirements of MCP, not the current implementation.

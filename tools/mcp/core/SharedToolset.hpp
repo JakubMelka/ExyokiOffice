@@ -166,6 +166,52 @@ public:
 
     /// Reads a whole file into memory; false when it cannot be read.
     [[nodiscard]] static bool ReadFileBytes(const std::filesystem::path& path, std::vector<Byte>& bytes);
+
+    /// The chart type tokens `add_chart` accepts on the servers that create charts.
+    [[nodiscard]] static std::vector<std::string> ChartTypeTokens();
+
+    /**
+     * @brief Publishes the axis titles, legend and gridline arguments of `add_chart`.
+     *
+     * Excel and PowerPoint write charts through the same library layer, so
+     * both take these under the same names.
+     */
+    static void AddChartAppearanceProperties(nlohmann::json& properties);
+
+    /** @brief How one series of a chart being created is drawn. */
+    struct ChartSeriesPlan
+    {
+        /// Chart type token, or empty for the chart's own type.
+        std::string Type;
+        bool SecondaryAxis = false;
+    };
+
+    /**
+     * @brief Explains why @p series cannot share one plot area, or returns empty.
+     *
+     * The library refuses the same combinations without saying why; this is
+     * the sentence an agent needs to pick a type that works. Kinds combine only
+     * when they share axes: column, line and area with each other, and bar,
+     * scatter, bubble and pie only with their own kind. At least one series
+     * has to stay on the primary axis.
+     */
+    [[nodiscard]] static std::string ChartCombinationError(const std::string& chartType,
+                                                           const std::vector<ChartSeriesPlan>& series);
+
+    /**
+     * @brief Answers a call to a tool this server recognizes but does not offer.
+     *
+     * Two kinds of name qualify: a tool a catalog filter withheld, and a name
+     * that asks for a capability this version deliberately leaves out, such
+     * as SmartArt, equations, encryption or signatures. Both come back as an
+     * `unsupported` tool failure carrying the reason and what to do instead,
+     * because a model sees a tool failure and may never see a protocol error.
+     *
+     * @return std::nullopt for a name the server knows nothing about, which
+     * stays a JSON-RPC `-32602`.
+     */
+    [[nodiscard]] static std::optional<ToolOutcome> DescribeUnavailableTool(const ToolContext& context,
+                                                                            std::string_view name);
 };
 
 } // namespace ExyokiOffice::Mcp

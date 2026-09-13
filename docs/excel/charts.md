@@ -58,6 +58,44 @@ host worksheet are additionally embedded as numeric and string caches, so
 the chart renders in viewers that never evaluate a formula; cross-sheet
 series emit the reference only, and Excel fills the values in on open.
 
+## Combination charts and a secondary axis
+
+A series can be drawn as a different type from the chart, and against a
+secondary value axis on the opposite side — columns of amounts with a line of
+percentages over them, say. Both are set per series on the definition:
+
+```cpp
+ExcelChartDefinition chart;
+chart.Type = ExcelChartType::Column;
+chart.From = *CellAddress::ParseA1("E2");
+chart.To = *CellAddress::ParseA1("L20");
+chart.SecondaryValueAxisTitle = "Margin";
+
+ExcelChartSeries revenue;
+revenue.Name = "Revenue";
+revenue.Values = *CellRange::ParseA1("B2:B5");
+revenue.Categories = *CellRange::ParseA1("A2:A5");
+
+ExcelChartSeries margin = revenue;
+margin.Name = "Margin";
+margin.Values = *CellRange::ParseA1("C2:C5");
+margin.Type = ExcelChartType::Line;     // drawn as a line over the columns
+margin.SecondaryAxis = true;            // against its own scale on the right
+
+chart.Series = {revenue, margin};
+sheet->AddChart(chart);
+```
+
+The chart is written the way Excel writes one: a plot group per type and axis,
+and a second axis pair whose value axis crosses at the maximum and whose
+category axis is hidden. Only kinds that share axes combine — column, line and
+area with each other, and bar, scatter, bubble and pie only with their own
+kind — and at least one series has to stay on the primary axis. `AddChart`
+returns `std::nullopt` for any other combination and adds nothing.
+
+`Charts()` reads the combination back: a series drawn as the chart's own type
+has an empty `Type`, and every series reports its `SecondaryAxis`.
+
 ## Reading, updating, and removing
 
 `Worksheet::AddChart(ExcelChartDefinition)` takes the same structure the

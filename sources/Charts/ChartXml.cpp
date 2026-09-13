@@ -7,8 +7,11 @@
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Drawing.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
+#include <iterator>
+#include <string_view>
 
 namespace ExyokiOffice::Detail::Charts
 {
@@ -101,11 +104,16 @@ public:
         }
     }
 
+    /**
+     * Writes the series @p members of @p data into @p group. A series keeps its
+     * position in @p data as its index and order, so a combination chart split
+     * across several groups still numbers its series once, as Excel does.
+     */
     template <typename TSeries>
-    static void EmitSeries(const ChartDom::Element& group, const std::vector<ChartSeriesData>& data, bool marker,
-                           bool scatter)
+    static void EmitSeries(const ChartDom::Element& group, const std::vector<ChartSeriesData>& data,
+                           const std::vector<Size>& members, bool marker, bool scatter)
     {
-        for (Size i = 0; i < data.size(); ++i)
+        for (const Size i : members)
         {
             // series has a dependent type, so AppendChild needs the template
             // disambiguator here. MSVC accepts it without, Clang does not.
@@ -135,13 +143,27 @@ public:
         }
     }
 
+    /**
+     * How an axis is written. The primary pair crosses at zero and is drawn; a
+     * secondary pair is written the way Excel writes it, with its value axis
+     * crossing at the maximum so it stands on the opposite side and its
+     * category axis deleted, because the categories are already labelled once.
+     */
+    struct AxisStyle
+    {
+        bool deleted = false;
+        /// `crosses` value, or null to write none, as Excel does on a deleted category axis.
+        const char* crosses = "autoZero";
+        bool gridLines = false;
+    };
+
     static void BuildCategoryAxis(const ChartDom::Element& plot, const char* id, const char* position,
-                                  const char* cross, const std::string& title)
+                                  const char* cross, const std::string& title, const AxisStyle& style = {})
     {
         auto axis = plot->AppendChild<C::CategoryAxis>();
         SetVal<C::AxisId>(axis, id);
         SetVal<C::Orientation>(axis->AppendChild<C::Scaling>(), "minMax");
-        SetVal<C::Delete>(axis, "0");
+        SetVal<C::Delete>(axis, style.deleted ? "1" : "0");
         SetVal<C::AxisPosition>(axis, position);
         if (!title.empty())
         {
@@ -151,7 +173,10 @@ public:
         SetVal<C::MinorTickMark>(axis, "none");
         SetVal<C::TickLabelPosition>(axis, "nextTo");
         SetVal<C::CrossingAxis>(axis, cross);
-        SetVal<C::Crosses>(axis, "autoZero");
+        if (style.crosses != nullptr)
+        {
+            SetVal<C::Crosses>(axis, style.crosses);
+        }
         SetVal<C::AutoLabeled>(axis, "1");
         SetVal<C::LabelAlignment>(axis, "ctr");
         SetVal<C::LabelOffset>(axis, "100");
@@ -159,14 +184,14 @@ public:
     }
 
     static void BuildValueAxis(const ChartDom::Element& plot, const char* id, const char* position,
-                               const char* cross, const std::string& title, bool grid)
+                               const char* cross, const std::string& title, const AxisStyle& style)
     {
         auto axis = plot->AppendChild<C::ValueAxis>();
         SetVal<C::AxisId>(axis, id);
         SetVal<C::Orientation>(axis->AppendChild<C::Scaling>(), "minMax");
-        SetVal<C::Delete>(axis, "0");
+        SetVal<C::Delete>(axis, style.deleted ? "1" : "0");
         SetVal<C::AxisPosition>(axis, position);
-        if (grid)
+        if (style.gridLines)
         {
             axis->AppendChild<C::MajorGridlines>();
         }
@@ -181,8 +206,171 @@ public:
         SetVal<C::MinorTickMark>(axis, "none");
         SetVal<C::TickLabelPosition>(axis, "nextTo");
         SetVal<C::CrossingAxis>(axis, cross);
-        SetVal<C::Crosses>(axis, "autoZero");
+        if (style.crosses != nullptr)
+        {
+            SetVal<C::Crosses>(axis, style.crosses);
+        }
         SetVal<C::CrossBetween>(axis, "between");
+    }
+
+    /// The plot type a series is drawn as: its own, or the chart's.
+    static ChartPlotKind EffectiveKind(ChartPlotKind chartKind, const ChartSeriesData& series)
+    {
+        return series.kind == ChartPlotKind::Unknown ? chartKind : series.kind;
+    }
+
+    /** The series one plot-type group of a chart being written will hold. */
+    struct GroupPlan
+    {
+        ChartPlotKind kind = ChartPlotKind::Unknown;
+        bool secondary = false;
+        std::vector<Size> members;
+    };
+
+    /**
+     * Splits @p series into one group per plot type and axis pair. A plot area
+     * holds every group before every axis, and Excel lists the primary groups
+     * first, so they are planned first, each in order of first appearance.
+     */
+    static std::vector<GroupPlan> PlanGroups(ChartPlotKind chartKind, const std::vector<ChartSeriesData>& series)
+    {
+        std::vector<GroupPlan> plans;
+        for (const bool secondary : {false, true})
+        {
+            for (Size index = 0; index < series.size(); ++index)
+            {
+                if (series[index].secondaryAxis != secondary)
+                {
+                    continue;
+                }
+                const auto kind = EffectiveKind(chartKind, series[index]);
+                auto plan = std::find_if(plans.begin(), plans.end(), [&](const GroupPlan& candidate)
+                                         { return candidate.kind == kind && candidate.secondary == secondary; });
+                if (plan == plans.end())
+                {
+                    plans.push_back(GroupPlan{kind, secondary, {}});
+                    plan = std::prev(plans.end());
+                }
+                plan->members.push_back(index);
+            }
+        }
+        return plans;
+    }
+
+    /// Writes one plot-type group, bound to the primary (1, 2) or secondary (3, 4) axis pair.
+    static void EmitGroup(const ChartDom::Element& plot, const GroupPlan& plan,
+                          const std::vector<ChartSeriesData>& series)
+    {
+        const char* const categoryAxis = plan.secondary ? "3" : "1";
+        const char* const valueAxis = plan.secondary ? "4" : "2";
+        const auto bindAxes = [&](const ChartDom::Element& group)
+        {
+            SetVal<C::AxisId>(group, categoryAxis);
+            SetVal<C::AxisId>(group, valueAxis);
+        };
+        switch (plan.kind)
+        {
+            case ChartPlotKind::Column:
+            case ChartPlotKind::Bar:
+            {
+                auto group = plot->AppendChild<C::BarChart>();
+                SetVal<C::BarDirection>(group, plan.kind == ChartPlotKind::Bar ? "bar" : "col");
+                SetVal<C::BarGrouping>(group, "clustered");
+                SetVal<C::VaryColors>(group, "0");
+                EmitSeries<C::BarChartSeries>(group, series, plan.members, false, false);
+                bindAxes(group);
+                break;
+            }
+            case ChartPlotKind::Line:
+            {
+                auto group = plot->AppendChild<C::LineChart>();
+                SetVal<C::Grouping>(group, "standard");
+                SetVal<C::VaryColors>(group, "0");
+                EmitSeries<C::LineChartSeries>(group, series, plan.members, true, false);
+                SetVal<C::ShowMarker>(group, "1");
+                bindAxes(group);
+                break;
+            }
+            case ChartPlotKind::Pie:
+            {
+                auto group = plot->AppendChild<C::PieChart>();
+                SetVal<C::VaryColors>(group, "1");
+                EmitSeries<C::PieChartSeries>(group, series, plan.members, false, false);
+                SetVal<C::FirstSliceAngle>(group, "0");
+                break;
+            }
+            case ChartPlotKind::Area:
+            {
+                auto group = plot->AppendChild<C::AreaChart>();
+                SetVal<C::Grouping>(group, "standard");
+                SetVal<C::VaryColors>(group, "0");
+                EmitSeries<C::AreaChartSeries>(group, series, plan.members, false, false);
+                bindAxes(group);
+                break;
+            }
+            case ChartPlotKind::XyScatter:
+            {
+                auto group = plot->AppendChild<C::ScatterChart>();
+                SetVal<C::ScatterStyle>(group, "lineMarker");
+                SetVal<C::VaryColors>(group, "0");
+                EmitSeries<C::ScatterChartSeries>(group, series, plan.members, false, true);
+                bindAxes(group);
+                break;
+            }
+            case ChartPlotKind::Bubble:
+            {
+                auto group = plot->AppendChild<C::BubbleChart>();
+                SetVal<C::VaryColors>(group, "0");
+                EmitSeries<C::BubbleChartSeries>(group, series, plan.members, false, true);
+                bindAxes(group);
+                break;
+            }
+            case ChartPlotKind::Unknown:
+                break;
+        }
+    }
+
+    /// Classifies a plot-area child; Unknown for axes and anything else.
+    static ChartPlotKind GroupKind(const ChartDom::Element& child, bool& scatterLike)
+    {
+        scatterLike = false;
+        if (auto bar = openxmlelement_cast<C::BarChart>(child))
+        {
+            auto direction = Child<C::BarDirection>(bar);
+            return direction && direction->GetAttribute(OpenXmlQualifiedName({}, "val")) == "bar"
+                       ? ChartPlotKind::Bar
+                       : ChartPlotKind::Column;
+        }
+        if (openxmlelement_cast<C::LineChart>(child))
+        {
+            return ChartPlotKind::Line;
+        }
+        if (openxmlelement_cast<C::PieChart>(child))
+        {
+            return ChartPlotKind::Pie;
+        }
+        if (openxmlelement_cast<C::AreaChart>(child))
+        {
+            return ChartPlotKind::Area;
+        }
+        if (openxmlelement_cast<C::ScatterChart>(child))
+        {
+            scatterLike = true;
+            return ChartPlotKind::XyScatter;
+        }
+        if (openxmlelement_cast<C::BubbleChart>(child))
+        {
+            scatterLike = true;
+            return ChartPlotKind::Bubble;
+        }
+        return ChartPlotKind::Unknown;
+    }
+
+    /// The first axis a plot-type group names, or empty for a pie.
+    static std::string FirstAxisId(const ChartDom::Element& group)
+    {
+        auto axis = Child<C::AxisId>(group);
+        return axis ? std::string(axis->GetAttribute(OpenXmlQualifiedName({}, "val"))) : std::string{};
     }
 
     struct OldSeriesFormulas
@@ -206,10 +394,13 @@ public:
         return result;
     }
 
+    /// @p index is the series' position within its group, which is how @p formulas
+    /// is indexed; @p ordinal is its position across the whole chart.
     static void AppendLiteralData(const ChartDom::Element& series, const ChartLiteralSeries& data, Size index,
-                                  const std::vector<OldSeriesFormulas>& formulas, bool scatter, bool marker)
+                                  Size ordinal, const std::vector<OldSeriesFormulas>& formulas, bool scatter,
+                                  bool marker)
     {
-        ChartDom::AppendSeriesPreamble(series, index, data.name, marker);
+        ChartDom::AppendSeriesPreamble(series, ordinal, data.name, marker);
         if (data.categories)
         {
             ChartSeriesRef ref;
@@ -250,7 +441,8 @@ public:
 
     template <typename TSeries>
     static void RebuildTyped(const ChartDom::Element& group, const std::vector<ChartLiteralSeries>& data,
-                             const std::vector<OldSeriesFormulas>& formulas, bool scatter, bool marker)
+                             const std::vector<Size>& ordinals, const std::vector<OldSeriesFormulas>& formulas,
+                             bool scatter, bool marker)
     {
         for (const auto& old : group->Elements<TSeries>())
         {
@@ -258,8 +450,50 @@ public:
         }
         for (Size i = 0; i < data.size(); ++i)
         {
-            AppendLiteralData(group->AppendChild<TSeries>(), data[i], i, formulas, scatter, marker);
+            AppendLiteralData(group->AppendChild<TSeries>(), data[i], i, ordinals[i], formulas, scatter, marker);
         }
+    }
+
+    /// Rewrites the series of one plot-type group; false for a group kind it does not know.
+    static bool RebuildGroup(const ChartPlotGroup& plot, const std::vector<ChartLiteralSeries>& data,
+                             const std::vector<Size>& ordinals)
+    {
+        const auto formulas = ReadOldFormulas(plot.group, plot.scatterLike);
+        switch (plot.kind)
+        {
+            case ChartPlotKind::Column:
+            case ChartPlotKind::Bar:
+                RebuildTyped<C::BarChartSeries>(plot.group, data, ordinals, formulas, false, false);
+                return true;
+            case ChartPlotKind::Line:
+                RebuildTyped<C::LineChartSeries>(plot.group, data, ordinals, formulas, false, true);
+                return true;
+            case ChartPlotKind::Pie:
+                RebuildTyped<C::PieChartSeries>(plot.group, data, ordinals, formulas, false, false);
+                return true;
+            case ChartPlotKind::Area:
+                RebuildTyped<C::AreaChartSeries>(plot.group, data, ordinals, formulas, false, false);
+                return true;
+            case ChartPlotKind::XyScatter:
+                RebuildTyped<C::ScatterChartSeries>(plot.group, data, ordinals, formulas, true, false);
+                return true;
+            case ChartPlotKind::Bubble:
+                RebuildTyped<C::BubbleChartSeries>(plot.group, data, ordinals, formulas, true, false);
+                return true;
+            case ChartPlotKind::Unknown:
+                break;
+        }
+        return false;
+    }
+
+    /// The `c:order` of a series, or @p fallback when it carries none.
+    static UInt32 ReadOrder(const ChartDom::Element& series, UInt32 fallback)
+    {
+        auto order = Child<C::Order>(series);
+        const auto text = order ? order->GetAttribute(OpenXmlQualifiedName({}, "val")) : std::string_view{};
+        UInt32 value = fallback;
+        std::from_chars(text.data(), text.data() + text.size(), value);
+        return value;
     }
 };
 
@@ -305,6 +539,79 @@ ChartDom::Element ChartDom::FindPlotGroup(const Element& plotArea, ChartPlotKind
         return group;
     }
     return nullptr;
+}
+
+std::vector<ChartPlotGroup> ChartDom::PlotGroups(const Element& plotArea)
+{
+    std::vector<ChartPlotGroup> groups;
+    if (!plotArea)
+    {
+        return groups;
+    }
+    std::string primaryAxis;
+    for (const auto& child : plotArea->Children())
+    {
+        ChartPlotGroup entry;
+        entry.kind = ChartDomInternal::GroupKind(child, entry.scatterLike);
+        if (entry.kind == ChartPlotKind::Unknown)
+        {
+            continue;
+        }
+        entry.group = child;
+        const auto axis = ChartDomInternal::FirstAxisId(child);
+        if (!axis.empty())
+        {
+            if (primaryAxis.empty())
+            {
+                primaryAxis = axis;
+            }
+            entry.secondaryAxis = axis != primaryAxis;
+        }
+        groups.push_back(std::move(entry));
+    }
+    return groups;
+}
+
+std::vector<ChartSeriesNode> ChartDom::AllSeries(const Element& plotArea)
+{
+    std::vector<ChartSeriesNode> nodes;
+    const auto groups = PlotGroups(plotArea);
+    for (Size groupIndex = 0; groupIndex < groups.size(); ++groupIndex)
+    {
+        const auto& plot = groups[groupIndex];
+        for (const auto& series : Series(plot.group))
+        {
+            const auto fallback = static_cast<UInt32>(nodes.size());
+            nodes.push_back(ChartSeriesNode{series, plot.group, groupIndex, plot.kind, plot.scatterLike,
+                                            plot.secondaryAxis, ChartDomInternal::ReadOrder(series, fallback)});
+        }
+    }
+    std::ranges::stable_sort(nodes, {}, &ChartSeriesNode::order);
+    return nodes;
+}
+
+bool ChartDom::IsValidCombination(ChartPlotKind chartKind, const std::vector<ChartSeriesData>& series)
+{
+    if (chartKind == ChartPlotKind::Unknown)
+    {
+        return false;
+    }
+    bool primary = series.empty();
+    for (const auto& item : series)
+    {
+        const auto kind = ChartDomInternal::EffectiveKind(chartKind, item);
+        const bool pieMismatch = (kind == ChartPlotKind::Pie) != (chartKind == ChartPlotKind::Pie);
+        const bool scatterMismatch = ChartDomInternal::IsScatterKind(kind) != ChartDomInternal::IsScatterKind(chartKind);
+        const bool bubbleMismatch = (kind == ChartPlotKind::Bubble) != (chartKind == ChartPlotKind::Bubble);
+        const bool barMismatch = (kind == ChartPlotKind::Bar) != (chartKind == ChartPlotKind::Bar);
+        if (kind == ChartPlotKind::Unknown || pieMismatch || scatterMismatch || bubbleMismatch || barMismatch ||
+            (kind == ChartPlotKind::Pie && item.secondaryAxis))
+        {
+            return false;
+        }
+        primary = primary || !item.secondaryAxis;
+    }
+    return primary;
 }
 
 std::vector<ChartDom::Element> ChartDom::Series(const Element& group)
@@ -560,84 +867,46 @@ void ChartDom::BuildChartSpace(const Element& chartSpace, const ChartLayout& lay
     }
     auto plot = chart->AppendChild<C::PlotArea>();
     plot->AppendChild<C::Layout>();
-    const bool scatter = ChartDomInternal::IsScatterKind(layout.type);
-    switch (layout.type)
+    const auto plans = ChartDomInternal::PlanGroups(layout.type, series);
+    for (const auto& plan : plans)
     {
-        case ChartPlotKind::Column:
-        case ChartPlotKind::Bar:
-        {
-            auto group = plot->AppendChild<C::BarChart>();
-            ChartDomInternal::SetVal<C::BarDirection>(group, layout.type == ChartPlotKind::Bar ? "bar" : "col");
-            ChartDomInternal::SetVal<C::BarGrouping>(group, "clustered");
-            ChartDomInternal::SetVal<C::VaryColors>(group, "0");
-            ChartDomInternal::EmitSeries<C::BarChartSeries>(group, series, false, false);
-            ChartDomInternal::SetVal<C::AxisId>(group, "1");
-            ChartDomInternal::SetVal<C::AxisId>(group, "2");
-            break;
-        }
-        case ChartPlotKind::Line:
-        {
-            auto group = plot->AppendChild<C::LineChart>();
-            ChartDomInternal::SetVal<C::Grouping>(group, "standard");
-            ChartDomInternal::SetVal<C::VaryColors>(group, "0");
-            ChartDomInternal::EmitSeries<C::LineChartSeries>(group, series, true, false);
-            ChartDomInternal::SetVal<C::ShowMarker>(group, "1");
-            ChartDomInternal::SetVal<C::AxisId>(group, "1");
-            ChartDomInternal::SetVal<C::AxisId>(group, "2");
-            break;
-        }
-        case ChartPlotKind::Pie:
-        {
-            auto group = plot->AppendChild<C::PieChart>();
-            ChartDomInternal::SetVal<C::VaryColors>(group, "1");
-            ChartDomInternal::EmitSeries<C::PieChartSeries>(group, series, false, false);
-            ChartDomInternal::SetVal<C::FirstSliceAngle>(group, "0");
-            break;
-        }
-        case ChartPlotKind::Area:
-        {
-            auto group = plot->AppendChild<C::AreaChart>();
-            ChartDomInternal::SetVal<C::Grouping>(group, "standard");
-            ChartDomInternal::SetVal<C::VaryColors>(group, "0");
-            ChartDomInternal::EmitSeries<C::AreaChartSeries>(group, series, false, false);
-            ChartDomInternal::SetVal<C::AxisId>(group, "1");
-            ChartDomInternal::SetVal<C::AxisId>(group, "2");
-            break;
-        }
-        case ChartPlotKind::XyScatter:
-        {
-            auto group = plot->AppendChild<C::ScatterChart>();
-            ChartDomInternal::SetVal<C::ScatterStyle>(group, "lineMarker");
-            ChartDomInternal::SetVal<C::VaryColors>(group, "0");
-            ChartDomInternal::EmitSeries<C::ScatterChartSeries>(group, series, false, true);
-            ChartDomInternal::SetVal<C::AxisId>(group, "1");
-            ChartDomInternal::SetVal<C::AxisId>(group, "2");
-            break;
-        }
-        case ChartPlotKind::Bubble:
-        {
-            auto group = plot->AppendChild<C::BubbleChart>();
-            ChartDomInternal::SetVal<C::VaryColors>(group, "0");
-            ChartDomInternal::EmitSeries<C::BubbleChartSeries>(group, series, false, true);
-            ChartDomInternal::SetVal<C::AxisId>(group, "1");
-            ChartDomInternal::SetVal<C::AxisId>(group, "2");
-            break;
-        }
-        case ChartPlotKind::Unknown:
-            break;
+        ChartDomInternal::EmitGroup(plot, plan, series);
     }
-    if (layout.type != ChartPlotKind::Pie && layout.type != ChartPlotKind::Unknown)
+
+    // Every group shares the axis kinds of the first one, which is what
+    // IsValidCombination guarantees, so the first group decides the axes.
+    const auto axisKind = plans.empty() ? layout.type : plans.front().kind;
+    const bool secondary = std::ranges::any_of(plans, [](const auto& plan)
+                                               { return plan.secondary; });
+    if (axisKind != ChartPlotKind::Pie && axisKind != ChartPlotKind::Unknown)
     {
-        if (scatter)
+        using AxisStyle = ChartDomInternal::AxisStyle;
+        const AxisStyle primary{false, "autoZero", layout.showGridLines};
+        const AxisStyle secondaryValue{false, "max", false};
+        const AxisStyle secondaryCategory{true, nullptr, false};
+        const std::string noTitle;
+        if (ChartDomInternal::IsScatterKind(axisKind))
         {
-            ChartDomInternal::BuildValueAxis(plot, "1", "b", "2", layout.categoryAxisTitle, layout.showGridLines);
-            ChartDomInternal::BuildValueAxis(plot, "2", "l", "1", layout.valueAxisTitle, layout.showGridLines);
+            ChartDomInternal::BuildValueAxis(plot, "1", "b", "2", layout.categoryAxisTitle, primary);
+            ChartDomInternal::BuildValueAxis(plot, "2", "l", "1", layout.valueAxisTitle, primary);
+            if (secondary)
+            {
+                ChartDomInternal::BuildValueAxis(plot, "4", "r", "3", layout.secondaryValueAxisTitle, secondaryValue);
+                ChartDomInternal::BuildValueAxis(plot, "3", "b", "4", noTitle, AxisStyle{true, "autoZero", false});
+            }
         }
         else
         {
-            const bool horizontal = layout.type == ChartPlotKind::Bar;
+            const bool horizontal = axisKind == ChartPlotKind::Bar;
             ChartDomInternal::BuildCategoryAxis(plot, "1", horizontal ? "l" : "b", "2", layout.categoryAxisTitle);
-            ChartDomInternal::BuildValueAxis(plot, "2", horizontal ? "b" : "l", "1", layout.valueAxisTitle, layout.showGridLines);
+            ChartDomInternal::BuildValueAxis(plot, "2", horizontal ? "b" : "l", "1", layout.valueAxisTitle, primary);
+            if (secondary)
+            {
+                ChartDomInternal::BuildValueAxis(plot, "4", horizontal ? "t" : "r", "3",
+                                                 layout.secondaryValueAxisTitle, secondaryValue);
+                ChartDomInternal::BuildCategoryAxis(plot, "3", horizontal ? "r" : "b", "4", noTitle,
+                                                    secondaryCategory);
+            }
         }
     }
     if (layout.showLegend && layout.legendPosition != ChartLegendPosition::None)
@@ -657,13 +926,42 @@ bool ChartDom::RewriteSeries(const Element& chart, const std::vector<ChartLitera
     {
         return false;
     }
-    ChartPlotKind kind{};
-    bool scatter = false;
-    auto group = FindPlotGroup(ChartDomInternal::Child<C::PlotArea>(chart), kind, scatter);
-    if (!group)
+    const auto plotArea = ChartDomInternal::Child<C::PlotArea>(chart);
+    const auto groups = PlotGroups(plotArea);
+    if (groups.empty())
     {
         return false;
     }
+
+    // Which group each new series goes into. One group takes them all; a
+    // combination chart hands the k-th series in `c:order` to the group the
+    // k-th existing series is in. Decided before anything is written, so a
+    // refused rewrite leaves the chart as it was.
+    std::vector<std::vector<Size>> members(groups.size());
+    if (groups.size() == 1)
+    {
+        for (Size index = 0; index < data.size(); ++index)
+        {
+            members.front().push_back(index);
+        }
+    }
+    else
+    {
+        const auto nodes = AllSeries(plotArea);
+        if (nodes.size() != data.size())
+        {
+            return false;
+        }
+        for (Size index = 0; index < nodes.size(); ++index)
+        {
+            if (nodes[index].groupIndex >= members.size())
+            {
+                return false;
+            }
+            members[nodes[index].groupIndex].push_back(index);
+        }
+    }
+
     if (title)
     {
         if (auto old = ChartDomInternal::Child<C::Title>(chart))
@@ -680,34 +978,18 @@ bool ChartDom::RewriteSeries(const Element& chart, const std::vector<ChartLitera
             SetAutoTitleDeleted(chart, false);
         }
     }
-    const auto formulas = ChartDomInternal::ReadOldFormulas(group, scatter);
-    if (openxmlelement_cast<C::BarChart>(group))
+    for (Size index = 0; index < groups.size(); ++index)
     {
-        ChartDomInternal::RebuildTyped<C::BarChartSeries>(group, data, formulas, false, false);
-    }
-    else if (openxmlelement_cast<C::LineChart>(group))
-    {
-        ChartDomInternal::RebuildTyped<C::LineChartSeries>(group, data, formulas, false, true);
-    }
-    else if (openxmlelement_cast<C::PieChart>(group))
-    {
-        ChartDomInternal::RebuildTyped<C::PieChartSeries>(group, data, formulas, false, false);
-    }
-    else if (openxmlelement_cast<C::AreaChart>(group))
-    {
-        ChartDomInternal::RebuildTyped<C::AreaChartSeries>(group, data, formulas, false, false);
-    }
-    else if (openxmlelement_cast<C::ScatterChart>(group))
-    {
-        ChartDomInternal::RebuildTyped<C::ScatterChartSeries>(group, data, formulas, true, false);
-    }
-    else if (openxmlelement_cast<C::BubbleChart>(group))
-    {
-        ChartDomInternal::RebuildTyped<C::BubbleChartSeries>(group, data, formulas, true, false);
-    }
-    else
-    {
-        return false;
+        std::vector<ChartLiteralSeries> slice;
+        slice.reserve(members[index].size());
+        for (const Size member : members[index])
+        {
+            slice.push_back(data[member]);
+        }
+        if (!ChartDomInternal::RebuildGroup(groups[index], slice, members[index]))
+        {
+            return false;
+        }
     }
     return true;
 }

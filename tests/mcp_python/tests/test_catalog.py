@@ -35,9 +35,8 @@ async def test_complete_catalog_contract(family, server_executables, workspace):
         listed = await client.list_tools()
         tools = listed.tools
         assert listed.next_cursor is None
-        assert len(tools) == spec.expected_tool_count
-
         names = [tool.name for tool in tools]
+        assert sorted(names) == sorted(spec.published_tool_names())
         assert len(names) == len(set(names))
         assert SHARED_TOOLS <= set(names)
         assert spec.identity_tool in names

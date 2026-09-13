@@ -1433,17 +1433,28 @@ private:
         }
 
         const Size from = arguments.value("from", static_cast<Size>(0));
-        const Size to = std::max(from, arguments.value("to", from));
+        const Size to = arguments.value("to", from);
+        if (to < from)
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "'to' (" + std::to_string(to) + ") comes before 'from' (" + std::to_string(from) + ").",
+                             std::to_string(to), "Pass 'to' at or after 'from', or omit it to delete one block.");
+        }
 
         MutationGuard guard(session.Session());
 
+        // A range running past the end used to be shortened silently, which
+        // deleted what was left of it; a destructive call gets refused instead.
         const auto blocks = session.Editor().BodyBlocks();
-        if (from == 0 || from > blocks.size())
+        for (const Size index : {from, to})
         {
-            return MakeError(ErrorCode::BlockNotFound,
-                             "The document has " + std::to_string(blocks.size()) + " body block(s); block " +
-                                 std::to_string(from) + " does not exist.",
-                             std::to_string(from), "Call read_blocks to see the current block indices.");
+            if (index == 0 || index > blocks.size())
+            {
+                return MakeError(ErrorCode::BlockNotFound,
+                                 "The document has " + std::to_string(blocks.size()) + " body block(s); block " +
+                                     std::to_string(index) + " does not exist.",
+                                 std::to_string(index), "Call read_blocks to see the current block indices.");
+            }
         }
 
         Size deleted = 0;
@@ -3326,6 +3337,7 @@ private:
         MutationGuard guard(session.Session());
 
         Size resolved = 0;
+        std::string missing;
         const auto ids = arguments.find("ids");
         if (ids == arguments.end() || !ids->is_array())
         {
@@ -3339,6 +3351,7 @@ private:
                 wanted.push_back(id.get<std::string>());
             }
 
+            std::vector<std::string> found;
             for (const auto& revision : session.Editor().Revisions())
             {
                 if (revision == nullptr ||
@@ -3347,9 +3360,20 @@ private:
                     continue;
                 }
 
+                found.push_back(revision->GetId());
                 if (accept ? revision->Accept() : revision->Reject())
                 {
                     ++resolved;
+                }
+            }
+
+            // An identifier that names no revision is most likely stale or
+            // mistyped; resolving nothing without saying so reads as success.
+            for (const auto& id : wanted)
+            {
+                if (std::find(found.begin(), found.end(), id) == found.end())
+                {
+                    missing += (missing.empty() ? "" : ", ") + id;
                 }
             }
         }
@@ -3359,10 +3383,14 @@ private:
         nlohmann::json data = nlohmann::json::object();
         data["resolved"] = static_cast<UInt64>(resolved);
 
-        return ResultBuilder((accept ? "Accepted " : "Rejected ") + std::to_string(resolved) + " revision(s).")
-            .WithSession(session.Session())
-            .WithData(std::move(data))
-            .Build();
+        ResultBuilder builder((accept ? "Accepted " : "Rejected ") + std::to_string(resolved) + " revision(s).");
+        builder.WithSession(session.Session()).WithData(std::move(data));
+        if (!missing.empty())
+        {
+            builder.WithWarning("revision_not_found", "No revision has the id(s) " + missing + ".", missing);
+        }
+
+        return builder.Build();
     }
 
     static void RegisterListComments(ToolRegistry& registry)
@@ -5664,8 +5692,13 @@ private:
             return failure;
         }
 
-        auto output = ToolSupport::ResolveOutputPath(context, arguments.value("output_path", std::string()),
-                                                     arguments.value("overwrite", false), failure);
+        const auto outputPath = arguments.value("output_path", std::string());
+        if (!ToolSupport::CheckDestinationFamily(context, outputPath, failure))
+        {
+            return failure;
+        }
+
+        auto output = ToolSupport::ResolveOutputPath(context, outputPath, arguments.value("overwrite", false), failure);
         if (!output.has_value())
         {
             return failure;

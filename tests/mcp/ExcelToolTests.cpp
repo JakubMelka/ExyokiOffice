@@ -909,6 +909,198 @@ TEST_CASE("a multi-column data range becomes one chart series per column [mcp-ex
     CHECK(sheet->Charts().size() == 4);
 }
 
+TEST_CASE("a chart on a summary sheet plots another sheet as columns with a line on a secondary axis [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "combo.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_sheet", nlohmann::json{{"documentId", documentId}, {"name", "My Data"}})["ok"] == true);
+    REQUIRE(server->Call("write_range",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"sheet", "My Data"},
+                                        {"origin", "A1"},
+                                        {"values", nlohmann::json::array({nlohmann::json::array({"Q1", 100, 0.1, 4}),
+                                                                          nlohmann::json::array({"Q2", 150, 0.2, 6}),
+                                                                          nlohmann::json::array({"Q3", 120, 0.15, 5})})}})
+                ["ok"] == true);
+
+    const auto chart = [&](nlohmann::json arguments)
+    {
+        arguments["documentId"] = documentId;
+        arguments["sheet"] = 1;
+        if (!arguments.contains("anchor_cell"))
+        {
+            arguments["anchor_cell"] = "A1";
+        }
+        return server->Call("add_chart", arguments);
+    };
+
+    const auto combination =
+        chart(nlohmann::json{{"type", "column"},
+                             {"data_range", "'My Data'!B1:C3"},
+                             {"categories_range", "'My Data'!A1:A3"},
+                             {"series_names", nlohmann::json::array({"Revenue", "Margin"})},
+                             {"series_options", nlohmann::json::array({nlohmann::json::object(),
+                                                                       nlohmann::json{{"type", "line"},
+                                                                                      {"secondary_axis", true}}})},
+                             {"value_axis_title", "USD"},
+                             {"secondary_axis_title", "Margin"},
+                             {"legend", "bottom"}});
+    REQUIRE(combination["ok"] == true);
+    CHECK(combination["data"]["seriesCount"] == 2);
+    CHECK(combination["data"]["sourceSheet"] == "My Data");
+
+    const auto bubbles = chart(nlohmann::json{{"type", "bubble"},
+                                              {"data_range", "'My Data'!B1:B3"},
+                                              {"categories_range", "'My Data'!C1:C3"},
+                                              {"sizes_range", "'My Data'!D1:D3"},
+                                              {"anchor_cell", "A30"}});
+    REQUIRE(bubbles["ok"] == true);
+
+    // Every refusal says what is wrong and adds nothing.
+    const auto expectError = [&](const nlohmann::json& arguments, const std::string& code)
+    {
+        const auto result = chart(arguments);
+        INFO(arguments.dump());
+        CHECK(result["ok"] == false);
+        CHECK(result["error"]["code"] == code);
+        CHECK_FALSE(result["error"]["hint"].get<std::string>().empty());
+    };
+    expectError(nlohmann::json{{"type", "column"}, {"data_range", "Missing!B1:B3"}}, "sheet_not_found");
+    expectError(nlohmann::json{{"type", "column"}, {"data_range", "'My Data'!B1:nonsense"}}, "range_invalid");
+    expectError(nlohmann::json{{"type", "column"}, {"data_range", "'My Data'!B1:B3"}, {"categories_range", "A1:A3"}},
+                "input_invalid");
+    expectError(nlohmann::json{{"type", "pie"},
+                               {"data_range", "'My Data'!B1:B3"},
+                               {"series_options", nlohmann::json::array({nlohmann::json{{"type", "column"}}})}},
+                "input_invalid");
+    expectError(nlohmann::json{{"type", "bar"},
+                               {"data_range", "'My Data'!B1:C3"},
+                               {"series_options", nlohmann::json::array({nlohmann::json::object(),
+                                                                         nlohmann::json{{"type", "line"}}})}},
+                "input_invalid");
+    expectError(nlohmann::json{{"type", "column"},
+                               {"data_range", "'My Data'!B1:B3"},
+                               {"series_options", nlohmann::json::array({nlohmann::json{{"secondary_axis", true}}})}},
+                "input_invalid");
+    expectError(nlohmann::json{{"type", "column"},
+                               {"data_range", "'My Data'!B1:B3"},
+                               {"series_options", nlohmann::json::array({nlohmann::json::object(),
+                                                                         nlohmann::json::object()})}},
+                "input_invalid");
+    expectError(nlohmann::json{{"type", "bubble"}, {"data_range", "'My Data'!B1:B3"}}, "input_invalid");
+    expectError(nlohmann::json{{"type", "column"}, {"data_range", "'My Data'!B1:B3"}, {"sizes_range", "'My Data'!D1:D3"}},
+                "input_invalid");
+    expectError(nlohmann::json{{"type", "bubble"},
+                               {"data_range", "'My Data'!B1:C3"},
+                               {"sizes_range", "'My Data'!D1:D3"}},
+                "input_invalid");
+    expectError(nlohmann::json{{"type", "column"},
+                               {"data_range", "'My Data'!B1:B3"},
+                               {"series_options", nlohmann::json::array({nlohmann::json{{"type", "radar"}}})}},
+                "input_invalid");
+    expectError(nlohmann::json{{"type", "column"}, {"data_range", "'My Data'!B1:B3"}, {"legend", "middle"}},
+                "input_invalid");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    const auto report = ExyokiOffice::Tools::Run(server->Path("combo.xlsx"));
+    CHECK(report.Loaded);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("combo.xlsx"));
+    REQUIRE(editor != nullptr);
+    const auto charts = editor->FirstWorksheet()->Charts();
+    REQUIRE(charts.size() == 2);
+    REQUIRE(charts[0].Series.size() == 2);
+    CHECK(charts[0].Series[0].SourceSheet == std::optional<std::string>("My Data"));
+    REQUIRE(charts[0].Series[1].Type.has_value());
+    CHECK(*charts[0].Series[1].Type == ExyokiOffice::Excel::ExcelChartType::Line);
+    CHECK(charts[0].Series[1].SecondaryAxis);
+    CHECK(charts[1].Type == ExyokiOffice::Excel::ExcelChartType::Bubble);
+    REQUIRE(charts[1].Series.size() == 1);
+    CHECK(charts[1].Series[0].BubbleSizes.has_value());
+}
+
+TEST_CASE("a table's header row carries its column names, as Excel requires [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "headers.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    // An empty range: Excel would not open the workbook if the header cells
+    // stayed empty while the columns are called Column1 and Column2.
+    const auto empty = server->Call(
+        "add_table", nlohmann::json{{"documentId", documentId}, {"range", "A1:B4"}, {"name", "Empty"}});
+    REQUIRE(empty["ok"] == true);
+    CHECK(empty["data"]["columns"] == nlohmann::json::array({"Column1", "Column2"}));
+    CHECK(empty["warnings"].empty());
+
+    // Without a header row the first row is replaced, and the caller is told.
+    REQUIRE(server->Call("write_range", nlohmann::json{{"documentId", documentId},
+                                                       {"origin", "D1"},
+                                                       {"values", nlohmann::json::array({nlohmann::json::array({1, 2}),
+                                                                                         nlohmann::json::array({3, 4})})}})
+                ["ok"] == true);
+    const auto numbers = server->Call("add_table", nlohmann::json{{"documentId", documentId},
+                                                                  {"range", "D1:E2"},
+                                                                  {"name", "Numbers"},
+                                                                  {"header_row", false}});
+    REQUIRE(numbers["ok"] == true);
+    REQUIRE(numbers["warnings"].size() == 1);
+    CHECK(numbers["warnings"][0]["code"] == "table_header_rewritten");
+    CHECK(numbers["warnings"][0]["message"].get<std::string>().find("D1, E1") != std::string::npos);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("headers.xlsx"));
+    REQUIRE(editor != nullptr);
+    const auto sheet = editor->FirstWorksheet();
+    ExyokiOffice::Excel::SharedStringTableService strings(editor->GetDocument());
+    for (const auto& [cell, expected] : std::vector<std::pair<std::string, std::string>>{
+             {"A1", "Column1"}, {"B1", "Column2"}, {"D1", "Column1"}, {"E1", "Column2"}})
+    {
+        INFO(cell);
+        const auto value = sheet->GetCellValue(*ExyokiOffice::Excel::CellAddress::ParseA1(cell));
+        REQUIRE(value.has_value());
+        REQUIRE(value->SharedStringIndex().has_value());
+        CHECK(strings.Lookup(*value->SharedStringIndex()) == std::optional<std::string>(expected));
+    }
+}
+
+TEST_CASE("a table refuses merged cells and merged cells refuse a table [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "merged.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server->Call("merge_cells", nlohmann::json{{"documentId", documentId}, {"range", "A1:C1"}})["ok"] == true);
+    const auto overMerge = server->Call(
+        "add_table", nlohmann::json{{"documentId", documentId}, {"range", "A1:C10"}, {"name", "Sales"}});
+    CHECK(overMerge["ok"] == false);
+    CHECK(overMerge["error"]["code"] == "input_invalid");
+    CHECK(overMerge["error"]["target"] == "A1:C1");
+    CHECK(overMerge["error"]["hint"].get<std::string>().find("unmerge") != std::string::npos);
+
+    REQUIRE(server->Call("add_table", nlohmann::json{{"documentId", documentId}, {"range", "E1:F5"}, {"name", "Side"}})
+                ["ok"] == true);
+    const auto intoTable =
+        server->Call("merge_cells", nlohmann::json{{"documentId", documentId}, {"range", "F4:G4"}});
+    CHECK(intoTable["ok"] == false);
+    CHECK(intoTable["error"]["code"] == "input_invalid");
+    CHECK(intoTable["error"]["message"].get<std::string>().find("Side") != std::string::npos);
+
+    // Unmerging is always allowed, and afterwards the table fits.
+    REQUIRE(server->Call("merge_cells", nlohmann::json{{"documentId", documentId}, {"range", "A1:C1"}, {"unmerge", true}})
+                ["ok"] == true);
+    CHECK(server->Call("add_table", nlohmann::json{{"documentId", documentId}, {"range", "A1:C10"}, {"name", "Sales"}})
+              ["ok"] == true);
+}
+
 TEST_CASE("the print setup is written and reaches the saved worksheet [mcp-excel]")
 {
     auto server = MakeExcelServer();

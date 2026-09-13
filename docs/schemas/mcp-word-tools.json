@@ -12778,6 +12778,14 @@
             ],
             "type": "object"
           },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
           "error": {
             "additionalProperties": false,
             "description": "Failure detail; present only when the call reports isError.",
@@ -12815,6 +12823,10 @@
           "ok": {
             "description": "True when the call succeeded.",
             "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
           },
           "summary": {
             "description": "One-sentence human-readable summary of what happened.",

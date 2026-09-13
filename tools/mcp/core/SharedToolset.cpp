@@ -682,6 +682,222 @@ std::string ToolSupport::EncodeBase64(std::span<const Byte> bytes)
     return Base64::Encode(bytes);
 }
 
+std::optional<ToolOutcome> ToolSupport::DescribeUnavailableTool(const ToolContext& context, std::string_view name)
+{
+    const std::string tool(name);
+    if (const auto* registry = context.Registry(); registry != nullptr)
+    {
+        if (const auto* withheld = registry->FindWithheld(name); withheld != nullptr)
+        {
+            if (withheld->ByReadOnly)
+            {
+                return MakeError(ErrorCode::Unsupported,
+                                 "'" + tool + "' changes documents, and this server was started with --read-only.",
+                                 tool, "Restart the server without --read-only to edit documents.");
+            }
+
+            return MakeError(ErrorCode::Unsupported,
+                             "'" + tool + "' is in the '" + withheld->Group +
+                                 "' toolset, which this server was started without.",
+                             tool, "Add " + withheld->Group + " to --toolsets, or start the server without it.");
+        }
+    }
+
+    // The name as lower-case words and as one run of letters, so that
+    // insert_equation, insert-equation and InsertEquation all read alike.
+    std::vector<std::string> words;
+    std::string joined;
+    std::string word;
+    for (const char character : name)
+    {
+        const bool separator = character == '_' || character == '-' || character == '.' || character == ' ';
+        const bool upper = character >= 'A' && character <= 'Z';
+        if ((separator || upper) && !word.empty())
+        {
+            words.push_back(word);
+            word.clear();
+        }
+
+        if (!separator)
+        {
+            const char lower = upper ? static_cast<char>(character - 'A' + 'a') : character;
+            word.push_back(lower);
+            joined.push_back(lower);
+        }
+    }
+
+    if (!word.empty())
+    {
+        words.push_back(word);
+    }
+
+    // A key starting with '=' matches a whole word; any other key matches
+    // anywhere in the joined name. Whole words keep "sign" from matching
+    // "design" and "sort" from matching "resort".
+    const auto matches = [&](std::string_view key)
+    {
+        if (key.starts_with('='))
+        {
+            key.remove_prefix(1);
+            return std::find(words.begin(), words.end(), key) != words.end();
+        }
+
+        return joined.find(key) != std::string::npos;
+    };
+
+    using Family = Tools::DocumentFamily;
+    struct Boundary
+    {
+        std::vector<std::string_view> Keys;
+        /// Families the boundary applies to; empty for all three.
+        std::vector<Family> Families;
+        std::string_view Reason;
+        std::string_view Hint;
+    };
+
+    static const std::vector<Boundary> boundaries{
+        {{"smartart"},
+         {},
+         "SmartArt has no typed API in this version. A diagram already in the document round-trips untouched, "
+         "but none can be created or edited.",
+         "Present the content as a table, or in PowerPoint build it from shapes with add_shape."},
+        {{"equation", "=math", "omml"},
+         {Family::Word, Family::PowerPoint},
+         "Equations have no typed API in this version. One already in the document round-trips untouched.",
+         "Write the expression as plain text, or insert it as a picture."},
+        {{"textbox"},
+         {Family::Word},
+         "Word text boxes have no typed API in this version. One already in the document round-trips untouched.",
+         "Use a paragraph, a table cell, or a floating picture (insert_image with layout) instead."},
+        {{"addchart", "insertchart", "createchart", "newchart"},
+         {Family::Word},
+         "A Word document cannot gain a new chart in this version; nothing anchors one.",
+         "update_chart rewrites the series of a chart the document already has."},
+        {{"colorscale", "colourscale", "databar", "iconset"},
+         {Family::Excel},
+         "Colour scales, data bars and icon sets are not implemented in this version.",
+         "add_conditional_formatting offers the other rule kinds, each painting the cells it matches."},
+        {{"=sort"},
+         {Family::Excel},
+         "This server does not sort, and a table records no sort state.",
+         "Read the range, sort the rows yourself, and write them back with write_range."},
+        {{"richtext"},
+         {Family::Excel},
+         "Rich text inside one cell is not implemented; a cell carries a single format.",
+         "format_range sets the font of the whole cell."},
+        {{"encrypt", "decrypt", "=password"},
+         {},
+         "OOXML package encryption is not implemented. An encrypted file is a compound-file container this server "
+         "can neither open nor write.",
+         "set_protection restricts editing, but it is not encryption: every part stays readable."},
+        {{"signature", "=sign", "=signed"},
+         {},
+         "Digital signatures are not offered over MCP.",
+         "The exyoki command-line tool lists signatures and checks their signed content: exyoki signatures."},
+        {{"writexml", "setxml", "editxml", "patchxml", "replacexml", "updatexml", "insertxml"},
+         {},
+         "Nothing writes markup directly: a hand-written fragment can break the package in ways no validator "
+         "reports until Office refuses the file.",
+         "query_xml reads the markup; change it through the typed tools."},
+        {{"=unpack", "=pack", "=parts", "relationships", "flatopc", "=dedup"},
+         {},
+         "Package utilities are not offered over MCP.",
+         "Use the exyoki command-line tool, which has unpack, pack, parts, relationships, to-flat-opc and dedup."},
+    };
+
+    const auto family = context.Adapter().Family();
+    for (const auto& boundary : boundaries)
+    {
+        const bool applies = boundary.Families.empty() ||
+                             std::find(boundary.Families.begin(), boundary.Families.end(), family) !=
+                                 boundary.Families.end();
+        if (applies && std::any_of(boundary.Keys.begin(), boundary.Keys.end(), matches))
+        {
+            return MakeError(ErrorCode::Unsupported,
+                             "'" + tool + "' is not a tool of this server. " + std::string(boundary.Reason), tool,
+                             std::string(boundary.Hint));
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::vector<std::string> ToolSupport::ChartTypeTokens()
+{
+    return {"bar", "column", "line", "pie", "scatter", "area", "bubble"};
+}
+
+void ToolSupport::AddChartAppearanceProperties(nlohmann::json& properties)
+{
+    properties["category_axis_title"] =
+        Schema::String("Title of the category axis; of the X axis in a scatter or bubble chart.");
+    properties["value_axis_title"] = Schema::String("Title of the value axis.");
+    properties["secondary_axis_title"] =
+        Schema::String("Title of the secondary value axis, which is drawn only when a series is on it.");
+    properties["legend"] = Schema::EnumerationWithDefault("Where the legend is drawn, or none.",
+                                                          {"right", "left", "top", "bottom", "none"}, "right");
+    properties["gridlines"] = Schema::BooleanWithDefault("Whether major value-axis gridlines are drawn.", true);
+}
+
+std::string ToolSupport::ChartCombinationError(const std::string& chartType, const std::vector<ChartSeriesPlan>& series)
+{
+    // Kinds in one family share their axes, so they can be drawn over each other.
+    const auto family = [](const std::string& type)
+    {
+        if (type == "column" || type == "line" || type == "area")
+        {
+            return 0;
+        }
+
+        if (type == "bar")
+        {
+            return 1;
+        }
+
+        if (type == "scatter")
+        {
+            return 2;
+        }
+
+        return type == "bubble" ? 3 : 4;
+    };
+
+    bool primary = series.empty();
+    for (Size index = 0; index < series.size(); ++index)
+    {
+        const auto& type = series[index].Type.empty() ? chartType : series[index].Type;
+        const auto which = "Series " + std::to_string(index + 1);
+        if (type == "pie" || chartType == "pie")
+        {
+            if (type != chartType)
+            {
+                return which + " is drawn as '" + type + "' in a '" + chartType +
+                       "' chart, but a pie has no axes to share and combines with nothing.";
+            }
+
+            if (series[index].SecondaryAxis)
+            {
+                return which + " asks for a secondary axis, but a pie chart has no axis.";
+            }
+        }
+        else if (family(type) != family(chartType))
+        {
+            return which + " is drawn as '" + type + "', which cannot share axes with a '" + chartType +
+                   "' chart. Column, line and area combine with each other; bar, scatter and bubble only with "
+                   "their own kind.";
+        }
+
+        primary = primary || !series[index].SecondaryAxis;
+    }
+
+    if (!primary)
+    {
+        return "Every series is on the secondary axis; at least one has to stay on the primary axis.";
+    }
+
+    return {};
+}
+
 bool ToolSupport::LoadImagePayload(ToolContext& context, const nlohmann::json& arguments, std::vector<Byte>& bytes,
                                    std::string& contentType, ToolOutcome& failure)
 {
@@ -2607,6 +2823,11 @@ private:
             const auto* tool = registry->Find(toolName);
             if (tool == nullptr)
             {
+                if (auto declined = ToolSupport::DescribeUnavailableTool(context, toolName); declined.has_value())
+                {
+                    return std::move(*declined);
+                }
+
                 return MakeError(ErrorCode::InputInvalid, "Unknown tool '" + toolName + "' in operation " + std::to_string(index + 1) + ".",
                                  toolName, "Call tools/list to see what this server offers.");
             }
@@ -3002,8 +3223,11 @@ private:
         const auto result = Tools::Compare(*left, *right);
         if (!result.Ok)
         {
-            return MakeErrorFromDiagnostics(ErrorCode::OperationFailed, "The packages could not be compared.",
-                                            result.Diagnostics);
+            // Comparing reads nothing but the two packages, so a failure means
+            // one of them is not a package that opens.
+            return MakeErrorFromDiagnostics(ErrorCode::PackageLoadFailed, "The packages could not be compared.",
+                                            result.Diagnostics,
+                                            "Both paths must name Office packages such as .docx, .xlsx or .pptx.");
         }
 
         nlohmann::json partChanges = nlohmann::json::array();
@@ -3347,7 +3571,10 @@ private:
                                                                             "thumbnail or customXml.")},
                                                            {"outputPath",
                                                             Schema::String("File written, when working on paths.")}}),
-                             false);
+                             // Redacting an open session reports the session like any other
+                             // mutation; without these fields a conformant client rejected
+                             // that answer as violating the schema.
+                             true);
         definition.Example = nlohmann::json{{"input_path", "draft" + adapter.FileExtension()},
                                             {"output_path", "public" + adapter.FileExtension()}};
         definition.Annotations.Destructive = true;

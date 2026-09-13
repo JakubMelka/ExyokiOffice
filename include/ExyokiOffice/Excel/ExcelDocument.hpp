@@ -723,7 +723,8 @@ public:
      * @brief Merges a rectangular range while preserving its top-left value.
      *
      * The range must contain at least two cells and must not intersect any
-     * existing merged range. Every physically stored cell except the top-left
+     * existing merged range or any table; Excel refuses to open a workbook
+     * with a merged cell inside a table. Every physically stored cell except the top-left
      * cell is removed, because SpreadsheetML stores the value of a merged area
      * only in its top-left cell. The merge registry and its count are updated
      * in schema order. On any failure the complete original worksheet XML is
@@ -803,6 +804,13 @@ public:
      * case-insensitively across every table in the workbook. A stable table ID,
      * package relationship, worksheet `tableParts` entry, table columns, and an
      * auto-filter are created atomically.
+     *
+     * The first row of the range is the header row, and each column name is
+     * written into its header cell unless the cell already holds that text:
+     * Excel refuses to open a workbook whose header cells disagree with the
+     * table's column names, an empty header cell included. A header cell
+     * holding anything else is overwritten. A range that intersects merged
+     * cells is refused, for the same reason.
      *
      * @return The attached table, or nullptr when validation or package
      * mutation fails.
@@ -1091,8 +1099,13 @@ public:
      * renders without recalculation. The drawing object identifier shares a
      * numbering space with worksheet images.
      *
+     * Series that set @ref ExcelChartSeries::Type or
+     * @ref ExcelChartSeries::SecondaryAxis make a combination chart: one plot
+     * group per type and axis, the secondary value axis on the opposite side.
+     *
      * @param chart Chart definition. At least one series and valid anchors are required.
-     * @return The allocated drawing object identifier, or std::nullopt on invalid input.
+     * @return The allocated drawing object identifier, or std::nullopt on invalid
+     * input, including a combination of series types that cannot share axes.
      */
     std::optional<UInt32> AddChart(ExcelChartDefinition chart);
 

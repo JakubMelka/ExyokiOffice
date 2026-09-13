@@ -1529,8 +1529,33 @@ std::optional<CellRange> Worksheet::MergedRangeAt(CellAddress address) const
     return std::nullopt;
 }
 
+/// Whether two ranges share at least one cell.
+static bool RangesIntersect(const CellRange& left, const CellRange& right)
+{
+    return left.First().Row().Value() <= right.Last().Row().Value() &&
+           right.First().Row().Value() <= left.Last().Row().Value() &&
+           left.First().Column().Value() <= right.Last().Column().Value() &&
+           right.First().Column().Value() <= left.Last().Column().Value();
+}
+
 RangeOperationResult Worksheet::MergeRange(CellRange range)
 {
+    // Excel keeps merged cells out of tables: it refuses to merge inside one,
+    // and will not open a workbook that has a merged cell in a table.
+    if (range.IsValid())
+    {
+        for (const auto& table : Tables())
+        {
+            const auto area = table ? table->Range() : std::nullopt;
+            if (area && RangesIntersect(*area, range))
+            {
+                return RangeOperationResult{RangeOperationError::OverlappingRange,
+                                            "The range overlaps the table '" + table->Name() +
+                                                "', and a table cannot contain merged cells.",
+                                            0};
+            }
+        }
+    }
     return WorksheetMergeHelpers::MergeRange(*this, range);
 }
 
@@ -1589,6 +1614,14 @@ ExcelTable::Ptr Worksheet::CreateTable(std::string_view name,
     {
         return nullptr;
     }
+    // A merged cell inside a table makes Excel refuse the whole workbook.
+    for (const auto& merged : MergedRanges())
+    {
+        if (RangesIntersect(merged, range))
+        {
+            return nullptr;
+        }
+    }
     const auto workbookPart = m_document->GetWorkbookPart();
     if (!workbookPart)
     {
@@ -1641,6 +1674,37 @@ ExcelTable::Ptr Worksheet::CreateTable(std::string_view name,
     }
     registryEntry->SetId(StringValue(part->RelationshipId()));
     tableParts->SetCount(UInt32Value(static_cast<UInt32>(tableParts->Elements<Spreadsheet::TablePart>().size())));
+
+    // A table's column names are the text of its header cells, and Excel will
+    // not open a workbook in which the two disagree - an empty header cell
+    // included, although the package validates. Excel writes the names into
+    // the header row when it makes a table, so this does the same.
+    SharedStringTableService strings(m_document);
+    const auto headerRow = range.First().Row().Value();
+    for (UInt32 index = 0; index < static_cast<UInt32>(columns.size()); ++index)
+    {
+        const auto address = CellAddress::TryCreate(headerRow, range.First().Column().Value() + index);
+        if (!address)
+        {
+            continue;
+        }
+        const auto stored = GetCellValue(*address);
+        std::optional<std::string> text;
+        if (stored && stored->Kind() == CellValueKind::SharedString)
+        {
+            if (const auto shared = stored->SharedStringIndex())
+            {
+                if (const auto lookup = strings.Lookup(*shared))
+                {
+                    text = *lookup;
+                }
+            }
+        }
+        if (!text || *text != columns[index].Name)
+        {
+            SetCellText(*address, columns[index].Name);
+        }
+    }
     return result;
 }
 

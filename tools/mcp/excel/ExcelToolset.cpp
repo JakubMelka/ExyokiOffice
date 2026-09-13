@@ -1388,6 +1388,19 @@ private:
         const auto at = arguments.value("at", static_cast<UInt32>(1));
         const auto count = arguments.value("count", static_cast<UInt32>(1));
 
+        // An interval off the grid is a mistake in the request, and the caller
+        // needs the grid size to fix it; the library would only say it failed.
+        const bool rows = operation == "insert_rows" || operation == "delete_rows";
+        const UInt32 limit = rows ? Excel::MaxRowIndex : Excel::MaxColumnIndex;
+        if (at > limit)
+        {
+            return MakeError(ErrorCode::RangeInvalid,
+                             std::string(rows ? "Row " : "Column ") + std::to_string(at) +
+                                 " is outside the worksheet, which has " + std::to_string(limit) +
+                                 (rows ? " rows." : " columns."),
+                             std::to_string(at), "Pass an 'at' within the worksheet grid.");
+        }
+
         MutationGuard guard(session.Session());
 
         Excel::RangeOperationResult result;
@@ -2961,6 +2974,15 @@ private:
         registry.Add(std::move(definition));
     }
 
+    /// Whether two ranges share at least one cell.
+    static bool RangesIntersect(const Excel::CellRange& left, const Excel::CellRange& right)
+    {
+        return left.First().Row().Value() <= right.Last().Row().Value() &&
+               right.First().Row().Value() <= left.Last().Row().Value() &&
+               left.First().Column().Value() <= right.Last().Column().Value() &&
+               right.First().Column().Value() <= left.Last().Column().Value();
+    }
+
     static ToolOutcome MergeCells(ToolContext& context, const nlohmann::json& arguments)
     {
         ExcelSession session(context, arguments);
@@ -2983,6 +3005,20 @@ private:
         }
 
         const bool unmerge = arguments.value("unmerge", false);
+        if (!unmerge)
+        {
+            for (const auto& table : sheet->Tables())
+            {
+                const auto area = table->Range();
+                if (area.has_value() && RangesIntersect(*area, *range))
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "The range " + range->ToA1() + " overlaps the table '" + table->Name() +
+                                         "', and a table cannot hold merged cells.",
+                                     range->ToA1(), "Merge cells outside the table, or center the text instead.");
+                }
+            }
+        }
 
         MutationGuard guard(session.Session());
 
@@ -4305,7 +4341,11 @@ private:
         properties["range"] = Schema::String("A1 range covered by the table, including the header row.");
         properties["name"] = Schema::String("Table name; generated when omitted.");
         properties["header_row"] =
-            Schema::BooleanWithDefault("Take the column names from the first row of the range.", true);
+            Schema::BooleanWithDefault(
+                "Take the column names from the first row of the range. The first row is the table's header row "
+                "either way: an empty header cell, or every header cell when this is false, is given a generated "
+                "name such as Column1, and the result warns when that overwrote a value.",
+                true);
 
         auto definition = MakeDefinition("add_table", "Add table",
                                          "Turn a range into a structured table (list object) with named columns.",
@@ -4344,6 +4384,19 @@ private:
         if (!range.has_value())
         {
             return failure;
+        }
+
+        // Excel keeps merged cells out of tables: it refuses to make one over
+        // them and will not open a workbook that has one.
+        for (const auto& merged : sheet->MergedRanges())
+        {
+            if (RangesIntersect(merged, *range))
+            {
+                return MakeError(ErrorCode::InputInvalid,
+                                 "The range " + range->ToA1() + " contains the merged cells " + merged.ToA1() +
+                                     ", and a table cannot hold merged cells.",
+                                 merged.ToA1(), "Unmerge them first with merge_cells and unmerge set to true.");
+            }
         }
 
         auto name = arguments.value("name", std::string());
@@ -4391,6 +4444,25 @@ private:
             ++columnId;
         }
 
+        // The library writes each column name into its header cell, because
+        // Excel refuses a table whose header cells disagree with its columns.
+        // A header cell that held something else is worth telling the caller.
+        std::vector<std::string> overwritten;
+        for (Size index = 0; index < columns.size(); ++index)
+        {
+            const auto address = Excel::CellAddress::TryCreate(
+                range->First().Row().Value(), range->First().Column().Value() + static_cast<UInt32>(index));
+            const auto stored = address.has_value() ? sheet->GetCellValue(*address) : std::nullopt;
+            if (stored.has_value())
+            {
+                const auto text = ExcelAddressing::CellValueToText(*stored, sharedStrings);
+                if (!text.empty() && text != columns[index].Name)
+                {
+                    overwritten.push_back(address->ToA1());
+                }
+            }
+        }
+
         MutationGuard guard(session.Session());
 
         auto table = sheet->CreateTable(name, *range, columns);
@@ -4407,10 +4479,21 @@ private:
         data["range"] = range->ToA1();
         data["columns"] = std::move(columnNames);
 
-        return ResultBuilder("Created table '" + table->Name() + "' over " + range->ToA1() + ".")
-            .WithSession(session.Session())
-            .WithData(std::move(data))
-            .Build();
+        ResultBuilder builder("Created table '" + table->Name() + "' over " + range->ToA1() + ".");
+        builder.WithSession(session.Session()).WithData(std::move(data));
+        if (!overwritten.empty())
+        {
+            std::string cells;
+            for (const auto& cell : overwritten)
+            {
+                cells += (cells.empty() ? "" : ", ") + cell;
+            }
+            builder.WithWarning("table_header_rewritten",
+                                "The header row now holds the column names, replacing the values in " + cells + ".",
+                                range->ToA1());
+        }
+
+        return builder.Build();
     }
 
     static void RegisterAddNamedRange(ToolRegistry& registry)
@@ -5064,38 +5147,60 @@ private:
         nlohmann::json properties = nlohmann::json::object();
         ToolSupport::AddDocumentIdProperty(properties);
         properties["sheet"] = SheetProperty();
-        properties["type"] = Schema::Enumeration("Chart type.", {"bar", "column", "line", "pie", "scatter", "area"});
+        properties["type"] = Schema::Enumeration("Chart type.", ToolSupport::ChartTypeTokens());
         properties["data_range"] = Schema::String(
-            "A1 range holding the series values. A range spanning several columns becomes one series per column; "
-            "see series_in.");
+            "A1 range holding the series values, optionally on another worksheet (Data!B2:D10, or 'My Data'!B2:D10 "
+            "for a name with spaces); unqualified, it is read from the chart's own sheet. A range spanning several "
+            "columns becomes one series per column; see series_in.");
         properties["series_in"] = Schema::EnumerationWithDefault(
             "Whether each column or each row of data_range is one series.", {"columns", "rows"}, "columns");
         properties["series_names"] =
             Schema::Array("Series names in data order; generated names are used for the rest.",
                           Schema::String("One series name."));
-        properties["categories_range"] = Schema::String(
-            "A1 range holding the category labels, shared by every series; the X values of a scatter chart.");
+        properties["series_options"] = Schema::Array(
+            "How each series is drawn, in data order; series beyond the list keep the chart's type on the primary "
+            "axis. Giving a series another type makes a combination chart, such as columns with a line over them.",
+            Schema::Object(
+                "Drawing of one series.", {},
+                nlohmann::json{
+                    {"type", Schema::Enumeration("Type this series is drawn as. Column, line and area combine with "
+                                                 "each other; bar, scatter, bubble and pie only with their own kind.",
+                                                 ToolSupport::ChartTypeTokens())},
+                    {"secondary_axis",
+                     Schema::BooleanWithDefault("Plot the series against a secondary value axis on the opposite "
+                                                "side, for values on a different scale. At least one series has "
+                                                "to stay on the primary axis.",
+                                                false)}}));
+        properties["categories_range"] =
+            Schema::String("A1 range holding the category labels, shared by every series; the X values of a scatter "
+                           "or bubble chart. Must be on the same worksheet as data_range.");
+        properties["sizes_range"] =
+            Schema::String("Bubble sizes, shaped like data_range and on the same worksheet. Required for a bubble "
+                           "chart and refused for any other.");
         properties["anchor_cell"] = Schema::String("A1 cell the chart's top-left corner sits on.");
         properties["width"] = Schema::Length("Chart width; defaults to about 15 cm.");
         properties["height"] = Schema::Length("Chart height; defaults to about 8 cm.");
         properties["title"] = Schema::String("Chart title.");
+        ToolSupport::AddChartAppearanceProperties(properties);
 
-        auto definition = MakeDefinition("add_chart", "Add chart",
-                                         "Add a chart driven by a range of values and optional category labels. A "
-                                         "multi-column data range plots one series per column, or per row when "
-                                         "series_in is \"rows\". A pie chart plots one series and warns when the "
-                                         "range holds more. This version offers the basic chart types only.",
-                                         "analysis");
+        auto definition = MakeDefinition(
+            "add_chart", "Add chart",
+            "Add a chart driven by a range of values and optional category labels, from this worksheet or another. "
+            "A multi-column data range plots one series per column, or per row when series_in is \"rows\"; "
+            "series_options draws a series as another type or against a secondary axis. A pie chart plots one "
+            "series and warns when the range holds more.",
+            "analysis");
         definition.InputSchema = Schema::Object("Arguments of add_chart.",
                                                 {"documentId", "type", "data_range", "anchor_cell"},
                                                 std::move(properties));
-        definition.OutputSchema =
-            Schema::Envelope(Schema::Object("New chart.", {"chartId"},
-                                            nlohmann::json{{"chartId", Schema::Integer("Chart identifier.")},
-                                                           {"anchor", Schema::String("A1 anchor cell.")},
-                                                           {"seriesCount", Schema::Integer("Series the chart "
-                                                                                           "plots.")}}),
-                             true);
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object(
+                "New chart.", {"chartId"},
+                nlohmann::json{{"chartId", Schema::Integer("Chart identifier.")},
+                               {"anchor", Schema::String("A1 anchor cell.")},
+                               {"seriesCount", Schema::Integer("Series the chart plots.")},
+                               {"sourceSheet", Schema::String("Worksheet the series are read from.")}}),
+            true);
         definition.Example = nlohmann::json{{"documentId", "doc-1"},
                                             {"type", "column"},
                                             {"data_range", "B2:B10"},
@@ -5132,7 +5237,68 @@ private:
             return Excel::ExcelChartType::Area;
         }
 
+        if (token == "bubble")
+        {
+            return Excel::ExcelChartType::Bubble;
+        }
+
         return Excel::ExcelChartType::Column;
+    }
+
+    static Excel::ExcelLegendPosition ParseLegendPosition(const std::string& token)
+    {
+        if (token == "left")
+        {
+            return Excel::ExcelLegendPosition::Left;
+        }
+
+        if (token == "top")
+        {
+            return Excel::ExcelLegendPosition::Top;
+        }
+
+        if (token == "bottom")
+        {
+            return Excel::ExcelLegendPosition::Bottom;
+        }
+
+        return token == "none" ? Excel::ExcelLegendPosition::None : Excel::ExcelLegendPosition::Right;
+    }
+
+    /**
+     * @brief Parses a chart source range that may name its worksheet.
+     *
+     * A chart often sits on a summary sheet and plots data kept elsewhere, so
+     * the range carries the worksheet rather than the chart. @p sheetName is
+     * the resolved worksheet's own name, or empty for an unqualified range,
+     * which is read from the chart's sheet.
+     */
+    static std::optional<Excel::CellRange> ParseChartRange(Excel::ExcelDocumentEditor& editor,
+                                                           const std::string& text, std::string& sheetName,
+                                                           ToolOutcome& failure)
+    {
+        sheetName.clear();
+        if (text.find('!') == std::string::npos)
+        {
+            return ExcelAddressing::ParseRange(text, failure);
+        }
+
+        const auto qualified = Excel::SheetCellRange::Parse(text);
+        if (!qualified.has_value() || !qualified->Range().IsValid())
+        {
+            failure = MakeError(ErrorCode::RangeInvalid, "'" + text + "' is not a valid sheet-qualified A1 range.",
+                                text, "Write it as Data!B2:B10, quoting a name with spaces: 'My Data'!B2:B10.");
+            return std::nullopt;
+        }
+
+        const auto sheet = ExcelAddressing::FindSheet(editor, nlohmann::json{{"sheet", qualified->Sheet()}}, failure);
+        if (sheet == nullptr)
+        {
+            return std::nullopt;
+        }
+
+        sheetName = sheet->Name();
+        return qualified->Range();
     }
 
     /**
@@ -5235,7 +5401,9 @@ private:
             return failure;
         }
 
-        const auto dataRange = ExcelAddressing::ParseRange(arguments.value("data_range", std::string()), failure);
+        std::string dataSheet;
+        const auto dataRange =
+            ParseChartRange(session.Editor(), arguments.value("data_range", std::string()), dataSheet, failure);
         if (!dataRange.has_value())
         {
             return failure;
@@ -5247,21 +5415,69 @@ private:
             return failure;
         }
 
+        const auto type = arguments.value("type", std::string("column"));
+        const auto legend = arguments.value("legend", std::string("right"));
         Excel::ExcelChartDefinition chart;
-        chart.Type = ParseChartType(arguments.value("type", std::string("column")));
+        chart.Type = ParseChartType(type);
         chart.Title = arguments.value("title", std::string());
+        chart.CategoryAxisTitle = arguments.value("category_axis_title", std::string());
+        chart.ValueAxisTitle = arguments.value("value_axis_title", std::string());
+        chart.SecondaryValueAxisTitle = arguments.value("secondary_axis_title", std::string());
+        chart.ShowLegend = legend != "none";
+        chart.LegendPosition = ParseLegendPosition(legend);
+        chart.ShowGridLines = arguments.value("gridlines", true);
         chart.From = *anchor;
         chart.To = ChartAnchorEnd(*anchor, arguments);
 
-        std::optional<Excel::CellRange> categoryRange;
-        const auto categories = arguments.value("categories_range", std::string());
-        if (!categories.empty())
+        // A series names one worksheet for all of its ranges, so the labels and
+        // sizes have to come from the sheet the values come from.
+        const std::string source = dataSheet.empty() ? sheet->Name() : dataSheet;
+        const auto readCompanionRange = [&](const std::string& member, std::optional<Excel::CellRange>& range)
         {
-            categoryRange = ExcelAddressing::ParseRange(categories, failure);
-            if (!categoryRange.has_value())
+            const auto text = arguments.value(member, std::string());
+            if (text.empty())
             {
-                return failure;
+                return true;
             }
+
+            std::string rangeSheet;
+            range = ParseChartRange(session.Editor(), text, rangeSheet, failure);
+            if (!range.has_value())
+            {
+                return false;
+            }
+
+            if ((rangeSheet.empty() ? sheet->Name() : rangeSheet) != source)
+            {
+                failure = MakeError(ErrorCode::InputInvalid,
+                                    "'" + member + "' is on a different worksheet from data_range, which reads from '" +
+                                        source + "'.",
+                                    text, "Qualify both ranges with the same worksheet name.");
+                return false;
+            }
+
+            return true;
+        };
+
+        std::optional<Excel::CellRange> categoryRange;
+        if (!readCompanionRange("categories_range", categoryRange))
+        {
+            return failure;
+        }
+
+        std::optional<Excel::CellRange> sizesRange;
+        if (!readCompanionRange("sizes_range", sizesRange))
+        {
+            return failure;
+        }
+
+        const bool bubble = chart.Type == Excel::ExcelChartType::Bubble;
+        if (bubble != sizesRange.has_value())
+        {
+            return bubble ? MakeError(ErrorCode::InputInvalid, "A bubble chart needs 'sizes_range'.", "sizes_range",
+                                      "Pass a range shaped like data_range holding the size of each bubble.")
+                          : MakeError(ErrorCode::InputInvalid, "'sizes_range' applies only to a bubble chart.",
+                                      "sizes_range", "Remove sizes_range, or set type to \"bubble\".");
         }
 
         const bool byColumns = arguments.value("series_in", std::string("columns")) != "rows";
@@ -5269,6 +5485,40 @@ private:
         if (seriesRanges.empty())
         {
             seriesRanges.push_back(*dataRange);
+        }
+
+        std::vector<Excel::CellRange> sizeRanges;
+        if (sizesRange.has_value())
+        {
+            sizeRanges = SplitSeriesRanges(*sizesRange, byColumns);
+            if (sizeRanges.size() != seriesRanges.size())
+            {
+                return MakeError(ErrorCode::InputInvalid,
+                                 "'sizes_range' holds " + std::to_string(sizeRanges.size()) +
+                                     " series of sizes, but data_range holds " + std::to_string(seriesRanges.size()) +
+                                     " series of values.",
+                                 sizesRange->ToA1(), "Give sizes_range the same shape as data_range.");
+            }
+        }
+
+        std::vector<ToolSupport::ChartSeriesPlan> plans(seriesRanges.size());
+        const auto options = arguments.find("series_options");
+        if (options != arguments.end())
+        {
+            if (options->size() > seriesRanges.size())
+            {
+                return MakeError(ErrorCode::InputInvalid,
+                                 "'series_options' has " + std::to_string(options->size()) +
+                                     " entries, but data_range holds " + std::to_string(seriesRanges.size()) +
+                                     " series.",
+                                 "series_options", "Give at most one entry per series, in data order.");
+            }
+
+            for (Size index = 0; index < options->size(); ++index)
+            {
+                plans[index].Type = (*options)[index].value("type", std::string());
+                plans[index].SecondaryAxis = (*options)[index].value("secondary_axis", false);
+            }
         }
 
         std::string warning;
@@ -5279,6 +5529,14 @@ private:
             warning = std::string("A pie chart plots one series, so only the first ") +
                       (byColumns ? "column" : "row") + " of " + dataRange->ToA1() + " is charted.";
             seriesRanges.resize(1);
+            plans.resize(1);
+        }
+
+        const auto combination = ToolSupport::ChartCombinationError(type, plans);
+        if (!combination.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, combination, "series_options",
+                             "Change the series type, or leave it out to draw the series as the chart's own type.");
         }
 
         const auto seriesNames = arguments.find("series_names");
@@ -5297,6 +5555,22 @@ private:
             }
 
             series.Values = seriesRanges[index];
+            if (!plans[index].Type.empty())
+            {
+                series.Type = ParseChartType(plans[index].Type);
+            }
+
+            series.SecondaryAxis = plans[index].SecondaryAxis;
+            if (source != sheet->Name())
+            {
+                series.SourceSheet = source;
+            }
+
+            if (!sizeRanges.empty())
+            {
+                series.BubbleSizes = sizeRanges[index];
+            }
+
             if (categoryRange.has_value())
             {
                 // Scatter and bubble charts pair X values with the values;
@@ -5331,6 +5605,7 @@ private:
         data["chartId"] = *id;
         data["anchor"] = anchor->ToA1();
         data["seriesCount"] = static_cast<UInt64>(chart.Series.size());
+        data["sourceSheet"] = source;
 
         ResultBuilder builder("Added a chart with " + std::to_string(chart.Series.size()) +
                               " series anchored at " + anchor->ToA1() + ".");

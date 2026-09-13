@@ -74,6 +74,22 @@ in [docs/](docs/README.md).
   slide sequences a deck plays.
 - PowerPoint `add_media` places audio or video on a slide, embedded from a
   workspace file or linked by address.
+- Excel and PowerPoint `add_chart` draw a series as another type or against a
+  secondary axis, create bubble charts, and take axis titles, legend and
+  gridlines; Excel's reads its ranges from another worksheet.
+- `ExcelChartSeries::Type`, `ExcelChartSeries::SecondaryAxis`,
+  `PresentationChartSeries::Type` and `PresentationChartSeries::SecondaryAxis`,
+  with `SecondaryValueAxisTitle` on both chart definitions, write combination
+  charts. See [Excel charts](docs/excel/charts.md) and
+  [PowerPoint charts](docs/powerpoint/charts.md).
+- A call to a tool that `--read-only` or `--toolsets` withheld, or to a
+  capability the servers leave out such as equations, SmartArt, encryption or
+  signatures, answers `unsupported` with a hint instead of `-32602`. See
+  [Limits of this version](docs/tools/mcp-servers.md#limits-of-this-version).
+- `tests/office-oracle/Invoke-OfficeOracle.ps1` opens documents in Microsoft
+  Office and reports what Office refuses or drops, and
+  `tests/mcp_python/oracle_corpus.py` writes a document per MCP server to run it
+  on. See [RELEASE.md](RELEASE.md).
 - `get_document_info` reports what a document restricts, on all three servers.
 
 ### Fixed
@@ -97,6 +113,28 @@ in [docs/](docs/README.md).
     the totals row outside `autoFilter`; Excel refused to open a workbook whose
     auto-filter reached into it. `Resize` and `SetAutoFilterEnabled` hold the
     same invariant.
+- `Worksheet::CreateTable` writes each column name into its header cell and
+  refuses a range holding merged cells, and `Worksheet::MergeRange` refuses a
+  range that overlaps a table; Excel refused to open a workbook breaking either
+  rule. MCP `add_table` warns with `table_header_rewritten` when it replaces a
+  header value.
+- MCP `redact_document` on an open session answers with an envelope its output
+  schema allows, `compare_documents` refuses an output name of another Office
+  family, and `diff_documents` reports `package_load_failed` for a file that is
+  not a package.
+- MCP `set_transition`, `set_slide_size` and `modify_sheet_structure` answer an
+  ambiguous or out-of-range request with `input_invalid` or `range_invalid`
+  instead of guessing or reporting `operation_failed`, and `resolve_revisions`
+  warns with `revision_not_found` about identifiers that name no revision.
+- MCP `delete_blocks` refuses a range that runs past the last block or ends
+  before it starts, instead of deleting what was left of it.
+- Reading a combination chart returns the series of every plot group rather
+  than the first one, in `Worksheet::Charts`, `PresentationShape::GetChart` and
+  `WordDocumentEditor::Charts`, and rewriting its data keeps each series in its
+  own group instead of duplicating them all into the first.
+- `Worksheet::Charts` reports `ExcelChartSeries::SourceSheet` for a series kept
+  on another worksheet, so updating a chart read back no longer re-resolves its
+  ranges against the chart's own sheet.
 - `PresentationShape::SetMedia` relates an embedded media part a second time as
   `http://schemas.microsoft.com/office/2007/relationships/media` and names it
   from a `p14:media` extension, which is how PowerPoint tells an embedded stream

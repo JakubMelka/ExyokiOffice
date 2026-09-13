@@ -22,12 +22,14 @@ void ToolRegistry::Add(ToolDefinition definition)
 {
     if (m_readOnly && !definition.Annotations.ReadOnly)
     {
+        m_withheld.push_back(WithheldTool{definition.Name, definition.Group, true});
         return;
     }
 
     if (!m_enabledGroups.empty() &&
         std::find(m_enabledGroups.begin(), m_enabledGroups.end(), definition.Group) == m_enabledGroups.end())
     {
+        m_withheld.push_back(WithheldTool{definition.Name, definition.Group, false});
         return;
     }
 
@@ -47,6 +49,14 @@ void ToolRegistry::Add(ToolDefinition definition)
     tool.Definition = std::move(definition);
     m_tools.push_back(std::move(tool));
     Sort();
+}
+
+const WithheldTool* ToolRegistry::FindWithheld(std::string_view name) const
+{
+    const auto match = std::find_if(m_withheld.begin(), m_withheld.end(),
+                                    [name](const WithheldTool& tool)
+                                    { return tool.Name == name; });
+    return match == m_withheld.end() ? nullptr : &*match;
 }
 
 const RegisteredTool* ToolRegistry::Find(std::string_view name) const

@@ -369,6 +369,123 @@ TEST_CASE("tables and charts are placed on a slide [mcp-powerpoint]")
     CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
 }
 
+TEST_CASE("a chart combines columns with a line on a secondary axis, and bubbles take sizes [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "combo.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    static_cast<void>(server->Call("add_slide", nlohmann::json{{"documentId", documentId}}));
+
+    const auto place = [&](nlohmann::json arguments)
+    {
+        arguments["documentId"] = documentId;
+        arguments["slide"] = 1;
+        arguments["x"] = "1cm";
+        arguments["y"] = "1cm";
+        arguments["width"] = "12cm";
+        arguments["height"] = "8cm";
+        return server->Call("add_chart", arguments);
+    };
+
+    const auto combination = place(nlohmann::json{
+        {"type", "column"},
+        {"categories", nlohmann::json::array({"Q1", "Q2", "Q3"})},
+        {"series", nlohmann::json::array(
+                       {nlohmann::json{{"name", "Revenue"}, {"values", nlohmann::json::array({100, 150, 120})}},
+                        nlohmann::json{{"name", "Margin"},
+                                       {"values", nlohmann::json::array({0.1, 0.2, 0.15})},
+                                       {"type", "line"},
+                                       {"secondary_axis", true}}})},
+        {"title", "Revenue and margin"},
+        {"value_axis_title", "USD"},
+        {"secondary_axis_title", "Margin"},
+        {"legend", "bottom"},
+        {"gridlines", false}});
+    REQUIRE(combination["ok"] == true);
+
+    const auto bubbles = place(nlohmann::json{
+        {"type", "bubble"},
+        {"categories", nlohmann::json::array({"1", "2"})},
+        {"series", nlohmann::json::array({nlohmann::json{{"name", "Deals"},
+                                                         {"values", nlohmann::json::array({3, 5})},
+                                                         {"sizes", nlohmann::json::array({10, 20})}}})}});
+    REQUIRE(bubbles["ok"] == true);
+
+    // Every refusal names what is wrong before anything is added.
+    const auto pieCombination = place(nlohmann::json{
+        {"type", "pie"},
+        {"series", nlohmann::json::array(
+                       {nlohmann::json{{"name", "A"}, {"values", nlohmann::json::array({1, 2})}},
+                        nlohmann::json{{"name", "B"}, {"values", nlohmann::json::array({1, 2})}, {"type", "line"}}})}});
+    CHECK(pieCombination["error"]["code"] == "input_invalid");
+    CHECK(pieCombination["error"]["message"].get<std::string>().find("pie") != std::string::npos);
+
+    const auto barWithLine = place(nlohmann::json{
+        {"type", "bar"},
+        {"series", nlohmann::json::array(
+                       {nlohmann::json{{"name", "A"}, {"values", nlohmann::json::array({1, 2})}},
+                        nlohmann::json{{"name", "B"}, {"values", nlohmann::json::array({1, 2})}, {"type", "line"}}})}});
+    CHECK(barWithLine["error"]["code"] == "input_invalid");
+
+    const auto allSecondary = place(nlohmann::json{
+        {"type", "column"},
+        {"series", nlohmann::json::array({nlohmann::json{
+                       {"name", "A"}, {"values", nlohmann::json::array({1, 2})}, {"secondary_axis", true}}})}});
+    CHECK(allSecondary["error"]["code"] == "input_invalid");
+    CHECK(allSecondary["error"]["message"].get<std::string>().find("primary") != std::string::npos);
+
+    const auto bubbleWithoutSizes = place(nlohmann::json{
+        {"type", "bubble"},
+        {"series", nlohmann::json::array({nlohmann::json{{"name", "A"}, {"values", nlohmann::json::array({1, 2})}}})}});
+    CHECK(bubbleWithoutSizes["error"]["code"] == "input_invalid");
+
+    const auto sizesOnColumns = place(nlohmann::json{
+        {"type", "column"},
+        {"series", nlohmann::json::array({nlohmann::json{{"name", "A"},
+                                                         {"values", nlohmann::json::array({1, 2})},
+                                                         {"sizes", nlohmann::json::array({1, 2})}}})}});
+    CHECK(sizesOnColumns["error"]["code"] == "input_invalid");
+
+    const auto sizesMismatch = place(nlohmann::json{
+        {"type", "bubble"},
+        {"series", nlohmann::json::array({nlohmann::json{{"name", "A"},
+                                                         {"values", nlohmann::json::array({1, 2})},
+                                                         {"sizes", nlohmann::json::array({1})}}})}});
+    CHECK(sizesMismatch["error"]["code"] == "input_invalid");
+
+    const auto emptySeries = place(nlohmann::json{
+        {"type", "column"},
+        {"series", nlohmann::json::array({nlohmann::json{{"name", "A"}, {"values", nlohmann::json::array()}}})}});
+    CHECK(emptySeries["error"]["code"] == "input_invalid");
+
+    const auto unknownType = place(nlohmann::json{
+        {"type", "column"},
+        {"series", nlohmann::json::array({nlohmann::json{
+                       {"name", "A"}, {"values", nlohmann::json::array({1})}, {"type", "radar"}}})}});
+    CHECK(unknownType["error"]["code"] == "input_invalid");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    const auto report = ExyokiOffice::Tools::Run(server->Path("combo.pptx"));
+    CHECK(report.Loaded);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+
+    auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::Open(server->Path("combo.pptx"));
+    REQUIRE(editor != nullptr);
+    auto tree = editor->GetSlide(0)->ShapeTree();
+    REQUIRE(tree->Count() == 2);
+    const auto chart = tree->Get(0)->GetChart();
+    REQUIRE(chart.has_value());
+    REQUIRE(chart->Series.size() == 2);
+    REQUIRE(chart->Series[1].Type.has_value());
+    CHECK(*chart->Series[1].Type == ExyokiOffice::PowerPoint::PresentationChartType::Line);
+    CHECK(chart->Series[1].SecondaryAxis);
+    const auto bubble = tree->Get(1)->GetChart();
+    REQUIRE(bubble.has_value());
+    CHECK(bubble->Type == ExyokiOffice::PowerPoint::PresentationChartType::Bubble);
+}
+
 TEST_CASE("an image keeps its aspect ratio when only the width is given [mcp-powerpoint]")
 {
     auto server = MakePowerPointServer();

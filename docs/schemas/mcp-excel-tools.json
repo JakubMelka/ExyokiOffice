@@ -8672,7 +8672,7 @@
           },
           "header_row": {
             "default": true,
-            "description": "Take the column names from the first row of the range.",
+            "description": "Take the column names from the first row of the range. The first row is the table's header row either way: an empty header cell, or every header cell when this is false, is given a generated name such as Column1, and the result warns when that overwrote a value.",
             "type": "boolean"
           },
           "name": {
@@ -10128,7 +10128,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Add a chart driven by a range of values and optional category labels. A multi-column data range plots one series per column, or per row when series_in is \"rows\". A pie chart plots one series and warns when the range holds more. This version offers the basic chart types only.",
+      "description": "Add a chart driven by a range of values and optional category labels, from this worksheet or another. A multi-column data range plots one series per column, or per row when series_in is \"rows\"; series_options draws a series as another type or against a secondary axis. A pie chart plots one series and warns when the range holds more.",
       "example": {
         "anchor_cell": "E2",
         "data_range": "B2:B10",
@@ -10145,16 +10145,25 @@
             "type": "string"
           },
           "categories_range": {
-            "description": "A1 range holding the category labels, shared by every series; the X values of a scatter chart.",
+            "description": "A1 range holding the category labels, shared by every series; the X values of a scatter or bubble chart. Must be on the same worksheet as data_range.",
+            "type": "string"
+          },
+          "category_axis_title": {
+            "description": "Title of the category axis; of the X axis in a scatter or bubble chart.",
             "type": "string"
           },
           "data_range": {
-            "description": "A1 range holding the series values. A range spanning several columns becomes one series per column; see series_in.",
+            "description": "A1 range holding the series values, optionally on another worksheet (Data!B2:D10, or 'My Data'!B2:D10 for a name with spaces); unqualified, it is read from the chart's own sheet. A range spanning several columns becomes one series per column; see series_in.",
             "type": "string"
           },
           "documentId": {
             "description": "Identifier of the open document to modify.",
             "type": "string"
+          },
+          "gridlines": {
+            "default": true,
+            "description": "Whether major value-axis gridlines are drawn.",
+            "type": "boolean"
           },
           "height": {
             "description": "Chart height; defaults to about 8 cm.",
@@ -10162,6 +10171,22 @@
               "number",
               "string"
             ]
+          },
+          "legend": {
+            "default": "right",
+            "description": "Where the legend is drawn, or none.",
+            "enum": [
+              "right",
+              "left",
+              "top",
+              "bottom",
+              "none"
+            ],
+            "type": "string"
+          },
+          "secondary_axis_title": {
+            "description": "Title of the secondary value axis, which is drawn only when a series is on it.",
+            "type": "string"
           },
           "series_in": {
             "default": "columns",
@@ -10180,12 +10205,46 @@
             },
             "type": "array"
           },
+          "series_options": {
+            "description": "How each series is drawn, in data order; series beyond the list keep the chart's type on the primary axis. Giving a series another type makes a combination chart, such as columns with a line over them.",
+            "items": {
+              "additionalProperties": false,
+              "description": "Drawing of one series.",
+              "properties": {
+                "secondary_axis": {
+                  "default": false,
+                  "description": "Plot the series against a secondary value axis on the opposite side, for values on a different scale. At least one series has to stay on the primary axis.",
+                  "type": "boolean"
+                },
+                "type": {
+                  "description": "Type this series is drawn as. Column, line and area combine with each other; bar, scatter, bubble and pie only with their own kind.",
+                  "enum": [
+                    "bar",
+                    "column",
+                    "line",
+                    "pie",
+                    "scatter",
+                    "area",
+                    "bubble"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "sheet": {
             "description": "Worksheet name (case-insensitive) or 1-based index; omit for the first sheet.",
             "type": [
               "string",
               "integer"
             ]
+          },
+          "sizes_range": {
+            "description": "Bubble sizes, shaped like data_range and on the same worksheet. Required for a bubble chart and refused for any other.",
+            "type": "string"
           },
           "title": {
             "description": "Chart title.",
@@ -10199,8 +10258,13 @@
               "line",
               "pie",
               "scatter",
-              "area"
+              "area",
+              "bubble"
             ],
+            "type": "string"
+          },
+          "value_axis_title": {
+            "description": "Title of the value axis.",
             "type": "string"
           },
           "width": {
@@ -10239,6 +10303,10 @@
               "seriesCount": {
                 "description": "Series the chart plots.",
                 "type": "integer"
+              },
+              "sourceSheet": {
+                "description": "Worksheet the series are read from.",
+                "type": "string"
               }
             },
             "required": [
@@ -11942,6 +12010,14 @@
             ],
             "type": "object"
           },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
           "error": {
             "additionalProperties": false,
             "description": "Failure detail; present only when the call reports isError.",
@@ -11979,6 +12055,10 @@
           "ok": {
             "description": "True when the call succeeded.",
             "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
           },
           "summary": {
             "description": "One-sentence human-readable summary of what happened.",

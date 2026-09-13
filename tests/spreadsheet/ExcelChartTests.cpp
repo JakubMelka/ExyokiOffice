@@ -6,6 +6,9 @@
 
 #include "ExyokiOffice/Excel/ExcelDocument.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <optional>
 #include <string>
 
 using namespace ExyokiOffice::Excel;
@@ -364,4 +367,150 @@ TEST_CASE("Image name and description round-trip XML special characters [unit] [
     const auto readBack = sheet->Images().front();
     CHECK(readBack.Name == "A & B <C> \"D\"");
     CHECK(readBack.Description == "Tom & Jerry's <logo>");
+}
+
+namespace
+{
+
+/// Occurrences of @p needle in @p text.
+std::size_t CountOf(const std::string& text, const std::string& needle)
+{
+    std::size_t count = 0;
+    for (auto at = text.find(needle); at != std::string::npos; at = text.find(needle, at + needle.size()))
+    {
+        ++count;
+    }
+    return count;
+}
+
+/// North as columns on the primary axis and South as a line on the secondary one.
+ExcelChartDefinition CombinationChart()
+{
+    ExcelChartDefinition chart;
+    chart.Type = ExcelChartType::Column;
+    chart.From = *CellAddress::ParseA1("E2");
+    chart.To = *CellAddress::ParseA1("K20");
+    chart.SecondaryValueAxisTitle = "South";
+
+    ExcelChartSeries north;
+    north.Name = "North";
+    north.Values = *CellRange::ParseA1("B1:B3");
+    north.Categories = *CellRange::ParseA1("A1:A3");
+
+    ExcelChartSeries south = north;
+    south.Name = "South";
+    south.Values = *CellRange::ParseA1("C1:C3");
+    south.Type = ExcelChartType::Line;
+    south.SecondaryAxis = true;
+
+    chart.Series = {north, south};
+    return chart;
+}
+
+} // namespace
+
+TEST_CASE("A series of another type on a secondary axis is written as Excel writes a combination chart [unit] [excel] [excel-chart]")
+{
+    auto editor = ExcelDocumentEditor::CreateNew();
+    auto sheet = editor->FirstWorksheet();
+    FillSampleData(sheet);
+    REQUIRE(sheet->AddChart(CombinationChart()));
+
+    // The expectations are transcribed from the chart Excel 365 writes when a
+    // column chart's second series is switched to a line on the secondary axis:
+    // one group per type, every group before every axis, a second axis pair
+    // whose value axis crosses at the maximum and whose category axis is deleted.
+    const auto xml = sheet->GetPart()->GetDrawingsPart()->GetChartParts().front()->GetXmlString();
+    const auto bars = xml.find("<c:barChart");
+    const auto line = xml.find("<c:lineChart");
+    const auto firstAxis = std::min(xml.find("<c:catAx"), xml.find("<c:valAx"));
+    REQUIRE(bars != std::string::npos);
+    REQUIRE(line != std::string::npos);
+    CHECK(bars < line);
+    CHECK(line < firstAxis);
+    CHECK(CountOf(xml, "<c:catAx") == 2);
+    CHECK(CountOf(xml, "<c:valAx") == 2);
+    CHECK(CountOf(xml, "<c:crosses val=\"max\"") == 1);
+    CHECK(CountOf(xml, "<c:delete val=\"1\"") == 1);
+    CHECK(xml.find("<c:axPos val=\"r\"") != std::string::npos);
+    // A series keeps its position across the whole chart, not within its group.
+    CHECK(xml.find("<c:order val=\"1\"") > line);
+
+    const auto charts = sheet->Charts();
+    REQUIRE(charts.size() == 1);
+    const auto& read = charts.front();
+    CHECK(read.Type == ExcelChartType::Column);
+    REQUIRE(read.Series.size() == 2);
+    CHECK(read.Series[0].Name == "North");
+    CHECK_FALSE(read.Series[0].Type.has_value());
+    CHECK_FALSE(read.Series[0].SecondaryAxis);
+    CHECK(read.Series[1].Name == "South");
+    REQUIRE(read.Series[1].Type.has_value());
+    CHECK(*read.Series[1].Type == ExcelChartType::Line);
+    CHECK(read.Series[1].SecondaryAxis);
+    CHECK(read.Series[1].Values.ToA1() == "C1:C3");
+}
+
+TEST_CASE("A combination chart keeps its series types and axes through a package and an update [unit] [excel] [excel-chart]")
+{
+    auto editor = ExcelDocumentEditor::CreateNew();
+    auto sheet = editor->FirstWorksheet();
+    FillSampleData(sheet);
+    const auto id = sheet->AddChart(CombinationChart());
+    REQUIRE(id);
+
+    auto reopened = ExcelDocumentEditor::Open(editor->SaveToMemory());
+    REQUIRE(reopened);
+    auto charts = reopened->FirstWorksheet()->Charts();
+    REQUIRE(charts.size() == 1);
+    REQUIRE(charts.front().Series.size() == 2);
+    CHECK(charts.front().Series[1].SecondaryAxis);
+
+    // Updating from what was read back must not collapse the chart to one group.
+    auto definition = charts.front();
+    definition.Title = "Updated";
+    REQUIRE(reopened->FirstWorksheet()->UpdateChart(definition));
+    const auto updated = reopened->FirstWorksheet()->Charts();
+    REQUIRE(updated.size() == 1);
+    CHECK(updated.front().Title == "Updated");
+    REQUIRE(updated.front().Series.size() == 2);
+    REQUIRE(updated.front().Series[1].Type.has_value());
+    CHECK(*updated.front().Series[1].Type == ExcelChartType::Line);
+    CHECK(updated.front().Series[1].SecondaryAxis);
+}
+
+TEST_CASE("Series types that cannot share axes are refused and leave nothing behind [unit] [excel] [excel-chart]")
+{
+    auto editor = ExcelDocumentEditor::CreateNew();
+    auto sheet = editor->FirstWorksheet();
+    FillSampleData(sheet);
+
+    const auto attempt = [&](ExcelChartType chartType, std::optional<ExcelChartType> second, bool firstSecondary,
+                             bool secondSecondary)
+    {
+        auto chart = CombinationChart();
+        chart.Type = chartType;
+        chart.Series[0].SecondaryAxis = firstSecondary;
+        chart.Series[1].Type = second;
+        chart.Series[1].SecondaryAxis = secondSecondary;
+        return sheet->AddChart(chart).has_value();
+    };
+
+    // A pie has no axes to share, and combines with nothing.
+    CHECK_FALSE(attempt(ExcelChartType::Pie, ExcelChartType::Column, false, false));
+    CHECK_FALSE(attempt(ExcelChartType::Column, ExcelChartType::Pie, false, false));
+    // A horizontal bar swaps the axes of every other category kind.
+    CHECK_FALSE(attempt(ExcelChartType::Bar, ExcelChartType::Line, false, false));
+    // Scatter plots two value axes; bubble does not combine even with scatter.
+    CHECK_FALSE(attempt(ExcelChartType::Column, ExcelChartType::XyScatter, false, false));
+    CHECK_FALSE(attempt(ExcelChartType::XyScatter, ExcelChartType::Bubble, false, false));
+    // Something has to stay on the primary axis.
+    CHECK_FALSE(attempt(ExcelChartType::Column, std::nullopt, true, true));
+    CHECK(sheet->Charts().empty());
+    CHECK(sheet->GetPart()->GetDrawingsPart() == nullptr);
+
+    // Kinds that share axes do combine, on either axis.
+    CHECK(attempt(ExcelChartType::Area, ExcelChartType::Column, false, false));
+    CHECK(attempt(ExcelChartType::XyScatter, ExcelChartType::XyScatter, false, true));
+    CHECK(sheet->Charts().size() == 2);
 }

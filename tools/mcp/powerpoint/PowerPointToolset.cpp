@@ -2788,24 +2788,41 @@ private:
         nlohmann::json properties = nlohmann::json::object();
         ToolSupport::AddDocumentIdProperty(properties);
         properties["slide"] = SlideProperty();
-        properties["type"] = Schema::Enumeration("Chart type.", {"bar", "column", "line", "pie", "scatter", "area"});
-        properties["categories"] = Schema::Array("Category labels shared by every series.",
-                                                 Schema::String("One category label."));
+        properties["type"] = Schema::Enumeration("Chart type.", ToolSupport::ChartTypeTokens());
+        properties["categories"] =
+            Schema::Array("Category labels shared by every series; for a scatter or bubble chart, the X values "
+                          "written as numbers in text.",
+                          Schema::String("One category label."));
         properties["series"] = Schema::Array(
             "Data series.",
-            Schema::Object("One series.", {"name", "values"},
-                           nlohmann::json{{"name", Schema::String("Series name shown in the legend.")},
-                                          {"values", Schema::Array("Numeric values in category order.",
-                                                                   Schema::Number("One value."))}}));
+            Schema::Object(
+                "One series.", {"name", "values"},
+                nlohmann::json{
+                    {"name", Schema::String("Series name shown in the legend.")},
+                    {"values", Schema::Array("Numeric values in category order.", Schema::Number("One value."))},
+                    {"type", Schema::Enumeration("Type this series is drawn as, which makes a combination chart. "
+                                                 "Column, line and area combine with each other; bar, scatter, "
+                                                 "bubble and pie only with their own kind.",
+                                                 ToolSupport::ChartTypeTokens())},
+                    {"secondary_axis",
+                     Schema::BooleanWithDefault("Plot the series against a secondary value axis on the opposite "
+                                                "side, for values on a different scale. At least one series has "
+                                                "to stay on the primary axis.",
+                                                false)},
+                    {"sizes", Schema::Array("Bubble sizes, one per value. Required for a bubble chart and refused "
+                                            "for any other.",
+                                            Schema::Number("One bubble size."))}}));
         properties["x"] = Schema::Length("Distance from the left edge of the slide.");
         properties["y"] = Schema::Length("Distance from the top edge of the slide.");
         properties["width"] = Schema::Length("Chart width.");
         properties["height"] = Schema::Length("Chart height.");
         properties["title"] = Schema::String("Chart title.");
+        ToolSupport::AddChartAppearanceProperties(properties);
 
         auto definition = MakeDefinition("add_chart", "Add chart",
-                                         "Add a chart built from categories and series values. This version offers "
-                                         "the basic chart types only.",
+                                         "Add a chart built from categories and series values. A series can be "
+                                         "drawn as another type or against a secondary axis, which makes a "
+                                         "combination chart such as columns with a line over them.",
                                          "content");
         definition.InputSchema = Schema::Object(
             "Arguments of add_chart.", {"documentId", "slide", "type", "series", "x", "y", "width", "height"},
@@ -2857,7 +2874,33 @@ private:
             return PowerPoint::PresentationChartType::Area;
         }
 
+        if (token == "bubble")
+        {
+            return PowerPoint::PresentationChartType::Bubble;
+        }
+
         return PowerPoint::PresentationChartType::Column;
+    }
+
+    static PowerPoint::PresentationChartLegendPosition ParseLegendPosition(const std::string& token)
+    {
+        if (token == "left")
+        {
+            return PowerPoint::PresentationChartLegendPosition::Left;
+        }
+
+        if (token == "top")
+        {
+            return PowerPoint::PresentationChartLegendPosition::Top;
+        }
+
+        if (token == "bottom")
+        {
+            return PowerPoint::PresentationChartLegendPosition::Bottom;
+        }
+
+        return token == "none" ? PowerPoint::PresentationChartLegendPosition::None
+                               : PowerPoint::PresentationChartLegendPosition::Right;
     }
 
     static ToolOutcome AddChart(ToolContext& context, const nlohmann::json& arguments)
@@ -2891,13 +2934,24 @@ private:
             }
         }
 
+        const auto type = arguments.value("type", std::string("column"));
+        const auto legend = arguments.value("legend", std::string("right"));
         PowerPoint::PresentationChartDefinition chart;
-        chart.Type = ParseChartType(arguments.value("type", std::string("column")));
+        chart.Type = ParseChartType(type);
         chart.Title = arguments.value("title", std::string());
+        chart.CategoryAxisTitle = arguments.value("category_axis_title", std::string());
+        chart.ValueAxisTitle = arguments.value("value_axis_title", std::string());
+        chart.SecondaryValueAxisTitle = arguments.value("secondary_axis_title", std::string());
+        chart.ShowLegend = legend != "none";
+        chart.LegendPosition = ParseLegendPosition(legend);
+        chart.ShowGridLines = arguments.value("gridlines", true);
         chart.Transform = transform;
 
+        const bool bubble = chart.Type == PowerPoint::PresentationChartType::Bubble;
+        std::vector<ToolSupport::ChartSeriesPlan> plans;
         for (const auto& value : arguments.at("series"))
         {
+            const auto position = std::to_string(chart.Series.size() + 1);
             PowerPoint::PresentationChartSeries series;
             series.Name = value.value("name", std::string());
             for (const auto& number : value.at("values"))
@@ -2905,17 +2959,70 @@ private:
                 series.Values.push_back(number.get<Real>());
             }
 
+            if (series.Values.empty())
+            {
+                return MakeError(ErrorCode::InputInvalid, "Series " + position + " has no values.",
+                                 "series[" + position + "]", "Give every series at least one value.");
+            }
+
             if (!categories.empty())
             {
                 series.Categories = categories;
             }
 
+            const auto sizes = value.find("sizes");
+            if (bubble != (sizes != value.end()))
+            {
+                return bubble ? MakeError(ErrorCode::InputInvalid,
+                                          "Series " + position + " of a bubble chart has no 'sizes'.",
+                                          "series[" + position + "]", "Give each series one bubble size per value.")
+                              : MakeError(ErrorCode::InputInvalid,
+                                          "Series " + position + " has 'sizes', which apply only to a bubble chart.",
+                                          "series[" + position + "]", "Remove sizes, or set type to \"bubble\".");
+            }
+
+            if (sizes != value.end())
+            {
+                std::vector<Real> bubbleSizes;
+                for (const auto& number : *sizes)
+                {
+                    bubbleSizes.push_back(number.get<Real>());
+                }
+
+                if (bubbleSizes.size() != series.Values.size())
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "Series " + position + " has " + std::to_string(series.Values.size()) +
+                                         " values but " + std::to_string(bubbleSizes.size()) + " bubble sizes.",
+                                     "series[" + position + "]", "Give one bubble size per value.");
+                }
+
+                series.BubbleSizes = std::move(bubbleSizes);
+            }
+
+            ToolSupport::ChartSeriesPlan plan;
+            plan.Type = value.value("type", std::string());
+            plan.SecondaryAxis = value.value("secondary_axis", false);
+            if (!plan.Type.empty())
+            {
+                series.Type = ParseChartType(plan.Type);
+            }
+
+            series.SecondaryAxis = plan.SecondaryAxis;
+            plans.push_back(std::move(plan));
             chart.Series.push_back(std::move(series));
         }
 
         if (chart.Series.empty())
         {
             return MakeError(ErrorCode::InputInvalid, "'series' must hold at least one series.");
+        }
+
+        const auto combination = ToolSupport::ChartCombinationError(type, plans);
+        if (!combination.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, combination, "series",
+                             "Change the series type, or leave it out to draw the series as the chart's own type.");
         }
 
         MutationGuard guard(session.Session());
@@ -4091,8 +4198,19 @@ private:
             return MakeError(ErrorCode::InputInvalid, "Unknown transition '" + token + "'.", token);
         }
 
+        // Exactly one of the two says which slides change. Without either the
+        // slide lookup used to report a slide 0; with both, `all` quietly won.
+        const bool all = arguments.value("all", false);
+        if (all == arguments.contains("slide"))
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             all ? "Pass either 'slide' or 'all', not both."
+                                 : "Pass 'slide' for one slide, or 'all' set to true for every slide.",
+                             token, "Name one slide with 'slide', or set 'all' to true.");
+        }
+
         std::vector<PowerPoint::PresentationSlide::Ptr> targets;
-        if (arguments.value("all", false))
+        if (all)
         {
             targets = session.Editor().Slides();
         }
@@ -5266,6 +5384,12 @@ private:
 
         PowerPoint::PresentationSlideSize size;
         const auto preset = arguments.value("preset", std::string());
+        if (!preset.empty() && (arguments.contains("width") || arguments.contains("height")))
+        {
+            return MakeError(ErrorCode::InputInvalid, "Pass either 'preset' or 'width' and 'height', not both.",
+                             preset, "Drop the preset to set an exact size, or drop width and height.");
+        }
+
         if (!preset.empty())
         {
             if (preset == "16:9")
@@ -5303,6 +5427,19 @@ private:
             if (!parsedWidth.has_value() || !parsedHeight.has_value())
             {
                 return MakeError(ErrorCode::InputInvalid, "The slide width or height is not a valid length.");
+            }
+
+            // PresentationML allows one inch to 56 inches on either side; outside
+            // that the size is refused, which is the caller's to correct.
+            const auto withinLimits = [](const auto& length)
+            {
+                const auto points = ToPointValue(length);
+                return points >= 72.0 && points <= 4032.0;
+            };
+            if (!withinLimits(*parsedWidth) || !withinLimits(*parsedHeight))
+            {
+                return MakeError(ErrorCode::InputInvalid, "A slide measures from 1 to 56 inches on each side.", {},
+                                 "Pass a width and height from 2.54cm to 142.24cm.");
             }
 
             size.Size = PowerPoint::PresentationSize(*parsedWidth, *parsedHeight);

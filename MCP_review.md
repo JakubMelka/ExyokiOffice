@@ -37,20 +37,37 @@ property on every one of them, and checks the text block against
 `structuredContent`.
 That part is in good shape.
 
-Two weaknesses:
+Two weaknesses were found, and both are now closed:
 
-- **Happy path only for 26 tools.** These have exactly one call site, so no
-  invalid input, no boundary, no failure mode is exercised: Word
+- **Happy path only for 26 tools.** These had exactly one call site, so no
+  invalid input, no boundary, no failure mode was exercised: Word
   `list_styles`, `list_revisions`, `delete_blocks`, `resolve_revisions`,
   `add_note`, `compare_documents`; Excel `modify_sheet_structure`, `add_table`,
   `add_data_validation`; PowerPoint `list_layouts`, `move_slide`,
   `set_slide_hidden`, `delete_shape`, `add_chart`, `set_notes`,
   `set_transition`, `set_slide_size`; and `diff_documents`, `merge_documents`,
-  `redact_document` in all three. The structural ones matter most — an empty
-  range, the last element, an index past the end.
-- **Nothing checks that a document produced through MCP opens in Office.** The
+  `redact_document` in all three. [McpInvalidInputTests.cpp](tests/mcp/McpInvalidInputTests.cpp)
+  now covers indices past the end, the last element, empty and conflicting
+  arguments, and foreign or misnamed files.
+
+  Writing those tests found eight server defects, all fixed:
+  `redact_document` on an open session answered with fields its own output
+  schema forbids, so the official SDK rejected the answer outright;
+  `compare_documents` wrote a Word package under an `.xlsx` name;
+  `delete_blocks` silently shortened a range running past the end and deleted
+  what was left of it; `diff_documents` called a file that is not a package an
+  operation failure; `set_transition` given neither `slide` nor `all` reported a
+  slide 0, and given both quietly applied to every slide; `set_slide_size`
+  ignored explicit dimensions next to a preset and called an out-of-range size a
+  failure to write; `modify_sheet_structure` did the same off the grid; and
+  `resolve_revisions` resolved nothing without saying an identifier was unknown.
+- **Nothing checked that a document produced through MCP opens in Office.** The
   suites validate OPC structure and markup schema, which is not the same thing.
-  A COM oracle gate belongs in the release checklist.
+  The gate now exists: [oracle_corpus.py](tests/mcp_python/oracle_corpus.py)
+  writes a document per server through every mutating tool, and
+  [Invoke-OfficeOracle.ps1](tests/office-oracle/Invoke-OfficeOracle.ps1) opens
+  each in Office, has Office save a copy, and fails on a document Office refuses
+  or content it drops. It is step 4.1 of [RELEASE.md](RELEASE.md).
 
   Running that gate by hand found five defects nothing else could have caught,
   in files that were valid throughout. Three are recorded under
@@ -69,8 +86,8 @@ and its invalid-input cases covered.
 
 ## Library defects the oracle found
 
-**Nine defects, eight in the library and one in its package validator, all now
-fixed.**
+**Eleven defects, ten in the library and one in its package validator, all now
+fixed.** The last two were found by the automated gate on its first run.
 Five produced a file that round-tripped through the library's own tests and
 validated as OPC and against the schema, while Excel threw the feature away; the
 sixth failed validation and nobody had looked. Each construct is graded `Yes` in
@@ -87,6 +104,8 @@ the compatibility matrix, so the matrix was overstating what shipped.
 | Image alt text (`word-images`) | Yes | Reported no alternative text at all; `InlineShape.AlternativeText` was empty | `SetAltText` wrote only the picture's `pic:cNvPr`. Word reads the drawing's `wp:docPr` and writes both | Both are written, and reading prefers `wp:docPr`. An accessibility feature that silently labels nothing is worse than one that is absent |
 | Embedded media (`ppt-media`) | Yes | Opened, then dropped the media part on its own save and rewrote the relationship as external | `a:audioFile` can only name a relationship through `r:link`, which reads as a link whatever the target is. PowerPoint tells the two apart by a second relationship and a `p14:media` extension naming it | Both are written. Verified by having PowerPoint re-save the file: before, the package came back with no media part at all; after, it keeps the part, both internal relationships, the extension, and the volume and loop settings |
 | Relationship type check (the validator itself) | — | Reported an error on a presentation PowerPoint wrote | The rule assumed every incoming relationship to a part carries the part's own descriptor type; OPC allows several, and Office relies on it | The rule reports only a part reached solely by a wrong-typed relationship. A gate that rejects Office's own output is worse than no gate |
+| Table header cells (`excel-tables`) | Yes | Refused to open a workbook with a table over an empty range, even in repair mode | A table's column names are the text of its header cells, and Excel treats a disagreement - an empty header cell included - as corruption. `add_table` named the columns `Column1…` and left the cells empty | `CreateTable` writes each column name into its header cell, as Excel does when it makes a table; `add_table` warns when that replaces a value. Isolated with three hand-built variants: header text matching the column names opened, differing text did not |
+| Merged cells in a table (`excel-tables`) | Yes | Refused to open the workbook | `merge_cells` over a header row, then `add_table` over it; Excel itself will make neither | `CreateTable` refuses a range holding merged cells and `MergeRange` a range overlapping a table, each with an error that names the other. Found by replaying the gate's own document one tool at a time and opening every step |
 
 Each cause was isolated by bisecting against a file Excel itself wrote: our
 parts were swapped into a working reference one at a time until it broke, then
@@ -177,10 +196,10 @@ Each row is graded supported in the compatibility matrix and has zero tools.
 | Excel ranges | copy and move a range |
 | Excel `add_conditional_formatting` | ~~the ranking and average rule kinds, several ranges per rule~~ done |
 | Excel `add_table` | ~~listing tables, auto-filter, column filters, totals row~~ done |
-| Excel `add_chart` | cross-sheet sources, secondary axis, combined types |
+| Excel `add_chart` | ~~cross-sheet sources, secondary axis, combined types~~ done |
 | PowerPoint `list_layouts` | creating, removing, assigning masters and layouts, adding placeholders |
 | PowerPoint `add_image` | embedded audio and video |
-| PowerPoint `add_chart` | the same chart-type ceiling as Excel |
+| PowerPoint `add_chart` | ~~the same chart-type ceiling as Excel~~ done |
 
 ## Gap D: missing in the library too
 
@@ -231,16 +250,27 @@ was implemented after this review was written and is struck through:
 
 ### P2 — decisions to state rather than gaps to close
 
-- [ ] Record SmartArt, equations, encryption and signatures in
+- [x] Record SmartArt, equations, encryption and signatures in
       [Limits of this version](docs/tools/mcp-servers.md#limits-of-this-version),
-      each with what happens instead — SmartArt round-trips untouched
-- [ ] Answer an unsupported request with `unsupported` and a hint rather than
-      `Unknown tool`, so the boundary is legible from inside a conversation
+      each with what happens instead — SmartArt round-trips untouched. VBA is
+      recorded there too, as tested for fidelity rather than acceptance
+- [x] Answer an unsupported request with `unsupported` and a hint rather than
+      `Unknown tool`, so the boundary is legible from inside a conversation.
+      A tool `--read-only` or `--toolsets` withheld is answered the same way;
+      only a name the server never had stays `-32602`
+- [x] Excel `add_chart`: series on another worksheet, a secondary axis and
+      combination charts, bubble charts, axis titles, legend and gridlines, and
+      the same in PowerPoint. Reading a combination chart Word or PowerPoint
+      wrote no longer sees only its first group, and rewriting one no longer
+      duplicates its series
 
 ### Testing, alongside every item above
 
-- [ ] Invalid-input and boundary cases for the 26 single-call-site tools
-- [ ] A COM oracle gate: open every MCP-produced document in real Office
+- [x] Invalid-input and boundary cases for the 26 single-call-site tools
+- [x] A COM oracle gate: open every MCP-produced document in real Office
+- [x] The Python black-box suite compares the live catalog against the published
+      one instead of a tool count written into it, which had gone stale at 148
+      and stopped the schema checks before they reached a new tool
 
 ## Catalog size
 

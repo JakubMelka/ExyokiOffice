@@ -1036,7 +1036,8 @@ needs this page to call a tool correctly — it needs it to decide *which* tool.
 | `-32002` on a `tools/*` call | The call arrived before `initialize`, or only `notifications/initialized` was sent, which alone negotiates nothing | A conformant client handles this; hand-written replay files must include the whole handshake |
 | `-32602` on `initialize` | `protocolVersion`, `capabilities`, or `clientInfo` is missing or malformed | The `data.required` member of the error names what the request must carry |
 | `-32600` on `initialize` | The connection was already initialized | Initialization happens once per connection; start a new process to renegotiate |
-| `-32602` with "Unknown tool" | Typo, or the tool is not in this family's catalog | Check `--print-tools` |
+| `-32602` with "Unknown tool" | A typo, or a name this server has never had | Check `--print-tools`; each family's tools are served only by that family's binary |
+| `unsupported` when calling a tool | The server has the tool but `--read-only` or `--toolsets` withheld it, or the name asks for something this version leaves out, such as an equation or a signature | The `hint` says what to do instead; see [Limits of this version](#limits-of-this-version) |
 | The client hangs at startup | Something is writing to standard output | Only the protocol may go there; all diagnostics belong on standard error |
 | Nothing is written to disk | `save_document` was never called | Sessions are in memory by design; `list_documents` shows `dirty: true` for unsaved work |
 
@@ -1066,14 +1067,45 @@ Deliberately out of scope, and rejected rather than half-implemented:
   carries an embedded resource either: `get_media` hands back only the `image`
   and `audio` blocks every client understands, and video, OLE objects and
   embedded packages go to a file through `export_media`.
-- **Basic charts only.** Categories, series, and the common plot types;
-  anything richer answers `unsupported` with a hint.
+- **Chart types.** Column, bar, line, area, pie, scatter and bubble, with axis
+  titles, legend and gridlines. A series can be drawn as another type or against
+  a secondary axis where the two share axes: column, line and area combine with
+  each other, and bar, scatter, bubble and pie only with their own kind. There
+  are no stacked, 3-D, radar, stock, surface or waterfall charts, and a Word
+  document cannot gain a new chart; `update_chart` rewrites one it already has.
 - **No colour scales, data bars or icon sets.** The other conditional
   formatting rule kinds are offered, each painting the cells it matches with the
   appearance passed in `format`; a rule without one matches cells and changes
   nothing about them.
 - **No sort state on a table.** `update_table` filters columns; it does not
   record a sort order.
+- **No SmartArt.** A diagram already in a document round-trips untouched, but
+  none can be created or edited. Present the content as a table, or in
+  PowerPoint build it from shapes with `add_shape`.
+- **No equations, and no Word text boxes.** Both round-trip untouched when a
+  document already has them. Write an expression as text or insert it as a
+  picture; use a paragraph, a table cell or a floating picture instead of a
+  text box.
+- **No encryption.** An encrypted OOXML file is a compound-file container rather
+  than a ZIP package, so the servers can neither open nor write one.
+  `set_protection` restricts editing, but it is not encryption: every part stays
+  readable, and a tool that ignores the setting can rewrite the document.
+- **No signatures.** Nothing signs a document or checks a signature over MCP;
+  `exyoki signatures` lists the signatures of a package and checks their signed
+  content. Editing a signed document through a server does not re-sign it.
+- **VBA is carried, not run.** `get_vba_project`, `set_vba_project` and
+  `remove_vba_project` move `vbaProject.bin` in and out byte for byte and make the
+  workbook macro-enabled, and nothing decodes, inspects or runs the project.
+  That path is tested for fidelity - what comes out is exactly what went in -
+  and not for acceptance: whether Excel loads a given project is not something
+  the test suite can check, because producing a genuine project means turning on
+  trusted access to the VBA object model on the machine running the tests.
+
+Calling a tool that falls under one of these limits, or one that `--read-only`
+or `--toolsets` withheld, is not answered as an unknown tool. It comes back as
+an `unsupported` tool failure whose `hint` says what to do instead, so the
+boundary is visible from inside the conversation; only a name the server has
+never had is the JSON-RPC error `-32602`.
 
 `validate_document` checks OPC structure and markup schema, which is not the
 same as full Microsoft Office compatibility — see

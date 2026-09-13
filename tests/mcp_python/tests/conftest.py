@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import shutil
 import tempfile
@@ -23,23 +24,47 @@ class ServerSpec:
     executable_name: str
     environment_variable: str
     extension: str
-    expected_tool_count: int
+    catalog_name: str
     identity_tool: str
+
+    def published_tool_names(self) -> list[str]:
+        """Tool names of the catalog published in docs/schemas.
+
+        The published catalog is the contract a client reads, so the live
+        server is compared against it rather than against a count written into
+        this suite, which went stale the first time a tool was added.
+        """
+        catalog = json.loads(
+            (REPOSITORY_ROOT / "docs/schemas" / self.catalog_name).read_text(encoding="utf-8")
+        )
+        names = [tool["name"] for tool in catalog["tools"]]
+        assert catalog["toolCount"] == len(names), self.catalog_name
+        return names
 
 
 SERVER_SPECS = {
     "word": ServerSpec(
-        "word", "exyoki-mcp-word", "EXYOKI_MCP_WORD_EXE", ".docx", 50, "insert_paragraph"
+        "word",
+        "exyoki-mcp-word",
+        "EXYOKI_MCP_WORD_EXE",
+        ".docx",
+        "mcp-word-tools.json",
+        "insert_paragraph",
     ),
     "excel": ServerSpec(
-        "excel", "exyoki-mcp-excel", "EXYOKI_MCP_EXCEL_EXE", ".xlsx", 48, "write_range"
+        "excel",
+        "exyoki-mcp-excel",
+        "EXYOKI_MCP_EXCEL_EXE",
+        ".xlsx",
+        "mcp-excel-tools.json",
+        "write_range",
     ),
     "powerpoint": ServerSpec(
         "powerpoint",
         "exyoki-mcp-power-point",
         "EXYOKI_MCP_POWERPOINT_EXE",
         ".pptx",
-        50,
+        "mcp-power-point-tools.json",
         "add_slide",
     ),
 }

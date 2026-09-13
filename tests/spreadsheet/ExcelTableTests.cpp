@@ -55,6 +55,65 @@ TEST_SUITE("ExcelTableTests")
               std::string::npos);
     }
 
+    TEST_CASE("CreateTable writes each column name into its header cell [unit] [excel] [excel-table]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        auto sheet = editor->FirstWorksheet();
+        REQUIRE(sheet);
+        // B1 already holds its column's name, C1 holds something else, A1 nothing.
+        REQUIRE(sheet->SetCellText(1, 2, "Quantity"));
+        REQUIRE(sheet->SetCellText(1, 3, "Total"));
+        sheet->SetCellNumber(2, 1, 7.0);
+        REQUIRE(sheet->CreateTable("Sales", Range("A1:C5"), BasicColumns()));
+
+        // Excel refuses to open a workbook whose header cells disagree with the
+        // table's column names, an empty header cell included; the package
+        // validates either way, so only Office could tell.
+        auto reopened = ExcelDocumentEditor::Open(editor->SaveToMemory());
+        REQUIRE(reopened);
+        const auto readSheet = reopened->FirstWorksheet();
+        SharedStringTableService strings(reopened->GetDocument());
+        const auto header = [&](std::string_view cell)
+        {
+            const auto value = readSheet->GetCellValue(Address(cell));
+            REQUIRE(value);
+            REQUIRE(value->Kind() == CellValueKind::SharedString);
+            const auto text = strings.Lookup(*value->SharedStringIndex());
+            REQUIRE(text);
+            return std::string(*text);
+        };
+        CHECK(header("A1") == "Product");
+        CHECK(header("B1") == "Quantity");
+        CHECK(header("C1") == "Amount");
+
+        // Only the header row is written.
+        const auto data = readSheet->GetCellValue(Address("A2"));
+        REQUIRE(data);
+        CHECK(data->Kind() == CellValueKind::Number);
+    }
+
+    TEST_CASE("A table and merged cells never share a cell [unit] [excel] [excel-table]")
+    {
+        auto editor = ExcelDocumentEditor::CreateNew();
+        auto sheet = editor->FirstWorksheet();
+        REQUIRE(sheet);
+
+        // Excel refuses to make a table over merged cells, and will not open a
+        // workbook in which a table holds one.
+        REQUIRE(sheet->MergeRange(Range("B1:C1")).Succeeded());
+        CHECK(sheet->CreateTable("Merged", Range("A1:C5"), BasicColumns()) == nullptr);
+        CHECK(sheet->Tables().empty());
+        CHECK(sheet->GetPart()->GetTableDefinitionParts().empty());
+
+        REQUIRE(sheet->CreateTable("Beside", Range("A3:C6"), BasicColumns()));
+        const auto overlap = sheet->MergeRange(Range("C6:D6"));
+        CHECK(overlap.Error == RangeOperationError::OverlappingRange);
+        CHECK(overlap.Message.find("Beside") != std::string::npos);
+        CHECK(sheet->MergedRanges().size() == 1);
+
+        CHECK(sheet->MergeRange(Range("E1:F1")).Succeeded());
+    }
+
     TEST_CASE("Column CRUD preserves formulas totals and stable IDs [unit] "
               "[excel] [excel-table]")
     {

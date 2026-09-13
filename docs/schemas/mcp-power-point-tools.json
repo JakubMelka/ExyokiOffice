@@ -7790,7 +7790,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Add a chart built from categories and series values. This version offers the basic chart types only.",
+      "description": "Add a chart built from categories and series values. A series can be drawn as another type or against a secondary axis, which makes a combination chart such as columns with a line over them.",
       "example": {
         "categories": [
           "Q1",
@@ -7819,16 +7819,25 @@
         "description": "Arguments of add_chart.",
         "properties": {
           "categories": {
-            "description": "Category labels shared by every series.",
+            "description": "Category labels shared by every series; for a scatter or bubble chart, the X values written as numbers in text.",
             "items": {
               "description": "One category label.",
               "type": "string"
             },
             "type": "array"
           },
+          "category_axis_title": {
+            "description": "Title of the category axis; of the X axis in a scatter or bubble chart.",
+            "type": "string"
+          },
           "documentId": {
             "description": "Identifier of the open document to modify.",
             "type": "string"
+          },
+          "gridlines": {
+            "default": true,
+            "description": "Whether major value-axis gridlines are drawn.",
+            "type": "boolean"
           },
           "height": {
             "description": "Chart height.",
@@ -7836,6 +7845,22 @@
               "number",
               "string"
             ]
+          },
+          "legend": {
+            "default": "right",
+            "description": "Where the legend is drawn, or none.",
+            "enum": [
+              "right",
+              "left",
+              "top",
+              "bottom",
+              "none"
+            ],
+            "type": "string"
+          },
+          "secondary_axis_title": {
+            "description": "Title of the secondary value axis, which is drawn only when a series is on it.",
+            "type": "string"
           },
           "series": {
             "description": "Data series.",
@@ -7845,6 +7870,32 @@
               "properties": {
                 "name": {
                   "description": "Series name shown in the legend.",
+                  "type": "string"
+                },
+                "secondary_axis": {
+                  "default": false,
+                  "description": "Plot the series against a secondary value axis on the opposite side, for values on a different scale. At least one series has to stay on the primary axis.",
+                  "type": "boolean"
+                },
+                "sizes": {
+                  "description": "Bubble sizes, one per value. Required for a bubble chart and refused for any other.",
+                  "items": {
+                    "description": "One bubble size.",
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "description": "Type this series is drawn as, which makes a combination chart. Column, line and area combine with each other; bar, scatter, bubble and pie only with their own kind.",
+                  "enum": [
+                    "bar",
+                    "column",
+                    "line",
+                    "pie",
+                    "scatter",
+                    "area",
+                    "bubble"
+                  ],
                   "type": "string"
                 },
                 "values": {
@@ -7881,8 +7932,13 @@
               "line",
               "pie",
               "scatter",
-              "area"
+              "area",
+              "bubble"
             ],
+            "type": "string"
+          },
+          "value_axis_title": {
+            "description": "Title of the value axis.",
             "type": "string"
           },
           "width": {
@@ -11639,6 +11695,14 @@
             ],
             "type": "object"
           },
+          "dirty": {
+            "description": "True when the session holds unsaved changes.",
+            "type": "boolean"
+          },
+          "documentId": {
+            "description": "Session identifier of the affected document.",
+            "type": "string"
+          },
           "error": {
             "additionalProperties": false,
             "description": "Failure detail; present only when the call reports isError.",
@@ -11676,6 +11740,10 @@
           "ok": {
             "description": "True when the call succeeded.",
             "type": "boolean"
+          },
+          "revision": {
+            "description": "Number of successful mutations applied to the session.",
+            "type": "integer"
           },
           "summary": {
             "description": "One-sentence human-readable summary of what happened.",
