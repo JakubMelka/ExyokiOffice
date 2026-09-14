@@ -222,7 +222,7 @@ TEST_SUITE("PowerPointSlideCopyTests")
         auto reopened = PowerPointDocumentEditor::Open(destination->SaveToMemory());
         REQUIRE(reopened != nullptr);
         REQUIRE(reopened->SlideCount() == 2);
-        REQUIRE(reopened->SlideMasters().size() == 2);
+        REQUIRE(reopened->SlideMasters().size() == 3);
         auto reopenedImport = reopened->GetSlide(1);
         REQUIRE(reopenedImport != nullptr);
         REQUIRE(reopenedImport->Layout() != nullptr);

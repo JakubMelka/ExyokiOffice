@@ -55,6 +55,38 @@ TEST_CASE("Word document tools split by paragraph count and round-trip [unit] [t
     std::filesystem::remove_all(output);
 }
 
+TEST_CASE("W-9: a split by one paragraph per document writes no empty trailing file [unit] [tools] [word-document-tools]")
+{
+    const auto input = TempPath("exyokioffice_split_single_source.docx");
+    const auto output = TempPath("exyokioffice_split_single_parts");
+    std::filesystem::remove_all(output);
+    auto editor = WordDocumentEditor::CreateNew();
+    REQUIRE(editor != nullptr);
+    editor->AddParagraph("one");
+    editor->AddParagraph("two");
+    editor->AddParagraph("three");
+    REQUIRE(editor->SaveToFile(input));
+
+    // The body's trailing section properties are a block of their own; counted
+    // as a paragraph they produced a fourth file holding no text at all.
+    WordSplitOptions options;
+    options.Strategy = WordSplitStrategy::ParagraphCount;
+    options.ParagraphsPerDocument = 1;
+    const auto result = SplitWordDocument(input, output, options);
+    REQUIRE(result.Ok);
+    REQUIRE(result.OutputFiles.size() == 3);
+    for (const auto& file : result.OutputFiles)
+    {
+        auto part = WordDocumentEditor::Open(file);
+        REQUIRE(part != nullptr);
+        REQUIRE(part->Paragraphs().size() == 1);
+        CHECK_FALSE(part->Paragraphs()[0]->PlainText().empty());
+    }
+
+    std::filesystem::remove(input);
+    std::filesystem::remove_all(output);
+}
+
 TEST_CASE("Word document tools merge in order with optional separators [unit] [tools] [word-document-tools]")
 {
     const auto firstPath = TempPath("exyokioffice_merge_first.docx");

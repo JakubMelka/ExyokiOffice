@@ -816,12 +816,18 @@ private:
                            nlohmann::json{{"address", Schema::String("A1 address.")},
                                           {"type", Schema::String("blank, text, number, boolean, error, datetime, "
                                                                   "or formula.")},
-                                          {"value", Schema::Any("Cell value.")},
+                                          {"value", Schema::Any("Cell value; for a formula, its cached result "
+                                                                "typed like a plain cell (a number as a number, "
+                                                                "a boolean as a boolean, null when none is "
+                                                                "cached).")},
                                           {"formula", Schema::String("Formula text, when requested.")}});
 
         auto definition = MakeDefinition("read_range", "Read cell range",
-                                         "Read cells as a value matrix, as detailed cell records, or as CSV. Reads "
-                                         "are capped per call; page with offset and limit for large ranges.",
+                                         "Read cells as a value matrix, as detailed cell records, or as CSV. A "
+                                         "formula cell reports its cached result typed like a plain cell, so "
+                                         "=1+1 reads as the number 2; call recalculate first when the cache may "
+                                         "be stale. Reads are capped per call; page with offset and limit for "
+                                         "large ranges.",
                                          "cells");
         definition.InputSchema = Schema::Object("Arguments of read_range.", {}, std::move(properties));
         definition.OutputSchema = Schema::Envelope(
@@ -1546,6 +1552,19 @@ private:
         const auto name = arguments.value("name", std::string());
         const auto sourcePath = arguments.value("source_path", std::string());
 
+        // The name is the one thing the caller can get wrong here, so it is
+        // checked up front and reported for what it is.
+        if (!name.empty() && !IsValidSheetName(name))
+        {
+            return MakeError(ErrorCode::InputInvalid, "'" + name + "' is not a valid worksheet name.", name,
+                             "A name is 1 to 31 characters and contains none of : \\ / ? * [ ].");
+        }
+        if (!name.empty() && session.Editor().GetWorksheet(name) != nullptr)
+        {
+            return MakeError(ErrorCode::OperationFailed, "A worksheet named '" + name + "' already exists.", name,
+                             "Pick another name, or omit it to have one generated.");
+        }
+
         MutationGuard guard(session.Session());
 
         Excel::Worksheet::Ptr copy;
@@ -1594,8 +1613,8 @@ private:
 
         if (copy == nullptr)
         {
-            return MakeError(ErrorCode::OperationFailed,
-                             "The worksheet could not be copied; the name may already be taken.", name);
+            return MakeError(ErrorCode::OperationFailed, "The worksheet could not be copied.", name,
+                             "The source sheet's parts could not be brought into this workbook.");
         }
 
         guard.Commit();
@@ -2411,13 +2430,22 @@ private:
                              "A worksheet image must be PNG, JPEG, GIF, BMP, or TIFF.", contentType);
         }
 
+        const auto placement = ResolveAnchor(*sheet, *anchor, arguments, 283.0, 212.0, failure);
+        if (!placement.has_value())
+        {
+            return failure;
+        }
+
         MutationGuard guard(session.Session());
 
         Excel::ExcelWorksheetImage image;
         image.Name = arguments.value("name", std::string());
         image.Description = arguments.value("alt", std::string());
-        image.From = *anchor;
-        image.To = AnchorEnd(*anchor, arguments, 283.0, 212.0);
+        image.From = placement->From;
+        image.FromOffset = placement->FromOffset;
+        image.To = placement->To;
+        image.ToOffset = placement->ToOffset;
+        image.Extent = placement->Extent;
         image.Data = std::move(bytes);
         image.Format = *format;
 
@@ -3477,9 +3505,18 @@ private:
                              "Use \"B\" or \"B:D\".");
         }
 
+        const auto width = arguments.value("width", 0.0);
+        Excel::ColumnDimension probe;
+        probe.Width = width;
+        if (!Excel::IsValidColumnDimension(probe))
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "A column width has to be between 0 and 255 characters.", "width",
+                             "Widths are in characters of the default font; Excel's default column is 8.43.");
+        }
+
         MutationGuard guard(session.Session());
 
-        const auto width = arguments.value("width", 0.0);
         Size changed = 0;
         for (UInt32 column = first; column <= last; ++column)
         {
@@ -3548,9 +3585,18 @@ private:
                              "Use \"2\" or \"2:5\".");
         }
 
+        const auto height = arguments.value("height", 0.0);
+        Excel::RowDimension probe;
+        probe.Height = height;
+        if (!Excel::IsValidRowDimension(probe))
+        {
+            return MakeError(ErrorCode::InputInvalid,
+                             "A row height has to be greater than 0 and at most 409.5 points.", "height",
+                             "Excel's default row is 15 points.");
+        }
+
         MutationGuard guard(session.Session());
 
-        const auto height = arguments.value("height", 0.0);
         Size changed = 0;
         for (UInt32 row = first; row <= last; ++row)
         {
@@ -3995,8 +4041,14 @@ private:
 
         if (!document->HasVbaProject())
         {
-            return MakeError(ErrorCode::MediaNotFound, "The workbook carries no VBA project.",
-                             session.Session().Id());
+            // Removing what is not there is the state the caller asked for, so
+            // it is reported as done with nothing removed rather than refused.
+            nlohmann::json data = nlohmann::json::object();
+            data["removed"] = false;
+            return ResultBuilder("The workbook carries no VBA project; there was nothing to remove.")
+                .WithSession(session.Session())
+                .WithData(std::move(data))
+                .Build();
         }
 
         MutationGuard guard(session.Session());
@@ -4188,7 +4240,8 @@ private:
         auto table = FindTable(session.Editor(), tableName, only, sheetName);
         if (table == nullptr)
         {
-            return MakeError(ErrorCode::MediaNotFound, "No table named '" + tableName + "'.", tableName,
+            // A table is a block of the sheet, not a media object.
+            return MakeError(ErrorCode::BlockNotFound, "No table named '" + tableName + "'.", tableName,
                              "Call list_tables to see the tables the workbook holds.");
         }
 
@@ -4396,6 +4449,23 @@ private:
                                  "The range " + range->ToA1() + " contains the merged cells " + merged.ToA1() +
                                      ", and a table cannot hold merged cells.",
                                  merged.ToA1(), "Unmerge them first with merge_cells and unmerge set to true.");
+            }
+        }
+
+        // Nor may two tables share a cell: Excel refuses the workbook, and the
+        // header row written for the new table would have overwritten the old
+        // table's data first.
+        for (const auto& existing : sheet->Tables())
+        {
+            const auto area = existing != nullptr ? existing->Range() : std::nullopt;
+            if (area.has_value() && RangesIntersect(*area, *range))
+            {
+                return MakeError(ErrorCode::RangeInvalid,
+                                 "The range " + range->ToA1() + " overlaps the table '" + existing->Name() +
+                                     "' at " + area->ToA1() + ".",
+                                 existing->Name(),
+                                 "Tables cannot share cells; choose a range outside " + area->ToA1() +
+                                     ", or extend that table instead.");
             }
         }
 
@@ -5344,46 +5414,56 @@ private:
         return ranges;
     }
 
-    /// Chart anchors are a cell pair, so a size in length units becomes a span
-    /// of columns and rows at the default column width and row height.
-    static Excel::CellAddress ChartAnchorEnd(Excel::CellAddress from, const nlohmann::json& arguments)
+    /**
+     * @brief Resolves where an object of the requested size sits on the sheet.
+     *
+     * The size comes from `width` and `height`, falling back to the defaults,
+     * and the library turns it into an anchor from the sheet's real column
+     * widths and row heights plus the exact extent. Pictures and charts store
+     * the extent, so they keep the requested size on any screen; slicers span
+     * the computed cells.
+     *
+     * @return The anchor, or std::nullopt with @p failure set for a size that
+     *         is not a non-negative length.
+     */
+    static std::optional<Excel::DrawingAnchor> ResolveAnchor(const Excel::Worksheet& sheet,
+                                                             Excel::CellAddress from,
+                                                             const nlohmann::json& arguments, Real defaultWidthPt,
+                                                             Real defaultHeightPt, ToolOutcome& failure)
     {
-        return AnchorEnd(from, arguments, 425.0, 227.0);
-    }
-
-    static Excel::CellAddress AnchorEnd(Excel::CellAddress from, const nlohmann::json& arguments,
-                                        Real defaultWidthPt, Real defaultHeightPt)
-    {
-        constexpr Real DefaultColumnWidthPt = 48.0;
-        constexpr Real DefaultRowHeightPt = 15.0;
-
-        Real widthPt = defaultWidthPt;
-        Real heightPt = defaultHeightPt;
-        const auto width = arguments.find("width");
-        if (width != arguments.end())
+        MeasuringUnits width(defaultWidthPt, MeasurementUnit::Point);
+        MeasuringUnits height(defaultHeightPt, MeasurementUnit::Point);
+        const auto readLength = [&](const char* member, MeasuringUnits& target)
         {
-            const auto parsed = ParseLength(*width);
-            if (parsed.has_value())
+            const auto value = arguments.find(member);
+            if (value == arguments.end())
             {
-                widthPt = ToPointValue(*parsed);
+                return true;
             }
+            const auto parsed = ParseLength(*value);
+            if (!parsed.has_value() || ToPointValue(*parsed) < 0.0)
+            {
+                failure = MakeError(ErrorCode::InputInvalid,
+                                    std::string("'") + member + "' has to be a non-negative length.", member,
+                                    "Pass a number of points or a string with a unit, such as \"4cm\".");
+                return false;
+            }
+            target = *parsed;
+            return true;
+        };
+        if (!readLength("width", width) || !readLength("height", height))
+        {
+            return std::nullopt;
         }
 
-        const auto height = arguments.find("height");
-        if (height != arguments.end())
+        auto anchor = sheet.DrawingAnchorForSize(from, width, height);
+        if (!anchor.has_value())
         {
-            const auto parsed = ParseLength(*height);
-            if (parsed.has_value())
-            {
-                heightPt = ToPointValue(*parsed);
-            }
+            failure = MakeError(ErrorCode::InputInvalid, "The size could not be placed on the worksheet.",
+                                from.ToA1());
+            return std::nullopt;
         }
-
-        const auto columns = std::max<UInt32>(1, static_cast<UInt32>(widthPt / DefaultColumnWidthPt));
-        const auto rows = std::max<UInt32>(1, static_cast<UInt32>(heightPt / DefaultRowHeightPt));
-        const auto end =
-            Excel::CellAddress::TryCreate(from.Row().Value() + rows, from.Column().Value() + columns);
-        return end.value_or(from);
+        return anchor;
     }
 
     static ToolOutcome AddChart(ToolContext& context, const nlohmann::json& arguments)
@@ -5426,8 +5506,16 @@ private:
         chart.ShowLegend = legend != "none";
         chart.LegendPosition = ParseLegendPosition(legend);
         chart.ShowGridLines = arguments.value("gridlines", true);
-        chart.From = *anchor;
-        chart.To = ChartAnchorEnd(*anchor, arguments);
+        const auto placement = ResolveAnchor(*sheet, *anchor, arguments, 425.0, 227.0, failure);
+        if (!placement.has_value())
+        {
+            return failure;
+        }
+        chart.From = placement->From;
+        chart.FromOffset = placement->FromOffset;
+        chart.To = placement->To;
+        chart.ToOffset = placement->ToOffset;
+        chart.Extent = placement->Extent;
 
         // A series names one worksheet for all of its ranges, so the labels and
         // sizes have to come from the sheet the values come from.
@@ -5692,12 +5780,20 @@ private:
             return failure;
         }
 
+        const auto placement = ResolveAnchor(*sheet, *anchor, arguments, 113.0, 142.0, failure);
+        if (!placement.has_value())
+        {
+            return failure;
+        }
+
         Excel::ExcelSlicerDefinition slicer;
         slicer.Name = arguments.value("name", std::string());
         slicer.Caption = arguments.value("caption", std::string());
         slicer.SourceField = arguments.value("field", std::string());
-        slicer.From = *anchor;
-        slicer.To = AnchorEnd(*anchor, arguments, 113.0, 142.0);
+        slicer.From = placement->From;
+        slicer.FromOffset = placement->FromOffset;
+        slicer.To = placement->To;
+        slicer.ToOffset = placement->ToOffset;
         slicer.ColumnCount = arguments.value("columns", 1U);
         slicer.Style = arguments.value("style", std::string("SlicerStyleLight1"));
         slicer.SortOrder = arguments.value("sort_order", std::string("ascending")) == "descending"
@@ -5934,7 +6030,8 @@ private:
 
         if (target == nullptr)
         {
-            return MakeError(ErrorCode::MediaNotFound, "No slicer has that name.", name,
+            // A slicer is a drawing shape on the sheet.
+            return MakeError(ErrorCode::ShapeNotFound, "No slicer has that name.", name,
                              "Call list_slicers to see them.");
         }
 
@@ -5948,6 +6045,19 @@ private:
             return MakeError(ErrorCode::InputInvalid,
                              result.Message.empty() ? "The selection could not be written." : result.Message,
                              name, "Every caption has to be one the slicer offers; list_slicers reports them.");
+        }
+
+        // A table slicer writes its selection as the table's column filter,
+        // and a filter is only half of what a reader sees: the rows it
+        // excludes have to be hidden as well, exactly as update_table does.
+        if (target->SourceKind() == Excel::SlicerSourceKind::Table)
+        {
+            std::string hostSheet;
+            auto table = FindTable(session.Editor(), target->SourceObjectName(), std::string(), hostSheet);
+            if (table != nullptr)
+            {
+                ApplyTableFilters(session.Editor().GetWorksheet(hostSheet), table, session.Editor().SharedStrings());
+            }
         }
 
         guard.Commit();

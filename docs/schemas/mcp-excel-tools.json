@@ -2865,7 +2865,7 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "Read cells as a value matrix, as detailed cell records, or as CSV. Reads are capped per call; page with offset and limit for large ranges.",
+      "description": "Read cells as a value matrix, as detailed cell records, or as CSV. A formula cell reports its cached result typed like a plain cell, so =1+1 reads as the number 2; call recalculate first when the cache may be stale. Reads are capped per call; page with offset and limit for large ranges.",
       "example": {
         "documentId": "doc-1",
         "range": "A1:C10",
@@ -2954,7 +2954,7 @@
                       "type": "string"
                     },
                     "value": {
-                      "description": "Cell value."
+                      "description": "Cell value; for a formula, its cached result typed like a plain cell (a number as a number, a boolean as a boolean, null when none is cached)."
                     }
                   },
                   "required": [
@@ -11461,7 +11461,14 @@
                       "type": "string"
                     },
                     "kind": {
-                      "description": "added, removed, changed, or contentType.",
+                      "description": "What changed: the part was added or removed, its XML or its binary payload differs, or its content type changed.",
+                      "enum": [
+                        "added",
+                        "removed",
+                        "changedXml",
+                        "changedBinary",
+                        "contentTypeChanged"
+                      ],
                       "type": "string"
                     },
                     "uri": {
@@ -11484,7 +11491,12 @@
                   "description": "One changed relationship.",
                   "properties": {
                     "kind": {
-                      "description": "added, removed, or changed.",
+                      "description": "What changed.",
+                      "enum": [
+                        "added",
+                        "removed",
+                        "changed"
+                      ],
                       "type": "string"
                     },
                     "relationshipId": {

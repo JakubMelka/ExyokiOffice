@@ -15,7 +15,12 @@ Newlines become separate paragraphs on the notes page. The first notes
 slide also creates the presentation-wide notes master (with its own theme
 part) and the `p:notesMasterIdLst` entry that PowerPoint expects alongside
 it — without either PowerPoint repairs the file, so the editor maintains
-them for you.
+them for you. The notes page is laid out the way PowerPoint's own is: a
+slide-image placeholder above the notes body, both with explicit geometry
+for the presentation's notes size (`p:notesSz`, or PowerPoint's portrait
+default), and the notes master declares the same six placeholders
+PowerPoint's does, so the text is visible in Notes Page view rather than
+sitting in a 0 x 0 box.
 
 ## Comments
 

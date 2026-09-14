@@ -75,3 +75,15 @@ editor->AddCustomShow({.Id = 1, .Name = "Executive summary", .SlideIds = {slide-
 
 Both reference slides by their stable slide ID (`slide->Id()`), so they
 survive reordering.
+
+`AddSectionAt` works the way PowerPoint's "Add Section" does: the new
+section starts at the given slide and takes every following slide of the
+section that slide was in (or of no section), splitting that section in
+two. When the presentation had no sections and the slide is not the first,
+the leading slides are gathered into a "Default Section" first, because
+PowerPoint always shows the first section starting at slide 1. The
+identifier is a fresh braced GUID unless one is passed:
+
+```cpp
+auto results = editor->AddSectionAt(2, "Results");   // slides 3.. of their section
+```

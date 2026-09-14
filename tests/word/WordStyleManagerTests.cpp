@@ -346,4 +346,71 @@ TEST_SUITE("WordStyleManagerTests")
         CHECK(positionOf(target, "Trailing") > before);
     }
 
+    TEST_CASE("W-1: EnsureBuiltInStyle creates Normal and the heading styles with Word-like definitions [unit] [word] [word-style-manager]")
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto styles = editor->Styles();
+        CHECK_FALSE(styles.GetStylesPart());
+
+        CHECK(StyleManager::IsBuiltInStyleId("Normal"));
+        CHECK(StyleManager::IsBuiltInStyleId("Heading1"));
+        CHECK(StyleManager::IsBuiltInStyleId("Heading9"));
+        CHECK_FALSE(StyleManager::IsBuiltInStyleId("Heading0"));
+        CHECK_FALSE(StyleManager::IsBuiltInStyleId("Heading10"));
+        CHECK_FALSE(StyleManager::IsBuiltInStyleId("Quote"));
+
+        // An identifier that is not built in is refused rather than invented.
+        CHECK_FALSE(styles.EnsureBuiltInStyle("Quote"));
+        CHECK_FALSE(styles.HasStyle("Quote"));
+
+        // A heading pulls in the Normal it is based on.
+        REQUIRE(styles.EnsureBuiltInStyle("Heading2"));
+        CHECK(styles.HasStyle("Normal"));
+        CHECK(styles.HasStyle("Heading2"));
+
+        auto normal = styles.GetStyle("Normal");
+        REQUIRE(normal.has_value());
+        CHECK(normal->Type == StyleType::Paragraph);
+        CHECK(normal->IsDefault);
+        CHECK_FALSE(normal->IsCustom);
+
+        auto heading = styles.GetStyle("Heading2");
+        REQUIRE(heading.has_value());
+        CHECK(heading->Name == "heading 2");
+        CHECK(heading->BasedOnStyleId == "Normal");
+        CHECK(heading->NextStyleId == "Normal");
+        CHECK_FALSE(heading->IsCustom);
+        CHECK(heading->IsPrimary);
+
+        auto lowLevel = styles.GetLowLevelStyle("Heading2");
+        REQUIRE(lowLevel != nullptr);
+        auto paragraphProperties = lowLevel->GetFirstChildOfType<W::StyleParagraphProperties>();
+        REQUIRE(paragraphProperties != nullptr);
+        auto outline = paragraphProperties->GetFirstChildOfType<W::OutlineLevel>();
+        REQUIRE(outline != nullptr);
+        CHECK(outline->GetVal().Value() == 1);
+        CHECK(paragraphProperties->GetFirstChildOfType<W::KeepNext>() != nullptr);
+        auto runProperties = lowLevel->GetFirstChildOfType<W::StyleRunProperties>();
+        REQUIRE(runProperties != nullptr);
+        CHECK(runProperties->GetFirstChildOfType<W::Bold>() != nullptr);
+        auto size = runProperties->GetFirstChildOfType<W::FontSize>();
+        REQUIRE(size != nullptr);
+        CHECK(size->GetVal().ToString() == "26");
+
+        // Existing definitions are left alone: the second call changes nothing.
+        StyleDefinition custom = heading.value();
+        custom.Name = "My Heading 2";
+        REQUIRE(styles.UpdateStyle(custom));
+        REQUIRE(styles.EnsureBuiltInStyle("Heading2"));
+        CHECK(styles.GetStyle("Heading2")->Name == "My Heading 2");
+        CHECK(styles.StylesByType(StyleType::Paragraph).size() == 2);
+
+        auto reopened = ReopenStyles(editor);
+        CHECK(reopened.HasStyle("Normal"));
+        CHECK(reopened.HasStyle("Heading2"));
+    }
+
 } // TEST_SUITE("WordStyleManagerTests")

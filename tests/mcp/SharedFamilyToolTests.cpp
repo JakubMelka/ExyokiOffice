@@ -340,8 +340,7 @@ TEST_CASE("opening a package through the wrong family is rejected [mcp-lifecycle
     std::filesystem::copy_file(excel->Path("book.xlsx"), word->Path("book.docx"));
     const auto refused = word->Call("open_document", nlohmann::json{{"path", "book.docx"}});
     CHECK(refused["ok"] == false);
-    CHECK((refused["error"]["code"] == "family_mismatch" ||
-           refused["error"]["code"] == "package_load_failed"));
+    CHECK(refused["error"]["code"] == "family_mismatch");
 }
 
 TEST_CASE("the theme reads and writes for every document family [mcp-lifecycle]")

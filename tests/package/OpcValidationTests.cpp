@@ -230,10 +230,15 @@ std::vector<ExyokiOffice::Byte> BuildPresentationWithDanglingRelationshipTarget(
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="missing/slideMaster1.xml"/>
 </Relationships>)");
+    // The master is listed as PowerPoint requires, so the dangling target is
+    // the only defect and the case stays about the open policy.
     AddZipEntry(archive,
                 "ppt/presentation.xml",
                 R"(<?xml version="1.0" encoding="UTF-8"?>
-<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>)");
+<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+                xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId2"/></p:sldMasterIdLst>
+</p:presentation>)");
     return FinishZip(archive);
 }
 

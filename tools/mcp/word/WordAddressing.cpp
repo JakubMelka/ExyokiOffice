@@ -22,6 +22,9 @@ namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
 class WordAddressingHelper
 {
 public:
+    static inline const OpenXmlQualifiedName kParagraphPropertiesName{
+        "http://schemas.openxmlformats.org/wordprocessingml/2006/main", "pPr"};
+
     /// Applies the formatting members of a text inline to a run style.
     static Word::RunStyle ReadRunStyle(const nlohmann::json& inlineValue)
     {
@@ -331,25 +334,114 @@ public:
         return Word::BreakType::Line;
     }
 
-    /// Strips every child of a paragraph except its properties element.
-    static void ClearParagraphContent(Word::Paragraph& paragraph)
+    /// A marker that opens a bookmark, comment, or permission range.
+    static bool IsRangeStart(const std::shared_ptr<OpenXMLElement>& element)
     {
+        return openxmlelement_cast<W::BookmarkStart>(element) != nullptr ||
+               openxmlelement_cast<W::CommentRangeStart>(element) != nullptr ||
+               openxmlelement_cast<W::PermStart>(element) != nullptr;
+    }
+
+    /// The run that anchors a comment: nothing but its properties and the `w:commentReference`.
+    static bool IsCommentReferenceRun(const std::shared_ptr<OpenXMLElement>& element)
+    {
+        auto run = openxmlelement_cast<W::Run>(element);
+        if (run == nullptr)
+        {
+            return false;
+        }
+
+        bool reference = false;
+        for (const auto& child : run->Children())
+        {
+            if (openxmlelement_cast<W::CommentReference>(child) != nullptr)
+            {
+                reference = true;
+            }
+            else if (child && openxmlelement_cast<W::RunProperties>(child) == nullptr)
+            {
+                return false;
+            }
+        }
+        return reference;
+    }
+
+    /// A marker that closes a range, or the run a comment hangs on; both belong behind the content.
+    static bool IsRangeEnd(const std::shared_ptr<OpenXMLElement>& element)
+    {
+        return openxmlelement_cast<W::BookmarkEnd>(element) != nullptr ||
+               openxmlelement_cast<W::CommentRangeEnd>(element) != nullptr ||
+               openxmlelement_cast<W::PermEnd>(element) != nullptr || IsCommentReferenceRun(element);
+    }
+
+    /**
+     * @brief Strips the content of a paragraph, keeping its properties and range markers.
+     *
+     * Bookmarks and comments are ranges whose other marker may sit in another
+     * paragraph; dropping the one here would orphan it, and Word then drops
+     * the whole bookmark. The start markers stay where they are, in front of
+     * whatever content follows; the end markers are returned so the caller can
+     * put them back behind the new content once it is written.
+     */
+    static std::vector<std::shared_ptr<OpenXMLElement>> ClearParagraphContent(Word::Paragraph& paragraph)
+    {
+        std::vector<std::shared_ptr<OpenXMLElement>> trailing;
         auto lowLevel = paragraph.GetLowLevelApi();
         if (!lowLevel)
         {
-            return;
+            return trailing;
         }
 
         for (const auto& child : lowLevel->Children())
         {
-            if (child && child->QualifiedName().localName() == "pPr")
+            // `w:pPr` by name: the DOM wraps it under more than one class.
+            if (!child || child->QualifiedName() == kParagraphPropertiesName || IsRangeStart(child))
             {
+                continue;
+            }
+            if (IsRangeEnd(child))
+            {
+                trailing.push_back(child);
                 continue;
             }
 
             child->Remove();
         }
+        return trailing;
     }
+
+    /// Puts the end markers an edit kept back behind the paragraph's new content, whichever way the edit ends.
+    class TrailingMarkerRestorer
+    {
+    public:
+        TrailingMarkerRestorer(std::shared_ptr<OpenXMLElement> paragraph,
+                               std::vector<std::shared_ptr<OpenXMLElement>> markers)
+            : m_paragraph(std::move(paragraph)), m_markers(std::move(markers))
+        {
+        }
+
+        TrailingMarkerRestorer(const TrailingMarkerRestorer&) = delete;
+        TrailingMarkerRestorer& operator=(const TrailingMarkerRestorer&) = delete;
+
+        ~TrailingMarkerRestorer()
+        {
+            if (!m_paragraph)
+            {
+                return;
+            }
+            for (const auto& marker : m_markers)
+            {
+                if (marker && marker->Parent())
+                {
+                    marker->MoveInto(m_paragraph);
+                }
+            }
+        }
+
+    private:
+        std::shared_ptr<OpenXMLElement> m_paragraph;
+        std::vector<std::shared_ptr<OpenXMLElement>> m_markers;
+    };
 };
 
 nlohmann::json WordAddressing::AnchorSchema()
@@ -588,7 +680,8 @@ bool WordAddressing::HasContent(const nlohmann::json& arguments)
 bool WordAddressing::ApplyContent(ToolContext& context, Word::WordDocumentEditor& editor, Word::Paragraph& paragraph,
                                   const nlohmann::json& arguments, ToolOutcome& failure)
 {
-    WordAddressingHelper::ClearParagraphContent(paragraph);
+    const WordAddressingHelper::TrailingMarkerRestorer markers(paragraph.GetLowLevelApi(),
+                                                                WordAddressingHelper::ClearParagraphContent(paragraph));
 
     const auto inlines = arguments.find("inlines");
     if (inlines == arguments.end() || !inlines->is_array())

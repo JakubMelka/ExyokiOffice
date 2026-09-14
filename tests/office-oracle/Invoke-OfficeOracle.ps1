@@ -28,7 +28,14 @@ For each .docx, .docm, .xlsx, .xlsm, .pptx and .pptm under -Path, the gate
 Each document is handled by a separate PowerShell process with its own Office
 instance and a time limit. An application that stops on a dialog nobody can see
 would otherwise hang the gate for good; on a timeout the worker, and only the
-Office processes started after it, are ended and the document fails.
+Office instance it started - the worker records that process id as soon as it
+has one - are ended and the document fails. Office windows anyone else has open
+on the machine are never touched.
+
+Word does not save the copy with SaveAs2: on some machines that call never
+returns, even for a document Word has just opened without complaint. The gate
+copies the file itself, opens the copy for writing and calls Save, which
+re-serialises the whole package just as well.
 
 It needs Microsoft Office on the machine and changes no setting of it. It does
 not run macros and does not need trusted access to the VBA object model.
@@ -76,9 +83,24 @@ function Release-ComObject($Object)
     }
 }
 
-# Opens $Document read-only in its application, saves a copy into
-# $CopyDirectory and returns the copy's path. Opening read-only leaves the
-# original exactly as it was.
+# Starts one Office application and records its process id next to the copy,
+# so that a timeout can end exactly this instance and nothing else. The id is
+# found by comparing the process list before and after the start; the COM
+# object itself does not tell.
+function Start-OfficeApplication([string]$ProgId, [string]$ProcessName, [string]$CopyDirectory)
+{
+    $before = @(Get-Process $ProcessName -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+    $application = New-Object -ComObject $ProgId
+    $after = @(Get-Process $ProcessName -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+    $started = @($after | Where-Object { $before -notcontains $_ })
+    Set-Content -Path (Join-Path $CopyDirectory 'office.pid') -Value ($started -join "`n") -Encoding ascii
+    return $application
+}
+
+# Opens $Document in its application, has the application save a copy into
+# $CopyDirectory and returns the copy's path. The original is never written:
+# Excel and PowerPoint open it read-only and save elsewhere; Word opens a copy
+# the gate made and saves that in place.
 function Save-OfficeCopy([string]$Document, [string]$CopyDirectory)
 {
     $stem = Join-Path $CopyDirectory ([IO.Path]::GetFileNameWithoutExtension($Document))
@@ -86,16 +108,21 @@ function Save-OfficeCopy([string]$Document, [string]$CopyDirectory)
 
     if ($extension -in '.docx', '.docm')
     {
-        $application = New-Object -ComObject Word.Application
+        # Save() rather than SaveAs2(): see the description at the top.
+        $copy = "$stem$extension"
+        Copy-Item -LiteralPath $Document -Destination $copy -Force
+        $application = Start-OfficeApplication 'Word.Application' 'WINWORD' $CopyDirectory
         try
         {
             $application.Visible = $false
             $application.DisplayAlerts = 0 # wdAlertsNone
-            $file = $application.Documents.Open($Document, $false, $true, $false)
+            $file = $application.Documents.Open($copy, $false, $false, $false)
             try
             {
-                if ($extension -eq '.docm') { $copy = "$stem.docm"; $file.SaveAs2($copy, 13) } # wdFormatXMLDocumentMacroEnabled
-                else { $copy = "$stem.docx"; $file.SaveAs2($copy, 16) }                         # wdFormatDocumentDefault
+                # An untouched document is "saved" as far as Word is concerned
+                # and Save() would do nothing; clearing the flag makes it write.
+                $file.Saved = $false
+                $file.Save()
             }
             finally
             {
@@ -114,7 +141,7 @@ function Save-OfficeCopy([string]$Document, [string]$CopyDirectory)
 
     if ($extension -in '.xlsx', '.xlsm')
     {
-        $application = New-Object -ComObject Excel.Application
+        $application = Start-OfficeApplication 'Excel.Application' 'EXCEL' $CopyDirectory
         try
         {
             $application.Visible = $false
@@ -140,7 +167,7 @@ function Save-OfficeCopy([string]$Document, [string]$CopyDirectory)
         return $copy
     }
 
-    $application = New-Object -ComObject PowerPoint.Application
+    $application = Start-OfficeApplication 'PowerPoint.Application' 'POWERPNT' $CopyDirectory
     try
     {
         # With alerts off, PowerPoint refuses a file it would have to repair
@@ -258,7 +285,6 @@ foreach ($file in $documents)
     $output = Join-Path $directory 'worker.json'
     $result = [ordered]@{ File = $file.FullName; Opened = $false; Error = ''; Lost = @(); Changed = @() }
 
-    $started = Get-Date
     $worker = Start-Process powershell.exe -PassThru -WindowStyle Hidden -RedirectStandardOutput $output `
         -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"",
                         '-Document', "`"$($file.FullName)`"", '-CopyDirectory', "`"$directory`"")
@@ -266,12 +292,21 @@ foreach ($file in $documents)
     if (-not $worker.WaitForExit($TimeoutSeconds * 1000))
     {
         Stop-Process -Id $worker.Id -Force -ErrorAction SilentlyContinue
-        # Only Office processes this worker could have started are ended; an
-        # instance someone had open before the gate ran is left alone.
-        Get-Process WINWORD, EXCEL, POWERPNT -ErrorAction SilentlyContinue |
-            Where-Object { $_.StartTime -ge $started } |
-            Stop-Process -Force -ErrorAction SilentlyContinue
-        $result.Error = "Office did not open and save the document within $TimeoutSeconds seconds."
+        # Only the Office instance this worker started is ended. It wrote the
+        # process id down as soon as it had one; an instance someone else has
+        # open, even one started while the gate ran, is left alone.
+        $pidFile = Join-Path $directory 'office.pid'
+        $ended = @()
+        if (Test-Path -LiteralPath $pidFile)
+        {
+            foreach ($id in (Get-Content -LiteralPath $pidFile | Where-Object { $_ -match '^\d+$' }))
+            {
+                Stop-Process -Id ([int]$id) -Force -ErrorAction SilentlyContinue
+                $ended += $id
+            }
+        }
+        $result.Error = "Office did not open and save the document within $TimeoutSeconds seconds" +
+            $(if ($ended.Count -gt 0) { " (ended Office process $($ended -join ', '))." } else { '.' })
     }
     else
     {

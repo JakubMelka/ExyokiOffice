@@ -19,6 +19,7 @@ exyokioffice_add_test_executable(ExyokiOfficePackageTests
         OpcPartLifetimeTests.cpp
         OpcDetachTests.cpp
         OpcValidationTests.cpp
+        PackageSemanticRuleTests.cpp
         OpcChildPartFolderTests.cpp
         PartByteRetentionTests.cpp
         DocumentPropertiesTests.cpp

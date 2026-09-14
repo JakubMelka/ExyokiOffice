@@ -24,6 +24,26 @@ editor->AddHeading("Background", 2);       // Heading2
 Headings created this way are what `AddTableOfContents` collects — see
 [Fields and tables of contents](fields.md).
 
+The definitions themselves come from `StyleManager::EnsureBuiltInStyle`,
+which any code that applies a built-in style by id can call first:
+
+```cpp
+auto styles = editor->Styles();
+StyleManager::IsBuiltInStyleId("Heading3");    // Normal, Heading1..Heading9
+styles.EnsureBuiltInStyle("Heading3");         // creates Normal and Heading3 when missing
+paragraph->SetStyleId("Heading3");
+```
+
+A document this library creates has no styles part, so a paragraph carrying
+`w:pStyle w:val="Heading1"` with nothing defining it is shown by Word as body
+text, with no outline level and no navigation-pane entry. `EnsureBuiltInStyle`
+writes what Word would have: `Normal` as the default paragraph style and
+`HeadingN` based on it, with `Normal` as the next style, outline level
+`N - 1`, keep-with-next, and bold colored text whose size decreases with the
+level. A style that already exists is left alone, so documents from Word or a
+template keep their own design; an identifier outside the built-in set returns
+`false` and creates nothing.
+
 ## The style manager
 
 `editor->Styles()` returns a `StyleManager` over the document's style

@@ -1161,27 +1161,78 @@ public:
         return static_cast<bool>(anchor.child("xdr:pic"));
     }
 
-    /** @brief Appends a `xdr:from`/`xdr:to` pair of zero-based cell markers to @p anchor. */
-    static void AppendImageAnchorBounds(Pugi::xml_node anchor, const CellAddress& from, const CellAddress& to)
+    /** @brief Appends one zero-based cell marker (`xdr:from` or `xdr:to`) to @p anchor. */
+    static void AppendImageAnchorMarker(Pugi::xml_node anchor, const char* name, const CellAddress& cell,
+                                        const DrawingAnchorOffset& offset)
     {
-        auto fromMarker = anchor.append_child("xdr:from");
-        fromMarker.append_child("xdr:col").text().set(from.Column().Value() - 1);
-        fromMarker.append_child("xdr:colOff").text().set(0);
-        fromMarker.append_child("xdr:row").text().set(from.Row().Value() - 1);
-        fromMarker.append_child("xdr:rowOff").text().set(0);
+        auto marker = anchor.append_child(name);
+        marker.append_child("xdr:col").text().set(cell.Column().Value() - 1);
+        marker.append_child("xdr:colOff").text().set(static_cast<long long>(std::max<Int64>(0, offset.Column)));
+        marker.append_child("xdr:row").text().set(cell.Row().Value() - 1);
+        marker.append_child("xdr:rowOff").text().set(static_cast<long long>(std::max<Int64>(0, offset.Row)));
+    }
 
-        auto toMarker = anchor.append_child("xdr:to");
-        toMarker.append_child("xdr:col").text().set(to.Column().Value() - 1);
-        toMarker.append_child("xdr:colOff").text().set(0);
-        toMarker.append_child("xdr:row").text().set(to.Row().Value() - 1);
-        toMarker.append_child("xdr:rowOff").text().set(0);
+    /**
+     * @brief Appends the anchor element for @p image and returns it.
+     *
+     * An image with an extent gets a one-cell anchor, whose size is the extent
+     * itself and so does not depend on how wide the reader draws the columns;
+     * one without gets the two-cell anchor spanning its corner cells.
+     */
+    static Pugi::xml_node AppendImageAnchor(Pugi::xml_node worksheetDrawing, const ExcelWorksheetImage& image)
+    {
+        if (image.Extent)
+        {
+            auto anchor = worksheetDrawing.append_child("xdr:oneCellAnchor");
+            AppendImageAnchorMarker(anchor, "xdr:from", image.From, image.FromOffset);
+            auto extent = anchor.append_child("xdr:ext");
+            extent.append_attribute("cx").set_value(static_cast<long long>(image.Extent->Width));
+            extent.append_attribute("cy").set_value(static_cast<long long>(image.Extent->Height));
+            return anchor;
+        }
+
+        auto anchor = worksheetDrawing.append_child("xdr:twoCellAnchor");
+        anchor.append_attribute("editAs").set_value("twoCell");
+        AppendImageAnchorMarker(anchor, "xdr:from", image.From, image.FromOffset);
+        AppendImageAnchorMarker(anchor, "xdr:to", image.To, image.ToOffset);
+        return anchor;
+    }
+
+    /** @brief Reads one `xdr:from`/`xdr:to` marker back into a cell and its offset. */
+    static void ReadImageAnchorMarker(Pugi::xml_node marker, CellAddress& cell, DrawingAnchorOffset& offset)
+    {
+        if (!marker)
+        {
+            return;
+        }
+        const auto address = CellAddress::TryCreate(marker.child("xdr:row").text().as_uint() + 1,
+                                                    marker.child("xdr:col").text().as_uint() + 1);
+        if (address)
+        {
+            cell = *address;
+        }
+        offset.Column = marker.child("xdr:colOff").text().as_llong();
+        offset.Row = marker.child("xdr:rowOff").text().as_llong();
     }
 };
 
 std::optional<UInt32> Worksheet::AddImage(ExcelWorksheetImage image)
 {
-    if (!m_part || image.Data.empty() || !image.From.IsValid() || !image.To.IsValid() ||
-        image.To.Row().Value() < image.From.Row().Value() || image.To.Column().Value() < image.From.Column().Value())
+    if (!m_part || image.Data.empty() || !image.From.IsValid() || image.FromOffset.Column < 0 ||
+        image.FromOffset.Row < 0)
+    {
+        return std::nullopt;
+    }
+    if (image.Extent)
+    {
+        if (image.Extent->Width <= 0 || image.Extent->Height <= 0)
+        {
+            return std::nullopt;
+        }
+    }
+    else if (!image.To.IsValid() || image.To.Row().Value() < image.From.Row().Value() ||
+             image.To.Column().Value() < image.From.Column().Value() || image.ToOffset.Column < 0 ||
+             image.ToOffset.Row < 0)
     {
         return std::nullopt;
     }
@@ -1223,9 +1274,7 @@ std::optional<UInt32> Worksheet::AddImage(ExcelWorksheetImage image)
     }
     media->SetBinaryData(std::move(image.Data));
 
-    auto anchor = worksheetDrawing.append_child("xdr:twoCellAnchor");
-    anchor.append_attribute("editAs").set_value("twoCell");
-    WorksheetContentOrderHelper::AppendImageAnchorBounds(anchor, image.From, image.To);
+    auto anchor = WorksheetContentOrderHelper::AppendImageAnchor(worksheetDrawing, image);
 
     auto pic = anchor.append_child("xdr:pic");
     auto nonVisual = pic.append_child("xdr:nvPicPr");
@@ -1241,7 +1290,16 @@ std::optional<UInt32> Worksheet::AddImage(ExcelWorksheetImage image)
     blipFill.append_child("a:stretch").append_child("a:fillRect");
 
     auto shapeProperties = pic.append_child("xdr:spPr");
-    shapeProperties.append_child("a:xfrm");
+    auto transform = shapeProperties.append_child("a:xfrm");
+    if (image.Extent)
+    {
+        auto offset = transform.append_child("a:off");
+        offset.append_attribute("x").set_value(0);
+        offset.append_attribute("y").set_value(0);
+        auto extent = transform.append_child("a:ext");
+        extent.append_attribute("cx").set_value(static_cast<long long>(image.Extent->Width));
+        extent.append_attribute("cy").set_value(static_cast<long long>(image.Extent->Height));
+    }
     shapeProperties.append_child("a:prstGeom").append_attribute("prst").set_value("rect");
     shapeProperties.child("a:prstGeom").append_child("a:avLst");
 
@@ -1285,6 +1343,19 @@ std::vector<ExcelWorksheetImage> Worksheet::Images() const
         item.Id = properties.attribute("id").as_uint();
         item.Name = properties.attribute("name").as_string();
         item.Description = properties.attribute("descr").as_string();
+        WorksheetContentOrderHelper::ReadImageAnchorMarker(anchor.child("xdr:from"), item.From, item.FromOffset);
+        if (const auto toMarker = anchor.child("xdr:to"))
+        {
+            WorksheetContentOrderHelper::ReadImageAnchorMarker(toMarker, item.To, item.ToOffset);
+        }
+        else
+        {
+            item.To = item.From;
+        }
+        if (const auto extent = anchor.child("xdr:ext"))
+        {
+            item.Extent = DrawingExtent{extent.attribute("cx").as_llong(), extent.attribute("cy").as_llong()};
+        }
         const std::string relationshipId = blip.attribute("r:embed").as_string();
         for (const auto& media : drawing->GetImageParts())
         {

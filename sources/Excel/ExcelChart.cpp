@@ -14,6 +14,8 @@
 
 #include <algorithm>
 #include <charconv>
+#include <memory>
+#include <vector>
 
 namespace ExyokiOffice::Excel
 {
@@ -110,6 +112,22 @@ public:
                 return ChartLegendPosition::Right;
         }
         return ChartLegendPosition::Right;
+    }
+
+    /// A valid top-left cell plus either a positive extent or a non-inverted bottom-right cell.
+    static bool IsValidAnchor(const ExcelChartDefinition& definition)
+    {
+        if (!definition.From.IsValid() || definition.FromOffset.Column < 0 || definition.FromOffset.Row < 0)
+        {
+            return false;
+        }
+        if (definition.Extent)
+        {
+            return definition.Extent->Width > 0 && definition.Extent->Height > 0;
+        }
+        return definition.To.IsValid() && definition.To.Row().Value() >= definition.From.Row().Value() &&
+               definition.To.Column().Value() >= definition.From.Column().Value() &&
+               definition.ToOffset.Column >= 0 && definition.ToOffset.Row >= 0;
     }
 
     /// Whether the series types and axes of @p definition can share one plot area.
@@ -234,12 +252,31 @@ public:
         return item;
     }
 
+    /**
+     * @brief Appends the anchor and graphic frame that carry a chart.
+     *
+     * A definition with an extent gets a one-cell anchor, whose size is the
+     * extent itself and so does not depend on how wide the reader draws the
+     * columns; one without gets the two-cell anchor spanning its corner cells.
+     */
     static void AppendAnchor(const std::shared_ptr<X::WorksheetDrawing>& root, const ExcelChartDefinition& definition,
                              const std::string& relationshipId)
     {
-        auto anchor = root->AppendChild<X::TwoCellAnchor>();
-        SetMarker(anchor->AppendChild<X::FromMarker>(), definition.From);
-        SetMarker(anchor->AppendChild<X::ToMarker>(), definition.To);
+        std::shared_ptr<OpenXMLElement> anchor;
+        if (definition.Extent)
+        {
+            auto oneCell = root->AppendChild<X::OneCellAnchor>();
+            SetMarker(oneCell->AppendChild<X::FromMarker>(), definition.From, definition.FromOffset);
+            SetExtent(oneCell->AppendChild<X::Extent>(), *definition.Extent);
+            anchor = oneCell;
+        }
+        else
+        {
+            auto twoCell = root->AppendChild<X::TwoCellAnchor>();
+            SetMarker(twoCell->AppendChild<X::FromMarker>(), definition.From, definition.FromOffset);
+            SetMarker(twoCell->AppendChild<X::ToMarker>(), definition.To, definition.ToOffset);
+            anchor = twoCell;
+        }
         auto frame = anchor->AppendChild<X::GraphicFrame>();
         auto nv = frame->AppendChild<X::NonVisualGraphicFrameProperties>();
         auto props = nv->AppendChild<X::NonVisualDrawingProperties>();
@@ -251,17 +288,31 @@ public:
         offset->SetAttribute({{}, "x"}, "0");
         offset->SetAttribute({{}, "y"}, "0");
         auto extent = transform->AppendChild<A::Extents>();
-        extent->SetAttribute({{}, "cx"}, "0");
-        extent->SetAttribute({{}, "cy"}, "0");
+        extent->SetAttribute({{}, "cx"}, definition.Extent ? std::to_string(definition.Extent->Width) : "0");
+        extent->SetAttribute({{}, "cy"}, definition.Extent ? std::to_string(definition.Extent->Height) : "0");
         auto graphicData = frame->AppendChild<A::Graphic>()->AppendChild<A::GraphicData>();
         graphicData->SetUri(StringValue("http://schemas.openxmlformats.org/drawingml/2006/chart"));
         graphicData->AppendChild<C::ChartReference>()->SetId(StringValue(relationshipId));
         anchor->AppendChild<X::ClientData>();
     }
 
-    static std::shared_ptr<X::TwoCellAnchor> FindAnchor(const std::shared_ptr<X::WorksheetDrawing>& root, UInt32 id)
+    /// Every anchor of the drawing that can hold a graphic frame, in document order.
+    static std::vector<std::shared_ptr<OpenXMLElement>> Anchors(const std::shared_ptr<X::WorksheetDrawing>& root)
     {
-        for (const auto& anchor : root->Elements<X::TwoCellAnchor>())
+        std::vector<std::shared_ptr<OpenXMLElement>> result;
+        for (const auto& child : root->Children())
+        {
+            if (std::dynamic_pointer_cast<X::TwoCellAnchor>(child) || std::dynamic_pointer_cast<X::OneCellAnchor>(child))
+            {
+                result.push_back(child);
+            }
+        }
+        return result;
+    }
+
+    static std::shared_ptr<OpenXMLElement> FindAnchor(const std::shared_ptr<X::WorksheetDrawing>& root, UInt32 id)
+    {
+        for (const auto& anchor : Anchors(root))
         {
             auto frame = Child<X::GraphicFrame>(anchor);
             auto nonVisual = Child<X::NonVisualGraphicFrameProperties>(frame);
@@ -274,7 +325,7 @@ public:
         return nullptr;
     }
 
-    static std::string RelationshipId(const std::shared_ptr<X::TwoCellAnchor>& anchor)
+    static std::string RelationshipId(const std::shared_ptr<OpenXMLElement>& anchor)
     {
         auto frame = Child<X::GraphicFrame>(anchor);
         auto graphic = Child<A::Graphic>(frame);
@@ -283,10 +334,21 @@ public:
         return ref ? ref->GetId().ToString() : std::string{};
     }
 
-    static void UpdateAnchor(const std::shared_ptr<X::TwoCellAnchor>& anchor, const ExcelChartDefinition& definition)
+    static void UpdateAnchor(const std::shared_ptr<OpenXMLElement>& anchor, const ExcelChartDefinition& definition)
     {
-        SetMarker(Child<X::FromMarker>(anchor), definition.From);
-        SetMarker(Child<X::ToMarker>(anchor), definition.To);
+        SetMarker(Child<X::FromMarker>(anchor), definition.From, definition.FromOffset);
+        if (std::dynamic_pointer_cast<X::OneCellAnchor>(anchor))
+        {
+            if (definition.Extent)
+            {
+                auto extent = Child<X::Extent>(anchor);
+                SetExtent(extent ? extent : anchor->AppendChild<X::Extent>(), *definition.Extent);
+            }
+        }
+        else
+        {
+            SetMarker(Child<X::ToMarker>(anchor), definition.To, definition.ToOffset);
+        }
         if (!definition.Name.empty())
         {
             Child<X::NonVisualDrawingProperties>(Child<X::NonVisualGraphicFrameProperties>(Child<X::GraphicFrame>(anchor)))
@@ -294,8 +356,65 @@ public:
         }
     }
 
+    /// Reads the anchor's cells, offsets and, for a one-cell anchor, its extent.
+    static void ReadAnchor(const std::shared_ptr<OpenXMLElement>& anchor, ExcelChartDefinition& definition)
+    {
+        ReadMarker(Child<X::FromMarker>(anchor), definition.From, definition.FromOffset);
+        if (const auto to = Child<X::ToMarker>(anchor))
+        {
+            ReadMarker(to, definition.To, definition.ToOffset);
+        }
+        else
+        {
+            definition.To = definition.From;
+        }
+        if (const auto extent = Child<X::Extent>(anchor))
+        {
+            definition.Extent = DrawingExtent{extent->GetCx().ValueOr(0), extent->GetCy().ValueOr(0)};
+        }
+    }
+
+public:
+    /** @brief Reads a marker back into its cell and EMU offset; a missing part keeps the default. */
+    static void ReadMarker(const std::shared_ptr<X::MarkerType>& marker, CellAddress& cell,
+                           DrawingAnchorOffset& offset)
+    {
+        UInt32 row = 0;
+        UInt32 column = 0;
+        if (auto node = Child<X::RowId>(marker))
+        {
+            std::from_chars(node->GetText().data(), node->GetText().data() + node->GetText().size(), row);
+        }
+        if (auto node = Child<X::ColumnId>(marker))
+        {
+            std::from_chars(node->GetText().data(), node->GetText().data() + node->GetText().size(), column);
+        }
+        if (auto node = Child<X::ColumnOffset>(marker))
+        {
+            std::from_chars(node->GetText().data(), node->GetText().data() + node->GetText().size(), offset.Column);
+        }
+        if (auto node = Child<X::RowOffset>(marker))
+        {
+            std::from_chars(node->GetText().data(), node->GetText().data() + node->GetText().size(), offset.Row);
+        }
+        if (const auto address = CellAddress::TryCreate(row + 1, column + 1))
+        {
+            cell = *address;
+        }
+    }
+
 private:
-    static void SetMarker(const std::shared_ptr<X::MarkerType>& marker, const CellAddress& address)
+    static void SetExtent(const std::shared_ptr<X::Extent>& extent, const DrawingExtent& size)
+    {
+        if (extent)
+        {
+            extent->SetCx(Int64Value(std::max<Int64>(0, size.Width)));
+            extent->SetCy(Int64Value(std::max<Int64>(0, size.Height)));
+        }
+    }
+
+    static void SetMarker(const std::shared_ptr<X::MarkerType>& marker, const CellAddress& address,
+                          const DrawingAnchorOffset& offset)
     {
         auto set = [&]<typename T>(std::string value)
         {
@@ -307,9 +426,9 @@ private:
             node->SetText(value);
         };
         set.template operator()<X::ColumnId>(std::to_string(address.Column().Value() - 1));
-        set.template operator()<X::ColumnOffset>("0");
+        set.template operator()<X::ColumnOffset>(std::to_string(std::max<Int64>(0, offset.Column)));
         set.template operator()<X::RowId>(std::to_string(address.Row().Value() - 1));
-        set.template operator()<X::RowOffset>("0");
+        set.template operator()<X::RowOffset>(std::to_string(std::max<Int64>(0, offset.Row)));
     }
 };
 
@@ -331,8 +450,7 @@ static bool DrawingIdExists(const std::shared_ptr<X::WorksheetDrawing>& root, UI
 
 std::optional<UInt32> Worksheet::AddChart(ExcelChartDefinition chart)
 {
-    if (!m_part || chart.Series.empty() || !chart.From.IsValid() || !chart.To.IsValid() ||
-        chart.To.Row().Value() < chart.From.Row().Value() || chart.To.Column().Value() < chart.From.Column().Value() ||
+    if (!m_part || chart.Series.empty() || !Detail::ExcelChartDom::IsValidAnchor(chart) ||
         !Detail::ExcelChartDom::IsValidCombination(chart))
     {
         return std::nullopt;
@@ -460,9 +578,8 @@ std::optional<UInt32> Worksheet::AddChart(ExcelChartDefinition chart)
 
 bool Worksheet::UpdateChart(const ExcelChartDefinition& chart)
 {
-    if (!m_part || chart.Series.empty() || chart.Id == 0 || !chart.From.IsValid() || !chart.To.IsValid() ||
-        chart.To.Row().Value() < chart.From.Row().Value() ||
-        chart.To.Column().Value() < chart.From.Column().Value() || !Detail::ExcelChartDom::IsValidCombination(chart))
+    if (!m_part || chart.Series.empty() || chart.Id == 0 || !Detail::ExcelChartDom::IsValidAnchor(chart) ||
+        !Detail::ExcelChartDom::IsValidCombination(chart))
     {
         return false;
     }
@@ -596,7 +713,7 @@ std::vector<ExcelChartDefinition> Worksheet::Charts() const
     {
         return result;
     }
-    for (const auto& anchor : root->Elements<Detail::X::TwoCellAnchor>())
+    for (const auto& anchor : Detail::ExcelChartDom::Anchors(root))
     {
         const auto relationshipId = Detail::ExcelChartDom::RelationshipId(anchor);
         if (relationshipId.empty())
@@ -611,28 +728,7 @@ std::vector<ExcelChartDefinition> Worksheet::Charts() const
             definition.Id = props->GetId().ValueOr(0);
             definition.Name = props->GetName().ToString();
         }
-        auto readMarker = [](const std::shared_ptr<Detail::X::MarkerType>& marker)
-        {
-            UInt32 row = 0;
-            UInt32 column = 0;
-            if (auto node = Detail::Child<Detail::X::RowId>(marker))
-            {
-                std::from_chars(node->GetText().data(), node->GetText().data() + node->GetText().size(), row);
-            }
-            if (auto node = Detail::Child<Detail::X::ColumnId>(marker))
-            {
-                std::from_chars(node->GetText().data(), node->GetText().data() + node->GetText().size(), column);
-            }
-            return CellAddress::TryCreate(row + 1, column + 1);
-        };
-        if (auto address = readMarker(Detail::Child<Detail::X::FromMarker>(anchor)))
-        {
-            definition.From = *address;
-        }
-        if (auto address = readMarker(Detail::Child<Detail::X::ToMarker>(anchor)))
-        {
-            definition.To = *address;
-        }
+        Detail::ExcelChartDom::ReadAnchor(anchor, definition);
         for (const auto& part : drawing->GetChartParts())
         {
             if (part->RelationshipId() == relationshipId)

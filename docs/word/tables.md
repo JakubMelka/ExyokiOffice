@@ -48,12 +48,15 @@ table->SetWidth(Millimeters(160.0))
     .SetAlignment(W::TableRowAlignmentValues::Center)
     .SetBorders(W::BorderValues::Single, UInt32{8}, Color(0x1F, 0x4E, 0x79))
     .SetDefaultCellMargins(Millimeters(2.0), Millimeters(1.0),
-                           Millimeters(2.0), Millimeters(1.0));
+                           Millimeters(2.0), Millimeters(1.0))
+    .SetStyleId("TableGrid");               // w:tblStyle; GetStyleId() reads it back
 ```
 
 Like paragraph borders, `SetBorders` accepts the width either in Word's
 native eighths of a point (`UInt32`) or in any physical unit
-(`MeasuringUnits`).
+(`MeasuringUnits`). `SetStyleId` only writes the reference; whether the
+document defines the table style is for the caller to check with
+`StyleManager::HasStyle`, and an empty identifier removes it.
 
 ## Cell and row formatting
 
@@ -82,6 +85,7 @@ table->SetCellBackgroundColor(0, 0, Color(0x1F, 0x4E, 0x79));
 
 ```cpp
 table->MergeCells(1, 0, 1, 2);   // from (row 1, col 0): span 1 row, 2 columns
+table->CanMergeCells(0, 2, 2, 1);// would a merge there be accepted?
 table->SplitCell(1, 0);          // undo one merge
 table->SplitAllCells();          // dissolve every merge in the table
 ```
@@ -89,6 +93,17 @@ table->SplitAllCells();          // dissolve every merge in the table
 Merges are expressed with row and column spans from a top-left anchor cell.
 After merging, address content through the anchor cell; the logical-grid API
 above reports which positions each merge covers.
+
+A merge does what Word does: the merges elsewhere in the table are left
+alone, a merged cell that lies entirely inside the region is absorbed, and
+the content of the covered cells is appended to the anchor cell in reading
+order, each cell's paragraphs after the anchor's own. The one departure is
+that paragraphs holding nothing are dropped instead of becoming blank lines,
+so merging an empty cell with a filled one gives just the text. A region
+that cuts through a merged cell — covers only part of it — would not be
+rectangular, so `MergeCells` refuses it and leaves the table unchanged;
+`CanMergeCells` tells the two cases apart beforehand. Split the cell first,
+or widen the region to cover it.
 
 ## Nested tables
 

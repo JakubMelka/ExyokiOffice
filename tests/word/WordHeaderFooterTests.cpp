@@ -265,4 +265,43 @@ TEST_SUITE("WordHeaderFooterTests")
         CHECK(sections[0]->GetHeader(HeaderFooterType::Default)->PlainText() == "Header");
     }
 
+    TEST_CASE("W-4: the first-page and even-page switches are written and read back [unit] [word] [word-header-footer]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        editor->AddParagraph("Body");
+        auto section = editor->EnsureFinalSection();
+        REQUIRE(section != nullptr);
+
+        CHECK_FALSE(section->HasTitlePage());
+        CHECK_FALSE(editor->HasEvenAndOddHeaders());
+        CHECK(editor->SetEvenAndOddHeaders(false)); // nothing to clear, still fine
+
+        section->SetHeaderText(HeaderFooterType::First, "First header").SetTitlePage(true);
+        section->SetFooterText(HeaderFooterType::Even, "Even footer");
+        REQUIRE(editor->SetEvenAndOddHeaders(true));
+
+        CHECK(section->HasTitlePage());
+        CHECK(editor->HasEvenAndOddHeaders());
+        CHECK(CountReferences(section, "titlePg") == 1);
+        section->SetTitlePage(true);
+        CHECK(CountReferences(section, "titlePg") == 1);
+
+        auto reopened = WordDocumentEditor::Open(editor->SaveToMemory());
+        REQUIRE(reopened != nullptr);
+        auto sections = reopened->Sections();
+        REQUIRE(sections.size() == 1);
+        CHECK(sections[0]->HasTitlePage());
+        CHECK(reopened->HasEvenAndOddHeaders());
+        auto settingsPart = reopened->GetDocument()->GetMainDocumentPart()->GetDocumentSettingsPart();
+        REQUIRE(settingsPart != nullptr);
+        CHECK(settingsPart->GetXmlString().find("evenAndOddHeaders") != std::string::npos);
+
+        sections[0]->SetTitlePage(false);
+        REQUIRE(reopened->SetEvenAndOddHeaders(false));
+        CHECK_FALSE(sections[0]->HasTitlePage());
+        CHECK_FALSE(reopened->HasEvenAndOddHeaders());
+        CHECK(CountReferences(sections[0], "titlePg") == 0);
+    }
+
 } // TEST_SUITE("WordHeaderFooterTests")

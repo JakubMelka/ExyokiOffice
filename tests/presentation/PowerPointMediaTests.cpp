@@ -106,7 +106,7 @@ TEST_SUITE("PowerPointMediaTests")
         CHECK(slide->GetPart()->Relationships().size() >= 2);
         REQUIRE(shape->Remove());
         CHECK(slide->ShapeTree()->Count() == 0);
-        CHECK(slide->GetPart()->Relationships().empty());
+        CHECK(slide->GetPart()->Relationships().size() == 1); // only the slide layout relationship stays
     }
 
     TEST_CASE("media pictures support shape outlines and effects without changing playback [unit] [powerpoint] [media]")

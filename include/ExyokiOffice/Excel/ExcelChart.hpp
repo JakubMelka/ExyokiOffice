@@ -5,6 +5,7 @@
 #pragma once
 
 #include "ExyokiOffice/Excel/ExcelAddress.hpp"
+#include "ExyokiOffice/Excel/ExcelDrawingAnchor.hpp"
 #include "ExyokiOffice/Export.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
@@ -128,6 +129,26 @@ struct EXYOKIOFFICE_EXPORT ExcelChartDefinition
 
     /** @brief Bottom-right anchor cell, exclusive in drawing coordinates. */
     CellAddress To;
+
+    /** @brief Offset of the top-left corner inside @ref From; zero means the cell's edge. */
+    DrawingAnchorOffset FromOffset;
+
+    /**
+     * @brief Offset of the bottom-right corner inside @ref To.
+     *
+     * Zero ends the chart on the top-left edge of @ref To.
+     */
+    DrawingAnchorOffset ToOffset;
+
+    /**
+     * @brief Exact size of the chart.
+     *
+     * When set, the chart is written as a one-cell anchor (`xdr:oneCellAnchor`
+     * with `xdr:ext`): it starts at @ref From and is exactly this large on any
+     * screen, and @ref To is not needed. @ref Worksheet::DrawingAnchorForSize
+     * computes it together with the two-cell equivalent.
+     */
+    std::optional<DrawingExtent> Extent;
 
     /** @brief Chart plot type. */
     ExcelChartType Type = ExcelChartType::Column;

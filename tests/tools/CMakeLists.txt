@@ -31,7 +31,8 @@ exyokioffice_add_test_executable(ExyokiOfficeToolsTests
         ToolsCorePropertiesNamespaceTests.cpp
         ToolsWordTextToolsTests.cpp
         ToolsWordDocumentToolsTests.cpp
-        ToolsXmlQueryTests.cpp)
+        ToolsXmlQueryTests.cpp
+        ToolsPowerPointTextToolsTests.cpp)
 
 # The "Other formats" rows of docs/Compatibility.md are all implemented here.
 exyokioffice_add_test_area(tools NAME Tools.FlatOpc LABELS formats-flatopc

@@ -1080,7 +1080,33 @@ public:
     /** @brief Removes one threaded comment and unused supporting parts. */
     bool RemoveThreadedComment(std::string_view id);
 
-    /** @brief Adds an image and a standards-compliant two-cell drawing anchor. */
+    /**
+     * @brief Computes the drawing anchor for an object of a given size.
+     *
+     * The result carries both anchor forms: @ref DrawingAnchor::Extent is the
+     * exact size, which images and charts store as a one-cell anchor, and
+     * @ref DrawingAnchor::To with @ref DrawingAnchor::ToOffset is the two-cell
+     * equivalent, found by walking the worksheet's column widths and row
+     * heights from @p from. Explicit widths and heights are read from the
+     * sheet; columns and rows without one use `sheetFormatPr` or, failing
+     * that, Excel's defaults for Calibri 11 at 96 DPI (64 pixels and 15
+     * points). Hidden rows and columns count as zero.
+     *
+     * @param from Top-left anchor cell.
+     * @param width Requested width; negative or non-finite values are refused.
+     * @param height Requested height; negative or non-finite values are refused.
+     * @return The anchor, or std::nullopt for an invalid cell or size.
+     */
+    std::optional<DrawingAnchor> DrawingAnchorForSize(CellAddress from, ExyokiOffice::MeasuringUnits width,
+                                                      ExyokiOffice::MeasuringUnits height) const;
+
+    /**
+     * @brief Adds an image behind a drawing anchor.
+     *
+     * With @ref ExcelWorksheetImage::Extent set the anchor is a one-cell anchor
+     * and the picture keeps that exact size; otherwise it is a two-cell anchor
+     * spanning @ref ExcelWorksheetImage::From to @ref ExcelWorksheetImage::To.
+     */
     std::optional<UInt32> AddImage(ExcelWorksheetImage image);
 
     /** @brief Enumerates images managed through worksheet drawing anchors. */
@@ -1092,8 +1118,10 @@ public:
     /**
      * @brief Builds a chart from cell ranges and anchors it into the worksheet.
      *
-     * The chart XML is written to a new chart part and referenced by a two-cell
-     * graphic-frame anchor in the worksheet drawing. Series value and category
+     * The chart XML is written to a new chart part and referenced by a
+     * graphic-frame anchor in the worksheet drawing: a one-cell anchor of the
+     * exact size when @ref ExcelChartDefinition::Extent is set, otherwise a
+     * two-cell anchor. Series value and category
      * ranges are emitted as sheet-qualified absolute formula references, and the
      * current cell values are embedded as numeric and string caches so the chart
      * renders without recalculation. The drawing object identifier shares a
@@ -1777,11 +1805,14 @@ public:
     /**
      * @brief Copies a worksheet within the same workbook.
      *
-     * A new worksheet part and workbook relationship are created. The worksheet
-     * XML is deep-copied into the new part, so later edits do not mutate the
-     * source worksheet. Child relationships of the source worksheet are not
-     * copied yet; media, drawings, tables, and comments are handled by later
-     * roadmap items.
+     * The worksheet's whole part graph is cloned: the sheet XML, its drawing
+     * with charts, notes with their VML boxes, threaded comments, tables,
+     * printer settings and external hyperlinks, so every relationship the copy
+     * refers to exists. Images and pivot caches are shared with the original
+     * rather than duplicated. Tables receive new workbook-unique ids and names,
+     * threaded comments new ids, and the defined names scoped to the source
+     * sheet (print area, print titles) are duplicated for the copy. Later
+     * edits of either sheet do not affect the other.
      *
      * @param sourceIndex Zero-based worksheet index to copy.
      * @param name Desired name for the new sheet. When empty, a unique copy
@@ -1799,12 +1830,12 @@ public:
      * sharing mutable package objects with the source workbook. Shared-string
      * cell indices are rewritten against this workbook's shared-string table.
      *
-     * Cell style indices are workbook-global. Consequently, an imported sheet
-     * that contains styled cells is accepted only when the source and destination
-     * workbook style parts are byte-for-byte equivalent. Rejecting incompatible
-     * style catalogs is deliberate: silently retaining source indices would make
-     * cells reference unrelated destination formats. Unstyled worksheets can be
-     * imported regardless of the style catalogs.
+     * Everything the sheet numbers per workbook is translated on the way: cell
+     * and differential style indices are read back from the source stylesheet
+     * and registered in this workbook's, table ids and names are made unique,
+     * and the persons that imported threaded comments name are merged into this
+     * workbook's person list. A style index the source cannot resolve falls
+     * back to the default style.
      *
      * Worksheet names remain case-insensitively unique. When @p name is empty,
      * the source name is retained if available; otherwise a valid `Copy` suffix
@@ -1816,8 +1847,8 @@ public:
      * @param sourceIndex Zero-based worksheet index in source workbook order.
      * @param name Optional destination worksheet name.
      * @return Wrapper for the imported worksheet, or `nullptr` if either editor
-     *         is invalid, the index/name is invalid, styles are incompatible,
-     *         shared strings cannot be remapped, or the part graph import fails.
+     *         is invalid, the index/name is invalid, shared strings cannot be
+     *         remapped, or the part graph import fails.
      * @note The operation is transactional with respect to the new worksheet:
      *       a failed import removes the partially imported root and does not add
      *       a workbook `<sheet>` entry.

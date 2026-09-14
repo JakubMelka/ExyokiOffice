@@ -103,7 +103,7 @@ TEST_SUITE("PowerPointPictureTests")
         CHECK_FALSE(picture->GetPicture()->Hyperlink.has_value());
 
         REQUIRE(tree->Remove(0));
-        CHECK(slide->GetPart()->Relationships().empty());
+        CHECK(slide->GetPart()->Relationships().size() == 1); // only the slide layout relationship stays
     }
 
     TEST_CASE("invalid picture inputs are rejected without changing existing content [unit] [powerpoint] [picture]")

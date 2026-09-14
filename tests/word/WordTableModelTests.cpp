@@ -320,4 +320,136 @@ TEST_SUITE("WordTableModelTests")
         CHECK(reopenedTexts.front()->GetText() == "covered");
     }
 
+    TEST_CASE("W-5: a second merge keeps the first and carries the covered text into the anchor [unit] [word] [word-table-model]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+
+        auto table = editor->AddTable(3, 3);
+        REQUIRE(table != nullptr);
+        const char* texts[3][3] = {{"a", "b", "c"}, {"d", "e", "f"}, {"g", "h", "i"}};
+        for (ExyokiOffice::Size row = 0; row < 3; ++row)
+        {
+            for (ExyokiOffice::Size column = 0; column < 3; ++column)
+            {
+                table->SetCellText(row, column, texts[row][column]);
+            }
+        }
+
+        // Row 0: a+b become one cell holding both texts as separate paragraphs.
+        table->MergeCells(0, 0, 1, 2);
+        {
+            auto grid = table->GetLogicalGrid();
+            REQUIRE(grid.size() == 3);
+            CHECK(grid[0][0].ColumnSpan == 2);
+            CHECK(grid[0][1].Cell == grid[0][0].Cell);
+            auto merged = grid[0][0].Cell->Descendants<W::Text>();
+            REQUIRE(merged.size() == 2);
+            CHECK(merged[0]->GetText() == "a");
+            CHECK(merged[1]->GetText() == "b");
+            CHECK(CountDescendants<W::Paragraph>(grid[0][0].Cell) == 2);
+        }
+
+        // Column 2, rows 1-2: the earlier horizontal merge must survive.
+        CHECK(table->CanMergeCells(1, 2, 2, 1));
+        table->MergeCells(1, 2, 2, 1);
+        {
+            auto grid = table->GetLogicalGrid();
+            REQUIRE(grid.size() == 3);
+            CHECK(grid[0][0].ColumnSpan == 2);
+            CHECK(grid[0][0].RowSpan == 1);
+            CHECK(grid[1][2].RowSpan == 2);
+            CHECK(grid[2][2].Cell == grid[1][2].Cell);
+            CHECK_FALSE(grid[2][2].IsOrigin);
+            CHECK(PhysicalCellCounts(table->GetLowLevelApi()) == std::vector<ExyokiOffice::Size>{2, 3, 3});
+            CHECK(CountDescendants<W::GridSpan>(table->GetLowLevelApi()) == 1);
+            CHECK(CountDescendants<W::VerticalMerge>(table->GetLowLevelApi()) == 2);
+
+            auto vertical = grid[1][2].Cell->Descendants<W::Text>();
+            REQUIRE(vertical.size() == 2);
+            CHECK(vertical[0]->GetText() == "f");
+            CHECK(vertical[1]->GetText() == "i");
+            // The continuation cell is written empty, as Word does.
+            auto continuation = table->GetLowLevelApi()->Elements<W::TableRow>()[2]->Elements<W::TableCell>().back();
+            CHECK(CountDescendants<W::Text>(continuation) == 0);
+            CHECK(CountDescendants<W::Paragraph>(continuation) == 1);
+
+            // Row 0's original a+b text is still there.
+            auto merged = grid[0][0].Cell->Descendants<W::Text>();
+            REQUIRE(merged.size() == 2);
+            CHECK(merged[0]->GetText() == "a");
+            CHECK(merged[1]->GetText() == "b");
+        }
+
+        // A region that cuts through the a+b cell is refused and changes nothing.
+        CHECK_FALSE(table->CanMergeCells(0, 1, 2, 2));
+        table->MergeCells(0, 1, 2, 2);
+        {
+            auto grid = table->GetLogicalGrid();
+            CHECK(grid[0][0].ColumnSpan == 2);
+            CHECK(grid[1][1].RowSpan == 1);
+            CHECK(grid[1][1].ColumnSpan == 1);
+            CHECK(PhysicalCellCounts(table->GetLowLevelApi()) == std::vector<ExyokiOffice::Size>{2, 3, 3});
+        }
+
+        // A region covering an earlier merge entirely absorbs it.
+        CHECK(table->CanMergeCells(0, 0, 1, 3));
+        table->MergeCells(0, 0, 1, 3);
+        {
+            auto grid = table->GetLogicalGrid();
+            CHECK(grid[0][0].ColumnSpan == 3);
+            CHECK(PhysicalCellCounts(table->GetLowLevelApi()) == std::vector<ExyokiOffice::Size>{1, 3, 3});
+            auto merged = grid[0][0].Cell->Descendants<W::Text>();
+            REQUIRE(merged.size() == 3);
+            CHECK(merged[2]->GetText() == "c");
+        }
+
+        auto reopened = ReopenFirstTable(editor);
+        auto reopenedGrid = reopened.Table->GetLogicalGrid();
+        REQUIRE(reopenedGrid.size() == 3);
+        CHECK(reopenedGrid[0][0].ColumnSpan == 3);
+        CHECK(reopenedGrid[1][2].RowSpan == 2);
+    }
+
+    TEST_CASE("W-5: merging an empty anchor with a filled cell leaves no blank line [unit] [word] [word-table-model]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto table = editor->AddTable(1, 3);
+        REQUIRE(table != nullptr);
+        table->SetCellText(0, 1, "only");
+
+        table->MergeCells(0, 0, 1, 3);
+        auto grid = table->GetLogicalGrid();
+        REQUIRE(grid.size() == 1);
+        CHECK(grid[0][0].ColumnSpan == 3);
+        CHECK(CountDescendants<W::Paragraph>(grid[0][0].Cell) == 1);
+        auto texts = grid[0][0].Cell->Descendants<W::Text>();
+        REQUIRE(texts.size() == 1);
+        CHECK(texts.front()->GetText() == "only");
+    }
+
+    TEST_CASE("W-8: Table::SetStyleId writes and reads the table style reference [unit] [word] [word-table-model]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto table = editor->AddTable(1, 1);
+        REQUIRE(table != nullptr);
+        CHECK(table->GetStyleId().empty());
+
+        table->SetStyleId("GridStyle");
+        CHECK(table->GetStyleId() == "GridStyle");
+        CHECK(CountDescendants<W::TableStyle>(table->GetLowLevelApi()) == 1);
+        table->SetStyleId("Other");
+        CHECK(table->GetStyleId() == "Other");
+        CHECK(CountDescendants<W::TableStyle>(table->GetLowLevelApi()) == 1);
+
+        auto reopened = ReopenFirstTable(editor);
+        CHECK(reopened.Table->GetStyleId() == "Other");
+
+        reopened.Table->SetStyleId("");
+        CHECK(reopened.Table->GetStyleId().empty());
+        CHECK(CountDescendants<W::TableStyle>(reopened.Table->GetLowLevelApi()) == 0);
+    }
+
 } // TEST_SUITE("WordTableModelTests")

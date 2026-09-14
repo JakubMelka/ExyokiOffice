@@ -7,12 +7,15 @@
 #include "ExyokiOffice/OpenXmlDomValidator.hpp"
 #include "ExyokiOffice/OpenXmlPackage.hpp"
 #include "ExyokiOffice/OpenXMLElement.hpp"
+#include "ExyokiOffice/Excel/ExcelAddress.hpp"
 #include "ExyokiOffice/Packaging/GeneratedSchematron.hpp"
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
 #include "ConformanceClass.hpp"
+#include "OpenXmlDomInternal.hpp"
 #include "OpenXmlPackageInternal.hpp"
 #include "OpenXmlPackageUri.hpp"
 #include "OpenXmlVersionSupport.hpp"
+#include "XmlNamespaceResolver.hpp"
 #include "XmlParseOptions.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 #include "AsciiText.hpp"
@@ -20,6 +23,7 @@
 #include <algorithm>
 #include <charconv>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -31,6 +35,532 @@ namespace ExyokiOffice
 {
 
 using Detail::SupportsOfficeVersion;
+
+/**
+ * @brief The package-semantic rules Office enforces beyond OPC structure and the schema.
+ *
+ * Each rule here was found by watching Word, Excel or PowerPoint refuse a file
+ * that validated clean: a relationship reference no rule covered, two tables
+ * over the same cells, a threaded comment whose author is not in the person
+ * list, a slide without the master/layout/theme chain, and - accepted by Word
+ * but shown as Normal - a style reference nothing defines. They run in both
+ * validator configurations, because they are about the package rather than
+ * about the markup of one part. docs/tools/exyoki.md lists them.
+ */
+class OpenXmlPackageSemanticRulesHelper
+{
+public:
+    static constexpr std::string_view kRelationshipsNamespace =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    static constexpr std::string_view kSpreadsheetNamespace =
+        "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+    static constexpr std::string_view kThreadedCommentsNamespace =
+        "http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments";
+    static constexpr std::string_view kPresentationNamespace =
+        "http://schemas.openxmlformats.org/presentationml/2006/main";
+    static constexpr std::string_view kWordprocessingNamespace =
+        "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+    static bool HasRelationship(const OpenXmlPartContainer& container, std::string_view id)
+    {
+        const auto& relationships = container.Relationships();
+        return std::any_of(relationships.begin(), relationships.end(), [id](const OpenXmlRelationship& relationship)
+                           { return relationship.Id == id; });
+    }
+
+    static bool HasRelationshipOfType(const OpenXmlPartContainer& container, std::string_view type)
+    {
+        const auto& relationships = container.Relationships();
+        return std::any_of(relationships.begin(), relationships.end(), [type](const OpenXmlRelationship& relationship)
+                           { return relationship.Type == type; });
+    }
+
+    static std::shared_ptr<OpenXmlPackagePart> FirstChildPartNamed(const OpenXmlPartContainer& container,
+                                                                   std::string_view descriptorName)
+    {
+        for (const auto& child : container.Parts())
+        {
+            if (child && child->Descriptor().Name == descriptorName)
+            {
+                return child;
+            }
+        }
+        return nullptr;
+    }
+
+    template <typename TCallback>
+    static void VisitElements(const std::shared_ptr<OpenXMLElement>& element, TCallback&& callback)
+    {
+        if (!element)
+        {
+            return;
+        }
+
+        callback(*element);
+        for (const auto& child : element->Children())
+        {
+            VisitElements(child, callback);
+        }
+    }
+
+    static ValidationIssue MakeElementIssue(ValidationErrorId id,
+                                            ValidationSeverity severity,
+                                            std::string message,
+                                            const OpenXmlPackagePart& part,
+                                            XmlLocation location)
+    {
+        ValidationIssue issue;
+        issue.Severity = severity;
+        issue.Domain = ValidationDomain::Packaging;
+        issue.Id = id;
+        issue.Message = std::move(message);
+        issue.Location = std::move(location);
+        issue.PartUri = part.Uri();
+        return issue;
+    }
+
+    static ValidationIssue MakeDanglingRelationshipReferenceIssue(const OpenXmlPackagePart& part,
+                                                                  const OpenXMLElement& element,
+                                                                  const OpenXmlQualifiedName& attribute,
+                                                                  std::string_view relationshipId)
+    {
+        auto location = element.GetXmlLocation(attribute);
+        auto issue = MakeElementIssue(ValidationErrorId::PackageDanglingRelationshipReference,
+                                      ValidationSeverity::Error,
+                                      "Element '" + location.ElementName + "' attribute '" + location.AttributeName +
+                                          "' references relationship '" + std::string(relationshipId) +
+                                          "', which part '" + part.Uri() + "' does not define.",
+                                      part,
+                                      std::move(location));
+        issue.RelationshipSourceUri = part.Uri();
+        issue.RelationshipId = std::string(relationshipId);
+        return issue;
+    }
+
+    /**
+     * @brief Checks every relationship-namespace attribute of @p element.
+     *
+     * The generated schematron rules know only the elements the SDK metadata
+     * lists, and `x:tablePart` is not among them: a worksheet whose table
+     * reference pointed nowhere validated clean while Excel refused it. What
+     * makes an attribute a relationship reference is its namespace, not the
+     * element it sits on, so the attributes are read from the node itself -
+     * the typed DOM exposes only what its schema declares - and each prefix is
+     * resolved through the bindings in scope, whatever prefix the document
+     * chose. Attributes a schematron rule already checked are skipped so a
+     * missing relationship is reported once.
+     */
+    static void ValidateRelationshipAttributes(const OpenXmlPackagePart& part,
+                                               const OpenXMLElement& element,
+                                               std::span<const OpenXmlQualifiedName> alreadyChecked,
+                                               DiagnosticSink& sink)
+    {
+        const auto node = Detail::ToNode(element.GetNodeHandle());
+        if (!node)
+        {
+            return;
+        }
+
+        for (auto attribute = node.first_attribute(); attribute; attribute = attribute.next_attribute())
+        {
+            const std::string_view name = attribute.name();
+            const auto colon = name.find(':');
+            if (colon == std::string_view::npos)
+            {
+                continue;
+            }
+
+            const auto prefix = name.substr(0, colon);
+            const std::string_view value = attribute.value();
+            if (prefix == "xmlns" || value.empty())
+            {
+                continue;
+            }
+
+            const auto uri = Xml::NamespaceResolver::LookupUriForPrefix(node, prefix);
+            if (!uri || *uri != kRelationshipsNamespace)
+            {
+                continue;
+            }
+
+            const OpenXmlQualifiedName attributeName(kRelationshipsNamespace, name.substr(colon + 1));
+            if (std::find(alreadyChecked.begin(), alreadyChecked.end(), attributeName) != alreadyChecked.end() ||
+                HasRelationship(part, value))
+            {
+                continue;
+            }
+
+            sink.Report(MakeDanglingRelationshipReferenceIssue(part, element, attributeName, value));
+        }
+    }
+
+    struct TableReference
+    {
+        std::shared_ptr<OpenXmlPackagePart> Part;
+        Excel::CellRange Range;
+        std::string Text;
+    };
+
+    static bool RangesOverlap(const Excel::CellRange& left, const Excel::CellRange& right) noexcept
+    {
+        return left.First().Row().Value() <= right.Last().Row().Value() &&
+               right.First().Row().Value() <= left.Last().Row().Value() &&
+               left.First().Column().Value() <= right.Last().Column().Value() &&
+               right.First().Column().Value() <= left.Last().Column().Value();
+    }
+
+    /// Excel refuses a worksheet two of whose tables share a cell.
+    static void ValidateWorksheetTables(const OpenXmlPackagePart& worksheet, DiagnosticSink& sink)
+    {
+        const OpenXmlQualifiedName tableName(kSpreadsheetNamespace, "table");
+        const OpenXmlQualifiedName referenceAttribute(std::string_view{}, "ref");
+
+        std::vector<TableReference> tables;
+        for (const auto& child : worksheet.Parts())
+        {
+            if (!child || child->Descriptor().Name != "TableDefinitionPart" || !child->IsXmlPart())
+            {
+                continue;
+            }
+
+            const auto root = child->GetRootElement();
+            std::string_view text;
+            if (!root || root->QualifiedName() != tableName || !root->TryGetAttribute(referenceAttribute, text))
+            {
+                continue;
+            }
+
+            // A reference that does not parse is the schema's to report.
+            const auto range = Excel::CellRange::ParseA1(text);
+            if (range)
+            {
+                tables.push_back({child, *range, std::string(text)});
+            }
+        }
+
+        for (Size first = 0; first < tables.size(); ++first)
+        {
+            for (Size second = first + 1; second < tables.size(); ++second)
+            {
+                if (!RangesOverlap(tables[first].Range, tables[second].Range))
+                {
+                    continue;
+                }
+
+                auto issue = MakeElementIssue(ValidationErrorId::PackageTableRangeOverlap,
+                                              ValidationSeverity::Error,
+                                              "Table part '" + tables[first].Part->Uri() + "' (" + tables[first].Text +
+                                                  ") and table part '" + tables[second].Part->Uri() + "' (" +
+                                                  tables[second].Text + ") of worksheet '" + worksheet.Uri() +
+                                                  "' overlap; Excel refuses a worksheet whose tables share cells.",
+                                              worksheet,
+                                              {});
+                issue.TargetUri = tables[second].Part->Uri();
+                sink.Report(std::move(issue));
+            }
+        }
+    }
+
+    static std::unordered_set<std::string> CollectWorkbookPersonIds(const OpenXmlPackage& package, bool& hasPersonList)
+    {
+        const OpenXmlQualifiedName personName(kThreadedCommentsNamespace, "person");
+        const OpenXmlQualifiedName idAttribute(std::string_view{}, "id");
+
+        std::unordered_set<std::string> ids;
+        hasPersonList = false;
+        for (const auto& root : package.Parts())
+        {
+            if (!root || root->Descriptor().Name != "WorkbookPart")
+            {
+                continue;
+            }
+
+            for (const auto& child : root->Parts())
+            {
+                if (!child || child->Descriptor().Name != "WorkbookPersonPart" || !child->IsXmlPart())
+                {
+                    continue;
+                }
+
+                hasPersonList = true;
+                VisitElements(child->GetRootElement(), [&](const OpenXMLElement& element)
+                              {
+                    std::string_view id;
+                    if (element.QualifiedName() == personName && element.TryGetAttribute(idAttribute, id))
+                    {
+                        ids.insert(std::string(id));
+                    } });
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * @brief Excel refuses a threaded comment whose author the workbook does not list.
+     *
+     * The person list hangs off the workbook part, not off the worksheet the
+     * comment belongs to, which is exactly why importing a sheet loses it. One
+     * issue per unknown person per part: a thread of twenty replies by the
+     * same author is one defect, not twenty.
+     */
+    static void ValidateThreadedCommentPersons(const OpenXmlPackage& package,
+                                               const OpenXmlPackagePart& part,
+                                               const std::shared_ptr<OpenXMLElement>& root,
+                                               DiagnosticSink& sink)
+    {
+        const OpenXmlQualifiedName commentName(kThreadedCommentsNamespace, "threadedComment");
+        const OpenXmlQualifiedName personAttribute(std::string_view{}, "personId");
+
+        bool hasPersonList = false;
+        const auto persons = CollectWorkbookPersonIds(package, hasPersonList);
+        std::unordered_set<std::string> reported;
+        VisitElements(root, [&](const OpenXMLElement& element)
+                      {
+            std::string_view personId;
+            if (element.QualifiedName() != commentName || !element.TryGetAttribute(personAttribute, personId) ||
+                personId.empty() || persons.contains(std::string(personId)) ||
+                !reported.insert(std::string(personId)).second)
+            {
+                return;
+            }
+
+            std::string message = "Threaded comment names person '" + std::string(personId) + "', which ";
+            message += hasPersonList ? "no person list related from the workbook defines."
+                                     : "the workbook cannot resolve: it has no person list part.";
+            message += " Excel refuses the workbook.";
+            sink.Report(MakeElementIssue(ValidationErrorId::PackageThreadedCommentPersonUndefined,
+                                         ValidationSeverity::Error,
+                                         std::move(message),
+                                         part,
+                                         element.GetXmlLocation(personAttribute))); });
+    }
+
+    /// PowerPoint refuses a presentation that does not list at least one slide master.
+    static void ValidatePresentationMasters(const OpenXmlPackagePart& part,
+                                            const std::shared_ptr<OpenXMLElement>& root,
+                                            DiagnosticSink& sink)
+    {
+        const OpenXmlQualifiedName presentationName(kPresentationNamespace, "presentation");
+        const OpenXmlQualifiedName listName(kPresentationNamespace, "sldMasterIdLst");
+        const OpenXmlQualifiedName entryName(kPresentationNamespace, "sldMasterId");
+
+        bool listed = false;
+        if (root && root->QualifiedName() == presentationName)
+        {
+            for (const auto& child : root->Children())
+            {
+                if (!child || child->QualifiedName() != listName)
+                {
+                    continue;
+                }
+                for (const auto& entry : child->Children())
+                {
+                    if (entry && entry->QualifiedName() == entryName)
+                    {
+                        listed = true;
+                    }
+                }
+            }
+        }
+
+        const bool related = HasRelationshipOfType(part, Packaging::SlideMasterPart::Descriptor().RelationshipType);
+        if (listed && related)
+        {
+            return;
+        }
+
+        std::string message = "Presentation part '" + part.Uri() + "' has no slide master: ";
+        if (!listed && !related)
+        {
+            message += "p:presentation carries no p:sldMasterIdLst entry and the part has no slideMaster relationship.";
+        }
+        else if (!listed)
+        {
+            message += "p:presentation carries no p:sldMasterIdLst entry for the related slide master part.";
+        }
+        else
+        {
+            message += "p:sldMasterIdLst names a master but the part has no slideMaster relationship.";
+        }
+        message += " PowerPoint refuses a presentation without a slide master.";
+        sink.Report(MakeElementIssue(ValidationErrorId::PackagePresentationMissingSlideMaster,
+                                     ValidationSeverity::Error,
+                                     std::move(message),
+                                     part,
+                                     root ? root->GetXmlLocation() : XmlLocation{}));
+    }
+
+    /// The slide -> layout -> master -> theme chain PowerPoint requires of every slide.
+    static void RequireRelationship(const OpenXmlPackagePart& part,
+                                    std::string_view relationshipType,
+                                    ValidationErrorId id,
+                                    std::string_view targetDescription,
+                                    DiagnosticSink& sink)
+    {
+        if (HasRelationshipOfType(part, relationshipType))
+        {
+            return;
+        }
+
+        sink.Report(MakeElementIssue(id,
+                                     ValidationSeverity::Error,
+                                     "Part '" + part.Uri() + "' has no " + std::string(targetDescription) +
+                                         " relationship (" + std::string(relationshipType) +
+                                         "); PowerPoint refuses the presentation.",
+                                     part,
+                                     {}));
+    }
+
+    static bool IsWordContentPart(std::string_view descriptorName) noexcept
+    {
+        return descriptorName == "MainDocumentPart" || descriptorName == "HeaderPart" ||
+               descriptorName == "FooterPart" || descriptorName == "FootnotesPart" ||
+               descriptorName == "EndnotesPart" || descriptorName == "WordprocessingCommentsPart" ||
+               descriptorName == "GlossaryDocumentPart";
+    }
+
+    /**
+     * The styles part is owned by the main document part or by the glossary
+     * part, so a header or a footnotes part reaches it through whichever part
+     * relates it. Looking through the parents rather than at the main part
+     * alone keeps the glossary's own styles with the glossary's content.
+     */
+    static std::shared_ptr<OpenXmlPackagePart> FindStylesPart(const OpenXmlPackage& package,
+                                                              const OpenXmlPackagePart& part)
+    {
+        if (auto own = FirstChildPartNamed(part, "StyleDefinitionsPart"))
+        {
+            return own;
+        }
+
+        for (const auto& incoming : part.IncomingRelationships())
+        {
+            if (incoming.SourceUri == "/")
+            {
+                continue;
+            }
+            if (const auto parent = package.GetPartByUri(incoming.SourceUri))
+            {
+                if (auto styles = FirstChildPartNamed(*parent, "StyleDefinitionsPart"))
+                {
+                    return styles;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    /**
+     * @brief Warns about `w:pStyle`, `w:rStyle` and `w:tblStyle` references nothing defines.
+     *
+     * A warning rather than an error, because Word opens the file; it just
+     * shows the paragraph in the Normal style, which turns headings into body
+     * text without a word. Reported once per style id per part.
+     */
+    static void ValidateStyleReferences(const OpenXmlPackage& package,
+                                        const OpenXmlPackagePart& part,
+                                        const std::shared_ptr<OpenXMLElement>& root,
+                                        DiagnosticSink& sink)
+    {
+        const OpenXmlQualifiedName styleName(kWordprocessingNamespace, "style");
+        const OpenXmlQualifiedName styleIdAttribute(kWordprocessingNamespace, "styleId");
+        const OpenXmlQualifiedName valueAttribute(kWordprocessingNamespace, "val");
+
+        const auto stylesPart = FindStylesPart(package, part);
+        std::unordered_set<std::string> defined;
+        if (stylesPart && stylesPart->IsXmlPart())
+        {
+            VisitElements(stylesPart->GetRootElement(), [&](const OpenXMLElement& element)
+                          {
+                std::string_view id;
+                if (element.QualifiedName() == styleName && element.TryGetAttribute(styleIdAttribute, id))
+                {
+                    defined.insert(std::string(id));
+                } });
+        }
+
+        std::unordered_set<std::string> reported;
+        VisitElements(root, [&](const OpenXMLElement& element)
+                      {
+            const auto name = element.QualifiedName();
+            if (name.namespaceUri() != kWordprocessingNamespace)
+            {
+                return;
+            }
+            const auto local = name.localName();
+            if (local != "pStyle" && local != "rStyle" && local != "tblStyle")
+            {
+                return;
+            }
+
+            std::string_view styleId;
+            if (!element.TryGetAttribute(valueAttribute, styleId) || styleId.empty() ||
+                defined.contains(std::string(styleId)) || !reported.insert(std::string(styleId)).second)
+            {
+                return;
+            }
+
+            auto location = element.GetXmlLocation(valueAttribute);
+            std::string message = "Element '" + location.ElementName + "' references style '" + std::string(styleId) +
+                                  "', which ";
+            message += stylesPart ? "the styles part '" + stylesPart->Uri() + "' does not define."
+                                  : "cannot resolve: the document has no styles part.";
+            message += " Word shows such content in the Normal style. Reported once per style id and part.";
+            sink.Report(MakeElementIssue(ValidationErrorId::PackageStyleReferenceUndefined,
+                                         ValidationSeverity::Warning,
+                                         std::move(message),
+                                         part,
+                                         std::move(location))); });
+    }
+
+    static void ValidatePart(const OpenXmlPackage& package,
+                             const OpenXmlPackagePart& part,
+                             const std::shared_ptr<OpenXMLElement>& root,
+                             DiagnosticSink& sink)
+    {
+        const auto name = part.Descriptor().Name;
+        if (name == "WorksheetPart")
+        {
+            ValidateWorksheetTables(part, sink);
+        }
+        else if (name == "WorksheetThreadedCommentsPart")
+        {
+            ValidateThreadedCommentPersons(package, part, root, sink);
+        }
+        else if (name == "PresentationPart")
+        {
+            ValidatePresentationMasters(part, root, sink);
+        }
+        else if (name == "SlidePart")
+        {
+            RequireRelationship(part,
+                                Packaging::SlideLayoutPart::Descriptor().RelationshipType,
+                                ValidationErrorId::PackageSlideMissingSlideLayout,
+                                "slide layout",
+                                sink);
+        }
+        else if (name == "SlideLayoutPart")
+        {
+            RequireRelationship(part,
+                                Packaging::SlideMasterPart::Descriptor().RelationshipType,
+                                ValidationErrorId::PackageSlideLayoutMissingSlideMaster,
+                                "slide master",
+                                sink);
+        }
+        else if (name == "SlideMasterPart")
+        {
+            RequireRelationship(part,
+                                Packaging::ThemePart::Descriptor().RelationshipType,
+                                ValidationErrorId::PackageSlideMasterMissingTheme,
+                                "theme",
+                                sink);
+        }
+        else if (IsWordContentPart(name))
+        {
+            ValidateStyleReferences(package, part, root, sink);
+        }
+    }
+};
 
 /// File-local rule helpers behind package validation.
 class OpenXmlPackageValidatorHelper
@@ -345,6 +875,7 @@ public:
                                                  DiagnosticSink& sink)
     {
         const auto elementName = element.QualifiedName();
+        std::vector<OpenXmlQualifiedName> checkedAttributes;
         for (const auto& rule : Generated::PackageSchematronRelationshipRules())
         {
             if (rule.ContextElement != elementName)
@@ -352,6 +883,7 @@ public:
                 continue;
             }
 
+            checkedAttributes.push_back(rule.RelationshipAttribute);
             std::string_view relationshipId;
             if (!element.TryGetAttribute(rule.RelationshipAttribute, relationshipId) || relationshipId.empty())
             {
@@ -361,13 +893,17 @@ public:
             const auto* relationship = FindRelationshipById(part, relationshipId);
             if (relationship == nullptr)
             {
-                OpenXmlRelationship missing;
-                missing.Id = std::string(relationshipId);
-                sink.Report(MakePackageSchematronIssue("Schematron relationship rule failed: referenced relationship does not exist.",
-                                                       part,
-                                                       element,
-                                                       missing,
-                                                       rule.RequiredRelationshipType));
+                // The same identifier as the namespace-wide check below, so a
+                // caller sees one kind of issue for one kind of defect whether
+                // or not the SDK metadata happened to list the element.
+                auto issue = OpenXmlPackageSemanticRulesHelper::MakeDanglingRelationshipReferenceIssue(
+                    part, element, rule.RelationshipAttribute, relationshipId);
+                if (!rule.RequiredRelationshipType.empty())
+                {
+                    issue.Message += " Expected relationship type '" + std::string(rule.RequiredRelationshipType) + "'.";
+                }
+                issue.ConstraintId = std::string(rule.TestExpression);
+                sink.Report(std::move(issue));
                 continue;
             }
 
@@ -380,6 +916,8 @@ public:
                                                        rule.RequiredRelationshipType));
             }
         }
+
+        OpenXmlPackageSemanticRulesHelper::ValidateRelationshipAttributes(part, element, checkedAttributes, sink);
     }
 
     static void CollectPackageSchematronUniqueValue(const OpenXmlPackagePart& part,
@@ -867,6 +1405,7 @@ public:
             ValidatePackageSchematronAncestorUniqueValues(part, root, sink);
             ValidatePackageSchematronPartReferences(package, part, root, sink);
             ValidatePackageSchematronPartCounts(package, part, root, sink);
+            OpenXmlPackageSemanticRulesHelper::ValidatePart(package, part, root, sink);
         }
         for (const auto& child : part.Parts())
         {

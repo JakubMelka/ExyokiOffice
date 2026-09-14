@@ -6,6 +6,7 @@
 
 #include "TestSupport.hpp"
 
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Wordprocessing.hpp"
 #include "ExyokiOffice/OpenXmlPackage.hpp"
 #include "ExyokiOffice/Word/WordDocument.hpp"
 
@@ -514,6 +515,80 @@ TEST_SUITE("WordHyperlinkBookmarkRangeTests")
             const auto xml = editor->GetDocument()->GetMainDocumentPart()->GetXmlString();
             CHECK(CountOccurrences(xml, R"(w:val="2147483647")") == 1);
         }
+    }
+
+    TEST_CASE("W-2: Paragraph::AddBookmark encloses the paragraph text between its markers [unit] [word] [word-hyperlink-bookmark-range]")
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto paragraph = editor->AddParagraph();
+        REQUIRE(paragraph != nullptr);
+        paragraph->SetStyleId("Normal"); // a w:pPr in front of the runs
+        REQUIRE(paragraph->AddText("Enclosed text") != nullptr);
+
+        auto bookmark = paragraph->AddBookmark("results");
+        REQUIRE(bookmark != nullptr);
+
+        // Order of the paragraph children: pPr, bookmarkStart, run, bookmarkEnd.
+        const auto children = paragraph->GetLowLevelApi()->Children();
+        REQUIRE(children.size() == 4);
+        CHECK(children[0]->QualifiedName().localName() == "pPr");
+        CHECK(ExyokiOffice::openxmlelement_cast<W::BookmarkStart>(children[1]) != nullptr);
+        CHECK(ExyokiOffice::openxmlelement_cast<W::Run>(children[2]) != nullptr);
+        CHECK(ExyokiOffice::openxmlelement_cast<W::BookmarkEnd>(children[3]) != nullptr);
+        CHECK(paragraph->PlainText() == "Enclosed text");
+
+        auto reopened = WordDocumentEditor::Open(editor->SaveToMemory());
+        REQUIRE(reopened != nullptr);
+        auto found = reopened->FindBookmark("results");
+        REQUIRE(found != nullptr);
+        REQUIRE(found->GetStartElement() != nullptr);
+        REQUIRE(found->GetEndElement() != nullptr);
+        CHECK(ExyokiOffice::openxmlelement_cast<W::Run>(found->GetStartElement()->NextSibling()) != nullptr);
+        CHECK(found->GetEndElement()->NextSibling() == nullptr);
+    }
+
+    TEST_CASE("W-3: bookmark identifiers are allocated over end markers as well [unit] [word] [word-hyperlink-bookmark-range]")
+    {
+        namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto first = editor->AddParagraph("First");
+        auto second = editor->AddParagraph("Second");
+        REQUIRE(first != nullptr);
+        REQUIRE(second != nullptr);
+
+        // A range bookmark whose start was lost to an edit: only its end is left.
+        auto lost = second->GetLowLevelApi()->AppendChild<W::BookmarkEnd>();
+        REQUIRE(lost != nullptr);
+        lost->SetId(ExyokiOffice::StringValue("0"));
+
+        auto bookmark = first->AddBookmark("fresh");
+        REQUIRE(bookmark != nullptr);
+        CHECK(bookmark->GetId() != 0);
+
+        const auto xml = editor->GetDocument()->GetMainDocumentPart()->GetXmlString();
+        CHECK(CountOccurrences(xml, R"(w:id="0")") == 1);
+    }
+
+    TEST_CASE("W-11: Paragraph::AddBookmark refuses a name the document already uses [unit] [word] [word-hyperlink-bookmark-range]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto first = editor->AddParagraph("First");
+        auto second = editor->AddParagraph("Second");
+        REQUIRE(first != nullptr);
+        REQUIRE(second != nullptr);
+
+        REQUIRE(first->AddBookmark("unique") != nullptr);
+        CHECK(second->AddBookmark("unique") == nullptr);
+        CHECK(first->AddBookmark("unique") == nullptr);
+        CHECK(editor->Bookmarks().size() == 1);
+        CHECK(second->AddBookmark("another") != nullptr);
+        CHECK(editor->Bookmarks().size() == 2);
     }
 
 } // TEST_SUITE("WordHyperlinkBookmarkRangeTests")

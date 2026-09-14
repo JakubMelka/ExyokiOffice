@@ -158,6 +158,53 @@ public:
         item->SetLocalSheetId(UInt32Value(sheetIndex));
         item->SetText(formula);
     }
+
+    /**
+     * @brief Turns the sheet-level fit-to-page switch on or off.
+     *
+     * `pageSetup/@fitToWidth` and `@fitToHeight` are only the page counts; Excel
+     * scales to them solely when `sheetPr/pageSetUpPr/@fitToPage` is set, and
+     * without that switch it prints at the plain scale and drops the counts on
+     * its next save. The two are therefore written together.
+     */
+    static void SetFitToPage(const Spreadsheet::Worksheet::Ptr& root, bool fitToPage)
+    {
+        auto properties = root->GetFirstChildOfType<Spreadsheet::SheetProperties>();
+        if (!fitToPage)
+        {
+            auto pageSetUp = properties ? properties->GetFirstChildOfType<Spreadsheet::PageSetupProperties>()
+                                        : nullptr;
+            if (pageSetUp)
+            {
+                pageSetUp->SetFitToPage(BooleanValue());
+                if (!pageSetUp->GetAutoPageBreaks().IsDefined())
+                {
+                    properties->RemoveChild(pageSetUp);
+                }
+            }
+            return;
+        }
+
+        if (!properties)
+        {
+            // sheetPr is the first particle of the worksheet content model, so
+            // the physically first position is the schema position; the
+            // schema-aware insert refuses it on some sheets, the raw one never.
+            const auto children = root->Children();
+            properties = children.empty() ? root->AppendChildRaw<Spreadsheet::SheetProperties>()
+                                          : root->InsertChildRaw<Spreadsheet::SheetProperties>(children.front());
+        }
+        auto pageSetUp = properties ? properties->GetFirstChildOfType<Spreadsheet::PageSetupProperties>() : nullptr;
+        if (!pageSetUp && properties)
+        {
+            // pageSetUpPr is the last particle of sheetPr, so appending is its schema position too.
+            pageSetUp = properties->AppendChildRaw<Spreadsheet::PageSetupProperties>();
+        }
+        if (pageSetUp)
+        {
+            pageSetUp->SetFitToPage(BooleanValue(true));
+        }
+    }
 };
 
 PageSetup Worksheet::GetPageSetup() const
@@ -218,6 +265,7 @@ bool Worksheet::SetPageSetup(const PageSetup& value)
     setup->SetScale(value.Scale ? UInt32Value(*value.Scale) : UInt32Value());
     setup->SetFitToWidth(value.FitToWidth ? UInt32Value(*value.FitToWidth) : UInt32Value());
     setup->SetFitToHeight(value.FitToHeight ? UInt32Value(*value.FitToHeight) : UInt32Value());
+    WorksheetPrintHelpers::SetFitToPage(root, value.FitToWidth.has_value() || value.FitToHeight.has_value());
     return true;
 }
 

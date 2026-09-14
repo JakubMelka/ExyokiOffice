@@ -4,6 +4,7 @@
 
 #include "doctest.h"
 
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Wordprocessing.hpp"
 #include "ExyokiOffice/Word/WordDocument.hpp"
 
 namespace
@@ -68,9 +69,16 @@ TEST_SUITE("WordTemplateMergeTests")
         auto editor = WordDocumentEditor::CreateNew();
         REQUIRE(editor != nullptr);
 
+        // A Word template bookmarks the placeholder, not the label in front of
+        // it: AddBookmark encloses the paragraph, so the start is moved behind
+        // the label run.
         auto paragraph = editor->AddParagraph("Customer: ");
         REQUIRE(paragraph != nullptr);
-        REQUIRE(paragraph->AddBookmark("CustomerName") != nullptr);
+        auto label = paragraph->Runs().front();
+        REQUIRE(paragraph->AddText("<name>") != nullptr);
+        auto bookmark = paragraph->AddBookmark("CustomerName");
+        REQUIRE(bookmark != nullptr);
+        REQUIRE(bookmark->GetStartElement()->MoveAfter(label->GetLowLevelApi()) != nullptr);
 
         TemplateMergeData data;
         data.Values.emplace("CustomerName", "Contoso Ltd.");
@@ -146,8 +154,13 @@ TEST_SUITE("WordTemplateMergeTests")
 
         auto title = editor->AddParagraph("Report for ");
         REQUIRE(title != nullptr);
-        REQUIRE(title->AddSimpleField("MERGEFIELD Customer", "Customer") != nullptr);
-        REQUIRE(title->AddBookmark("Suffix") != nullptr);
+        auto field = title->AddSimpleField("MERGEFIELD Customer", "Customer");
+        REQUIRE(field != nullptr);
+        // The suffix bookmark encloses only its placeholder, behind the field.
+        REQUIRE(title->AddText("<suffix>") != nullptr);
+        auto suffix = title->AddBookmark("Suffix");
+        REQUIRE(suffix != nullptr);
+        REQUIRE(suffix->GetStartElement()->MoveAfter(field->GetSimpleFieldElement()) != nullptr);
 
         REQUIRE(editor->AddParagraph()->AddField("MERGEFIELD TableStart:Rows", "") != nullptr);
         auto row = editor->AddParagraph("Value: ");

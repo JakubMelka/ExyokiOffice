@@ -100,4 +100,16 @@ inheritance by removing the reference.
 Note that Word only *shows* `Even` headers when the document's
 "different odd and even pages" setting is on, and `First` when the section's
 "different first page" flag is set — Word toggles these when you use the
-corresponding UI options.
+corresponding UI options. `Ensure…` writes only the reference, so set the
+switches yourself:
+
+```cpp
+section->SetHeaderText(HeaderFooterType::First, "Title page").SetTitlePage(true);
+section->HasTitlePage();                       // w:titlePg in this section
+
+editor->SetEvenAndOddHeaders(true);            // w:evenAndOddHeaders in settings.xml
+editor->HasEvenAndOddHeaders();
+```
+
+`SetTitlePage` is per section; `SetEvenAndOddHeaders` is document-wide and
+creates the settings part when the document has none.

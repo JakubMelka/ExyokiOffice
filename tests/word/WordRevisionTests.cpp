@@ -320,4 +320,51 @@ TEST_SUITE("WordRevisionTests")
         CHECK(*bold);
     }
 
+    TEST_CASE("W-6: rejecting a deletion keeps the xml:space of the restored text [unit] [word] [word-revision]")
+    {
+        auto editor = WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto paragraph = editor->AddParagraph("Second paragraph ");
+        REQUIRE(paragraph != nullptr);
+        auto lowParagraph = paragraph->GetLowLevelApi();
+        REQUIRE(lowParagraph != nullptr);
+
+        auto deletion = lowParagraph->AppendChild<W::DeletedRun>();
+        REQUIRE(deletion != nullptr);
+        deletion->SetId(ExyokiOffice::StringValue("7"));
+        deletion->SetAuthor(ExyokiOffice::StringValue("Word"));
+        auto deletedRun = deletion->AppendChild<W::Run>();
+        REQUIRE(deletedRun != nullptr);
+        auto deletedText = deletedRun->AppendChild<W::DeletedText>();
+        REQUIRE(deletedText != nullptr);
+        deletedText->SetText("to delete ");
+        deletedText->SetSpace(ExyokiOffice::EnumValue<ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues>(
+            ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues::Preserve));
+        paragraph->AddText("words.");
+
+        CHECK(editor->RejectAllRevisions() == 1);
+        CHECK(paragraph->PlainText() == "Second paragraph to delete words.");
+
+        // The attribute travels with the text; without it a reader collapses
+        // the trailing space and the words run together.
+        bool sawRestored = false;
+        for (const auto& text : lowParagraph->Descendants<W::Text>())
+        {
+            if (text && text->GetText() == "to delete ")
+            {
+                sawRestored = true;
+                REQUIRE(text->GetSpace().IsDefined());
+                CHECK(text->GetSpace().Value() == ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues::Preserve);
+            }
+        }
+        CHECK(sawRestored);
+
+        const auto xml = editor->GetDocument()->GetMainDocumentPart()->GetXmlString();
+        CHECK(xml.find("xml:space=\"preserve\">to delete <") != std::string::npos);
+
+        auto reopened = Reopen(editor);
+        REQUIRE(reopened->Paragraphs().size() == 1);
+        CHECK(reopened->Paragraphs().front()->PlainText() == "Second paragraph to delete words.");
+    }
+
 } // TEST_SUITE("WordRevisionTests")

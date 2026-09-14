@@ -659,8 +659,175 @@ public:
         return true;
     }
 
-    static bool InitializeNotesPage(const Presentation::NotesSlide::Ptr& root,
-                                    const PresentationNotesPage& page)
+    /** @brief Position and extent of a shape in EMU, the unit PresentationML stores. */
+    struct Box
+    {
+        Int64 X = 0;
+        Int64 Y = 0;
+        Int64 Width = 0;
+        Int64 Height = 0;
+    };
+
+    /// PowerPoint's own fallback when `p:sldSz` is absent: the 4:3 screen.
+    static constexpr Int64 DefaultSlideWidth = 9144000;
+    static constexpr Int64 DefaultSlideHeight = 6858000;
+    /// PowerPoint's own fallback when `p:notesSz` is absent: a portrait 4:3 page.
+    static constexpr Int64 DefaultNotesWidth = 6858000;
+    static constexpr Int64 DefaultNotesHeight = 9144000;
+
+    /// Scales a box authored for a reference page onto the actual page.
+    static Box Scaled(Int64 x, Int64 y, Int64 width, Int64 height, Int64 referenceWidth, Int64 referenceHeight,
+                      Int64 pageWidth, Int64 pageHeight)
+    {
+        const auto scale = [](Int64 value, Int64 reference, Int64 actual)
+        {
+            if (reference <= 0 || actual <= 0 || reference == actual)
+            {
+                return value;
+            }
+            return static_cast<Int64>(std::llround(static_cast<Real>(value) * static_cast<Real>(actual) /
+                                                   static_cast<Real>(reference)));
+        };
+        return Box{scale(x, referenceWidth, pageWidth), scale(y, referenceHeight, pageHeight),
+                   scale(width, referenceWidth, pageWidth), scale(height, referenceHeight, pageHeight)};
+    }
+
+    /// The `p:sldSz` extent, or PowerPoint's default when the presentation has none.
+    static std::pair<Int64, Int64> SlideExtent(const std::shared_ptr<Presentation::Presentation>& presentation)
+    {
+        auto size = presentation ? presentation->GetFirstChildOfType<Presentation::SlideSize>() : nullptr;
+        const Int64 width = size ? static_cast<Int64>(size->GetCx().ValueOr(0)) : 0;
+        const Int64 height = size ? static_cast<Int64>(size->GetCy().ValueOr(0)) : 0;
+        if (width <= 0 || height <= 0)
+        {
+            return {DefaultSlideWidth, DefaultSlideHeight};
+        }
+        return {width, height};
+    }
+
+    /// The `p:notesSz` extent, or PowerPoint's default when the presentation has none.
+    static std::pair<Int64, Int64> NotesExtent(const std::shared_ptr<Presentation::Presentation>& presentation)
+    {
+        auto size = presentation ? presentation->GetFirstChildOfType<Presentation::NotesSize>() : nullptr;
+        const Int64 width = size ? static_cast<Int64>(size->GetCx().ValueOr(0)) : 0;
+        const Int64 height = size ? static_cast<Int64>(size->GetCy().ValueOr(0)) : 0;
+        if (width <= 0 || height <= 0)
+        {
+            return {DefaultNotesWidth, DefaultNotesHeight};
+        }
+        return {width, height};
+    }
+
+    /// Writes `a:xfrm` and a rectangle geometry into a shape's `p:spPr`, replacing any transform there.
+    static bool SetShapeBox(const std::shared_ptr<Presentation::ShapeProperties>& properties, const Box& box)
+    {
+        if (!properties)
+        {
+            return false;
+        }
+        if (auto previous = properties->GetFirstChildOfType<Drawing::Transform2D>())
+        {
+            properties->RemoveChild(previous);
+        }
+        auto transform = properties->AppendChild<Drawing::Transform2D>();
+        auto offset = transform ? transform->AppendChild<Drawing::Offset>() : nullptr;
+        auto extents = transform ? transform->AppendChild<Drawing::Extents>() : nullptr;
+        if (!offset || !extents)
+        {
+            return false;
+        }
+        offset->SetX(Int64Value(box.X));
+        offset->SetY(Int64Value(box.Y));
+        extents->SetCx(Int64Value(box.Width));
+        extents->SetCy(Int64Value(box.Height));
+        if (!properties->GetFirstChildOfType<Drawing::PresetGeometry>() &&
+            !properties->GetFirstChildOfType<Drawing::CustomGeometry>())
+        {
+            auto geometry = properties->AppendChild<Drawing::PresetGeometry>();
+            auto adjustments = geometry ? geometry->AppendChild<Drawing::AdjustValueList>() : nullptr;
+            if (!adjustments)
+            {
+                return false;
+            }
+            geometry->SetPreset(EnumValue<Drawing::ShapeTypeValues>(Drawing::ShapeTypeValues::Rectangle));
+        }
+        return true;
+    }
+
+    /**
+     * @brief Appends a placeholder `p:sp` with non-visual properties and an empty `p:spPr`.
+     *
+     * The shape id is one above the highest `p:cNvPr/@id` in the part, so the
+     * result is unique whatever the caller adds afterwards.
+     */
+    static std::shared_ptr<Presentation::Shape> AppendPlaceholderShape(
+        const std::shared_ptr<OpenXMLElement>& root, const Presentation::ShapeTree::Ptr& tree,
+        Presentation::PlaceholderValues::Value type, std::optional<UInt32> index, std::string name)
+    {
+        if (!root || !tree)
+        {
+            return nullptr;
+        }
+        UInt32 shapeId = 2;
+        for (const auto& property : root->Descendants<Presentation::NonVisualDrawingProperties>())
+        {
+            shapeId = std::max(shapeId, property->GetId().ValueOr(0) + 1);
+        }
+        auto shape = tree->AppendChild<Presentation::Shape>();
+        auto nonVisual = shape ? shape->AppendChild<Presentation::NonVisualShapeProperties>() : nullptr;
+        auto drawingProperties = nonVisual ? nonVisual->AppendChild<Presentation::NonVisualDrawingProperties>()
+                                           : nullptr;
+        auto shapeDrawing = nonVisual ? nonVisual->AppendChild<Presentation::NonVisualShapeDrawingProperties>()
+                                      : nullptr;
+        auto locks = shapeDrawing ? shapeDrawing->AppendChild<Drawing::ShapeLocks>() : nullptr;
+        auto applicationProperties =
+            nonVisual ? nonVisual->AppendChild<Presentation::ApplicationNonVisualDrawingProperties>() : nullptr;
+        auto placeholder =
+            applicationProperties ? applicationProperties->AppendChild<Presentation::PlaceholderShape>() : nullptr;
+        auto visualProperties = shape ? shape->AppendChild<Presentation::ShapeProperties>() : nullptr;
+        if (!drawingProperties || !locks || !placeholder || !visualProperties)
+        {
+            if (shape)
+            {
+                tree->RemoveChild(shape);
+            }
+            return nullptr;
+        }
+        drawingProperties->SetId(UInt32Value(shapeId));
+        drawingProperties->SetName(StringValue(name.empty() ? "Placeholder " + std::to_string(shapeId) : name));
+        locks->SetNoGrouping(BooleanValue(true));
+        placeholder->SetType(EnumValue<Presentation::PlaceholderValues>(Presentation::PlaceholderValues(type)));
+        if (index)
+        {
+            placeholder->SetIndex(UInt32Value(*index));
+        }
+        return shape;
+    }
+
+    /// Appends an empty `p:txBody` (body properties, list style, one empty paragraph) to a shape.
+    static Presentation::TextBody::Ptr AppendEmptyTextBody(const std::shared_ptr<Presentation::Shape>& shape,
+                                                           std::optional<Drawing::TextAnchoringTypeValues::Value> anchor)
+    {
+        auto body = shape ? shape->AppendChild<Presentation::TextBody>() : nullptr;
+        auto bodyProperties = body ? body->AppendChild<Drawing::BodyProperties>() : nullptr;
+        auto listStyle = body ? body->AppendChild<Drawing::ListStyle>() : nullptr;
+        if (!bodyProperties || !listStyle)
+        {
+            return nullptr;
+        }
+        bodyProperties->SetLeftInset(Int32Value(91440));
+        bodyProperties->SetTopInset(Int32Value(45720));
+        bodyProperties->SetRightInset(Int32Value(91440));
+        bodyProperties->SetBottomInset(Int32Value(45720));
+        if (anchor)
+        {
+            bodyProperties->SetAnchor(EnumValue<Drawing::TextAnchoringTypeValues>(*anchor));
+        }
+        return body;
+    }
+
+    static bool InitializeNotesPage(const Presentation::NotesSlide::Ptr& root, const PresentationNotesPage& page,
+                                    Int64 notesWidth, Int64 notesHeight)
     {
         Clear(root);
         if (!root)
@@ -670,26 +837,24 @@ public:
         root->SetShowMasterShapes(BooleanValue(page.ShowMasterShapes));
         root->SetShowMasterPlaceholderAnimations(BooleanValue(page.ShowMasterPlaceholderAnimations));
         auto tree = AppendShapeTree(root);
-        auto shape = tree ? tree->AppendChild<Presentation::Shape>() : nullptr;
-        auto nonVisual = shape ? shape->AppendChild<Presentation::NonVisualShapeProperties>() : nullptr;
-        auto drawing = nonVisual ? nonVisual->AppendChild<Presentation::NonVisualDrawingProperties>() : nullptr;
-        auto application =
-            nonVisual ? nonVisual->AppendChild<Presentation::ApplicationNonVisualDrawingProperties>() : nullptr;
-        auto shapeDrawing =
-            nonVisual ? nonVisual->AppendChild<Presentation::NonVisualShapeDrawingProperties>() : nullptr;
-        auto shapeProperties = shape ? shape->AppendChild<Presentation::ShapeProperties>() : nullptr;
-        if (!drawing || !application || !shapeDrawing || !shapeProperties)
+        // PowerPoint's notes page carries the slide thumbnail above the notes
+        // body. Both get explicit positions: a notes master written before this
+        // version, or one imported from elsewhere, may have nothing to inherit.
+        auto image = AppendPlaceholderShape(root, tree, Presentation::PlaceholderValues::SlideImage, std::nullopt,
+                                            "Slide Image Placeholder 1");
+        auto imageProperties = image ? image->GetFirstChildOfType<Presentation::ShapeProperties>() : nullptr;
+        if (!SetShapeBox(imageProperties, NotesBox(Presentation::PlaceholderValues::SlideImage, notesWidth,
+                                                   notesHeight)))
         {
             return false;
         }
-        drawing->SetId(UInt32Value(2));
-        drawing->SetName(StringValue("Notes Placeholder"));
-        auto placeholder = application->AppendChild<Presentation::PlaceholderShape>();
-        if (!placeholder)
+        auto shape = AppendPlaceholderShape(root, tree, Presentation::PlaceholderValues::Body, UInt32{1},
+                                            "Notes Placeholder 2");
+        auto shapeProperties = shape ? shape->GetFirstChildOfType<Presentation::ShapeProperties>() : nullptr;
+        if (!SetShapeBox(shapeProperties, NotesBox(Presentation::PlaceholderValues::Body, notesWidth, notesHeight)))
         {
             return false;
         }
-        placeholder->SetType(EnumValue<Presentation::PlaceholderValues>(Presentation::PlaceholderValues::Body));
         auto body = shape->AppendChild<Presentation::TextBody>();
         auto bodyProperties = body ? body->AppendChild<Drawing::BodyProperties>() : nullptr;
         auto listStyle = body ? body->AppendChild<Drawing::ListStyle>() : nullptr;
@@ -710,12 +875,576 @@ public:
         return tree && hasColorMap && headerFooter;
     }
 
-    static bool InitializeNotesMaster(const Presentation::NotesMaster::Ptr& root)
+    /**
+     * @brief Geometry of one notes-master placeholder, as PowerPoint lays out
+     * its default portrait notes page (6858000 x 9144000 EMU), scaled to the
+     * actual notes size.
+     */
+    static Box NotesBox(Presentation::PlaceholderValues::Value type, Int64 notesWidth, Int64 notesHeight)
+    {
+        const auto scaled = [&](Int64 x, Int64 y, Int64 width, Int64 height)
+        { return Scaled(x, y, width, height, DefaultNotesWidth, DefaultNotesHeight, notesWidth, notesHeight); };
+        switch (type)
+        {
+            case Presentation::PlaceholderValues::Header:
+                return scaled(0, 0, 2971800, 458788);
+            case Presentation::PlaceholderValues::DateAndTime:
+                return scaled(3884613, 0, 2971800, 458788);
+            case Presentation::PlaceholderValues::SlideImage:
+                return scaled(685800, 1143000, 5486400, 4114800);
+            case Presentation::PlaceholderValues::Footer:
+                return scaled(0, 8685213, 2971800, 458788);
+            case Presentation::PlaceholderValues::SlideNumber:
+                return scaled(3884613, 8685213, 2971800, 458788);
+            default:
+                return scaled(685800, 5486400, 5486400, 3600450);
+        }
+    }
+
+    static bool InitializeNotesMaster(const Presentation::NotesMaster::Ptr& root, Int64 notesWidth,
+                                      Int64 notesHeight)
     {
         Clear(root);
         auto tree = AppendShapeTree(root);
-        const bool hasColorMap = AppendColorMap(root);
-        return tree && hasColorMap;
+        if (!tree)
+        {
+            return false;
+        }
+        // The same six placeholders PowerPoint's own notes master declares, so
+        // a notes page that inherits from this master has somewhere to draw.
+        struct Entry
+        {
+            Presentation::PlaceholderValues::Value Type;
+            std::optional<UInt32> Index;
+            const char* Name;
+            std::optional<Drawing::TextAnchoringTypeValues::Value> Anchor;
+        };
+        const Entry entries[] = {
+            {Presentation::PlaceholderValues::Header, std::nullopt, "Header Placeholder 1", std::nullopt},
+            {Presentation::PlaceholderValues::DateAndTime, std::nullopt, "Date Placeholder 2", std::nullopt},
+            {Presentation::PlaceholderValues::SlideImage, std::nullopt, "Slide Image Placeholder 3", std::nullopt},
+            {Presentation::PlaceholderValues::Body, UInt32{1}, "Notes Placeholder 4", std::nullopt},
+            {Presentation::PlaceholderValues::Footer, std::nullopt, "Footer Placeholder 5",
+             Drawing::TextAnchoringTypeValues::Bottom},
+            {Presentation::PlaceholderValues::SlideNumber, std::nullopt, "Slide Number Placeholder 6",
+             Drawing::TextAnchoringTypeValues::Bottom},
+        };
+        for (const auto& entry : entries)
+        {
+            auto shape = AppendPlaceholderShape(root, tree, entry.Type, entry.Index, entry.Name);
+            auto properties = shape ? shape->GetFirstChildOfType<Presentation::ShapeProperties>() : nullptr;
+            if (!SetShapeBox(properties, NotesBox(entry.Type, notesWidth, notesHeight)))
+            {
+                return false;
+            }
+            if (entry.Type != Presentation::PlaceholderValues::SlideImage)
+            {
+                auto body = AppendEmptyTextBody(shape, entry.Anchor);
+                auto paragraph = body ? body->AppendChild<Drawing::Paragraph>() : nullptr;
+                if (!paragraph)
+                {
+                    return false;
+                }
+            }
+        }
+        return AppendColorMap(root);
+    }
+};
+
+/**
+ * @brief Writes the design a presentation created from scratch needs to look like one.
+ *
+ * PowerPoint draws a slide placeholder at the position it inherits from the
+ * layout or the master; a master whose placeholders have no `a:xfrm` therefore
+ * renders every inherited title and body at 0 x 0. This builder gives a new
+ * master the Office-theme geometry and text styles, and answers the inherited
+ * box for a layout or slide placeholder.
+ */
+class PresentationDefaultDesignBuilder
+{
+public:
+    using Box = PresentationDomBuilders::Box;
+
+    /**
+     * @brief The placeholder type another type inherits geometry from.
+     *
+     * A centered title sits where the title does; every content-like
+     * placeholder (subtitle, object, chart, table, picture, ...) occupies the
+     * body area, which is how PowerPoint resolves them against a master too.
+     */
+    static Presentation::PlaceholderValues::Value InheritanceType(Presentation::PlaceholderValues::Value type)
+    {
+        switch (type)
+        {
+            case Presentation::PlaceholderValues::CenteredTitle:
+                return Presentation::PlaceholderValues::Title;
+            case Presentation::PlaceholderValues::SubTitle:
+            case Presentation::PlaceholderValues::Object:
+            case Presentation::PlaceholderValues::Chart:
+            case Presentation::PlaceholderValues::Table:
+            case Presentation::PlaceholderValues::ClipArt:
+            case Presentation::PlaceholderValues::Diagram:
+            case Presentation::PlaceholderValues::Media:
+            case Presentation::PlaceholderValues::Picture:
+                return Presentation::PlaceholderValues::Body;
+            default:
+                return type;
+        }
+    }
+
+    /// The explicit `a:xfrm` of a `p:sp`, when it carries one with a positive extent.
+    static std::optional<Box> ExplicitBox(const std::shared_ptr<OpenXMLElement>& shape)
+    {
+        auto properties = shape ? shape->GetFirstChildOfType<Presentation::ShapeProperties>() : nullptr;
+        auto transform = properties ? properties->GetFirstChildOfType<Drawing::Transform2D>() : nullptr;
+        auto offset = transform ? transform->GetFirstChildOfType<Drawing::Offset>() : nullptr;
+        auto extents = transform ? transform->GetFirstChildOfType<Drawing::Extents>() : nullptr;
+        if (!offset || !extents)
+        {
+            return std::nullopt;
+        }
+        Box box{offset->GetX().ValueOr(0), offset->GetY().ValueOr(0), extents->GetCx().ValueOr(0),
+                extents->GetCy().ValueOr(0)};
+        if (box.Width <= 0 || box.Height <= 0)
+        {
+            return std::nullopt;
+        }
+        return box;
+    }
+
+    /**
+     * @brief Finds the box a placeholder inherits from one level of the hierarchy.
+     *
+     * The match order follows PresentationML: the same `idx` first, then the
+     * same type, then the type the placeholder inherits its geometry from.
+     */
+    static std::optional<Box> InheritedBox(const std::shared_ptr<OpenXMLElement>& root,
+                                           Presentation::PlaceholderValues::Value type,
+                                           std::optional<UInt32> index)
+    {
+        if (!root)
+        {
+            return std::nullopt;
+        }
+        std::optional<Box> byIndex;
+        std::optional<Box> byType;
+        std::optional<Box> byInheritance;
+        const auto inheritance = InheritanceType(type);
+        for (const auto& placeholder : root->Descendants<Presentation::PlaceholderShape>())
+        {
+            auto application = placeholder->Parent();
+            auto nonVisual = application ? application->Parent() : nullptr;
+            auto shape = nonVisual ? nonVisual->Parent() : nullptr;
+            const auto box = ExplicitBox(shape);
+            if (!box)
+            {
+                continue;
+            }
+            const auto candidateType =
+                placeholder->GetType().ValueOr(Presentation::PlaceholderValues::Object).GetValue();
+            if (index && placeholder->GetIndex().IsDefined() && placeholder->GetIndex().ValueOr(0) == *index &&
+                !byIndex)
+            {
+                byIndex = box;
+            }
+            if (candidateType == type && !byType)
+            {
+                byType = box;
+            }
+            if (InheritanceType(candidateType) == inheritance && !byInheritance)
+            {
+                byInheritance = box;
+            }
+        }
+        if (byIndex)
+        {
+            return byIndex;
+        }
+        return byType ? byType : byInheritance;
+    }
+
+    /**
+     * @brief Geometry of one master placeholder in the Office default theme.
+     *
+     * PowerPoint ships one table for the 4:3 screen and one for the 16:9
+     * screen; any other slide size scales the 4:3 table proportionally.
+     */
+    static Box MasterBox(Presentation::PlaceholderValues::Value type, Int64 slideWidth, Int64 slideHeight)
+    {
+        constexpr Int64 widescreenWidth = 12192000;
+        const bool widescreen = slideWidth == widescreenWidth && slideHeight == PresentationDomBuilders::DefaultSlideHeight;
+        const auto scaled = [&](Int64 x, Int64 y, Int64 width, Int64 height)
+        {
+            return PresentationDomBuilders::Scaled(x, y, width, height, PresentationDomBuilders::DefaultSlideWidth,
+                                                   PresentationDomBuilders::DefaultSlideHeight, slideWidth,
+                                                   slideHeight);
+        };
+        switch (InheritanceType(type))
+        {
+            case Presentation::PlaceholderValues::Title:
+                return widescreen ? Box{838200, 365125, 10515600, 1325563} : scaled(457200, 274638, 8229600, 1143000);
+            case Presentation::PlaceholderValues::DateAndTime:
+                return widescreen ? Box{838200, 6356350, 2743200, 365125} : scaled(457200, 6356350, 2133600, 365125);
+            case Presentation::PlaceholderValues::Footer:
+                return widescreen ? Box{4038600, 6356350, 4114800, 365125}
+                                  : scaled(3124200, 6356350, 2895600, 365125);
+            case Presentation::PlaceholderValues::SlideNumber:
+                return widescreen ? Box{8610600, 6356350, 2743200, 365125}
+                                  : scaled(6553200, 6356350, 2133600, 365125);
+            default:
+                return widescreen ? Box{838200, 1825625, 10515600, 4351338}
+                                  : scaled(457200, 1600200, 8229600, 4525963);
+        }
+    }
+
+    /**
+     * @brief Gives a freshly initialized master the Office default design.
+     *
+     * Adds the theme background reference, the five standard placeholders
+     * (title, body, date, footer, slide number) with their geometry and prompt
+     * text, and the title/body/other text styles every slide inherits.
+     */
+    static bool AddMasterDesign(const Presentation::SlideMaster::Ptr& root, Int64 slideWidth, Int64 slideHeight)
+    {
+        auto common = root ? root->GetFirstChildOfType<Presentation::CommonSlideData>() : nullptr;
+        auto tree = common ? common->GetFirstChildOfType<Presentation::ShapeTree>() : nullptr;
+        if (!tree || !AppendBackground(common, tree))
+        {
+            return false;
+        }
+        return AddTitle(root, tree, slideWidth, slideHeight) && AddBody(root, tree, slideWidth, slideHeight) &&
+               AddFooterRow(root, tree, slideWidth, slideHeight) && AppendTextStyles(root);
+    }
+
+private:
+    static constexpr Int32 DefaultTabSize = 914400;
+    static constexpr Int32 BodyIndent = 228600;
+    static constexpr Int32 LevelStep = 457200;
+    /// U+2022 BULLET, PowerPoint's default bullet character, as UTF-8 bytes.
+    static constexpr std::string_view BulletCharacter = "\xE2\x80\xA2";
+
+    static bool AppendBackground(const Presentation::CommonSlideData::Ptr& common,
+                                 const Presentation::ShapeTree::Ptr& tree)
+    {
+        // `p:bg` precedes `p:spTree` in the content model, so it is inserted in
+        // front of the tree the master already carries.
+        auto background = common->InsertChild<Presentation::Background>(tree);
+        auto reference = background ? background->AppendChild<Presentation::BackgroundStyleReference>() : nullptr;
+        auto color = reference ? reference->AppendChild<Drawing::SchemeColor>() : nullptr;
+        if (!color)
+        {
+            return false;
+        }
+        reference->SetIndex(UInt32Value(1001));
+        color->SetVal(EnumValue<Drawing::SchemeColorValues>(Drawing::SchemeColorValues::Background1));
+        return true;
+    }
+
+    static std::shared_ptr<Presentation::Shape> AddPlaceholder(const Presentation::SlideMaster::Ptr& root,
+                                                               const Presentation::ShapeTree::Ptr& tree,
+                                                               Presentation::PlaceholderValues::Value type,
+                                                               std::optional<UInt32> index, const char* name,
+                                                               Int64 slideWidth, Int64 slideHeight)
+    {
+        auto shape = PresentationDomBuilders::AppendPlaceholderShape(root, tree, type, index, name);
+        auto properties = shape ? shape->GetFirstChildOfType<Presentation::ShapeProperties>() : nullptr;
+        if (!PresentationDomBuilders::SetShapeBox(properties, MasterBox(type, slideWidth, slideHeight)))
+        {
+            return nullptr;
+        }
+        return shape;
+    }
+
+    static bool AppendPromptParagraph(const Presentation::TextBody::Ptr& body, std::string_view text,
+                                      std::optional<Int32> level)
+    {
+        auto paragraph = body ? body->AppendChild<Drawing::Paragraph>() : nullptr;
+        if (!paragraph)
+        {
+            return false;
+        }
+        if (level)
+        {
+            auto properties = paragraph->AppendChild<Drawing::ParagraphProperties>();
+            if (!properties)
+            {
+                return false;
+            }
+            properties->SetLevel(Int32Value(*level));
+        }
+        auto run = paragraph->AppendChild<Drawing::Run>();
+        auto runProperties = run ? run->AppendChild<Drawing::RunProperties>() : nullptr;
+        auto textElement = run ? run->AppendChild<Drawing::Text>() : nullptr;
+        if (!runProperties || !textElement)
+        {
+            return false;
+        }
+        textElement->SetText(text);
+        return true;
+    }
+
+    static bool AddTitle(const Presentation::SlideMaster::Ptr& root, const Presentation::ShapeTree::Ptr& tree,
+                         Int64 slideWidth, Int64 slideHeight)
+    {
+        auto shape = AddPlaceholder(root, tree, Presentation::PlaceholderValues::Title, std::nullopt,
+                                    "Title Placeholder 1", slideWidth, slideHeight);
+        auto body = PresentationDomBuilders::AppendEmptyTextBody(shape, Drawing::TextAnchoringTypeValues::Center);
+        auto bodyProperties = body ? body->GetFirstChildOfType<Drawing::BodyProperties>() : nullptr;
+        if (!bodyProperties || !bodyProperties->AppendChild<Drawing::NormalAutoFit>())
+        {
+            return false;
+        }
+        return AppendPromptParagraph(body, "Click to edit Master title style", std::nullopt);
+    }
+
+    static bool AddBody(const Presentation::SlideMaster::Ptr& root, const Presentation::ShapeTree::Ptr& tree,
+                        Int64 slideWidth, Int64 slideHeight)
+    {
+        auto shape = AddPlaceholder(root, tree, Presentation::PlaceholderValues::Body, UInt32{1},
+                                    "Text Placeholder 2", slideWidth, slideHeight);
+        auto body = PresentationDomBuilders::AppendEmptyTextBody(shape, std::nullopt);
+        auto bodyProperties = body ? body->GetFirstChildOfType<Drawing::BodyProperties>() : nullptr;
+        if (!bodyProperties || !bodyProperties->AppendChild<Drawing::NormalAutoFit>())
+        {
+            return false;
+        }
+        return AppendPromptParagraph(body, "Click to edit Master text styles", std::nullopt) &&
+               AppendPromptParagraph(body, "Second level", 1) && AppendPromptParagraph(body, "Third level", 2) &&
+               AppendPromptParagraph(body, "Fourth level", 3) && AppendPromptParagraph(body, "Fifth level", 4);
+    }
+
+    /// The date, footer, and slide-number placeholders along the bottom edge.
+    static bool AddFooterRow(const Presentation::SlideMaster::Ptr& root, const Presentation::ShapeTree::Ptr& tree,
+                             Int64 slideWidth, Int64 slideHeight)
+    {
+        struct Entry
+        {
+            Presentation::PlaceholderValues::Value Type;
+            UInt32 Index;
+            const char* Name;
+            Presentation::PlaceholderSizeValues::Value Size;
+            Drawing::TextAlignmentTypeValues::Value Alignment;
+            const char* FieldType;
+            std::string_view FieldText;
+        };
+        const Entry entries[] = {
+            {Presentation::PlaceholderValues::DateAndTime, 2, "Date Placeholder 3",
+             Presentation::PlaceholderSizeValues::Half, Drawing::TextAlignmentTypeValues::Left, "datetime1", {}},
+            {Presentation::PlaceholderValues::Footer, 3, "Footer Placeholder 4",
+             Presentation::PlaceholderSizeValues::Quarter, Drawing::TextAlignmentTypeValues::Center, nullptr, {}},
+            // U+2039 # U+203A is the slide-number field text PowerPoint shows.
+            {Presentation::PlaceholderValues::SlideNumber, 4, "Slide Number Placeholder 5",
+             Presentation::PlaceholderSizeValues::Quarter, Drawing::TextAlignmentTypeValues::Right, "slidenum",
+             "\xE2\x80\xB9#\xE2\x80\xBA"},
+        };
+        for (const auto& entry : entries)
+        {
+            auto shape = AddPlaceholder(root, tree, entry.Type, entry.Index, entry.Name, slideWidth, slideHeight);
+            const auto placeholders = shape ? shape->Descendants<Presentation::PlaceholderShape>()
+                                            : std::vector<Presentation::PlaceholderShape::Ptr>{};
+            auto body = PresentationDomBuilders::AppendEmptyTextBody(shape, Drawing::TextAnchoringTypeValues::Center);
+            auto listStyle = body ? body->GetFirstChildOfType<Drawing::ListStyle>() : nullptr;
+            auto level = listStyle ? listStyle->AppendChild<Drawing::Level1ParagraphProperties>() : nullptr;
+            auto defaults = level ? level->AppendChild<Drawing::DefaultRunProperties>() : nullptr;
+            auto fill = defaults ? defaults->AppendChild<Drawing::SolidFill>() : nullptr;
+            auto color = fill ? fill->AppendChild<Drawing::SchemeColor>() : nullptr;
+            auto modulation = color ? color->AppendChild<Drawing::LuminanceModulation>() : nullptr;
+            auto offset = color ? color->AppendChild<Drawing::LuminanceOffset>() : nullptr;
+            if (placeholders.empty() || !modulation || !offset)
+            {
+                return false;
+            }
+            placeholders.front()->SetSize(EnumValue<Presentation::PlaceholderSizeValues>(entry.Size));
+            level->SetAlignment(EnumValue<Drawing::TextAlignmentTypeValues>(entry.Alignment));
+            defaults->SetFontSize(Int32Value(1200));
+            color->SetVal(EnumValue<Drawing::SchemeColorValues>(Drawing::SchemeColorValues::Text1));
+            modulation->SetVal(Int32Value(75000));
+            offset->SetVal(Int32Value(25000));
+            auto paragraph = body->AppendChild<Drawing::Paragraph>();
+            if (!paragraph)
+            {
+                return false;
+            }
+            if (entry.FieldType != nullptr)
+            {
+                auto field = paragraph->AppendChild<Drawing::Field>();
+                auto text = field ? field->AppendChild<Drawing::Text>() : nullptr;
+                if (!text)
+                {
+                    return false;
+                }
+                field->SetId(StringValue(Guid::New()));
+                field->SetType(StringValue(entry.FieldType));
+                text->SetText(entry.FieldText);
+            }
+        }
+        return true;
+    }
+
+    /// Appends `a:lvlNpPr` for a 1-based level to a list style.
+    static Drawing::TextParagraphPropertiesType::Ptr AppendLevel(const std::shared_ptr<OpenXMLElement>& style,
+                                                                 Size level)
+    {
+        switch (level)
+        {
+            case 1:
+                return style->AppendChild<Drawing::Level1ParagraphProperties>();
+            case 2:
+                return style->AppendChild<Drawing::Level2ParagraphProperties>();
+            case 3:
+                return style->AppendChild<Drawing::Level3ParagraphProperties>();
+            case 4:
+                return style->AppendChild<Drawing::Level4ParagraphProperties>();
+            case 5:
+                return style->AppendChild<Drawing::Level5ParagraphProperties>();
+            case 6:
+                return style->AppendChild<Drawing::Level6ParagraphProperties>();
+            case 7:
+                return style->AppendChild<Drawing::Level7ParagraphProperties>();
+            case 8:
+                return style->AppendChild<Drawing::Level8ParagraphProperties>();
+            case 9:
+                return style->AppendChild<Drawing::Level9ParagraphProperties>();
+            default:
+                return nullptr;
+        }
+    }
+
+    /// The shared paragraph attributes of every Office text-style level.
+    static void SetCommonParagraphProperties(const Drawing::TextParagraphPropertiesType::Ptr& level,
+                                             Int32 leftMargin)
+    {
+        level->SetLeftMargin(Int32Value(leftMargin));
+        level->SetAlignment(EnumValue<Drawing::TextAlignmentTypeValues>(Drawing::TextAlignmentTypeValues::Left));
+        level->SetDefaultTabSize(Int32Value(DefaultTabSize));
+        level->SetRightToLeft(BooleanValue(false));
+        level->SetEastAsianLineBreak(BooleanValue(true));
+        level->SetLatinLineBreak(BooleanValue(false));
+        level->SetHeight(BooleanValue(true));
+    }
+
+    /// `a:defRPr` with the theme text color and the major or minor theme fonts.
+    static bool AppendDefaultRunProperties(const Drawing::TextParagraphPropertiesType::Ptr& level, Int32 fontSize,
+                                           bool majorFont)
+    {
+        auto defaults = level->AppendChild<Drawing::DefaultRunProperties>();
+        auto fill = defaults ? defaults->AppendChild<Drawing::SolidFill>() : nullptr;
+        auto color = fill ? fill->AppendChild<Drawing::SchemeColor>() : nullptr;
+        auto latin = defaults ? defaults->AppendChild<Drawing::LatinFont>() : nullptr;
+        auto eastAsian = defaults ? defaults->AppendChild<Drawing::EastAsianFont>() : nullptr;
+        auto complexScript = defaults ? defaults->AppendChild<Drawing::ComplexScriptFont>() : nullptr;
+        if (!color || !latin || !eastAsian || !complexScript)
+        {
+            return false;
+        }
+        defaults->SetFontSize(Int32Value(fontSize));
+        defaults->SetKerning(Int32Value(1200));
+        color->SetVal(EnumValue<Drawing::SchemeColorValues>(Drawing::SchemeColorValues::Text1));
+        latin->SetTypeface(StringValue(majorFont ? "+mj-lt" : "+mn-lt"));
+        eastAsian->SetTypeface(StringValue(majorFont ? "+mj-ea" : "+mn-ea"));
+        complexScript->SetTypeface(StringValue(majorFont ? "+mj-cs" : "+mn-cs"));
+        return true;
+    }
+
+    static bool AppendLineSpacing(const Drawing::TextParagraphPropertiesType::Ptr& level, Int32 percent)
+    {
+        auto spacing = level->AppendChild<Drawing::LineSpacing>();
+        auto value = spacing ? spacing->AppendChild<Drawing::SpacingPercent>() : nullptr;
+        if (!value)
+        {
+            return false;
+        }
+        value->SetVal(Int32Value(percent));
+        return true;
+    }
+
+    static bool AppendTitleStyle(const Presentation::TextStyles::Ptr& styles)
+    {
+        auto style = styles->AppendChild<Presentation::TitleStyle>();
+        auto level = style ? AppendLevel(style, 1) : nullptr;
+        if (!level || !AppendLineSpacing(level, 90000))
+        {
+            return false;
+        }
+        SetCommonParagraphProperties(level, 0);
+        auto before = level->AppendChild<Drawing::SpaceBefore>();
+        auto beforeValue = before ? before->AppendChild<Drawing::SpacingPercent>() : nullptr;
+        if (!beforeValue || !level->AppendChild<Drawing::NoBullet>())
+        {
+            return false;
+        }
+        beforeValue->SetVal(Int32Value(0));
+        return AppendDefaultRunProperties(level, 4400, true);
+    }
+
+    static bool AppendBodyStyle(const Presentation::TextStyles::Ptr& styles)
+    {
+        auto style = styles->AppendChild<Presentation::BodyStyle>();
+        if (!style)
+        {
+            return false;
+        }
+        constexpr Int32 fontSizes[] = {2800, 2400, 2000, 1800, 1800, 1800, 1800, 1800, 1800};
+        for (Size index = 0; index < 9; ++index)
+        {
+            auto level = AppendLevel(style, index + 1);
+            if (!level || !AppendLineSpacing(level, 90000))
+            {
+                return false;
+            }
+            SetCommonParagraphProperties(level, BodyIndent + LevelStep * static_cast<Int32>(index));
+            level->SetIndent(Int32Value(-BodyIndent));
+            auto before = level->AppendChild<Drawing::SpaceBefore>();
+            auto beforeValue = before ? before->AppendChild<Drawing::SpacingPoints>() : nullptr;
+            auto font = level->AppendChild<Drawing::BulletFont>();
+            auto bullet = level->AppendChild<Drawing::CharacterBullet>();
+            if (!beforeValue || !font || !bullet)
+            {
+                return false;
+            }
+            beforeValue->SetVal(Int32Value(index == 0 ? 1000 : 500));
+            font->SetTypeface(StringValue("Arial"));
+            font->SetPanose(HexBinaryValue("020B0604020202020204"));
+            font->SetPitchFamily(SByteValue(34));
+            font->SetCharacterSet(SByteValue(0));
+            bullet->SetChar(StringValue(BulletCharacter));
+            if (!AppendDefaultRunProperties(level, fontSizes[index], false))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static bool AppendOtherStyle(const Presentation::TextStyles::Ptr& styles)
+    {
+        auto style = styles->AppendChild<Presentation::OtherStyle>();
+        auto defaults = style ? style->AppendChild<Drawing::DefaultParagraphProperties>() : nullptr;
+        if (!defaults || !defaults->AppendChild<Drawing::DefaultRunProperties>())
+        {
+            return false;
+        }
+        for (Size index = 0; index < 9; ++index)
+        {
+            auto level = AppendLevel(style, index + 1);
+            if (!level)
+            {
+                return false;
+            }
+            SetCommonParagraphProperties(level, LevelStep * static_cast<Int32>(index));
+            if (!AppendDefaultRunProperties(level, 1800, false))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// `p:txStyles` with the Office default title, body, and other styles.
+    static bool AppendTextStyles(const Presentation::SlideMaster::Ptr& root)
+    {
+        auto styles = root->AppendChild<Presentation::TextStyles>();
+        return styles && AppendTitleStyle(styles) && AppendBodyStyle(styles) && AppendOtherStyle(styles);
     }
 };
 
@@ -755,7 +1484,9 @@ public:
         }
 
         auto part = presentationPart->AddNotesMasterPart();
-        if (!part || !PresentationDomBuilders::InitializeNotesMaster(part->GetTypedRootElement()))
+        const auto [notesWidth, notesHeight] = PresentationDomBuilders::NotesExtent(presentation);
+        if (!part ||
+            !PresentationDomBuilders::InitializeNotesMaster(part->GetTypedRootElement(), notesWidth, notesHeight))
         {
             if (part)
             {
@@ -789,7 +1520,7 @@ public:
         return part;
     }
 
-private:
+    /// The presentation part of the package a slide part belongs to.
     static std::shared_ptr<Packaging::PresentationPart> PresentationPartOf(
         const std::shared_ptr<Packaging::SlidePart>& slidePart)
     {
@@ -2252,15 +2983,15 @@ public:
     /**
      * Values assigned by the PowerPoint animation gallery to `presetID`.
      *
-     * The identifier is scoped by `presetClass`, which is why entrance Fly and
-     * emphasis ChangeFillColor legitimately share the numeric value 2.
+     * The identifier is scoped by `presetClass`, which is why entrance Appear
+     * and emphasis ChangeFillColor legitimately share the numeric value 1.
      */
     enum class AnimationPresetId : Int32
     {
         MotionPath = 0,
         Appear = 1,
+        ChangeFillColor = 1,
         Fly = 2,
-        ChangeFillColor = 2,
         GrowShrink = 6,
         Spin = 8,
         Fade = 10,
@@ -2268,12 +2999,22 @@ public:
         Zoom = 23
     };
 
+    /**
+     * Emphasis preset 2 is PowerPoint's Change Font. Versions of this library
+     * before 1.x wrote it for ChangeFillColor; such a file is still read as a
+     * fill-colour effect when its behaviors animate `fillcolor`, which no
+     * font effect does.
+     */
+    static constexpr Int32 LegacyChangeFillColorPresetId = 2;
+
     /** Bit values PowerPoint stores in `presetSubtype` for modelled directions. */
     enum class AnimationPresetSubtype : Int32
     {
         None = 0,
         Up = 1,
         Right = 2,
+        /// The subtype PowerPoint writes for the Fill Color emphasis effect.
+        FillColor = 2,
         Down = 4,
         Left = 8,
         In = 16,
@@ -2413,6 +3154,10 @@ public:
     static AnimationPresetSubtype PresetSubtype(
         PresentationAnimationEffect effect, const std::optional<PresentationAnimationDirection>& direction)
     {
+        if (effect == PresentationAnimationEffect::ChangeFillColor)
+        {
+            return AnimationPresetSubtype::FillColor;
+        }
         if (!direction)
         {
             return AnimationPresetSubtype::None;
@@ -2681,6 +3426,12 @@ public:
         }
         data.Class = *effectClass;
         data.Effect = ReadEffect(*effectClass, node->GetPresetId().ValueOr(-1));
+        if (data.Effect == PresentationAnimationEffect::Unsupported &&
+            data.Class == PresentationAnimationEffectClass::Emphasis &&
+            node->GetPresetId().ValueOr(-1) == LegacyChangeFillColorPresetId && AnimatesFillColor(effect))
+        {
+            data.Effect = PresentationAnimationEffect::ChangeFillColor;
+        }
         if (data.Effect == PresentationAnimationEffect::Unsupported)
         {
             return data;
@@ -2688,6 +3439,22 @@ public:
         data.Direction = ReadDirection(data.Effect, node->GetPresetSubtype().ValueOr(0));
         ReadParameters(effect, data);
         return data;
+    }
+
+    /// True when one of the effect's colour behaviors targets the shape's fill colour.
+    static bool AnimatesFillColor(const Presentation::ParallelTimeNode::Ptr& effect)
+    {
+        for (const auto& behavior : effect->Descendants<Presentation::AnimateColor>())
+        {
+            for (const auto& attribute : behavior->Descendants<Presentation::AttributeName>())
+            {
+                if (attribute->GetText() == "fillcolor")
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     static void ReadParameters(const Presentation::ParallelTimeNode::Ptr& effect,
@@ -2910,23 +3677,30 @@ public:
         return true;
     }
 
-    /// Emits the `p:set` behavior PowerPoint uses to show or hide the shape.
-    static bool AddVisibility(const Presentation::ChildTimeNodeList::Ptr& list, IdAllocator& ids,
-                              UInt32 shapeId, bool visible, UInt32 delay)
+    /// Emits a `p:set` behavior that assigns a string value to one shape attribute.
+    static bool AddSetString(const Presentation::ChildTimeNodeList::Ptr& list, IdAllocator& ids, UInt32 shapeId,
+                             UInt32 duration, UInt32 delay, const std::string& attribute, const std::string& value)
     {
         auto behavior = list->AppendChild<Presentation::SetBehavior>();
-        if (!behavior || !AddCommonBehavior(behavior, ids, shapeId, 1, delay, {"style.visibility"}))
+        if (!behavior || !AddCommonBehavior(behavior, ids, shapeId, duration, delay, {attribute}))
         {
             return false;
         }
         auto to = behavior->AppendChild<Presentation::ToVariantValue>();
-        auto value = to ? to->AppendChild<Presentation::StringVariantValue>() : nullptr;
-        if (!value)
+        auto variant = to ? to->AppendChild<Presentation::StringVariantValue>() : nullptr;
+        if (!variant)
         {
             return false;
         }
-        value->SetVal(StringValue(visible ? "visible" : "hidden"));
+        variant->SetVal(StringValue(value));
         return true;
+    }
+
+    /// Emits the `p:set` behavior PowerPoint uses to show or hide the shape.
+    static bool AddVisibility(const Presentation::ChildTimeNodeList::Ptr& list, IdAllocator& ids,
+                              UInt32 shapeId, bool visible, UInt32 delay)
+    {
+        return AddSetString(list, ids, shapeId, 1, delay, "style.visibility", visible ? "visible" : "hidden");
     }
 
     static bool AddFilter(const Presentation::ChildTimeNodeList::Ptr& list, IdAllocator& ids, UInt32 shapeId,
@@ -3128,6 +3902,13 @@ public:
                     return false;
                 }
                 color->SetVal(HexBinaryValue(*effect.Color));
+                // PowerPoint's Fill Color effect also switches the fill on and
+                // makes it solid, so a shape without a fill of its own recolors too.
+                if (!AddSetString(list, ids, shapeId, duration, 0, "fill.type", "solid") ||
+                    !AddSetString(list, ids, shapeId, duration, 0, "fill.on", "true"))
+                {
+                    return false;
+                }
                 break;
             }
             case PresentationAnimationEffect::MotionPath:
@@ -3284,17 +4065,22 @@ public:
             node->SetNodeType(
                 EnumValue<Presentation::TimeNodeValues>(Presentation::TimeNodeValues::InteractiveSequence));
             auto conditions = node->AppendChild<Presentation::StartConditionList>();
-            auto condition = conditions ? conditions->AppendChild<Presentation::Condition>() : nullptr;
-            auto target = condition ? condition->AppendChild<Presentation::TargetElement>() : nullptr;
-            auto shape = target ? target->AppendChild<Presentation::ShapeTarget>() : nullptr;
-            if (!shape)
+            if (!conditions || !AddShapeClickCondition(conditions, triggerShapeId))
             {
                 return false;
             }
-            condition->SetEvent(
-                EnumValue<Presentation::TriggerEventValues>(Presentation::TriggerEventValues::OnClick));
-            condition->SetDelay(StringValue("0"));
-            shape->SetShapeId(StringValue(std::to_string(triggerShapeId)));
+            // PowerPoint's own interactive sequence ends with its last effect
+            // and can then be replayed by clicking the trigger again.
+            auto endSync = node->AppendChild<Presentation::EndSync>();
+            auto runtime = endSync ? endSync->AppendChild<Presentation::RuntimeNodeTrigger>() : nullptr;
+            if (!runtime)
+            {
+                return false;
+            }
+            endSync->SetEvent(EnumValue<Presentation::TriggerEventValues>(Presentation::TriggerEventValues::End));
+            endSync->SetDelay(StringValue("0"));
+            runtime->SetVal(
+                EnumValue<Presentation::TriggerRuntimeNodeValues>(Presentation::TriggerRuntimeNodeValues::All));
         }
 
         auto children = node->AppendChild<Presentation::ChildTimeNodeList>();
@@ -3302,6 +4088,10 @@ public:
         {
             return false;
         }
+        // A main-sequence click group waits for the click ("indefinite"); an
+        // interactive sequence is started by its trigger, so PowerPoint writes
+        // a zero delay on the group and reads anything else as a plain click.
+        const StringValue clickDelay(triggerShapeId == 0 ? "indefinite" : "0");
         Presentation::ChildTimeNodeList::Ptr clickGroup;
         Presentation::ChildTimeNodeList::Ptr timeGroup;
         for (Size index = first; index < last; ++index)
@@ -3311,7 +4101,7 @@ public:
                 !clickGroup || (index != first && effect.Trigger == PresentationAnimationTrigger::OnClick);
             if (opensClickGroup)
             {
-                clickGroup = AddGroup(children, ids, StringValue("indefinite"));
+                clickGroup = AddGroup(children, ids, clickDelay);
                 timeGroup = clickGroup ? AddGroup(clickGroup, ids, StringValue("0")) : nullptr;
             }
             else if (effect.Trigger == PresentationAnimationTrigger::AfterPrevious)
@@ -3332,13 +4122,32 @@ public:
 
         if (triggerShapeId != 0)
         {
-            return true;
+            // The trailing onClick condition on the trigger shape is what makes
+            // PowerPoint report the sequence as "on click of" that shape.
+            auto next = sequence->AppendChild<Presentation::NextConditionList>();
+            return next && AddShapeClickCondition(next, triggerShapeId);
         }
         auto previous = sequence->AppendChild<Presentation::PreviousConditionList>();
         auto next = sequence->AppendChild<Presentation::NextConditionList>();
         return previous && next &&
                AddSlideCondition(previous, Presentation::TriggerEventValues::OnPrevious) &&
                AddSlideCondition(next, Presentation::TriggerEventValues::OnNext);
+    }
+
+    /// Appends `p:cond evt="onClick" delay="0"` targeting a shape to a condition list.
+    static bool AddShapeClickCondition(const std::shared_ptr<OpenXMLElement>& owner, UInt32 shapeId)
+    {
+        auto condition = owner->AppendChild<Presentation::Condition>();
+        auto target = condition ? condition->AppendChild<Presentation::TargetElement>() : nullptr;
+        auto shape = target ? target->AppendChild<Presentation::ShapeTarget>() : nullptr;
+        if (!shape)
+        {
+            return false;
+        }
+        condition->SetEvent(EnumValue<Presentation::TriggerEventValues>(Presentation::TriggerEventValues::OnClick));
+        condition->SetDelay(StringValue("0"));
+        shape->SetShapeId(StringValue(std::to_string(shapeId)));
+        return true;
     }
 
     /// Groups main-sequence effects first, then one run per interactive trigger shape.
@@ -3545,6 +4354,19 @@ public:
         for (const auto& previous : previousRoots)
         {
             list->RemoveChild(previous);
+        }
+        if (ordered.empty() && list->Children().empty())
+        {
+            // Nothing is left to time: `p:tnLst` requires at least one node and
+            // PowerPoint refuses a slide whose timing tree is empty, so the
+            // whole `p:timing` goes. A `p:transition` in front of it is
+            // untouched, and the next effect recreates the tree.
+            auto timing = list->Parent();
+            auto slide = timing ? timing->Parent() : nullptr;
+            if (slide)
+            {
+                slide->RemoveChild(timing);
+            }
         }
         if (written)
         {
@@ -4306,6 +5128,47 @@ std::vector<PresentationShape::Ptr> PresentationShape::Children() const
         result.push_back(Ptr(new PresentationShape(child, m_slidePart)));
     }
     return result;
+}
+
+std::optional<PresentationShapeTransform> PresentationShape::GetEffectiveTransform() const
+{
+    auto host = PresentationShapeTreeHelpers::TransformHost(m_element);
+    auto own = GetTransform();
+    if (!host || !own)
+    {
+        return own;
+    }
+    const bool explicitTransform = host->GetFirstChildOfType<Drawing::Transform2D>() ||
+                                   host->GetFirstChildOfType<Drawing::TransformGroup>() ||
+                                   host->GetFirstChildOfType<Presentation::Transform>();
+    // Only a placeholder inherits geometry; the `p:ph` sits in the shape's
+    // leading non-visual block, never in its content.
+    const auto children = m_element ? m_element->Children() : std::vector<std::shared_ptr<OpenXMLElement>>{};
+    const auto placeholders = children.empty() ? std::vector<Presentation::PlaceholderShape::Ptr>{}
+                                               : children.front()->Descendants<Presentation::PlaceholderShape>();
+    if (explicitTransform || placeholders.empty() || !m_slidePart)
+    {
+        return own;
+    }
+    const auto& placeholder = placeholders.front();
+    const auto type = placeholder->GetType().ValueOr(Presentation::PlaceholderValues::Object).GetValue();
+    const auto index = placeholder->GetIndex().IsDefined() ? std::optional<UInt32>(placeholder->GetIndex().ValueOr(0))
+                                                           : std::nullopt;
+    auto layoutPart = m_slidePart->GetSlideLayoutPart();
+    auto masterPart = layoutPart ? layoutPart->GetSlideMasterPart() : nullptr;
+    const std::shared_ptr<OpenXMLElement> roots[] = {
+        layoutPart ? std::static_pointer_cast<OpenXMLElement>(layoutPart->GetTypedRootElement()) : nullptr,
+        masterPart ? std::static_pointer_cast<OpenXMLElement>(masterPart->GetTypedRootElement()) : nullptr};
+    for (const auto& root : roots)
+    {
+        if (const auto box = PresentationDefaultDesignBuilder::InheritedBox(root, type, index))
+        {
+            own->Position = PresentationPoint(box->X, box->Y);
+            own->Size = PresentationSize(box->Width, box->Height);
+            return own;
+        }
+    }
+    return own;
 }
 
 std::optional<PresentationShapeTransform> PresentationShape::GetTransform() const
@@ -7351,44 +8214,39 @@ public:
     {
         auto trees = root ? root->Descendants<Presentation::ShapeTree>() : std::vector<Presentation::ShapeTree::Ptr>{};
         auto tree = trees.empty() ? nullptr : trees.front();
-        if (!tree)
+        auto shape = PresentationDomBuilders::AppendPlaceholderShape(root, tree, type, index, {});
+        const auto placeholders = shape ? shape->Descendants<Presentation::PlaceholderShape>()
+                                        : std::vector<Presentation::PlaceholderShape::Ptr>{};
+        if (placeholders.empty())
         {
             return nullptr;
         }
-        UInt32 shapeId = 2;
-        for (const auto& property : root->Descendants<Presentation::NonVisualDrawingProperties>())
+        return PresentationPlaceholder::Ptr(new PresentationPlaceholder(shape, placeholders.front(), origin));
+    }
+
+    /**
+     * @brief Gives a new layout placeholder the geometry of the master placeholder it inherits from.
+     *
+     * PowerPoint resolves a layout placeholder without `a:xfrm` against the
+     * master at render time, but this library reports what is written, and a
+     * layout whose master has nothing for the type would draw at 0 x 0. The
+     * box is copied when the master has one and left out otherwise.
+     */
+    static void InheritMasterBox(const PresentationPlaceholder::Ptr& placeholder,
+                                 const std::shared_ptr<Packaging::SlideMasterPart>& masterPart)
+    {
+        auto shape = placeholder ? placeholder->GetShape() : nullptr;
+        auto masterRoot = masterPart ? masterPart->GetTypedRootElement() : nullptr;
+        if (!shape || !masterRoot)
         {
-            shapeId = std::max(shapeId, property->GetId().ValueOr(0) + 1);
+            return;
         }
-        auto shape = tree->AppendChild<Presentation::Shape>();
-        auto nonVisual = shape ? shape->AppendChild<Presentation::NonVisualShapeProperties>() : nullptr;
-        auto drawingProperties =
-            nonVisual ? nonVisual->AppendChild<Presentation::NonVisualDrawingProperties>()
-                      : nullptr;
-        auto shapeProperties =
-            nonVisual ? nonVisual->AppendChild<Presentation::NonVisualShapeDrawingProperties>() : nullptr;
-        auto applicationProperties =
-            nonVisual ? nonVisual->AppendChild<Presentation::ApplicationNonVisualDrawingProperties>() : nullptr;
-        auto placeholder =
-            applicationProperties ? applicationProperties->AppendChild<Presentation::PlaceholderShape>() : nullptr;
-        auto visualProperties = shape ? shape->AppendChild<Presentation::ShapeProperties>() : nullptr;
-        if (!shape || !nonVisual || !drawingProperties || !shapeProperties || !applicationProperties || !placeholder ||
-            !visualProperties)
+        const auto box =
+            PresentationDefaultDesignBuilder::InheritedBox(masterRoot, placeholder->Type(), placeholder->Index());
+        if (box)
         {
-            if (shape)
-            {
-                tree->RemoveChild(shape);
-            }
-            return nullptr;
+            PresentationDomBuilders::SetShapeBox(shape->GetFirstChildOfType<Presentation::ShapeProperties>(), *box);
         }
-        drawingProperties->SetId(UInt32Value(shapeId));
-        drawingProperties->SetName(StringValue("Placeholder " + std::to_string(shapeId)));
-        placeholder->SetType(EnumValue<Presentation::PlaceholderValues>(Presentation::PlaceholderValues(type)));
-        if (index)
-        {
-            placeholder->SetIndex(UInt32Value(*index));
-        }
-        return PresentationPlaceholder::Ptr(new PresentationPlaceholder(shape, placeholder, origin));
     }
 
     static std::string PlaceholderKey(const PresentationPlaceholder::Ptr& placeholder)
@@ -7677,11 +8535,41 @@ std::vector<PresentationPlaceholder::Ptr> PresentationSlideLayout::Placeholders(
     return PresentationHierarchyHelpers::MergePlaceholders(std::move(direct), m_master->Placeholders());
 }
 
+PresentationPlaceholder::Ptr PresentationSlideLayout::FindPlaceholder(Presentation::PlaceholderValues::Value type,
+                                                                      std::optional<UInt32> index) const
+{
+    PresentationPlaceholder::Ptr byType;
+    PresentationPlaceholder::Ptr byInheritance;
+    const auto inheritance = PresentationDefaultDesignBuilder::InheritanceType(type);
+    for (const auto& placeholder : Placeholders(false))
+    {
+        if (!placeholder)
+        {
+            continue;
+        }
+        if (index && placeholder->Index() == index)
+        {
+            return placeholder;
+        }
+        if (placeholder->Type() == type && !byType)
+        {
+            byType = placeholder;
+        }
+        if (PresentationDefaultDesignBuilder::InheritanceType(placeholder->Type()) == inheritance && !byInheritance)
+        {
+            byInheritance = placeholder;
+        }
+    }
+    return byType ? byType : byInheritance;
+}
+
 PresentationPlaceholder::Ptr PresentationSlideLayout::AddPlaceholder(Presentation::PlaceholderValues::Value type,
                                                                      std::optional<UInt32> index)
 {
-    return PresentationHierarchyHelpers::AddPlaceholder(m_part ? m_part->GetTypedRootElement() : nullptr,
-                                                        PlaceholderOrigin::Layout, type, index);
+    auto placeholder = PresentationHierarchyHelpers::AddPlaceholder(m_part ? m_part->GetTypedRootElement() : nullptr,
+                                                                    PlaceholderOrigin::Layout, type, index);
+    PresentationHierarchyHelpers::InheritMasterBox(placeholder, m_part ? m_part->GetSlideMasterPart() : nullptr);
+    return placeholder;
 }
 
 std::shared_ptr<Packaging::SlideLayoutPart> PresentationSlideLayout::GetPart() const
@@ -8139,7 +9027,10 @@ bool PresentationSlide::SetNotesPage(const PresentationNotesPage& page)
     {
         return false;
     }
-    return PresentationDomBuilders::InitializeNotesPage(part->GetTypedRootElement(), page);
+    auto presentationPart = PresentationNotesMasterHelpers::PresentationPartOf(m_part);
+    const auto [notesWidth, notesHeight] =
+        PresentationDomBuilders::NotesExtent(presentationPart ? presentationPart->GetTypedRootElement() : nullptr);
+    return PresentationDomBuilders::InitializeNotesPage(part->GetTypedRootElement(), page, notesWidth, notesHeight);
 }
 
 bool PresentationSlide::RemoveNotes()
@@ -8417,7 +9308,16 @@ PowerPointDocumentEditor::Ptr PowerPointDocumentEditor::CreateNew(PowerPointDocu
     {
         return nullptr;
     }
-    return Create(document);
+    auto editor = Create(document);
+    // A presentation PowerPoint opens has a slide master, a layout and a
+    // theme from the start; one without any is refused. The default design
+    // is written here so every deck this editor saves is one PowerPoint
+    // accepts, whether or not the caller ever thinks about masters.
+    if (!editor || !editor->EnsureDefaultLayout())
+    {
+        return nullptr;
+    }
+    return editor;
 }
 
 PowerPointDocumentEditor::Ptr PowerPointDocumentEditor::Open(const std::filesystem::path& path,
@@ -8554,6 +9454,14 @@ PresentationSlide::Ptr PowerPointDocumentEditor::AddSlide()
     }
     entry->SetId(UInt32Value(NextSlideId(list)));
     entry->SetRelationshipId(StringValue(SlideRelationshipId(presentationPart, part)));
+    // A slide without a layout relationship is one PowerPoint refuses, so
+    // the new slide starts on the first registered layout; SetSlideLayout
+    // re-points it at any other one without touching the slide XML.
+    const auto layouts = SlideLayouts();
+    if (!layouts.empty())
+    {
+        SetSlideLayout(list->Elements<Presentation::SlideId>().size() - 1, layouts.front());
+    }
     return PresentationSlide::Ptr(new PresentationSlide(part, entry));
 }
 
@@ -8835,6 +9743,103 @@ bool PowerPointDocumentEditor::AddSection(const PresentationSection& value)
     }
     sections.push_back(value);
     return PresentationCollectionHelpers::WriteSections(m_document, sections);
+}
+
+std::optional<PresentationSection> PowerPointDocumentEditor::AddSectionAt(Size slideIndex, std::string name,
+                                                                         std::string id)
+{
+    const auto slides = Slides();
+    auto sections = Sections();
+    if (name.empty() || slideIndex >= slides.size())
+    {
+        return std::nullopt;
+    }
+    if (id.empty())
+    {
+        id = Guid::New();
+    }
+    if (std::any_of(sections.begin(), sections.end(), [&](const auto& section)
+                    { return section.Id == id; }))
+    {
+        return std::nullopt;
+    }
+
+    std::vector<UInt32> order;
+    order.reserve(slides.size());
+    for (const auto& slide : slides)
+    {
+        order.push_back(slide->Id());
+    }
+    std::unordered_map<UInt32, Size> owner;
+    for (Size index = 0; index < sections.size(); ++index)
+    {
+        for (const auto slideId : sections[index].SlideIds)
+        {
+            owner[slideId] = index;
+        }
+    }
+    const auto ownerOf = [&](UInt32 slideId) -> std::optional<Size>
+    {
+        const auto found = owner.find(slideId);
+        return found == owner.end() ? std::optional<Size>{} : std::optional<Size>{found->second};
+    };
+
+    // The new section takes the slide and everything after it that belonged
+    // to the same section (or to none), which is where PowerPoint's own "Add
+    // Section" splits the containing section.
+    const auto containing = ownerOf(order[slideIndex]);
+    PresentationSection created{std::move(id), std::move(name), {}};
+    for (Size index = slideIndex; index < order.size() && ownerOf(order[index]) == containing; ++index)
+    {
+        created.SlideIds.push_back(order[index]);
+    }
+    Size position = 0;
+    if (containing)
+    {
+        auto& remaining = sections[*containing].SlideIds;
+        remaining.erase(std::remove_if(remaining.begin(), remaining.end(),
+                                       [&](UInt32 slideId)
+                                       {
+                                           return std::find(created.SlideIds.begin(), created.SlideIds.end(),
+                                                            slideId) != created.SlideIds.end();
+                                       }),
+                        remaining.end());
+        position = *containing + 1;
+        if (remaining.empty())
+        {
+            // Starting at the first slide of a section takes all of its
+            // slides; the emptied section is dropped rather than left as an
+            // empty header the way PowerPoint's UI would show it.
+            sections.erase(sections.begin() + static_cast<std::ptrdiff_t>(*containing));
+            position = *containing;
+        }
+    }
+    else if (sections.empty() && slideIndex > 0)
+    {
+        // The first section always starts at the first slide: PowerPoint
+        // gathers the leading slides into a default section, and so does this.
+        PresentationSection leading{Guid::New(), "Default Section", {}};
+        leading.SlideIds.assign(order.begin(), order.begin() + static_cast<std::ptrdiff_t>(slideIndex));
+        sections.push_back(std::move(leading));
+        position = 1;
+    }
+    else
+    {
+        for (Size index = slideIndex; index > 0; --index)
+        {
+            if (const auto previous = ownerOf(order[index - 1]))
+            {
+                position = *previous + 1;
+                break;
+            }
+        }
+    }
+    sections.insert(sections.begin() + static_cast<std::ptrdiff_t>(position), created);
+    if (!PresentationCollectionHelpers::WriteSections(m_document, sections))
+    {
+        return std::nullopt;
+    }
+    return created;
 }
 
 bool PowerPointDocumentEditor::UpdateSection(std::string_view id, const PresentationSection& value)
@@ -9416,6 +10421,16 @@ PresentationSlideMaster::Ptr PowerPointDocumentEditor::AddSlideMaster(std::strin
     {
         common->SetName(StringValue(std::move(name)));
     }
+    // The master carries the Office default design: positioned title, body,
+    // date, footer and slide-number placeholders plus the text styles. Slides
+    // and layouts inherit their geometry from here, so without it every
+    // placeholder of a deck built from scratch would render at 0 x 0.
+    const auto [slideWidth, slideHeight] = PresentationDomBuilders::SlideExtent(presentation);
+    if (!PresentationDefaultDesignBuilder::AddMasterDesign(part->GetTypedRootElement(), slideWidth, slideHeight))
+    {
+        presentationPart->RemoveSlideMasterPart(part);
+        return nullptr;
+    }
     // Every slide master needs its own theme; a master without one makes
     // PowerPoint treat the presentation as damaged. The default Office theme is
     // built through the typed DrawingML DOM and can be replaced afterwards with
@@ -9668,6 +10683,36 @@ std::vector<PresentationSlideLayout::Ptr> PowerPointDocumentEditor::SlideLayouts
         result.insert(result.end(), layouts.begin(), layouts.end());
     }
     return result;
+}
+
+PresentationSlideLayout::Ptr PowerPointDocumentEditor::EnsureDefaultLayout()
+{
+    const auto layouts = SlideLayouts();
+    if (!layouts.empty())
+    {
+        return layouts.front();
+    }
+    auto master = AddSlideMaster("ExyokiOffice");
+    if (!master)
+    {
+        return nullptr;
+    }
+    auto layout = AddSlideLayout(master, "Title and Content", Presentation::SlideLayoutValues::Object);
+    // The same placeholders PowerPoint's own "Title and Content" layout has;
+    // each takes its geometry from the master placeholder of the same type.
+    constexpr Presentation::PlaceholderValues::Value types[] = {
+        Presentation::PlaceholderValues::Title, Presentation::PlaceholderValues::Body,
+        Presentation::PlaceholderValues::DateAndTime, Presentation::PlaceholderValues::Footer,
+        Presentation::PlaceholderValues::SlideNumber};
+    for (const auto type : types)
+    {
+        if (!layout || !layout->AddPlaceholder(type))
+        {
+            RemoveSlideMaster(master);
+            return nullptr;
+        }
+    }
+    return layout;
 }
 
 bool PowerPointDocumentEditor::RemoveSlideLayout(const PresentationSlideLayout::Ptr& layout,

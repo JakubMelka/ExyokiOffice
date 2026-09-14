@@ -19,6 +19,7 @@
 #include "AsciiText.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -699,7 +700,8 @@ void UnregisterWorksheetSlicerList(const std::shared_ptr<S::Worksheet>& workshee
 // Drawing shape
 // ---------------------------------------------------------------------------
 
-void SetMarker(const std::shared_ptr<XDR::MarkerType>& marker, const CellAddress& address)
+void SetMarker(const std::shared_ptr<XDR::MarkerType>& marker, const CellAddress& address,
+               const DrawingAnchorOffset& offset = {})
 {
     if (!marker)
     {
@@ -718,9 +720,31 @@ void SetMarker(const std::shared_ptr<XDR::MarkerType>& marker, const CellAddress
         }
     };
     set.template operator()<XDR::ColumnId>(std::to_string(address.Column().Value() - 1));
-    set.template operator()<XDR::ColumnOffset>("0");
+    set.template operator()<XDR::ColumnOffset>(std::to_string(std::max<Int64>(0, offset.Column)));
     set.template operator()<XDR::RowId>(std::to_string(address.Row().Value() - 1));
-    set.template operator()<XDR::RowOffset>("0");
+    set.template operator()<XDR::RowOffset>(std::to_string(std::max<Int64>(0, offset.Row)));
+}
+
+/** Reads the EMU offsets of a marker; a missing or unreadable one is zero. */
+DrawingAnchorOffset ReadMarkerOffset(const std::shared_ptr<XDR::MarkerType>& marker)
+{
+    DrawingAnchorOffset offset;
+    if (!marker)
+    {
+        return offset;
+    }
+    const auto read = [&]<typename T>(Int64& target)
+    {
+        const auto node = marker->GetFirstChildOfType<T>();
+        if (node)
+        {
+            const auto text = node->GetText();
+            std::from_chars(text.data(), text.data() + text.size(), target);
+        }
+    };
+    read.template operator()<XDR::ColumnOffset>(offset.Column);
+    read.template operator()<XDR::RowOffset>(offset.Row);
+    return offset;
 }
 
 std::optional<CellAddress> ReadMarker(const std::shared_ptr<XDR::MarkerType>& marker)
@@ -815,8 +839,8 @@ bool AppendSlicerAnchor(const std::shared_ptr<XDR::WorksheetDrawing>& root,
     {
         return false;
     }
-    SetMarker(anchor->AppendChild<XDR::FromMarker>(), definition.From);
-    SetMarker(anchor->AppendChild<XDR::ToMarker>(), definition.To);
+    SetMarker(anchor->AppendChild<XDR::FromMarker>(), definition.From, definition.FromOffset);
+    SetMarker(anchor->AppendChild<XDR::ToMarker>(), definition.To, definition.ToOffset);
 
     const auto frame = anchor->AppendChild<XDR::GraphicFrame>();
     const auto nonVisual = frame ? frame->AppendChild<XDR::NonVisualGraphicFrameProperties>() : nullptr;
@@ -1790,15 +1814,46 @@ std::optional<std::pair<CellAddress, CellAddress>> ExcelSlicer::Anchor() const
     return std::make_pair(*from, *to);
 }
 
+std::optional<DrawingAnchor> ExcelSlicer::DrawingAnchorWithOffsets() const
+{
+    const auto worksheetPart = SlicerDetail::HostWorksheetPart(m_document, m_part);
+    const auto drawing = worksheetPart ? worksheetPart->GetDrawingsPart() : nullptr;
+    const auto root = drawing ? drawing->GetWorksheetDrawing() : nullptr;
+    const auto anchor = SlicerDetail::FindSlicerAnchor(root, m_name);
+    if (!anchor)
+    {
+        return std::nullopt;
+    }
+    namespace XDR = DocumentFormat::OpenXml::Drawing::Spreadsheet;
+    const auto fromMarker = anchor->GetFirstChildOfType<XDR::FromMarker>();
+    const auto toMarker = anchor->GetFirstChildOfType<XDR::ToMarker>();
+    const auto from = SlicerDetail::ReadMarker(fromMarker);
+    const auto to = SlicerDetail::ReadMarker(toMarker);
+    if (!from || !to)
+    {
+        return std::nullopt;
+    }
+    return DrawingAnchor{*from, SlicerDetail::ReadMarkerOffset(fromMarker), *to,
+                         SlicerDetail::ReadMarkerOffset(toMarker)};
+}
+
 SlicerResult ExcelSlicer::SetAnchor(CellAddress from, CellAddress to)
+{
+    return SetAnchor(DrawingAnchor{from, {}, to, {}});
+}
+
+SlicerResult ExcelSlicer::SetAnchor(const DrawingAnchor& placement)
 {
     namespace XDR = DocumentFormat::OpenXml::Drawing::Spreadsheet;
     if (!IsValid())
     {
         return SlicerDetail::Failure(SlicerError::InvalidWorksheet, "The slicer is detached.");
     }
+    const auto& from = placement.From;
+    const auto& to = placement.To;
     if (!from.IsValid() || !to.IsValid() || to.Row().Value() < from.Row().Value() ||
-        to.Column().Value() < from.Column().Value())
+        to.Column().Value() < from.Column().Value() || placement.FromOffset.Column < 0 ||
+        placement.FromOffset.Row < 0 || placement.ToOffset.Column < 0 || placement.ToOffset.Row < 0)
     {
         return SlicerDetail::Failure(SlicerError::InvalidAnchor,
                                      "The slicer anchor must be a valid, non-inverted two-cell rectangle.");
@@ -1811,8 +1866,8 @@ SlicerResult ExcelSlicer::SetAnchor(CellAddress from, CellAddress to)
     {
         return SlicerDetail::Failure(SlicerError::InvalidAnchor, "The slicer has no visible shape to move.");
     }
-    SlicerDetail::SetMarker(anchor->GetFirstChildOfType<XDR::FromMarker>(), from);
-    SlicerDetail::SetMarker(anchor->GetFirstChildOfType<XDR::ToMarker>(), to);
+    SlicerDetail::SetMarker(anchor->GetFirstChildOfType<XDR::FromMarker>(), from, placement.FromOffset);
+    SlicerDetail::SetMarker(anchor->GetFirstChildOfType<XDR::ToMarker>(), to, placement.ToOffset);
     return SlicerDetail::Success();
 }
 
@@ -1927,10 +1982,12 @@ std::optional<ExcelSlicerDefinition> ExcelSlicer::Definition() const
         }
     }
 
-    if (const auto anchor = Anchor())
+    if (const auto anchor = DrawingAnchorWithOffsets())
     {
-        definition.From = anchor->first;
-        definition.To = anchor->second;
+        definition.From = anchor->From;
+        definition.FromOffset = anchor->FromOffset;
+        definition.To = anchor->To;
+        definition.ToOffset = anchor->ToOffset;
         definition.WriteDrawing = true;
     }
     else
@@ -2008,7 +2065,7 @@ SlicerResult ExcelSlicer::Update(const ExcelSlicerDefinition& definition)
     }
     if (definition.WriteDrawing && definition.From.IsValid() && definition.To.IsValid())
     {
-        SetAnchor(definition.From, definition.To);
+        SetAnchor(DrawingAnchor{definition.From, definition.FromOffset, definition.To, definition.ToOffset});
     }
     return SlicerDetail::Success();
 }

@@ -121,11 +121,11 @@ TEST_SUITE("PowerPointTextFrameTests")
         PresentationTextFrame linked;
         linked.Paragraphs = {{{{"Link", "en-US", false, false, "https://example.test/", ""}}}};
         REQUIRE(shape->SetTextFrame(linked));
-        CHECK(slide->GetPart()->Relationships().size() == 1);
+        CHECK(slide->GetPart()->Relationships().size() == 2); // the hyperlink next to the layout relationship
         PresentationTextFrame plain;
         plain.Paragraphs = {{{{"Plain", "en-US", false, false, std::nullopt, ""}}}};
         REQUIRE(shape->SetTextFrame(plain));
-        CHECK(slide->GetPart()->Relationships().empty());
+        CHECK(slide->GetPart()->Relationships().size() == 1); // only the slide layout relationship stays
     }
 
     TEST_CASE("invalid text frame input is rejected without destroying existing text [unit] [powerpoint] [text-frame]")

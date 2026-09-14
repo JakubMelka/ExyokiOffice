@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
+#include <utility>
 
 namespace ExyokiOffice::Excel
 {
@@ -309,6 +311,153 @@ bool Worksheet::SetColumnDimension(UInt32 index, const std::optional<ColumnDimen
     }
 
     return true;
+}
+
+/**
+ * @brief Pixel and EMU arithmetic behind Worksheet::DrawingAnchorForSize.
+ *
+ * Column widths are stored in characters of the workbook's default font and
+ * become pixels through the ECMA-376 formula, which needs the font's maximum
+ * digit width; the values here are Calibri 11 at 96 DPI, Excel's own default,
+ * which is the best the file can know. Row heights are already in points.
+ */
+class DrawingAnchorArithmetic final
+{
+public:
+    DrawingAnchorArithmetic() = delete;
+
+    static constexpr Real MaximumDigitWidthPixels = 7.0;
+    static constexpr Real DefaultColumnPixels = 64.0;
+    static constexpr Real DefaultRowPoints = 15.0;
+    static constexpr Int64 EmuPerPixel = 9525;
+    static constexpr Real EmuPerPoint = 12700.0;
+
+    /// Pixels a column of the stored width @p width occupies, per ECMA-376 18.3.1.13.
+    static Real ColumnPixels(Real width)
+    {
+        if (!std::isfinite(width) || width <= 0.0)
+        {
+            return 0.0;
+        }
+        return std::floor(((256.0 * width + std::floor(128.0 / MaximumDigitWidthPixels)) / 256.0) *
+                          MaximumDigitWidthPixels);
+    }
+
+    static Int64 ColumnWidthEmu(const Worksheet& sheet, const Spreadsheet::Worksheet::Ptr& root, UInt32 column)
+    {
+        const auto dimension = sheet.GetColumnDimension(column);
+        if (dimension && dimension->Hidden)
+        {
+            return 0;
+        }
+
+        std::optional<Real> width = dimension ? dimension->Width : std::nullopt;
+        if (!width)
+        {
+            const auto format = root->GetFirstChildOfType<Spreadsheet::SheetFormatProperties>();
+            if (format && format->GetDefaultColumnWidth().IsDefined())
+            {
+                width = format->GetDefaultColumnWidth().Value();
+            }
+            else if (format && format->GetBaseColumnWidth().IsDefined())
+            {
+                // baseColWidth counts characters without the cell padding.
+                const auto pixels = static_cast<Real>(format->GetBaseColumnWidth().Value()) * MaximumDigitWidthPixels + 5.0;
+                return static_cast<Int64>(pixels) * EmuPerPixel;
+            }
+        }
+
+        const auto pixels = width ? ColumnPixels(*width) : DefaultColumnPixels;
+        return static_cast<Int64>(pixels) * EmuPerPixel;
+    }
+
+    static Int64 RowHeightEmu(const Worksheet& sheet, const Spreadsheet::Worksheet::Ptr& root, UInt32 row)
+    {
+        const auto dimension = sheet.GetRowDimension(row);
+        if (dimension && dimension->Hidden)
+        {
+            return 0;
+        }
+
+        Real points = DefaultRowPoints;
+        if (dimension && dimension->Height)
+        {
+            points = *dimension->Height;
+        }
+        else
+        {
+            const auto format = root->GetFirstChildOfType<Spreadsheet::SheetFormatProperties>();
+            if (format && format->GetDefaultRowHeight().IsDefined())
+            {
+                points = format->GetDefaultRowHeight().Value();
+            }
+        }
+        if (!std::isfinite(points) || points <= 0.0)
+        {
+            return 0;
+        }
+        return static_cast<Int64>(std::llround(points * EmuPerPoint));
+    }
+
+    /**
+     * @brief Walks cells from @p first until @p length is used up.
+     *
+     * @return The index of the cell holding the far edge, and how far into it
+     *         the edge lies. A length that ends exactly on a cell boundary lands
+     *         on the next cell with a zero offset, as Excel writes it.
+     */
+    template <typename SizeOf>
+    static std::pair<UInt32, Int64> Walk(UInt32 first, UInt32 last, Int64 length, SizeOf sizeOf)
+    {
+        UInt32 index = first;
+        Int64 remaining = length;
+        while (index < last)
+        {
+            const auto size = sizeOf(index);
+            if (remaining == 0 || remaining < size)
+            {
+                break;
+            }
+            remaining -= size;
+            ++index;
+        }
+        return {index, remaining};
+    }
+};
+
+std::optional<DrawingAnchor> Worksheet::DrawingAnchorForSize(CellAddress from, ExyokiOffice::MeasuringUnits width,
+                                                             ExyokiOffice::MeasuringUnits height) const
+{
+    const auto root = GetLowLevelApi();
+    const auto widthEmu = width.ToEmu().GetValue();
+    const auto heightEmu = height.ToEmu().GetValue();
+    if (!root || !from.IsValid() || !std::isfinite(widthEmu) || !std::isfinite(heightEmu) || widthEmu < 0.0 ||
+        heightEmu < 0.0)
+    {
+        return std::nullopt;
+    }
+
+    DrawingAnchor anchor;
+    anchor.From = from;
+    anchor.Extent = DrawingExtent{static_cast<Int64>(std::llround(widthEmu)),
+                                  static_cast<Int64>(std::llround(heightEmu))};
+
+    const auto [column, columnOffset] = DrawingAnchorArithmetic::Walk(
+        from.Column().Value(), MaxColumnIndex, anchor.Extent->Width,
+        [&](UInt32 index) { return DrawingAnchorArithmetic::ColumnWidthEmu(*this, root, index); });
+    const auto [row, rowOffset] = DrawingAnchorArithmetic::Walk(
+        from.Row().Value(), MaxRowIndex, anchor.Extent->Height,
+        [&](UInt32 index) { return DrawingAnchorArithmetic::RowHeightEmu(*this, root, index); });
+
+    const auto to = CellAddress::TryCreate(row, column);
+    if (!to)
+    {
+        return std::nullopt;
+    }
+    anchor.To = *to;
+    anchor.ToOffset.Column = columnOffset;
+    anchor.ToOffset.Row = rowOffset;
+    return anchor;
 }
 
 WorksheetView Worksheet::GetView() const

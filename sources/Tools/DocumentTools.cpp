@@ -326,9 +326,7 @@ DocumentMergeResult MergeDocuments(const std::vector<std::filesystem::path>& inp
             {
                 if (!output->CopyWorksheetFrom(*source, sheet))
                 {
-                    DocumentToolsHelper::Error(result.Diagnostics,
-                                               "Failed to import worksheet; styled sheets require equivalent workbook style catalogs",
-                                               inputFiles[file]);
+                    DocumentToolsHelper::Error(result.Diagnostics, "Failed to import worksheet", inputFiles[file]);
                     return result;
                 }
                 ++result.ItemsMerged;

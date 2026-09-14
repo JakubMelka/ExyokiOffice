@@ -21,7 +21,10 @@ sheet->RemoveTable(table);
 
 The supplied range includes the header row; the column list must match the
 range width. Creating a table registers a stable ID, a package relationship,
-a worksheet `tableParts` entry, and an auto-filter automatically.
+a worksheet `tableParts` entry, and an auto-filter automatically. A range that
+contains merged cells or shares a cell with an existing table is refused —
+Excel will not open a workbook with either — and nothing is written before
+the refusal.
 
 **Ordering caveat:** add a table *after* other worksheet features (data
 validation, conditional formatting, hyperlinks) on the same worksheet, since

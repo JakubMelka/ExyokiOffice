@@ -31,7 +31,12 @@ any shape-tree reordering, which invalidates shape wrappers (see
 Writing regenerates the whole `p:timing` tree — a timing root, a main
 sequence, click groups, and the `presetClass`/`presetID`/`presetSubtype`
 triples plus behaviors PowerPoint expects — so the result looks native in
-PowerPoint's animation pane.
+PowerPoint's animation pane. The identifiers are PowerPoint's own gallery
+values: `ChangeFillColor` is the Fill Color emphasis (`presetID="1"`,
+`presetSubtype="2"`, with the `fill.type`/`fill.on` behaviors PowerPoint adds).
+Emphasis preset 2 is PowerPoint's Change Font; a file written by an earlier
+version of this library under that id is still read as `ChangeFillColor`
+when its behaviors animate the fill colour, which no font effect does.
 
 ## Interactive triggers
 
@@ -43,6 +48,12 @@ slide->AddAnimationEffect({.TargetShapeId = body->Id(),
                            .Class = PresentationAnimationEffectClass::Exit,
                            .Effect = PresentationAnimationEffect::Fade});
 ```
+
+The interactive sequence carries what PowerPoint's own "trigger" effect
+writes and reads back as *On Click of* that shape: the `onClick` start
+condition on the trigger shape, an `endSync` that ends the sequence with its
+last effect, a zero delay on the click group, and a trailing `nextCondLst`
+repeating the trigger.
 
 ## Reordering and removing
 
@@ -56,7 +67,10 @@ slide->ClearAnimationEffects();
 Every effect is validated before anything is written, so one bad entry
 leaves the slide untouched. Effects the API does not model round-trip as
 `PresentationAnimationEffect::Unsupported` and their markup is preserved
-across edits.
+across edits. Removing the last effect removes the `p:timing` element
+altogether (unless media timing remains in it): an empty timing tree is one
+PowerPoint refuses to open, and the next effect recreates the tree. A
+`p:transition` on the slide is not affected.
 
 ## Low-level escape hatch
 

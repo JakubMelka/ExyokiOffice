@@ -107,7 +107,7 @@ TEST_SUITE("PowerPointTransitionTests")
         REQUIRE(slide->SetTransition(replacement));
         REQUIRE(slide->GetTransition());
         CHECK(*slide->GetTransition() == replacement);
-        CHECK(slide->GetPart()->Relationships().empty());
+        CHECK(slide->GetPart()->Relationships().size() == 1); // only the slide layout relationship stays
     }
 
     TEST_CASE("every transition effect round trips together with its own option family [unit] [powerpoint] [transition]")
@@ -256,7 +256,7 @@ TEST_SUITE("PowerPointTransitionTests")
 
         REQUIRE(slide->RemoveTransition());
         CHECK_FALSE(slide->GetTransition());
-        CHECK(slide->GetPart()->Relationships().empty());
+        CHECK(slide->GetPart()->Relationships().size() == 1); // only the slide layout relationship stays
         CHECK_FALSE(slide->RemoveTransition());
     }
 } // TEST_SUITE("PowerPointTransitionTests")

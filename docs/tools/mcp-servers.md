@@ -371,7 +371,7 @@ cached result rather than an empty cell.
 // ← {"ok": true, "summary": "Read rows 1 to 4 of Sheet1.",
 //    "data": {"range": "A1:B4", "nextOffset": 0,
 //             "values": [["Region", "Revenue"], ["North", 1200.0],
-//                        ["South", 900.0], ["Total", "2100"]]}}
+//                        ["South", 900.0], ["Total", 2100.0]]}}
 ```
 
 `recalculate` reports `circularReferences` and `formulaErrors` as arrays rather
@@ -557,7 +557,9 @@ parameters, or an `initialize` missing a member the specification requires, and
 `validation_failed`, `operation_failed`, `batch_aborted`,
 `snapshot_unavailable`, `unsupported`, `internal_error`.
 
-The list is closed: an agent may branch on these strings.
+The list is closed: an agent may branch on these strings. A few codes are
+shared by neighbouring concepts: `block_not_found` is also the answer for an
+unknown Excel table, and `shape_not_found` for an unknown Excel slicer.
 
 ## Addressing content
 
@@ -629,7 +631,10 @@ content came from.
 `batch` applies up to 50 mutating session tools as one transaction. Every
 operation is checked before the first one runs; the first failure restores the
 document completely and answers `batch_aborted` with the failing index. A
-successful batch counts as a single revision and a single undo step. Lifecycle
+successful batch counts as a single revision and a single undo step, and a
+batch never costs undo steps that preceded it: its intermediate states are
+dropped when it ends, whether it committed or rolled back, and the history
+still holds the last `--snapshot-depth` steps as it did before. Lifecycle
 tools, file utilities, reading tools, and a nested `batch` are rejected.
 
 ```jsonc
@@ -736,6 +741,14 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `redact_document` | D | Remove comments, revisions, hidden text, and identity metadata from a session or file |
 | `export_media` | M | Write every media payload into a directory |
 
+The two that write several files, `split_document` and `export_media`, hold
+every output to the same rule as a single destination: a file that is already
+there is refused with `file_exists` unless `overwrite: true` is passed, and a
+`prefix` that is not a plain file name is `path_invalid`. `export_media` names
+the files after the parts they came from, so exporting the same document twice
+into one directory is refused the second time rather than answering "exported 0
+files"; the files written before the first taken name stay.
+
 ### `exyoki-mcp-word`
 
 | Tool | Group | | Purpose |
@@ -751,7 +764,7 @@ also accept `documentId`, so they can operate on unsaved session content:
 | `delete_style` | content | D I | Remove a style definition |
 | `list_numbering` | content | R I | List definitions and the instances paragraphs point at |
 | `define_list` | content | M | Define a multi-level list and get the instance paragraphs name |
-| `edit_paragraph` | content | M | Rewrite one paragraph |
+| `edit_paragraph` | content | M | Rewrite one paragraph, or change its style, heading level, or alignment |
 | `delete_blocks` | content | D | Delete a range of body blocks |
 | `apply_style` | content | M I | Apply a paragraph or character style to several blocks |
 | `insert_content_control` | content | M | Insert a named region a template fills or an editor is held to |
@@ -792,6 +805,18 @@ untouched. Word owns the built-in style names — `Normal`, `heading 1`, `Title`
 and the rest — and renames a custom style that claims one, so pass
 `built_in: true` when you mean to redefine what the document's own Heading 1
 looks like rather than to add a style of your own.
+
+A document created here starts without styles. `insert_paragraph`,
+`edit_paragraph` and `apply_style` define `Normal` and `Heading1` to
+`Heading9` on first use, and `define_style` creates them when `based_on` or
+`next` names one; any other unknown identifier is `style_not_found`.
+`add_bookmark` encloses the paragraph text (names are unique, and
+`fill_template` replaces that text). `set_header_footer` kinds `first` and
+`even` switch on the section's different first page and the document's odd
+and even pages. `modify_table` merges keep other merges, append the covered
+cells' text to the top-left cell, and refuse a range that cuts a merged cell
+(`range_invalid`). `set_section` presets keep the orientation. `delete_style`
+of a missing style answers `removed: false`.
 
 A content control is a named, addressable region: a form field, a placeholder
 a template fills, a section an editor may not touch. The `tag` is what code
@@ -872,7 +897,13 @@ A table filter is two things in the file, and `update_table` writes both: the
 criteria the funnel button offers, and the `hidden` flag on each row the filter
 excludes. Excel recomputes neither on open, so a file carrying criteria alone
 would show a column marked as filtered with every row still in view. Clearing
-the filters unhides the rows again.
+the filters unhides the rows again, and `set_slicer_selection` on a table
+slicer hides and unhides the rows the same way.
+
+`add_image` and `add_chart` store the requested size as a one-cell anchor with
+an extent, so the picture keeps that size whatever the column widths and row
+heights are; `add_slicer` spans the cells computed from the sheet's actual
+column widths and row heights.
 
 Showing a totals row grows the table by one row, because the totals row is a row
 of the table; the filter buttons never act on it.
@@ -1029,10 +1060,13 @@ needs this page to call a tool correctly — it needs it to decide *which* tool.
 | `path_outside_workspace` | The path resolves outside every `--workspace` root, after `..` and symbolic links are expanded, or the file system could not canonicalize it at all | Pass a workspace-relative path; `list_workspace` shows what is reachable |
 | `path_invalid` | The path has a shape the server refuses on sight: a device name, an alternate data stream, a UNC or `\\?\` prefix, a drive-relative path, or a trailing dot | Pass a plain workspace-relative file name |
 | `file_changed_on_disk` on save | Something rewrote the file after the session opened it | Re-open and redo, or pass `force: true` if the on-disk copy is expendable |
-| `file_exists` | The destination is taken and `overwrite` defaulted to false. `create_document` checks this when the session opens, not at save time | Pass `overwrite: true` deliberately, or choose another path |
+| `file_exists` | The destination is taken and `overwrite` defaulted to false. `create_document` checks this when the session opens, not at save time; `split_document` and `export_media` check every output file | Pass `overwrite: true` deliberately, or choose another path |
+| `input_invalid` from `search_text`, `replace_text` or `query_xml` | The regular expression does not compile, the XPath does not parse or binds an unknown prefix, or `part` names no XML part of the package | The `details` carry the engine's message; the tool ran nothing |
+| `input_invalid` from `set_properties` | A custom value is an object, array or null, a core property is not a string, or the call names nothing to write | Custom properties hold strings, numbers and booleans; nothing was written |
+| `sheet_not_found` or `slide_not_found` from `get_document_model` / `get_document_markdown` | `scope` names a sheet or slide the document does not have | The scope is checked like any other address; an empty model would have hidden a typo |
 | `document_limit_reached` | More than `--max-documents` sessions are open | `close_document` on what you finished, or raise the limit |
 | `snapshot_unavailable` from `undo` | `--snapshot-depth 0`, or the history is exhausted | Raise the depth; at `0` a failed edit is also left unrolled back |
-| `family_mismatch` | An `.xlsx` was handed to the Word server, either as a file to open or as a destination to write | Each binary serves one family; register all three, and name destinations with this family's extension |
+| `family_mismatch` | An `.xlsx` was handed to the Word server, either as a file to open (`open_document`, or a reading tool given `path`) or as a destination to write; the family is read off the package, so renaming the file to `.docx` changes nothing | Each binary serves one family; register all three, and name destinations with this family's extension |
 | `-32002` on a `tools/*` call | The call arrived before `initialize`, or only `notifications/initialized` was sent, which alone negotiates nothing | A conformant client handles this; hand-written replay files must include the whole handshake |
 | `-32602` on `initialize` | `protocolVersion`, `capabilities`, or `clientInfo` is missing or malformed | The `data.required` member of the error names what the request must carry |
 | `-32600` on `initialize` | The connection was already initialized | Initialization happens once per connection; start a new process to renegotiate |
@@ -1107,6 +1141,12 @@ an `unsupported` tool failure whose `hint` says what to do instead, so the
 boundary is visible from inside the conversation; only a name the server has
 never had is the JSON-RPC error `-32602`.
 
-`validate_document` checks OPC structure and markup schema, which is not the
-same as full Microsoft Office compatibility — see
-[Compatibility](../Compatibility.md) for what the library supports.
+`validate_document` checks OPC structure and markup schema, and the handful of
+package-semantic rules Office is known to enforce: a relationship reference
+(`r:id`, `r:embed`, …) that names no relationship of its part, worksheet
+tables that overlap, a threaded comment whose author the workbook's person
+list does not define, a broken slide → layout → master → theme chain, and,
+as a warning, a style id no style defines — see the `validate` section of
+[exyoki](exyoki.md). That is still not the same as full Microsoft Office
+compatibility — see [Compatibility](../Compatibility.md) for what the
+library supports.

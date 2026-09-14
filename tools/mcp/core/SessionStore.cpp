@@ -36,12 +36,28 @@ bool DocumentSession::PushSnapshot()
     snapshot.Dirty = m_dirty;
 
     m_snapshots.push_back(std::move(snapshot));
+
+    // Inside a batch the history is not trimmed. Each operation of the batch
+    // pushes a snapshot of its own, and trimming here would evict the oldest
+    // real undo steps to make room for them; CommitBatch and RollbackBatch
+    // then could not tell the batch's snapshots from the ones that were there
+    // before, and the history would end up holding the batch's intermediate
+    // states instead of the steps that preceded it. The batch's snapshots are
+    // dropped as one when it ends, and the depth is enforced again there.
+    if (!m_inBatch)
+    {
+        TrimToDepth();
+    }
+
+    return true;
+}
+
+void DocumentSession::TrimToDepth()
+{
     while (m_snapshots.size() > m_snapshotDepth)
     {
         m_snapshots.pop_front();
     }
-
-    return true;
 }
 
 void DocumentSession::MarkMutated()
@@ -114,15 +130,13 @@ std::optional<DocumentSession::BatchMarker> DocumentSession::BeginBatch()
     marker.SnapshotCount = m_snapshots.size();
     marker.Revision = m_revision;
     marker.Dirty = m_dirty;
+    m_inBatch = true;
     return marker;
 }
 
 bool DocumentSession::RollbackBatch(const BatchMarker& marker)
 {
-    while (m_snapshots.size() > marker.SnapshotCount)
-    {
-        m_snapshots.pop_back();
-    }
+    DropBatchSnapshots(marker);
 
     m_revision = marker.Revision;
     m_dirty = marker.Dirty;
@@ -133,10 +147,7 @@ void DocumentSession::CommitBatch(BatchMarker marker)
 {
     // The individual operations each pushed their own snapshot; the batch
     // replaces all of them with the single state it started from.
-    while (m_snapshots.size() > marker.SnapshotCount)
-    {
-        m_snapshots.pop_back();
-    }
+    DropBatchSnapshots(marker);
 
     m_revision = marker.Revision;
     m_dirty = marker.Dirty;
@@ -149,13 +160,24 @@ void DocumentSession::CommitBatch(BatchMarker marker)
         snapshot.Dirty = marker.Dirty;
 
         m_snapshots.push_back(std::move(snapshot));
-        while (m_snapshots.size() > m_snapshotDepth)
-        {
-            m_snapshots.pop_front();
-        }
+        TrimToDepth();
     }
 
     MarkMutated();
+}
+
+void DocumentSession::DropBatchSnapshots(const BatchMarker& marker)
+{
+    // PushSnapshot left the history untrimmed while the batch ran, so
+    // everything past the recorded count is the batch's own and nothing older
+    // was evicted to make room for it.
+    while (m_snapshots.size() > marker.SnapshotCount)
+    {
+        m_snapshots.pop_back();
+    }
+
+    m_inBatch = false;
+    TrimToDepth();
 }
 
 void DocumentSession::MarkSaved(std::filesystem::path path)

@@ -1253,6 +1253,16 @@ public:
      */
     std::optional<PresentationShapeTransform> GetTransform() const;
     /**
+     * @brief Reads the transform PowerPoint draws this shape with.
+     *
+     * A shape with its own `a:xfrm` reports that. A placeholder without one
+     * inherits position and extent from the layout placeholder with the same
+     * index or type, or failing that from the master, the way PowerPoint
+     * resolves it; rotation and flips are never inherited.
+     * @return The resolved transform, or `std::nullopt` when the shape type has no transform.
+     */
+    std::optional<PresentationShapeTransform> GetEffectiveTransform() const;
+    /**
      * @brief Replaces this shape's position, extent, rotation, and flip metadata.
      * @param transform Native OOXML transform values. Width and height must be non-negative.
      * @return `true` on success; `false` for unsupported shapes or invalid group coordinates.
@@ -1878,7 +1888,24 @@ public:
      */
     std::vector<PresentationPlaceholder::Ptr> Placeholders(bool includeInherited = true) const;
     /**
+     * @brief Finds the layout placeholder a slide placeholder would inherit from.
+     *
+     * Matches the same index first, then the same type, then the type it
+     * draws where: a centered title in the title area, a subtitle or any
+     * content placeholder (object, chart, table, picture, ...) in the body
+     * area. Only placeholders the layout declares itself count, because a
+     * slide does not get a master placeholder its layout leaves out.
+     * @return The matching layout placeholder, or `nullptr` when the layout has none.
+     */
+    PresentationPlaceholder::Ptr FindPlaceholder(DocumentFormat::OpenXml::Presentation::PlaceholderValues::Value type,
+                                                 std::optional<UInt32> index = std::nullopt) const;
+    /**
      * @brief Appends a directly declared layout placeholder.
+     *
+     * The placeholder takes the position and extent of the master placeholder
+     * it inherits from (same index, else same type, else the type it draws
+     * where - a subtitle or content placeholder in the body area), when the
+     * master has one with geometry.
      * @return The new placeholder, or nullptr when the layout part is unavailable.
      */
     PresentationPlaceholder::Ptr AddPlaceholder(
@@ -2456,6 +2483,22 @@ public:
     std::vector<PresentationSection> Sections() const;
     /** @brief Adds a section after validating identifiers and slide membership. */
     bool AddSection(const PresentationSection& section);
+    /**
+     * @brief Starts a section at a slide the way PowerPoint's "Add Section" does.
+     *
+     * The new section takes the slide at @p slideIndex and every following
+     * slide of the section it belonged to (or of no section), splitting that
+     * section in two. When the presentation had no sections and the slide is
+     * not the first, the leading slides form a "Default Section" first, so the
+     * first section always starts at the first slide.
+     *
+     * @param slideIndex Zero-based presentation position of the first slide.
+     * @param name Non-empty section name.
+     * @param id Section identifier; a braced GUID is minted when empty.
+     * @return The new section with its slide IDs, or `std::nullopt` for an
+     *         invalid index, an empty name, or an identifier already in use.
+     */
+    std::optional<PresentationSection> AddSectionAt(Size slideIndex, std::string name, std::string id = {});
     /** @brief Replaces a section selected by its stable identifier. */
     bool UpdateSection(std::string_view id, const PresentationSection& section);
     /** @brief Removes a section without removing any slides. */
@@ -2513,7 +2556,11 @@ public:
     bool RemoveHandoutSettings();
 
     /**
-     * @brief Creates and registers a minimal slide master.
+     * @brief Creates and registers a slide master carrying the Office default design.
+     *
+     * The master gets the default theme, a theme background, the title, body,
+     * date, footer, and slide-number placeholders positioned for the
+     * presentation's slide size, and the title/body/other text styles.
      * @return The new master, or nullptr when the presentation part or its master
      * list is unavailable.
      */
@@ -2560,6 +2607,18 @@ public:
             DocumentFormat::OpenXml::Presentation::SlideLayoutValues::Custom);
     /** @return All layouts grouped by master order and then master layout order. */
     std::vector<PresentationSlideLayout::Ptr> SlideLayouts() const;
+    /**
+     * @brief Returns the first layout, creating the default design when there is none.
+     *
+     * A presentation created from scratch has no master, layout, or theme, and
+     * a slide without a layout is one PowerPoint reports as damaged. When no
+     * layout exists, a master named "ExyokiOffice" with the Office default
+     * theme, background, text styles, and positioned title, body, date,
+     * footer, and slide-number placeholders is created together with a
+     * "Title and Content" layout carrying those same placeholders.
+     * @return The first registered layout, or `nullptr` when it could not be created.
+     */
+    PresentationSlideLayout::Ptr EnsureDefaultLayout();
     /**
      * @brief Removes a layout from its owning master.
      * @param layout Layout registered by this editor.

@@ -24,6 +24,11 @@ counts — and the first page number. Margins take any physical unit. Every
 setter has a matching getter (`GetPageSetup`, `GetPageMargins`, and so on
 for the rest of this chapter).
 
+Setting `FitToWidth` or `FitToHeight` also writes the sheet-level
+`sheetPr/pageSetUpPr fitToPage` switch, without which Excel prints at the
+plain scale and discards the page counts on its next save; a setup with
+neither count turns the switch off again.
+
 ## Print options, area, and titles
 
 ```cpp

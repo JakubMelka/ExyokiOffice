@@ -232,6 +232,22 @@ std::string_view ToString(ValidationErrorId id) noexcept
             return "NestingTooDeep";
         case ValidationErrorId::OpcEntryUnreadable:
             return "OpcEntryUnreadable";
+        case ValidationErrorId::PackageDanglingRelationshipReference:
+            return "PackageDanglingRelationshipReference";
+        case ValidationErrorId::PackageTableRangeOverlap:
+            return "PackageTableRangeOverlap";
+        case ValidationErrorId::PackageThreadedCommentPersonUndefined:
+            return "PackageThreadedCommentPersonUndefined";
+        case ValidationErrorId::PackagePresentationMissingSlideMaster:
+            return "PackagePresentationMissingSlideMaster";
+        case ValidationErrorId::PackageSlideMissingSlideLayout:
+            return "PackageSlideMissingSlideLayout";
+        case ValidationErrorId::PackageSlideLayoutMissingSlideMaster:
+            return "PackageSlideLayoutMissingSlideMaster";
+        case ValidationErrorId::PackageSlideMasterMissingTheme:
+            return "PackageSlideMasterMissingTheme";
+        case ValidationErrorId::PackageStyleReferenceUndefined:
+            return "PackageStyleReferenceUndefined";
     }
     return "Unknown";
 }

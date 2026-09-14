@@ -9,6 +9,8 @@
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <string>
 
 using namespace ExyokiOfficeTests;
@@ -340,4 +342,343 @@ TEST_CASE("validate_document never reports more issues than max_issues [mcp-life
         REQUIRE(report["ok"] == true);
         CHECK(report["data"]["issues"].size() <= static_cast<std::size_t>(cap));
     }
+}
+
+// ---------------------------------------------------------------------------
+// Defects found by the Office COM test (MCP_ERRORS.md, shared entries)
+// ---------------------------------------------------------------------------
+
+/// Helpers for the shared-code regressions of the COM test.
+class ComRegressionSupport
+{
+public:
+    /// Appends @p count paragraphs one call at a time, so each is one undo step.
+    static void FillHistory(McpTestServer& server, const std::string& documentId, int count)
+    {
+        for (int index = 1; index <= count; ++index)
+        {
+            REQUIRE(McpRegressionSupport::AppendParagraph(server, documentId, "Step " + std::to_string(index))["ok"] ==
+                    true);
+        }
+    }
+
+    [[nodiscard]] static nlohmann::json InsertOperation(const std::string& text)
+    {
+        return nlohmann::json{{"tool", "insert_paragraph"},
+                              {"arguments", nlohmann::json{{"anchor", nlohmann::json{{"position", "end"}}},
+                                                           {"text", text}}}};
+    }
+
+    [[nodiscard]] static std::size_t BlockCount(McpTestServer& server, const std::string& documentId)
+    {
+        const auto blocks = server.Call("read_blocks", nlohmann::json{{"documentId", documentId}});
+        return blocks["data"]["blockCount"].get<std::size_t>();
+    }
+
+    /// A 1x1 PNG, so the payload passes format detection.
+    [[nodiscard]] static std::string Png()
+    {
+        return "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    }
+};
+
+TEST_CASE("S-1: a failed batch over a full undo history leaves the history intact [mcp-lifecycle]")
+{
+    // The default depth is eight snapshots. Eight mutations fill the history;
+    // the batch's own per-operation snapshots then used to evict the oldest
+    // real steps, and the rollback trimmed nothing because the size never
+    // exceeded the count recorded at the start.
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto id = McpRegressionSupport::CreateDocument(*server, "history.docx");
+    ComRegressionSupport::FillHistory(*server, id, 8);
+    REQUIRE(ComRegressionSupport::BlockCount(*server, id) == 8);
+
+    nlohmann::json operations = nlohmann::json::array();
+    operations.push_back(ComRegressionSupport::InsertOperation("Nine"));
+    operations.push_back(
+        nlohmann::json{{"tool", "apply_style"},
+                       {"arguments", nlohmann::json{{"blocks", nlohmann::json::array({1})},
+                                                    {"style_id", "NoSuchStyle"}}}});
+    const auto failed = server->Call("batch", nlohmann::json{{"documentId", id}, {"operations", operations}});
+    REQUIRE(failed["ok"] == false);
+    CHECK(failed["error"]["code"] == "batch_aborted");
+    CHECK(ComRegressionSupport::BlockCount(*server, id) == 8);
+
+    // The step before the batch is the eighth paragraph; undoing it must
+    // restore seven paragraphs, not the eight the batch was rolled back to.
+    const auto undone = server->Call("undo", nlohmann::json{{"documentId", id}});
+    REQUIRE(undone["ok"] == true);
+    CHECK(undone["data"]["restoredRevision"] == 7);
+    CHECK(ComRegressionSupport::BlockCount(*server, id) == 7);
+}
+
+TEST_CASE("S-1: a committed batch over a full undo history is one step and the steps before it survive [mcp-lifecycle]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto id = McpRegressionSupport::CreateDocument(*server, "history.docx");
+    ComRegressionSupport::FillHistory(*server, id, 8);
+
+    nlohmann::json operations = nlohmann::json::array();
+    operations.push_back(ComRegressionSupport::InsertOperation("Nine"));
+    operations.push_back(ComRegressionSupport::InsertOperation("Ten"));
+    const auto applied = server->Call("batch", nlohmann::json{{"documentId", id}, {"operations", operations}});
+    REQUIRE(applied["ok"] == true);
+    CHECK(applied["revision"] == 9);
+    CHECK(ComRegressionSupport::BlockCount(*server, id) == 10);
+
+    // One undo removes both paragraphs of the batch; the next restores the
+    // step before it. Before the fix the second undo brought back the batch's
+    // intermediate state - nine paragraphs, a state the agent never saw - and
+    // reported a revision higher than the one the first undo restored.
+    const auto first = server->Call("undo", nlohmann::json{{"documentId", id}});
+    REQUIRE(first["ok"] == true);
+    CHECK(first["data"]["restoredRevision"] == 8);
+    CHECK(ComRegressionSupport::BlockCount(*server, id) == 8);
+
+    const auto second = server->Call("undo", nlohmann::json{{"documentId", id}});
+    REQUIRE(second["ok"] == true);
+    CHECK(second["data"]["restoredRevision"] == 7);
+    CHECK(ComRegressionSupport::BlockCount(*server, id) == 7);
+
+    // The history is still bounded by the depth: eight steps in total, so
+    // six more undo calls succeed and the ninth is refused.
+    for (int index = 0; index < 6; ++index)
+    {
+        REQUIRE(server->Call("undo", nlohmann::json{{"documentId", id}})["ok"] == true);
+    }
+    CHECK(ComRegressionSupport::BlockCount(*server, id) == 1);
+    const auto exhausted = server->Call("undo", nlohmann::json{{"documentId", id}});
+    CHECK(exhausted["ok"] == false);
+    CHECK(exhausted["error"]["code"] == "snapshot_unavailable");
+}
+
+TEST_CASE("S-2: export_media onto existing files answers file_exists instead of exporting nothing [mcp-lifecycle]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto id = McpRegressionSupport::CreateDocument(*server, "media.docx");
+    REQUIRE(server->Call("insert_image", nlohmann::json{{"documentId", id},
+                                                        {"anchor", nlohmann::json{{"position", "end"}}},
+                                                        {"dataBase64", ComRegressionSupport::Png()}})["ok"] == true);
+
+    const auto exported = server->Call("export_media", nlohmann::json{{"documentId", id}, {"output_dir", "exp"}});
+    REQUIRE(exported["ok"] == true);
+    REQUIRE(exported["data"]["files"].size() == 1);
+
+    const auto again = server->Call("export_media", nlohmann::json{{"documentId", id}, {"output_dir", "exp"}});
+    REQUIRE(again["ok"] == false);
+    CHECK(again["error"]["code"] == "file_exists");
+
+    const auto forced =
+        server->Call("export_media", nlohmann::json{{"documentId", id}, {"output_dir", "exp"}, {"overwrite", true}});
+    REQUIRE(forced["ok"] == true);
+    CHECK(forced["data"]["files"].size() == 1);
+}
+
+TEST_CASE("S-3: a document of another family is refused with family_mismatch, not package_load_failed [mcp-lifecycle]")
+{
+    auto excel = MakeExcelServer();
+    excel->Initialize();
+    const auto book = McpRegressionSupport::CreateDocument(*excel, "book.xlsx");
+    REQUIRE(excel->Call("save_document", nlohmann::json{{"documentId", book}})["ok"] == true);
+
+    auto word = MakeWordServer();
+    word->Initialize();
+    std::filesystem::copy_file(excel->Path("book.xlsx"), word->Path("book.xlsx"));
+    std::filesystem::copy_file(excel->Path("book.xlsx"), word->Path("renamed.docx"));
+
+    for (const auto* name : {"book.xlsx", "renamed.docx"})
+    {
+        const auto opened = word->Call("open_document", nlohmann::json{{"path", name}});
+        REQUIRE(opened["ok"] == false);
+        CHECK(opened["error"]["code"] == "family_mismatch");
+
+        // The path form of the reading tools goes through the same door.
+        const auto info = word->Call("get_document_info", nlohmann::json{{"path", name}});
+        REQUIRE(info["ok"] == false);
+        CHECK(info["error"]["code"] == "family_mismatch");
+    }
+
+    // A file that is no package at all still says so.
+    std::ofstream(word->Path("junk.docx"), std::ios::binary) << "not a zip";
+    const auto junk = word->Call("open_document", nlohmann::json{{"path", "junk.docx"}});
+    REQUIRE(junk["ok"] == false);
+    CHECK(junk["error"]["code"] == "package_load_failed");
+}
+
+TEST_CASE("S-4: split_document reports path_invalid for a bad prefix and file_exists for taken outputs [mcp-lifecycle]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto id = McpRegressionSupport::CreateDocument(*server, "split.docx");
+    ComRegressionSupport::FillHistory(*server, id, 3);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", id}})["ok"] == true);
+
+    for (const auto* prefix : {"a/b", "NUL", "..", "part."})
+    {
+        const auto refused = server->Call("split_document", nlohmann::json{{"input_path", "split.docx"},
+                                                                           {"output_dir", "parts"},
+                                                                           {"by", "paragraphs"},
+                                                                           {"count", 1},
+                                                                           {"prefix", prefix}});
+        REQUIRE(refused["ok"] == false);
+        CHECK(refused["error"]["code"] == "path_invalid");
+    }
+
+    const auto arguments = nlohmann::json{
+        {"input_path", "split.docx"}, {"output_dir", "parts"}, {"by", "paragraphs"}, {"count", 1}};
+    const auto written = server->Call("split_document", arguments);
+    REQUIRE(written["ok"] == true);
+    REQUIRE(written["data"]["outputFiles"].size() >= 3);
+
+    const auto taken = server->Call("split_document", arguments);
+    REQUIRE(taken["ok"] == false);
+    CHECK(taken["error"]["code"] == "file_exists");
+
+    auto forced = arguments;
+    forced["overwrite"] = true;
+    CHECK(server->Call("split_document", forced)["ok"] == true);
+}
+
+TEST_CASE("X-9 and P-10e: a model scope naming a missing sheet or slide is an error, not an empty model [mcp-lifecycle]")
+{
+    auto excel = MakeExcelServer();
+    excel->Initialize();
+    const auto book = McpRegressionSupport::CreateDocument(*excel, "scope.xlsx");
+    for (const auto* tool : {"get_document_model", "get_document_markdown"})
+    {
+        const auto missing =
+            excel->Call(tool, nlohmann::json{{"documentId", book}, {"scope", nlohmann::json{{"sheet", "Nope"}}}});
+        REQUIRE(missing["ok"] == false);
+        CHECK(missing["error"]["code"] == "sheet_not_found");
+    }
+    const auto sheets = excel->Call("list_sheets", nlohmann::json{{"documentId", book}});
+    REQUIRE(sheets["ok"] == true);
+    const auto sheetName = sheets["data"]["sheets"][0]["name"].get<std::string>();
+    const auto present = excel->Call(
+        "get_document_model", nlohmann::json{{"documentId", book}, {"scope", nlohmann::json{{"sheet", sheetName}}}});
+    REQUIRE(present["ok"] == true);
+    CHECK(present["data"]["itemCount"] == 1);
+
+    auto powerPoint = MakePowerPointServer();
+    powerPoint->Initialize();
+    const auto deck = McpRegressionSupport::CreateDocument(*powerPoint, "scope.pptx");
+    REQUIRE(powerPoint->Call("add_slide", nlohmann::json{{"documentId", deck}})["ok"] == true);
+    for (const auto* tool : {"get_document_model", "get_document_markdown"})
+    {
+        const auto missing =
+            powerPoint->Call(tool, nlohmann::json{{"documentId", deck}, {"scope", nlohmann::json{{"slide", 99}}}});
+        REQUIRE(missing["ok"] == false);
+        CHECK(missing["error"]["code"] == "slide_not_found");
+    }
+    const auto first = powerPoint->Call(
+        "get_document_model", nlohmann::json{{"documentId", deck}, {"scope", nlohmann::json{{"slide", 1}}}});
+    REQUIRE(first["ok"] == true);
+    CHECK(first["data"]["itemCount"] == 1);
+}
+
+TEST_CASE("P-10b: a malformed regex, XPath or part name is input_invalid, not operation_failed [mcp-lifecycle]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto id = McpRegressionSupport::CreateDocument(*server, "malformed.docx");
+    REQUIRE(McpRegressionSupport::AppendParagraph(*server, id, "Some text")["ok"] == true);
+
+    const auto search =
+        server->Call("search_text", nlohmann::json{{"documentId", id}, {"needle", "("}, {"regex", true}});
+    REQUIRE(search["ok"] == false);
+    CHECK(search["error"]["code"] == "input_invalid");
+
+    const auto replace = server->Call(
+        "replace_text", nlohmann::json{{"documentId", id}, {"needle", "("}, {"replacement", "x"}, {"regex", true}});
+    REQUIRE(replace["ok"] == false);
+    CHECK(replace["error"]["code"] == "input_invalid");
+
+    const auto xpath = server->Call("query_xml", nlohmann::json{{"documentId", id}, {"xpath", "//w:["}});
+    REQUIRE(xpath["ok"] == false);
+    CHECK(xpath["error"]["code"] == "input_invalid");
+
+    const auto part = server->Call(
+        "query_xml", nlohmann::json{{"documentId", id}, {"xpath", "//w:p"}, {"part", "/word/nope.xml"}});
+    REQUIRE(part["ok"] == false);
+    CHECK(part["error"]["code"] == "input_invalid");
+
+    // An empty needle is a caller error as well.
+    const auto empty = server->Call("search_text", nlohmann::json{{"documentId", id}, {"needle", ""}});
+    REQUIRE(empty["ok"] == false);
+    CHECK(empty["error"]["code"] == "input_invalid");
+}
+
+TEST_CASE("P-10d: set_properties refuses a custom value it cannot store instead of dropping it [mcp-lifecycle]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto id = McpRegressionSupport::CreateDocument(*server, "properties.docx");
+
+    const auto nested =
+        server->Call("set_properties", nlohmann::json{{"documentId", id},
+                                                      {"custom", nlohmann::json{{"Bad", nlohmann::json{{"nested", 1}}}}}});
+    REQUIRE(nested["ok"] == false);
+    CHECK(nested["error"]["code"] == "input_invalid");
+    CHECK(nested["error"]["message"].get<std::string>().find("Bad") != std::string::npos);
+
+    // Sent together with a valid member, the bad value used to be dropped
+    // silently while the call reported success. Now nothing is written.
+    const auto mixed = server->Call("set_properties",
+                                    nlohmann::json{{"documentId", id},
+                                                   {"title", "Kept?"},
+                                                   {"custom", nlohmann::json{{"List", nlohmann::json::array({1, 2})}}}});
+    REQUIRE(mixed["ok"] == false);
+    CHECK(mixed["error"]["code"] == "input_invalid");
+    const auto read = server->Call("get_properties", nlohmann::json{{"documentId", id}});
+    REQUIRE(read["ok"] == true);
+    CHECK(read["data"]["core"].value("title", std::string()).empty());
+
+    const auto nothing = server->Call("set_properties", nlohmann::json{{"documentId", id}});
+    REQUIRE(nothing["ok"] == false);
+    CHECK(nothing["error"]["code"] == "input_invalid");
+
+    const auto typed = server->Call("set_properties", nlohmann::json{{"documentId", id}, {"title", 42}});
+    REQUIRE(typed["ok"] == false);
+    CHECK(typed["error"]["code"] == "input_invalid");
+}
+
+TEST_CASE("W-11c: diff_documents reports part change kinds its schema enumerates [mcp-lifecycle]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto id = McpRegressionSupport::CreateDocument(*server, "before.docx");
+    REQUIRE(McpRegressionSupport::AppendParagraph(*server, id, "Before")["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", id}})["ok"] == true);
+    REQUIRE(McpRegressionSupport::AppendParagraph(*server, id, "After")["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", id}, {"path", "after.docx"}})["ok"] == true);
+
+    const auto diff =
+        server->Call("diff_documents", nlohmann::json{{"left_path", "before.docx"}, {"right_path", "after.docx"}});
+    REQUIRE(diff["ok"] == true);
+    CHECK(diff["data"]["identical"] == false);
+    REQUIRE(diff["data"]["partChanges"].size() >= 1);
+
+    // The kinds the handler emits ("changedXml" among them) used to be absent
+    // from the schema, whose description promised a plain "changed".
+    const auto* tool = server->Registry().Find("diff_documents");
+    REQUIRE(tool != nullptr);
+    const auto allowed = tool->Definition.OutputSchema["properties"]["data"]["properties"]["partChanges"]["items"]
+                                                     ["properties"]["kind"]["enum"];
+    REQUIRE(allowed.is_array());
+    for (const auto& change : diff["data"]["partChanges"])
+    {
+        const auto kind = change["kind"].get<std::string>();
+        CHECK(std::find(allowed.begin(), allowed.end(), nlohmann::json(kind)) != allowed.end());
+    }
+    CHECK(std::find(allowed.begin(), allowed.end(), nlohmann::json("changedXml")) != allowed.end());
 }

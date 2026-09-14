@@ -5250,7 +5250,7 @@
             "type": "string"
           },
           "heading_level": {
-            "description": "Applies the built-in HeadingN style; overrides style_id.",
+            "description": "Applies the built-in HeadingN style, defining it (and Normal) when the document lacks it; overrides style_id.",
             "maximum": 9,
             "minimum": 1,
             "type": "integer"
@@ -5469,7 +5469,7 @@
             "type": "object"
           },
           "style_id": {
-            "description": "Paragraph style identifier, for example \"Heading1\".",
+            "description": "Paragraph style identifier, for example \"Heading1\"; Normal and Heading1 to Heading9 are created on demand, any other identifier must exist (style_not_found).",
             "type": "string"
           },
           "text": {
@@ -6025,7 +6025,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Replace the content and formatting of one paragraph. Omit 'text' and 'inlines' to change only the style or alignment.",
+      "description": "Replace the content and formatting of one paragraph. Omit 'text' and 'inlines' to change only the style, heading level, or alignment; bookmark and comment markers in the paragraph are kept.",
       "example": {
         "block": 3,
         "documentId": "doc-1",
@@ -6055,6 +6055,12 @@
           "documentId": {
             "description": "Identifier of the open document to modify.",
             "type": "string"
+          },
+          "heading_level": {
+            "description": "Applies the built-in HeadingN style; overrides style_id.",
+            "maximum": 9,
+            "minimum": 1,
+            "type": "integer"
           },
           "inlines": {
             "description": "Formatted inline content.",
@@ -6250,7 +6256,7 @@
             "type": "array"
           },
           "style_id": {
-            "description": "Paragraph style identifier.",
+            "description": "Paragraph style identifier; Normal and Heading1 to Heading9 are created on demand.",
             "type": "string"
           },
           "text": {
@@ -7068,7 +7074,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Add a bookmark to a paragraph, or to the range from 'block' to 'end_block', so internal hyperlinks and templates can address it by name.",
+      "description": "Add a bookmark enclosing a paragraph, or the range from 'block' to 'end_block', so internal hyperlinks and templates can address it by name. Names are unique: a name the document already uses is refused with input_invalid.",
       "example": {
         "block": 2,
         "documentId": "doc-1",
@@ -7236,7 +7242,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Insert a table at an anchor, optionally filled from a two-dimensional array of cell texts.",
+      "description": "Insert a table at an anchor, optionally filled from a two-dimensional array of cell texts. Rows and cells of 'data' beyond 'rows' and 'cols' are not written and are reported in a warning.",
       "example": {
         "anchor": {
           "position": "end"
@@ -7309,7 +7315,7 @@
             "type": "integer"
           },
           "style_id": {
-            "description": "Table style identifier.",
+            "description": "Identifier of a table style the document defines (define_style with kind 'table', or one list_styles reports); an unknown identifier is refused with style_not_found.",
             "type": "string"
           }
         },
@@ -7815,7 +7821,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Add or delete table rows and columns, or merge a rectangular region of cells. A delete 'count' larger than what is left removes the rest and reports it; a merge range outside the table is refused.",
+      "description": "Add or delete table rows and columns, or merge a rectangular region of cells. A delete 'count' larger than what is left removes the rest and reports it; a merge range outside the table is refused. Merging keeps the other merges of the table and appends the text of the covered cells to the top-left cell; a range that cuts through an existing merged cell is refused with range_invalid.",
       "example": {
         "block": 4,
         "count": 2,
@@ -8435,7 +8441,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Replace the content of a header or footer. Existing paragraphs are discarded. Use 'inlines' or 'blocks' for a page-number field or other formatted content; a picture and an external link are not supported in a running element.",
+      "description": "Replace the content of a header or footer. Existing paragraphs are discarded. Use 'inlines' or 'blocks' for a page-number field or other formatted content; a picture and an external link are not supported in a running element. Kind 'first' turns on the section's different first page, and 'even' the document's different odd and even pages, so Word shows what was written.",
       "example": {
         "documentId": "doc-1",
         "target": "footer",
@@ -9124,7 +9130,7 @@
             "type": "object"
           },
           "orientation": {
-            "description": "Page orientation.",
+            "description": "Page orientation. The page dimensions are swapped when they contradict it.",
             "enum": [
               "portrait",
               "landscape"
@@ -9133,7 +9139,7 @@
           },
           "page_size": {
             "additionalProperties": false,
-            "description": "Page dimensions; use either 'preset' or both 'width' and 'height'.",
+            "description": "Page dimensions; use either 'preset' or both 'width' and 'height', not both (input_invalid). A preset keeps the section's orientation: a landscape section gets the preset's long edge as its width. Explicit dimensions are written as given and, without 'orientation', set it from their proportions.",
             "properties": {
               "height": {
                 "description": "Page height.",
@@ -10640,7 +10646,7 @@
             "type": "string"
           },
           "based_on": {
-            "description": "Identifier of the style this one inherits from.",
+            "description": "Identifier of the style this one inherits from. It must exist, or be a built-in style (Normal, Heading1 to Heading9), which is created on demand; anything else is refused with style_not_found.",
             "type": "string"
           },
           "built_in": {
@@ -10724,7 +10730,7 @@
             "type": "string"
           },
           "next": {
-            "description": "Identifier of the style Word applies to the paragraph created by pressing Enter at the end of one carrying this style. A heading usually names the body style here.",
+            "description": "Identifier of the style Word applies to the paragraph created by pressing Enter at the end of one carrying this style. A heading usually names the body style here. Resolved like 'based_on'; the style may name itself.",
             "type": "string"
           },
           "paragraph": {
@@ -10952,7 +10958,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Remove a style definition. Content that still names the style keeps the reference and falls back to the document defaults, so the answer reports how many blocks are in that position; move them to another style with apply_style first if that is not what you want.",
+      "description": "Remove a style definition. Content that still names the style keeps the reference and falls back to the document defaults, so the answer reports how many blocks are in that position; move them to another style with apply_style first if that is not what you want. A style the document does not define answers ok with 'removed' false, so repeating the call is harmless.",
       "example": {
         "documentId": "doc-1",
         "style_id": "ReportHeading"
@@ -12211,7 +12217,14 @@
                       "type": "string"
                     },
                     "kind": {
-                      "description": "added, removed, changed, or contentType.",
+                      "description": "What changed: the part was added or removed, its XML or its binary payload differs, or its content type changed.",
+                      "enum": [
+                        "added",
+                        "removed",
+                        "changedXml",
+                        "changedBinary",
+                        "contentTypeChanged"
+                      ],
                       "type": "string"
                     },
                     "uri": {
@@ -12234,7 +12247,12 @@
                   "description": "One changed relationship.",
                   "properties": {
                     "kind": {
-                      "description": "added, removed, or changed.",
+                      "description": "What changed.",
+                      "enum": [
+                        "added",
+                        "removed",
+                        "changed"
+                      ],
                       "type": "string"
                     },
                     "relationshipId": {

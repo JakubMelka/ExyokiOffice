@@ -5,6 +5,8 @@
 #include "ExyokiOffice/Tools/DocumentTextTools.hpp"
 #include "ExyokiOffice/Tools/PackageLimits.hpp"
 
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Drawing.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Presentation.hpp"
 #include "ExyokiOffice/Excel/ExcelDocument.hpp"
 #include "ExyokiOffice/OpenXmlPackage.hpp"
 #include "ExyokiOffice/PowerPoint/PowerPointDocument.hpp"
@@ -248,32 +250,70 @@ public:
             }
         };
 
+        // Text frames, table cells and the children of groups, recursively;
+        // the label is the shape path get_slide reports ("2/1" for the first
+        // child of the second shape).
+        const auto searchShape = [&](auto&& self, const PowerPoint::PresentationShape::Ptr& shape,
+                                     const std::string& label) -> void
+        {
+            if (const auto frame = shape->GetTextFrame())
+            {
+                Size paragraphIndex = 1;
+                for (const auto& paragraph : frame->Paragraphs)
+                {
+                    std::string text;
+                    for (const auto& run : paragraph.Runs)
+                    {
+                        text += run.Text;
+                    }
+                    if (!text.empty())
+                    {
+                        searchUnit(text, label + " paragraph " + std::to_string(paragraphIndex));
+                    }
+                    ++paragraphIndex;
+                }
+            }
+            for (const auto& cell : TableCells(shape))
+            {
+                Size paragraphIndex = 1;
+                for (const auto& paragraph : cell.Paragraphs)
+                {
+                    const auto text = DrawingParagraphText(paragraph);
+                    if (!text.empty())
+                    {
+                        searchUnit(text, label + " cell " + std::to_string(cell.Row) + "," +
+                                             std::to_string(cell.Column) + " paragraph " +
+                                             std::to_string(paragraphIndex));
+                    }
+                    ++paragraphIndex;
+                }
+            }
+            if (shape->IsGroup())
+            {
+                Size childIndex = 1;
+                for (const auto& child : shape->Children())
+                {
+                    if (child)
+                    {
+                        self(self, child, label + "/" + std::to_string(childIndex));
+                    }
+                    ++childIndex;
+                }
+            }
+        };
+
         Size slideIndex = 1;
         for (const auto& slide : editor.Slides())
         {
+            const std::string slideLabel = "slide " + std::to_string(slideIndex);
             Size shapeIndex = 1;
             if (auto tree = slide->ShapeTree())
             {
                 for (const auto& shape : tree->Shapes())
                 {
-                    if (const auto frame = shape->GetTextFrame())
+                    if (shape)
                     {
-                        Size paragraphIndex = 1;
-                        for (const auto& paragraph : frame->Paragraphs)
-                        {
-                            std::string text;
-                            for (const auto& run : paragraph.Runs)
-                            {
-                                text += run.Text;
-                            }
-                            if (!text.empty())
-                            {
-                                searchUnit(text, "slide " + std::to_string(slideIndex) + " shape " +
-                                                     std::to_string(shapeIndex) + " paragraph " +
-                                                     std::to_string(paragraphIndex));
-                            }
-                            ++paragraphIndex;
-                        }
+                        searchShape(searchShape, shape, slideLabel + " shape " + std::to_string(shapeIndex));
                     }
                     ++shapeIndex;
                 }
@@ -281,13 +321,177 @@ public:
 
             if (const auto notes = slide->NotesText(); !notes.empty())
             {
-                searchUnit(notes, "slide " + std::to_string(slideIndex) + " notes");
+                searchUnit(notes, slideLabel + " notes");
+            }
+
+            Size commentIndex = 1;
+            for (const auto& comment : slide->Comments())
+            {
+                const std::string commentLabel = slideLabel + " comment " + std::to_string(commentIndex);
+                if (!comment.Text.empty())
+                {
+                    searchUnit(comment.Text, commentLabel);
+                }
+                Size replyIndex = 1;
+                for (const auto& reply : comment.Replies)
+                {
+                    if (!reply.Text.empty())
+                    {
+                        searchUnit(reply.Text, commentLabel + " reply " + std::to_string(replyIndex));
+                    }
+                    ++replyIndex;
+                }
+                ++commentIndex;
+            }
+            for (const auto& comment : LegacyComments(slide))
+            {
+                const auto text = std::string(comment->GetText());
+                if (!text.empty())
+                {
+                    searchUnit(text, slideLabel + " comment " + std::to_string(commentIndex));
+                }
+                ++commentIndex;
             }
             ++slideIndex;
         }
 
         result.Ok = true;
         return result;
+    }
+
+    // --- PowerPoint text units beyond shape text frames ------------------------
+
+    /// One table cell's DrawingML paragraphs with its 1-based grid position.
+    struct TableCellParagraphs
+    {
+        Size Row = 0;
+        Size Column = 0;
+        std::vector<std::shared_ptr<DocumentFormat::OpenXml::Drawing::Paragraph>> Paragraphs;
+    };
+
+    /// The cells of a table shape in row-major order; empty for any other shape.
+    static std::vector<TableCellParagraphs> TableCells(const PowerPoint::PresentationShape::Ptr& shape)
+    {
+        namespace Drawing = DocumentFormat::OpenXml::Drawing;
+        std::vector<TableCellParagraphs> cells;
+        auto element = shape ? shape->GetElement() : nullptr;
+        const auto tables = element ? element->Descendants<Drawing::Table>() : std::vector<Drawing::Table::Ptr>{};
+        if (tables.empty())
+        {
+            return cells;
+        }
+        Size rowIndex = 1;
+        for (const auto& row : tables.front()->Elements<Drawing::TableRow>())
+        {
+            Size columnIndex = 1;
+            for (const auto& cell : row->Elements<Drawing::TableCell>())
+            {
+                TableCellParagraphs entry;
+                entry.Row = rowIndex;
+                entry.Column = columnIndex;
+                if (auto body = cell->GetFirstChildOfType<Drawing::TextBody>())
+                {
+                    entry.Paragraphs = body->Elements<Drawing::Paragraph>();
+                }
+                cells.push_back(std::move(entry));
+                ++columnIndex;
+            }
+            ++rowIndex;
+        }
+        return cells;
+    }
+
+    /// The `p:cm` elements of a slide's legacy (pre-2016) comment part.
+    static std::vector<std::shared_ptr<DocumentFormat::OpenXml::Presentation::Text>> LegacyComments(
+        const PowerPoint::PresentationSlide::Ptr& slide)
+    {
+        namespace Presentation = DocumentFormat::OpenXml::Presentation;
+        std::vector<std::shared_ptr<Presentation::Text>> result;
+        auto part = slide ? slide->GetPart() : nullptr;
+        auto comments = part ? part->GetSlideCommentsPart() : nullptr;
+        auto list = comments ? comments->GetTypedRootElement() : nullptr;
+        if (!list)
+        {
+            return result;
+        }
+        for (const auto& comment : list->Elements<Presentation::Comment>())
+        {
+            if (auto text = comment->GetFirstChildOfType<Presentation::Text>())
+            {
+                result.push_back(text);
+            }
+        }
+        return result;
+    }
+
+    /// The concatenated text of a DrawingML paragraph's `a:t` elements (runs and fields alike).
+    static std::string DrawingParagraphText(const std::shared_ptr<DocumentFormat::OpenXml::Drawing::Paragraph>& paragraph)
+    {
+        std::string text;
+        for (const auto& element : paragraph->Descendants<DocumentFormat::OpenXml::Drawing::Text>())
+        {
+            text += element->GetText();
+        }
+        return text;
+    }
+
+    /**
+     * @brief Applies located matches to the `a:t` elements of a DrawingML paragraph.
+     *
+     * The same rule as for shape text frames: text around a match keeps its
+     * run, a match spanning runs keeps the run it starts in, and matches are
+     * applied right-to-left so earlier offsets stay valid.
+     */
+    static void ReplaceInDrawingParagraph(const std::shared_ptr<DocumentFormat::OpenXml::Drawing::Paragraph>& paragraph,
+                                          const std::vector<LocatedMatch>& matches)
+    {
+        const auto elements = paragraph->Descendants<DocumentFormat::OpenXml::Drawing::Text>();
+        std::vector<std::string> texts;
+        std::vector<Size> starts;
+        Size totalLength = 0;
+        for (const auto& element : elements)
+        {
+            texts.emplace_back(element->GetText());
+            starts.push_back(totalLength);
+            totalLength += texts.back().size();
+        }
+        const auto runIndexAt = [&](Size offset)
+        {
+            Size index = 0;
+            for (Size i = 0; i < texts.size(); ++i)
+            {
+                if (starts[i] <= offset)
+                {
+                    index = i;
+                }
+            }
+            return index;
+        };
+        for (auto it = matches.rbegin(); it != matches.rend(); ++it)
+        {
+            const Size firstRun = runIndexAt(it->Offset);
+            const Size lastRun = runIndexAt(it->Offset + it->Length - 1);
+            const Size localStart = it->Offset - starts[firstRun];
+            const Size localEnd = it->Offset + it->Length - starts[lastRun];
+            if (firstRun == lastRun)
+            {
+                auto& text = texts[firstRun];
+                text = text.substr(0, localStart) + it->Replacement + text.substr(localEnd);
+            }
+            else
+            {
+                texts[firstRun] = texts[firstRun].substr(0, localStart) + it->Replacement;
+                for (Size middle = firstRun + 1; middle < lastRun; ++middle)
+                {
+                    texts[middle].clear();
+                }
+                texts[lastRun] = texts[lastRun].substr(localEnd);
+            }
+        }
+        for (Size index = 0; index < elements.size(); ++index)
+        {
+            elements[index]->SetText(texts[index]);
+        }
     }
 
     // --- Replace ---------------------------------------------------------------
@@ -431,61 +635,141 @@ public:
             }
         };
 
+        // Replaces in a plain-text unit, returning the new text when anything matched.
+        const auto replacePlain = [&](const std::string& text) -> std::optional<std::string>
+        {
+            if (text.empty())
+            {
+                return std::nullopt;
+            }
+            const auto matches = FindMatches(text, needle, pattern, useRegex, replacement);
+            if (matches.empty())
+            {
+                return std::nullopt;
+            }
+            result.ReplacementCount += matches.size();
+            return ApplyMatches(text, matches);
+        };
+
+        // Text frames, table cells and the children of groups, recursively.
+        const auto replaceInShape = [&](auto&& self, const PowerPoint::PresentationShape::Ptr& shape) -> void
+        {
+            if (auto frame = shape->GetTextFrame())
+            {
+                bool frameChanged = false;
+                for (auto& paragraph : frame->Paragraphs)
+                {
+                    std::string text;
+                    for (const auto& run : paragraph.Runs)
+                    {
+                        text += run.Text;
+                    }
+                    if (text.empty())
+                    {
+                        continue;
+                    }
+                    const auto matches = FindMatches(text, needle, pattern, useRegex, replacement);
+                    if (matches.empty())
+                    {
+                        continue;
+                    }
+                    result.ReplacementCount += matches.size();
+                    if (!dryRun)
+                    {
+                        replaceInParagraph(paragraph, matches);
+                        frameChanged = true;
+                    }
+                }
+                if (frameChanged)
+                {
+                    shape->SetTextFrame(*frame);
+                }
+            }
+            // Table cells are edited in place in the DrawingML so every cell
+            // keeps its own formatting; rewriting the table model would not.
+            for (const auto& cell : TableCells(shape))
+            {
+                for (const auto& paragraph : cell.Paragraphs)
+                {
+                    const auto text = DrawingParagraphText(paragraph);
+                    if (text.empty())
+                    {
+                        continue;
+                    }
+                    const auto matches = FindMatches(text, needle, pattern, useRegex, replacement);
+                    if (matches.empty())
+                    {
+                        continue;
+                    }
+                    result.ReplacementCount += matches.size();
+                    if (!dryRun)
+                    {
+                        ReplaceInDrawingParagraph(paragraph, matches);
+                    }
+                }
+            }
+            if (shape->IsGroup())
+            {
+                for (const auto& child : shape->Children())
+                {
+                    if (child)
+                    {
+                        self(self, child);
+                    }
+                }
+            }
+        };
+
+        Size slideIndex = 1;
         for (const auto& slide : editor.Slides())
         {
             if (auto tree = slide->ShapeTree())
             {
                 for (const auto& shape : tree->Shapes())
                 {
-                    auto frame = shape->GetTextFrame();
-                    if (!frame)
+                    if (shape)
                     {
-                        continue;
-                    }
-                    bool frameChanged = false;
-                    for (auto& paragraph : frame->Paragraphs)
-                    {
-                        std::string text;
-                        for (const auto& run : paragraph.Runs)
-                        {
-                            text += run.Text;
-                        }
-                        if (text.empty())
-                        {
-                            continue;
-                        }
-                        const auto matches = FindMatches(text, needle, pattern, useRegex, replacement);
-                        if (matches.empty())
-                        {
-                            continue;
-                        }
-                        result.ReplacementCount += matches.size();
-                        if (!dryRun)
-                        {
-                            replaceInParagraph(paragraph, matches);
-                            frameChanged = true;
-                        }
-                    }
-                    if (frameChanged)
-                    {
-                        shape->SetTextFrame(*frame);
+                        replaceInShape(replaceInShape, shape);
                     }
                 }
             }
 
-            const auto notes = slide->NotesText();
-            if (!notes.empty())
+            if (const auto notes = replacePlain(slide->NotesText()); notes && !dryRun)
             {
-                const auto matches = FindMatches(notes, needle, pattern, useRegex, replacement);
-                if (!matches.empty())
+                slide->SetNotesText(*notes);
+            }
+
+            for (auto comment : slide->Comments())
+            {
+                bool changed = false;
+                if (const auto text = replacePlain(comment.Text))
                 {
-                    result.ReplacementCount += matches.size();
-                    if (!dryRun)
+                    comment.Text = *text;
+                    changed = true;
+                }
+                for (auto& reply : comment.Replies)
+                {
+                    if (const auto text = replacePlain(reply.Text))
                     {
-                        slide->SetNotesText(ApplyMatches(notes, matches));
+                        reply.Text = *text;
+                        changed = true;
                     }
                 }
+                if (changed && !dryRun && !slide->UpdateComment(comment.Id, comment))
+                {
+                    result.Diagnostics.push_back(ToolDiagnostic{
+                        ToolSeverity::Warning, "Comment could not be rewritten and keeps its text",
+                        "slide " + std::to_string(slideIndex) + " comment " + comment.Id});
+                }
             }
+            for (const auto& comment : LegacyComments(slide))
+            {
+                if (const auto text = replacePlain(std::string(comment->GetText())); text && !dryRun)
+                {
+                    comment->SetText(*text);
+                }
+            }
+            ++slideIndex;
         }
 
         result.Ok = true;

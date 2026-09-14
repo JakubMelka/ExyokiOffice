@@ -512,10 +512,21 @@ public:
                 return false;
             }
 
+            // A slide without a layout is one PowerPoint refuses to open, so
+            // the deck gets the library's default design (master, layout and
+            // theme with positioned placeholders) before the first slide.
+            auto layout = editor->EnsureDefaultLayout();
+            if (!layout)
+            {
+                m_diagnostics.push_back(
+                    ToolDiagnostic{ToolSeverity::Error, "Cannot create the default slide layout"});
+                return false;
+            }
+
             Size slideIndex = 1;
             for (const auto& modelSlide : m_model.PowerPoint->Slides)
             {
-                WriteSlide(*editor, modelSlide, "slide " + std::to_string(slideIndex));
+                WriteSlide(*editor, layout, modelSlide, "slide " + std::to_string(slideIndex));
                 ++slideIndex;
             }
 
@@ -546,12 +557,13 @@ public:
         }
 
     private:
-        void WriteSlide(P::PowerPointDocumentEditor& editor, const PptSlide& modelSlide,
-                        const std::string& context)
+        void WriteSlide(P::PowerPointDocumentEditor& editor, const P::PresentationSlideLayout::Ptr& layout,
+                        const PptSlide& modelSlide, const std::string& context)
         {
             // The title placeholder is authored through the slide builder; the
             // remaining shapes are appended to the shape tree afterwards.
             auto builder = editor.CreateSlideBuilder();
+            builder.SetLayout(layout);
             builder.SetHidden(modelSlide.Hidden);
 
             const PptShape* titleShape = nullptr;

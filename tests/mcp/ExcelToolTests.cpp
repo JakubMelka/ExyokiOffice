@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <iterator>
 
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Office2019/Excel/ThreadedComments.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Spreadsheet.hpp"
 #include "ExyokiOffice/Excel/ExcelDocument.hpp"
 #include "ExyokiOffice/Packaging/GeneratedParts.hpp"
@@ -15,7 +16,10 @@
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
+#include <memory>
 #include <string>
+#include <vector>
 
 using namespace ExyokiOfficeTests;
 using namespace ExyokiOffice::Mcp;
@@ -226,7 +230,8 @@ TEST_CASE("formulas are stored and recalculated [mcp-excel]")
     REQUIRE(cells["data"]["cells"].size() == 1);
     CHECK(cells["data"]["cells"][0]["type"] == "formula");
     CHECK(cells["data"]["cells"][0]["formula"] == "SUM(A1:A2)");
-    CHECK(cells["data"]["cells"][0]["value"] == "5");
+    // The cached result is typed like a plain cell would be.
+    CHECK(cells["data"]["cells"][0]["value"] == 5);
 }
 
 TEST_CASE("ranges are cleared, merged, and formatted [mcp-excel]")
@@ -1886,7 +1891,7 @@ TEST_CASE("the slicer tools refuse a source or a caption that does not exist [mc
                        {"slicer", "Nothing"},
                        {"selected", nlohmann::json::array({"North"})}});
     CHECK(unknownSlicer["ok"] == false);
-    CHECK(unknownSlicer["error"]["code"] == "media_not_found");
+    CHECK(unknownSlicer["error"]["code"] == "shape_not_found");
 
     REQUIRE(server->Call("add_slicer", nlohmann::json{{"documentId", documentId},
                                                       {"source_kind", "table"},
@@ -2063,7 +2068,7 @@ TEST_CASE("the table tools refuse a table, a column or a filter that makes no se
     const auto unknownTable = server->Call(
         "update_table", nlohmann::json{{"documentId", documentId}, {"table", "Nowhere"}, {"auto_filter", false}});
     CHECK(unknownTable["ok"] == false);
-    CHECK(unknownTable["error"]["code"] == "media_not_found");
+    CHECK(unknownTable["error"]["code"] == "block_not_found");
 
     const auto unknownColumn = server->Call(
         "update_table",
@@ -2439,10 +2444,11 @@ TEST_CASE("the VBA tools refuse a payload they cannot take [mcp-excel]")
     const auto created = server->Call("create_document", nlohmann::json{{"path", "plain.xlsm"}});
     const auto documentId = created["data"]["documentId"].get<std::string>();
 
-    // Removing what is not there is reported rather than silently accepted.
+    // Removing what is not there is the state that was asked for, so it is
+    // reported as done with nothing removed rather than as an error.
     const auto nothingToRemove = server->Call("remove_vba_project", nlohmann::json{{"documentId", documentId}});
-    CHECK(nothingToRemove["ok"] == false);
-    CHECK(nothingToRemove["error"]["code"] == "media_not_found");
+    CHECK(nothingToRemove["ok"] == true);
+    CHECK(nothingToRemove["data"]["removed"] == false);
 
     const auto missing = server->Call(
         "set_vba_project", nlohmann::json{{"documentId", documentId}, {"source_path", "absent.bin"}});
@@ -2480,4 +2486,594 @@ TEST_CASE("the VBA tools refuse a payload they cannot take [mcp-excel]")
     const auto documents = server->Call("list_documents", nlohmann::json::object());
     REQUIRE(documents["data"]["documents"].size() == 1);
     CHECK(documents["data"]["documents"][0]["dirty"] == true);
+}
+
+// ---------------------------------------------------------------------------
+// Regressions found by the Office COM run (MCP_ERRORS.md, exyoki-mcp-excel)
+// ---------------------------------------------------------------------------
+
+/// Whether @p part carries a relationship with the id @p id.
+static bool HasRelationship(const ExyokiOffice::OpenXmlPackagePart& part, const std::string& id)
+{
+    const auto& relationships = part.Relationships();
+    return std::any_of(relationships.begin(), relationships.end(),
+                       [&id](const ExyokiOffice::OpenXmlRelationship& relationship) { return relationship.Id == id; });
+}
+
+/// Every relationship id an XML part refers to (`r:id`, `r:embed`, `r:link`).
+static std::vector<std::string> ReferencedRelationshipIds(const std::string& xml)
+{
+    std::vector<std::string> ids;
+    for (const char* attribute : {" r:id=\"", " r:embed=\"", " r:link=\""})
+    {
+        const std::string marker(attribute);
+        for (auto position = xml.find(marker); position != std::string::npos; position = xml.find(marker, position))
+        {
+            position += marker.size();
+            const auto end = xml.find('"', position);
+            if (end == std::string::npos)
+            {
+                break;
+            }
+            ids.push_back(xml.substr(position, end - position));
+            position = end;
+        }
+    }
+    return ids;
+}
+
+/// The 1x1 PNG the image tests embed.
+static const std::string OnePixelPng =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+TEST_CASE("X-1: copy_sheet within a workbook keeps every related part reachable [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "copied.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server->Call("write_range",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"origin", "A1"},
+                                        {"values", nlohmann::json::array({
+                                            nlohmann::json::array({"Region", "Revenue"}),
+                                            nlohmann::json::array({"North", 120}),
+                                            nlohmann::json::array({"South", 90})})}})["ok"] == true);
+    REQUIRE(server->Call("add_image", nlohmann::json{{"documentId", documentId},
+                                                     {"anchor_cell", "D2"},
+                                                     {"dataBase64", OnePixelPng},
+                                                     {"width", "4cm"},
+                                                     {"height", "3cm"}})["ok"] == true);
+    REQUIRE(server->Call("set_hyperlink", nlohmann::json{{"documentId", documentId},
+                                                         {"cell", "A1"},
+                                                         {"target", "https://example.com"}})["ok"] == true);
+    REQUIRE(server->Call("add_comment", nlohmann::json{{"documentId", documentId},
+                                                       {"cell", "B2"},
+                                                       {"text", "A plain note."},
+                                                       {"threaded", false}})["ok"] == true);
+    const auto thread = server->Call("add_comment", nlohmann::json{{"documentId", documentId},
+                                                                   {"cell", "B3"},
+                                                                   {"text", "A threaded one."},
+                                                                   {"author", "Jakub"},
+                                                                   {"threaded", true}});
+    REQUIRE(thread["ok"] == true);
+    REQUIRE(server->Call("add_table", nlohmann::json{{"documentId", documentId},
+                                                     {"range", "A1:B3"},
+                                                     {"name", "Sales"}})["ok"] == true);
+    REQUIRE(server->Call("add_chart", nlohmann::json{{"documentId", documentId},
+                                                     {"type", "column"},
+                                                     {"data_range", "A1:B3"},
+                                                     {"anchor_cell", "D10"}})["ok"] == true);
+
+    const auto copied =
+        server->Call("copy_sheet", nlohmann::json{{"documentId", documentId}, {"sheet", 1}, {"name", "Copy"}});
+    REQUIRE(copied["ok"] == true);
+    CHECK(copied["data"]["name"] == "Copy");
+
+    // The copy holds the same data, and its table is a table of its own.
+    const auto values = server->Call(
+        "read_range", nlohmann::json{{"documentId", documentId}, {"sheet", "Copy"}, {"range", "A2:B2"}});
+    REQUIRE(values["ok"] == true);
+    CHECK(values["data"]["values"][0][0] == "North");
+    const auto tables = server->Call("list_tables", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(tables["ok"] == true);
+    REQUIRE(tables["data"]["tables"].size() == 2);
+    CHECK(tables["data"]["tables"][0]["name"] != tables["data"]["tables"][1]["name"]);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("copied.xlsx"));
+    REQUIRE(editor != nullptr);
+    const auto sheets = editor->Worksheets();
+    REQUIRE(sheets.size() == 2);
+    const auto original = sheets[0];
+    const auto copy = sheets[1];
+    REQUIRE(copy->Name() == "Copy");
+
+    // Every relationship id the copied sheet and its drawing name has to exist,
+    // which is exactly what Excel checks before it opens the workbook.
+    const auto copyPart = copy->GetPart();
+    REQUIRE(copyPart != nullptr);
+    const auto sheetIds = ReferencedRelationshipIds(copyPart->GetXmlString());
+    CHECK_MESSAGE(sheetIds.size() >= 4, copyPart->GetXmlString().substr(0, 800));
+    for (const auto& id : sheetIds)
+    {
+        CHECK_MESSAGE(HasRelationship(*copyPart, id), "dangling sheet relationship " << id);
+    }
+    const auto drawing = copyPart->GetDrawingsPart();
+    REQUIRE(drawing != nullptr);
+    const auto drawingIds = ReferencedRelationshipIds(drawing->GetXmlString());
+    CHECK(drawingIds.size() == 2);
+    for (const auto& id : drawingIds)
+    {
+        CHECK_MESSAGE(HasRelationship(*drawing, id), "dangling drawing relationship " << id);
+    }
+    CHECK(copyPart->GetDrawingsPart() != original->GetPart()->GetDrawingsPart());
+
+    // The copied parts are independent objects with identities of their own.
+    CHECK(copy->Images().size() == 1);
+    CHECK(copy->Charts().size() == 1);
+    CHECK(copy->Comments().size() == 1);
+    REQUIRE(copy->ThreadedComments().size() == 1);
+    REQUIRE(original->ThreadedComments().size() == 1);
+    CHECK(copy->ThreadedComments()[0].Id != original->ThreadedComments()[0].Id);
+    CHECK(copy->ThreadedComments()[0].PersonName == "Jakub");
+    REQUIRE(copy->Hyperlinks().size() == 1);
+    CHECK(copy->Hyperlinks()[0].Target == "https://example.com");
+    REQUIRE(copy->Tables().size() == 1);
+    REQUIRE(original->Tables().size() == 1);
+    CHECK(copy->Tables()[0]->Id() != original->Tables()[0]->Id());
+    CHECK(copy->Tables()[0]->Name() != original->Tables()[0]->Name());
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("copied.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("X-2: add_table refuses a range that overlaps another table [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "overlap.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server->Call("write_range",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"origin", "A1"},
+                                        {"values", nlohmann::json::array({
+                                            nlohmann::json::array({"a", "b", "c"}),
+                                            nlohmann::json::array({1, 2, 3}),
+                                            nlohmann::json::array({4, 5, 6}),
+                                            nlohmann::json::array({7, 8, 9})})}})["ok"] == true);
+    REQUIRE(server->Call("add_table", nlohmann::json{{"documentId", documentId},
+                                                     {"range", "A1:B3"},
+                                                     {"name", "TblOne"}})["ok"] == true);
+
+    const auto overlapping = server->Call(
+        "add_table", nlohmann::json{{"documentId", documentId}, {"range", "B2:C4"}, {"name", "TblTwo"}});
+    CHECK(overlapping["ok"] == false);
+    CHECK(overlapping["error"]["code"] == "range_invalid");
+    CHECK(overlapping["error"]["message"].get<std::string>().find("TblOne") != std::string::npos);
+
+    // Nothing was written before the refusal: one table, and TblOne's data intact.
+    const auto tables = server->Call("list_tables", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(tables["data"]["tables"].size() == 1);
+    const auto values = server->Call("read_range", nlohmann::json{{"documentId", documentId}, {"range", "B2:C2"}});
+    CHECK(values["data"]["values"][0][0] == 2);
+    CHECK(values["data"]["values"][0][1] == 3);
+}
+
+/// Writes a workbook holding one threaded comment and closes it.
+static void MakeThreadedCommentWorkbook(McpTestServer& server, const std::string& path)
+{
+    const auto created = server.Call("create_document", nlohmann::json{{"path", path}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    const auto thread = server.Call("add_comment", nlohmann::json{{"documentId", documentId},
+                                                                  {"cell", "B2"},
+                                                                  {"text", "Check this."},
+                                                                  {"author", "Reviewer"},
+                                                                  {"threaded", true}});
+    REQUIRE(thread["ok"] == true);
+    REQUIRE(server.Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    REQUIRE(server.Call("close_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+}
+
+/// The ids of the persons a workbook lists.
+static std::vector<std::string> PersonIds(ExyokiOffice::Excel::ExcelDocumentEditor& editor)
+{
+    namespace Xltc = ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments;
+    std::vector<std::string> ids;
+    for (const auto& part : editor.GetDocument()->GetWorkbookPart()->GetWorkbookPersonParts())
+    {
+        const auto root = part != nullptr ? part->GetTypedRootElement() : nullptr;
+        if (root == nullptr)
+        {
+            continue;
+        }
+        for (const auto& person : root->Elements<Xltc::Person>())
+        {
+            ids.push_back(person->GetId().ToString());
+        }
+    }
+    return ids;
+}
+
+TEST_CASE("X-3: importing a sheet with threaded comments brings the person list along [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto plain = server->Call("create_document", nlohmann::json{{"path", "m_plain.xlsx"}});
+    const auto plainId = plain["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", plainId}})["ok"] == true);
+    REQUIRE(server->Call("close_document", nlohmann::json{{"documentId", plainId}})["ok"] == true);
+    MakeThreadedCommentWorkbook(*server, "m_thread.xlsx");
+
+    // The plain workbook is the base, so the thread's person has to be carried
+    // into a workbook that has no person list yet.
+    const auto merged = server->Call(
+        "merge_documents", nlohmann::json{{"input_paths", nlohmann::json::array({"m_plain.xlsx", "m_thread.xlsx"})},
+                                          {"output_path", "merged.xlsx"}});
+    REQUIRE(merged["ok"] == true);
+
+    auto mergedEditor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("merged.xlsx"));
+    REQUIRE(mergedEditor != nullptr);
+    REQUIRE(mergedEditor->Worksheets().size() == 2);
+    const auto imported = mergedEditor->Worksheets()[1];
+    REQUIRE(imported->ThreadedComments().size() == 1);
+    const auto personId = imported->ThreadedComments()[0].PersonId;
+    CHECK_FALSE(personId.empty());
+    const auto persons = PersonIds(*mergedEditor);
+    CHECK(std::find(persons.begin(), persons.end(), personId) != persons.end());
+    CHECK(imported->ThreadedComments()[0].PersonName == "Reviewer");
+    CHECK(mergedEditor->GetDocument()->GetWorkbookPart()->GetWorkbookPersonParts().size() == 1);
+
+    const auto mergedReport = ExyokiOffice::Tools::Run(server->Path("merged.xlsx"));
+    CHECK_MESSAGE(mergedReport.ErrorCount == 0, DescribeValidationErrors(mergedReport));
+
+    // The same path serves copy_sheet with a source workbook.
+    const auto target = server->Call("create_document", nlohmann::json{{"path", "target.xlsx"}});
+    const auto targetId = target["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("copy_sheet", nlohmann::json{{"documentId", targetId},
+                                                      {"source_path", "m_thread.xlsx"},
+                                                      {"sheet", 1},
+                                                      {"name", "Imported"}})["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", targetId}})["ok"] == true);
+
+    auto targetEditor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("target.xlsx"));
+    REQUIRE(targetEditor != nullptr);
+    const auto copied = targetEditor->GetWorksheet("Imported");
+    REQUIRE(copied != nullptr);
+    REQUIRE(copied->ThreadedComments().size() == 1);
+    const auto copiedPersons = PersonIds(*targetEditor);
+    CHECK(std::find(copiedPersons.begin(), copiedPersons.end(), copied->ThreadedComments()[0].PersonId) !=
+          copiedPersons.end());
+
+    const auto targetReport = ExyokiOffice::Tools::Run(server->Path("target.xlsx"));
+    CHECK_MESSAGE(targetReport.ErrorCount == 0, DescribeValidationErrors(targetReport));
+}
+
+TEST_CASE("X-4: copy_sheet from another workbook keeps the formatting of a styled sheet [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto source = server->Call("create_document", nlohmann::json{{"path", "src.xlsx"}});
+    const auto sourceId = source["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("rename_sheet", nlohmann::json{{"documentId", sourceId},
+                                                        {"sheet", 1},
+                                                        {"new_name", "Imported"}})["ok"] == true);
+    REQUIRE(server->Call("write_range",
+                         nlohmann::json{{"documentId", sourceId},
+                                        {"origin", "A1"},
+                                        {"values", nlohmann::json::array({nlohmann::json::array({"Bold", "Red"})})}})
+                ["ok"] == true);
+    REQUIRE(server->Call("format_range", nlohmann::json{{"documentId", sourceId},
+                                                        {"range", "A1"},
+                                                        {"font", nlohmann::json{{"bold", true}}}})["ok"] == true);
+    REQUIRE(server->Call("format_range", nlohmann::json{{"documentId", sourceId},
+                                                        {"range", "B1"},
+                                                        {"fill", nlohmann::json{{"color", "#FF0000"}}}})["ok"] ==
+            true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", sourceId}})["ok"] == true);
+    REQUIRE(server->Call("close_document", nlohmann::json{{"documentId", sourceId}})["ok"] == true);
+
+    // The destination has an unrelated style of its own, so the two catalogs
+    // differ and every imported index has to be translated.
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "dest.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("format_range", nlohmann::json{{"documentId", documentId},
+                                                        {"range", "A1"},
+                                                        {"font", nlohmann::json{{"italic", true}}}})["ok"] == true);
+
+    const auto imported = server->Call("copy_sheet", nlohmann::json{{"documentId", documentId},
+                                                                    {"source_path", "src.xlsx"},
+                                                                    {"sheet", "Imported"},
+                                                                    {"name", "FromFile"}});
+    REQUIRE(imported["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("dest.xlsx"));
+    REQUIRE(editor != nullptr);
+    const auto sheet = editor->GetWorksheet("FromFile");
+    REQUIRE(sheet != nullptr);
+    const auto bold = editor->Styles().GetCellStyle(*sheet, *ExyokiOffice::Excel::CellAddress::ParseA1("A1"));
+    REQUIRE(bold.has_value());
+    REQUIRE(bold->Font.has_value());
+    CHECK(bold->Font->Bold);
+    CHECK_FALSE(bold->Font->Italic);
+    const auto red = editor->Styles().GetCellStyle(*sheet, *ExyokiOffice::Excel::CellAddress::ParseA1("B1"));
+    REQUIRE(red.has_value());
+    REQUIRE(red->Fill.has_value());
+    REQUIRE(red->Fill->Foreground.has_value());
+    CHECK(red->Fill->Foreground->Argb == "FFFF0000");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("dest.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+
+    // A name that is taken is reported as such, not as a vague failure.
+    const auto taken = server->Call("copy_sheet", nlohmann::json{{"documentId", documentId},
+                                                                 {"source_path", "src.xlsx"},
+                                                                 {"sheet", "Imported"},
+                                                                 {"name", "FromFile"}});
+    CHECK(taken["ok"] == false);
+    CHECK(taken["error"]["message"].get<std::string>().find("already exists") != std::string::npos);
+}
+
+TEST_CASE("X-5: images and charts keep the size they were given [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "sized.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("write_range",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"origin", "A1"},
+                                        {"values", nlohmann::json::array({nlohmann::json::array({10}),
+                                                                          nlohmann::json::array({20})})}})["ok"] ==
+            true);
+
+    REQUIRE(server->Call("add_image", nlohmann::json{{"documentId", documentId},
+                                                     {"anchor_cell", "D2"},
+                                                     {"dataBase64", OnePixelPng},
+                                                     {"width", "4cm"},
+                                                     {"height", "3cm"}})["ok"] == true);
+    REQUIRE(server->Call("add_image", nlohmann::json{{"documentId", documentId},
+                                                     {"anchor_cell", "D20"},
+                                                     {"dataBase64", OnePixelPng},
+                                                     {"width", 96},
+                                                     {"height", "96px"}})["ok"] == true);
+    REQUIRE(server->Call("add_chart", nlohmann::json{{"documentId", documentId},
+                                                     {"type", "column"},
+                                                     {"data_range", "A1:A2"},
+                                                     {"anchor_cell", "H2"},
+                                                     {"width", "15cm"},
+                                                     {"height", "8cm"}})["ok"] == true);
+
+    const auto negative = server->Call("add_image", nlohmann::json{{"documentId", documentId},
+                                                                   {"anchor_cell", "D2"},
+                                                                   {"dataBase64", OnePixelPng},
+                                                                   {"width", -5}});
+    CHECK(negative["ok"] == false);
+    CHECK(negative["error"]["code"] == "input_invalid");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("sized.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+
+    // The size travels as an exact extent, in EMU: 4 cm is 1440000, 96 pt is
+    // 1219200 and 96 px is one inch. A two-cell anchor could only round it to
+    // whatever the reader's default column width and row height happen to be.
+    const auto images = sheet->Images();
+    REQUIRE(images.size() == 2);
+    REQUIRE(images[0].Extent.has_value());
+    CHECK(images[0].Extent->Width == 1440000);
+    CHECK(images[0].Extent->Height == 1080000);
+    CHECK(images[0].From.ToA1() == "D2");
+    REQUIRE(images[1].Extent.has_value());
+    CHECK(images[1].Extent->Width == 1219200);
+    CHECK(images[1].Extent->Height == 914400);
+
+    const auto charts = sheet->Charts();
+    REQUIRE(charts.size() == 1);
+    REQUIRE(charts[0].Extent.has_value());
+    CHECK(charts[0].Extent->Width == 5400000);
+    CHECK(charts[0].Extent->Height == 2880000);
+    CHECK(charts[0].From.ToA1() == "H2");
+
+    const auto drawing = sheet->GetPart()->GetDrawingsPart();
+    REQUIRE(drawing != nullptr);
+    const auto xml = drawing->GetXmlString();
+    CHECK(xml.find("oneCellAnchor") != std::string::npos);
+    CHECK(xml.find("cx=\"1440000\"") != std::string::npos);
+    CHECK(xml.find("cy=\"1080000\"") != std::string::npos);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("sized.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("X-6: set_print_setup fit-to-page switches the sheet's fitToPage on [mcp-excel]")
+{
+    namespace Spreadsheet = ExyokiOffice::DocumentFormat::OpenXml::Spreadsheet;
+
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "fit.xlsx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    REQUIRE(server->Call("set_print_setup", nlohmann::json{{"documentId", documentId},
+                                                           {"sheet", 1},
+                                                           {"fit_to_width", 1},
+                                                           {"fit_to_height", 0}})["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("fit.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+    REQUIRE(sheet->GetPageSetup().FitToWidth == 1);
+
+    // Excel scales to the page counts only when sheetPr says so; without the
+    // switch it prints at 100% and drops the counts on its next save.
+    const auto root = sheet->GetLowLevelApi();
+    REQUIRE(root != nullptr);
+    const auto properties = root->GetFirstChildOfType<Spreadsheet::SheetProperties>();
+    REQUIRE(properties != nullptr);
+    const auto pageSetUp = properties->GetFirstChildOfType<Spreadsheet::PageSetupProperties>();
+    REQUIRE(pageSetUp != nullptr);
+    CHECK(pageSetUp->GetFitToPage().ValueOr(false));
+    // sheetPr has to be the first child for the worksheet to stay valid.
+    const auto children = root->ChildrenInContentModel();
+    REQUIRE_FALSE(children.empty());
+    CHECK(std::dynamic_pointer_cast<Spreadsheet::SheetProperties>(children.front()) != nullptr);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("fit.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("X-7: a table slicer selection hides the rows it excludes [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto documentId = MakeSlicerWorkbook(*server, "slicer_rows.xlsx");
+    REQUIRE(server->Call("add_slicer", nlohmann::json{{"documentId", documentId},
+                                                      {"source_kind", "table"},
+                                                      {"source", "Sales"},
+                                                      {"field", "Region"},
+                                                      {"anchor_cell", "D2"},
+                                                      {"name", "RegionSlicer"}})["ok"] == true);
+    REQUIRE(server->Call("set_slicer_selection", nlohmann::json{{"documentId", documentId},
+                                                                {"slicer", "RegionSlicer"},
+                                                                {"selected", nlohmann::json::array({"North"})}})
+                ["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("slicer_rows.xlsx"));
+    REQUIRE(editor != nullptr);
+    auto sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+    const auto hidden = [&sheet](ExyokiOffice::UInt32 row)
+    {
+        const auto dimension = sheet->GetRowDimension(row);
+        return dimension.has_value() && dimension->Hidden;
+    };
+    // Rows 2 and 5 are North; 3 and 4 are South and East.
+    CHECK_FALSE(hidden(2));
+    CHECK(hidden(3));
+    CHECK(hidden(4));
+    CHECK_FALSE(hidden(5));
+
+    // Selecting everything clears the filter and brings the rows back.
+    REQUIRE(server->Call("set_slicer_selection", nlohmann::json{{"documentId", documentId},
+                                                                {"slicer", "RegionSlicer"},
+                                                                {"selected", nlohmann::json::array()}})["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    editor = ExyokiOffice::Excel::ExcelDocumentEditor::Open(server->Path("slicer_rows.xlsx"));
+    REQUIRE(editor != nullptr);
+    sheet = editor->FirstWorksheet();
+    REQUIRE(sheet != nullptr);
+    CHECK_FALSE(hidden(3));
+    CHECK_FALSE(hidden(4));
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("slicer_rows.xlsx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("X-8: read_range reports a formula's cached result typed like a plain cell [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json::object());
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("write_cells",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"cells", nlohmann::json::array({
+                                            nlohmann::json{{"address", "A1"}, {"value", nlohmann::json{{"formula", "1+1"}}}},
+                                            nlohmann::json{{"address", "A2"}, {"value", 2}},
+                                            nlohmann::json{{"address", "A3"}, {"value", nlohmann::json{{"formula", "1>0"}}}},
+                                            nlohmann::json{{"address", "A4"},
+                                                           {"value", nlohmann::json{{"formula", "\"a\"&\"b\""}}}}})}})
+                ["ok"] == true);
+    REQUIRE(server->Call("recalculate", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    const auto values = server->Call("read_range", nlohmann::json{{"documentId", documentId}, {"range", "A1:A4"}});
+    REQUIRE(values["ok"] == true);
+    // =1+1 and a plain 2 read the same way.
+    CHECK(values["data"]["values"][0][0].is_number());
+    CHECK(values["data"]["values"][0][0] == values["data"]["values"][1][0]);
+    CHECK(values["data"]["values"][2][0] == true);
+    CHECK(values["data"]["values"][3][0] == "ab");
+
+    const auto cells = server->Call(
+        "read_range", nlohmann::json{{"documentId", documentId}, {"range", "A1"}, {"mode", "cells"}});
+    REQUIRE(cells["data"]["cells"].size() == 1);
+    CHECK(cells["data"]["cells"][0]["type"] == "formula");
+    CHECK(cells["data"]["cells"][0]["value"] == 2);
+}
+
+TEST_CASE("X-10: set_column_width and set_row_height refuse impossible sizes [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json::object());
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    for (const auto width : {-5.0, 1e6})
+    {
+        const auto refused = server->Call(
+            "set_column_width", nlohmann::json{{"documentId", documentId}, {"columns", "B"}, {"width", width}});
+        CHECK(refused["ok"] == false);
+        CHECK(refused["error"]["code"] == "input_invalid");
+    }
+    for (const auto height : {-1.0, 0.0, 500.0})
+    {
+        const auto refused = server->Call(
+            "set_row_height", nlohmann::json{{"documentId", documentId}, {"rows", "2"}, {"height", height}});
+        CHECK(refused["ok"] == false);
+        CHECK(refused["error"]["code"] == "input_invalid");
+    }
+
+    // Nothing above changed the workbook.
+    const auto documents = server->Call("list_documents", nlohmann::json::object());
+    REQUIRE(documents["data"]["documents"].size() == 1);
+    CHECK(documents["data"]["documents"][0]["dirty"] == false);
+
+    const auto accepted = server->Call(
+        "set_column_width", nlohmann::json{{"documentId", documentId}, {"columns", "B"}, {"width", 14}});
+    CHECK(accepted["ok"] == true);
+    CHECK(accepted["data"]["columns"] == 1);
+}
+
+TEST_CASE("X-11: the table, slicer and VBA tools answer with codes that mean what happened [mcp-excel]")
+{
+    auto server = MakeExcelServer();
+    server->Initialize();
+
+    const auto documentId = MakeTableWorkbook(*server, "codes.xlsx");
+
+    const auto unknownTable = server->Call(
+        "update_table", nlohmann::json{{"documentId", documentId}, {"table", "Nowhere"}, {"auto_filter", false}});
+    CHECK(unknownTable["ok"] == false);
+    CHECK(unknownTable["error"]["code"] == "block_not_found");
+
+    const auto unknownSlicer = server->Call("set_slicer_selection",
+                                            nlohmann::json{{"documentId", documentId},
+                                                           {"slicer", "Nothing"},
+                                                           {"selected", nlohmann::json::array({"North"})}});
+    CHECK(unknownSlicer["ok"] == false);
+    CHECK(unknownSlicer["error"]["code"] == "shape_not_found");
+
+    const auto nothingToRemove = server->Call("remove_vba_project", nlohmann::json{{"documentId", documentId}});
+    CHECK(nothingToRemove["ok"] == true);
+    CHECK(nothingToRemove["data"]["removed"] == false);
 }

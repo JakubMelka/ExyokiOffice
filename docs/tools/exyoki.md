@@ -416,6 +416,32 @@ is implemented (see [Compatibility.md](../Compatibility.md)); the OPC
 container of a Strict file is structurally fine, but a clean validation report
 would say "this file is supported", which it is not.
 
+**Package semantics Office enforces.** A handful of cross-part rules that Word,
+Excel and PowerPoint apply when opening a file are checked in both modes (with
+and without `--no-dom`), each under its own `errorId`. They exist because every
+one of them was found in a file that validated clean and was refused by Office:
+
+- `PackageDanglingRelationshipReference` — an attribute in the relationships
+  namespace (`r:id`, `r:embed`, `r:link`, `r:pict`, ...) names a relationship
+  the owning part does not have. Every element is checked, not only those the
+  generated schematron rules list, and the attribute is recognized by its
+  namespace rather than by the `r:` prefix. A worksheet whose `x:tablePart`
+  points nowhere is the typical case.
+- `PackageTableRangeOverlap` — two table parts of one worksheet cover the same
+  cells.
+- `PackageThreadedCommentPersonUndefined` — a threaded comment names a
+  `personId` that no person list related from the workbook defines, or the
+  workbook has no person list at all.
+- `PackagePresentationMissingSlideMaster`, `PackageSlideMissingSlideLayout`,
+  `PackageSlideLayoutMissingSlideMaster`, `PackageSlideMasterMissingTheme` —
+  the master → layout → theme chain PowerPoint requires of every slide is
+  broken: `presentation.xml` lists no `p:sldMasterId`, a slide has no layout
+  relationship, a layout no master relationship, or a master no theme.
+- `PackageStyleReferenceUndefined` — a warning, not an error: `w:pStyle`,
+  `w:rStyle` or `w:tblStyle` names a style `styles.xml` does not define. Word
+  opens the file but shows the content in the Normal style, so headings become
+  body text. Reported once per style id and part.
+
 **Checking the validator itself.** Whether an element's children satisfy its
 schema content model is decided by an automaton compiled from the schema, and
 the library keeps the older recursive matcher that answers the same question a

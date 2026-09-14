@@ -381,7 +381,8 @@ TEST_CASE("split_document refuses a prefix that leaves the output directory [mcp
                                                                      {"output_dir", "parts"},
                                                                      {"prefix", "../../evil"}});
     CHECK(split["ok"] == false);
-    CHECK(split["error"]["code"] == "input_invalid");
+    // The same code every refused path shape gets, as the security section documents.
+    CHECK(split["error"]["code"] == "path_invalid");
 
     std::error_code error;
     for (const auto& entry : std::filesystem::directory_iterator(server->Root().parent_path(), error))

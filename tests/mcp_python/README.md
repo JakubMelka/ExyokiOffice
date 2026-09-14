@@ -33,8 +33,8 @@ library or its MCP server executables.
 
 ## Selecting server binaries
 
-By default the tests search the repository build trees, preferring these
-locations:
+By default the tests search the repository build trees for the server
+binaries and take, for each family, the **most recently built** one:
 
 ```text
 build/vs/tools/mcp/Debug
@@ -42,9 +42,14 @@ build/vs/tools/mcp/RelWithDebInfo
 build/vs/tools/mcp/Release
 build/ninja-debug/tools/mcp
 build/ninja-release/tools/mcp
+build/ninja-clang-debug/tools/mcp
+build/ninja-clang-release/tools/mcp
 ```
 
-Override individual binaries when testing an installed build:
+The binaries chosen are printed in the pytest header, and by
+`oracle_corpus.py` before it starts, so a run against a tree other than the one
+just built is visible rather than silent. Override individual binaries when
+testing an installed build, or to pin a run to one tree:
 
 ```powershell
 $env:EXYOKI_MCP_WORD_EXE = 'C:\ExyokiOffice\bin\exyoki-mcp-word.exe'

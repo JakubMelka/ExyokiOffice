@@ -5,16 +5,21 @@
 #include "McpTestSupport.hpp"
 
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Drawing.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Presentation.hpp"
 #include "ExyokiOffice/PowerPoint/PowerPointDocument.hpp"
 #include "ExyokiOffice/Tools/ValidationRunner.hpp"
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 using namespace ExyokiOfficeTests;
 using namespace ExyokiOffice::Mcp;
@@ -954,11 +959,14 @@ TEST_CASE("a section carries a GUID identifier [mcp-powerpoint]")
     auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::Open(server->Path("sections.pptx"));
     REQUIRE(editor != nullptr);
 
+    // The first section always starts at slide 1, so the slide before it
+    // was gathered into a default section.
     const auto sections = editor->Sections();
-    REQUIRE(sections.size() == 1);
-    CHECK(sections.front().Id == sectionId);
-    CHECK(sections.front().Name == "Results");
-    CHECK(sections.front().SlideIds.size() == 1);
+    REQUIRE(sections.size() == 2);
+    CHECK(sections.front().Name == "Default Section");
+    CHECK(sections.back().Id == sectionId);
+    CHECK(sections.back().Name == "Results");
+    CHECK(sections.back().SlideIds.size() == 1);
 }
 
 TEST_CASE("comment identifiers are unique across slides [mcp-powerpoint]")
@@ -1586,12 +1594,12 @@ TEST_CASE("the animation tools refuse effects that cannot be written [mcp-powerp
                                                         {"animation_id", 4242},
                                                         {"effect", "fade"}});
     CHECK(unknownUpdate["ok"] == false);
-    CHECK(unknownUpdate["error"]["code"] == "shape_not_found");
+    CHECK(unknownUpdate["error"]["code"] == "input_invalid");
 
     const auto unknownRemove = server->Call(
         "remove_animation", nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"animation_id", 4242}});
     CHECK(unknownRemove["ok"] == false);
-    CHECK(unknownRemove["error"]["code"] == "shape_not_found");
+    CHECK(unknownRemove["error"]["code"] == "input_invalid");
 
     const auto bothModes = server->Call("remove_animation", nlohmann::json{{"documentId", documentId},
                                                                            {"slide", 1},
@@ -2073,4 +2081,610 @@ TEST_CASE("media is refused when the source cannot be used [mcp-power-point]")
     REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
     const auto report = ExyokiOffice::Tools::Run(server->Path("badmedia.pptx"));
     CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+// ---------------------------------------------------------------------------
+// Regressions for the defects the Office COM run found (MCP_ERRORS.md, P-*).
+// Each case drives the server the way the reproduction there does.
+// ---------------------------------------------------------------------------
+
+/// Helpers shared by the P-* regression cases.
+class PowerPointRegressionSupport
+{
+public:
+    static constexpr const char* FirstSlidePart = "/ppt/slides/slide1.xml";
+
+    /// Number of nodes an XPath expression matches in one part of the session document.
+    static std::size_t CountXml(McpTestServer& server, const std::string& documentId, const std::string& xpath,
+                                const std::string& part = FirstSlidePart)
+    {
+        const auto result = server.Call(
+            "query_xml", nlohmann::json{{"documentId", documentId}, {"xpath", xpath}, {"part", part}});
+        REQUIRE(result["ok"] == true);
+        return result["data"]["matches"].size();
+    }
+
+    static std::vector<std::string> SlideTitles(McpTestServer& server, const std::string& documentId)
+    {
+        std::vector<std::string> titles;
+        const auto listed = server.Call("list_slides", nlohmann::json{{"documentId", documentId}});
+        REQUIRE(listed["ok"] == true);
+        for (const auto& slide : listed["data"]["slides"])
+        {
+            titles.push_back(slide["title"].get<std::string>());
+        }
+        return titles;
+    }
+
+    /// A deck with slides titled A, B, C, opened in the session.
+    static std::string ThreeSlides(McpTestServer& server, const std::string& path)
+    {
+        const auto created = server.Call("create_document", nlohmann::json{{"path", path}});
+        const auto documentId = created["data"]["documentId"].get<std::string>();
+        for (const auto* title : {"A", "B", "C"})
+        {
+            REQUIRE(server.Call("add_slide", nlohmann::json{{"documentId", documentId}, {"title", title}})["ok"] ==
+                    true);
+        }
+        return documentId;
+    }
+
+    /// One slide with a rectangle ("1") and a button ("2"), opened in the session.
+    static std::string TwoShapes(McpTestServer& server, const std::string& path)
+    {
+        const auto created = server.Call("create_document", nlohmann::json{{"path", path}});
+        const auto documentId = created["data"]["documentId"].get<std::string>();
+        REQUIRE(server.Call("add_slide", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+        for (const auto* text : {"S", "Btn"})
+        {
+            REQUIRE(server.Call("add_shape", nlohmann::json{{"documentId", documentId},
+                                                            {"slide", 1},
+                                                            {"x", 50},
+                                                            {"y", 50},
+                                                            {"width", 100},
+                                                            {"height", 50},
+                                                            {"text", text}})["ok"] == true);
+        }
+        return documentId;
+    }
+
+    /// Saves a template whose second layout is Blank, for create_document's template_path.
+    static void WriteTemplate(const std::filesystem::path& path)
+    {
+        namespace P = ExyokiOffice::DocumentFormat::OpenXml::Presentation;
+        auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto layout = editor->EnsureDefaultLayout();
+        REQUIRE(layout != nullptr);
+        REQUIRE(editor->AddSlideLayout(layout->Master(), "Blank", P::SlideLayoutValues::Blank) != nullptr);
+        REQUIRE(editor->AddSlide(editor->CreateSlideBuilder().SetLayout(layout)) != nullptr);
+        REQUIRE(editor->SaveToFile(path));
+    }
+
+    /// The effective width in EMU of a shape on the first slide of a saved deck.
+    static double EffectiveWidth(const ExyokiOffice::PowerPoint::PresentationShape& shape)
+    {
+        const auto transform = shape.GetEffectiveTransform();
+        REQUIRE(transform.has_value());
+        return transform->Size.Width.ToEmu().GetValue();
+    }
+};
+
+TEST_CASE("P-1: removing the last animation removes p:timing and keeps the transition [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    for (const bool byId : {false, true})
+    {
+        const std::string path = byId ? "anim_removelast.pptx" : "anim_removeall.pptx";
+        const auto documentId = PowerPointRegressionSupport::TwoShapes(*server, path);
+        REQUIRE(server->Call("set_transition",
+                             nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"type", "fade"}})["ok"] ==
+                true);
+        const auto added = server->Call(
+            "add_animation", nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"shape", "1"}, {"effect", "fade"}});
+        REQUIRE(added["ok"] == true);
+        REQUIRE(PowerPointRegressionSupport::CountXml(*server, documentId, "//p:timing") == 1);
+
+        nlohmann::json arguments{{"documentId", documentId}, {"slide", 1}};
+        if (byId)
+        {
+            arguments["animation_id"] = added["data"]["animationId"];
+        }
+        else
+        {
+            arguments["all"] = true;
+        }
+        const auto removed = server->Call("remove_animation", arguments);
+        REQUIRE(removed["ok"] == true);
+        CHECK(removed["data"]["removed"] == 1);
+
+        // An empty <p:timing><p:tnLst/></p:timing> is what PowerPoint refused;
+        // the transition written before it has to survive the removal.
+        CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//p:timing") == 0);
+        CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//p:transition") == 1);
+        CHECK(server->Call("list_animations", nlohmann::json{{"documentId", documentId}})["data"]["animations"]
+                  .empty());
+
+        REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+        const auto report = ExyokiOffice::Tools::Run(server->Path(path));
+        CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+
+        // A later effect recreates the timing tree from scratch.
+        REQUIRE(server->Call("add_animation", nlohmann::json{{"documentId", documentId},
+                                                             {"slide", 1},
+                                                             {"shape", "2"},
+                                                             {"effect", "appear"}})["ok"] == true);
+        CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//p:timing/p:tnLst/p:par") == 1);
+    }
+}
+
+TEST_CASE("P-2: a deck converted from Markdown, JSON or XML has a master, layout and theme [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "tiny.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId},
+                                                     {"title", "Tiny title"},
+                                                     {"bullets", nlohmann::json::array({"one"})}})["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    const auto checkDeck = [&](const std::string& name)
+    {
+        auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::Open(server->Path(name));
+        REQUIRE(editor != nullptr);
+        REQUIRE(editor->SlideCount() == 1);
+        REQUIRE_FALSE(editor->SlideMasters().empty());
+        REQUIRE_FALSE(editor->SlideLayouts().empty());
+        CHECK(editor->SlideMasters().front()->ThemeXml().has_value());
+        auto layout = editor->GetSlide(0)->Layout();
+        REQUIRE(layout != nullptr);
+        CHECK(layout->Name() == "Title and Content");
+
+        const auto report = ExyokiOffice::Tools::Run(server->Path(name));
+        CHECK(report.Loaded);
+        CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+    };
+
+    for (const auto* format : {"md", "json", "xml"})
+    {
+        const std::string intermediate = std::string("tiny.") + format;
+        const std::string back = std::string("tiny_") + format + ".pptx";
+        REQUIRE(server->Call("convert_document",
+                             nlohmann::json{{"input_path", "tiny.pptx"}, {"output_path", intermediate}})["ok"] ==
+                true);
+        REQUIRE(server->Call("convert_document",
+                             nlohmann::json{{"input_path", intermediate}, {"output_path", back}})["ok"] == true);
+        checkDeck(back);
+    }
+
+    // A hand-written outline goes through the same writer.
+    {
+        std::ofstream hand(server->Path("hand.md"), std::ios::binary);
+        hand << "# Hand title\n\n- bullet one\n";
+    }
+    REQUIRE(server->Call("convert_document",
+                         nlohmann::json{{"input_path", "hand.md"}, {"output_path", "hand_md.pptx"}})["ok"] == true);
+    checkDeck("hand_md.pptx");
+}
+
+TEST_CASE("P-3: placeholders of a deck built from scratch have a position [mcp-powerpoint]")
+{
+    namespace Drawing = ExyokiOffice::DocumentFormat::OpenXml::Drawing;
+    namespace P = ExyokiOffice::DocumentFormat::OpenXml::Presentation;
+
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "scratch.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId},
+                                                     {"title", "One"},
+                                                     {"bullets", nlohmann::json::array({"a", "b"})},
+                                                     {"notes", "Visible in the notes page."}})["ok"] == true);
+
+    // The default layout offers the placeholders PowerPoint's own does.
+    const auto layouts = server->Call("list_layouts", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(layouts["ok"] == true);
+    REQUIRE(layouts["data"]["layouts"].size() == 1);
+    const auto& tokens = layouts["data"]["layouts"][0]["placeholders"];
+    CHECK(std::find(tokens.begin(), tokens.end(), "title") != tokens.end());
+    CHECK(std::find(tokens.begin(), tokens.end(), "body") != tokens.end());
+
+    // get_slide reports the inherited geometry rather than zeros.
+    const auto slide = server->Call("get_slide", nlohmann::json{{"documentId", documentId}, {"slide", 1}});
+    REQUIRE(slide["ok"] == true);
+    for (const auto& shape : slide["data"]["shapes"])
+    {
+        CHECK(shape["transform"]["width"]["emu"].get<double>() > 0.0);
+        CHECK(shape["transform"]["height"]["emu"].get<double>() > 0.0);
+    }
+
+    // A layout added afterwards derives its placeholder geometry from the master.
+    REQUIRE(server->Call("add_layout",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"name", "Quote"},
+                                        {"type", "titleOnly"},
+                                        {"placeholders", nlohmann::json::array({nlohmann::json{{"type", "title"}}})}})
+                ["ok"] == true);
+    REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId}, {"layout", "Quote"}, {"title", "Q"}})
+                ["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::Open(server->Path("scratch.pptx"));
+    REQUIRE(editor != nullptr);
+    REQUIRE(editor->SlideCount() == 2);
+    REQUIRE_FALSE(editor->SlideMasters().empty());
+    CHECK(editor->SlideMasters().front()->Placeholders().size() == 5);
+
+    for (const auto& deckSlide : editor->Slides())
+    {
+        const auto placeholders = deckSlide->Placeholders(false);
+        REQUIRE_FALSE(placeholders.empty());
+        auto tree = deckSlide->ShapeTree();
+        REQUIRE(tree != nullptr);
+        for (const auto& shape : tree->Shapes())
+        {
+            CHECK(PowerPointRegressionSupport::EffectiveWidth(*shape) > 0.0);
+        }
+    }
+
+    // The notes page body and its master's placeholders carry explicit geometry.
+    auto notesPart = editor->GetSlide(0)->GetPart()->GetNotesSlidePart();
+    REQUIRE(notesPart != nullptr);
+    bool notesBodyPositioned = false;
+    for (const auto& placeholder : notesPart->GetTypedRootElement()->Descendants<P::PlaceholderShape>())
+    {
+        if (placeholder->GetType().ValueOr(P::PlaceholderValues::Object).GetValue() != P::PlaceholderValues::Body)
+        {
+            continue;
+        }
+        auto shape = placeholder->Parent()->Parent()->Parent();
+        const auto extents = shape->Descendants<Drawing::Extents>();
+        REQUIRE_FALSE(extents.empty());
+        notesBodyPositioned = extents.front()->GetCx().ValueOr(0) > 0 && extents.front()->GetCy().ValueOr(0) > 0;
+    }
+    CHECK(notesBodyPositioned);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("scratch.pptx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("P-4: duplicate_slide places the copy at to_index or at the end and reports it [mcp-powerpoint]")
+{
+    using Titles = std::vector<std::string>;
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    struct Case
+    {
+        std::optional<int> ToIndex;
+        Titles Expected;
+        int Reported;
+    };
+    const Case cases[] = {
+        {2, {"A", "A", "B", "C"}, 2},
+        {1, {"A", "A", "B", "C"}, 1},
+        {3, {"A", "B", "A", "C"}, 3},
+        {4, {"A", "B", "C", "A"}, 4},
+        {std::nullopt, {"A", "B", "C", "A"}, 4},
+    };
+    int deck = 0;
+    for (const auto& item : cases)
+    {
+        const auto documentId =
+            PowerPointRegressionSupport::ThreeSlides(*server, "dup" + std::to_string(++deck) + ".pptx");
+        nlohmann::json arguments{{"documentId", documentId}, {"slide", 1}};
+        if (item.ToIndex)
+        {
+            arguments["to_index"] = *item.ToIndex;
+        }
+        const auto duplicated = server->Call("duplicate_slide", arguments);
+        REQUIRE(duplicated["ok"] == true);
+        CHECK(duplicated["data"]["slide"] == item.Reported);
+        CHECK(PowerPointRegressionSupport::SlideTitles(*server, documentId) == item.Expected);
+    }
+
+    // Duplicating the last slide was already right and stays so.
+    const auto documentId = PowerPointRegressionSupport::ThreeSlides(*server, "dup_last.pptx");
+    const auto last = server->Call("duplicate_slide", nlohmann::json{{"documentId", documentId}, {"slide", 3}});
+    REQUIRE(last["ok"] == true);
+    CHECK(last["data"]["slide"] == 4);
+    CHECK(PowerPointRegressionSupport::SlideTitles(*server, documentId) == Titles{"A", "B", "C", "C"});
+}
+
+TEST_CASE("P-5: set_placeholder_text refuses a placeholder the layout does not have [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+    PowerPointRegressionSupport::WriteTemplate(server->Path("ppt_template.pptx"));
+
+    const auto created =
+        server->Call("create_document", nlohmann::json{{"path", "orphan.pptx"}, {"template_path", "ppt_template.pptx"}});
+    REQUIRE(created["ok"] == true);
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId}, {"layout", "Blank"}})["ok"] == true);
+
+    for (const auto* token : {"title", "chart"})
+    {
+        const auto refused = server->Call("set_placeholder_text", nlohmann::json{{"documentId", documentId},
+                                                                                 {"slide", 2},
+                                                                                 {"placeholder", token},
+                                                                                 {"text", "Orphan"}});
+        CHECK(refused["ok"] == false);
+        CHECK(refused["error"]["code"] == "shape_not_found");
+        CHECK(refused["error"]["hint"].get<std::string>().find("set_slide_layout") != std::string::npos);
+        CHECK(refused["error"]["hint"].get<std::string>().find("add_text_box") != std::string::npos);
+    }
+    const auto blank = server->Call("get_slide", nlohmann::json{{"documentId", documentId}, {"slide", 2}});
+    REQUIRE(blank["ok"] == true);
+    CHECK(blank["data"]["shapes"].empty());
+
+    // The layout with a title still takes one, and a content placeholder
+    // accepts the body-like kinds PowerPoint would put there.
+    const auto title = server->Call("set_placeholder_text", nlohmann::json{{"documentId", documentId},
+                                                                           {"slide", 1},
+                                                                           {"placeholder", "title"},
+                                                                           {"text", "Real title"}});
+    REQUIRE(title["ok"] == true);
+    const auto body = server->Call("set_placeholder_text", nlohmann::json{{"documentId", documentId},
+                                                                          {"slide", 1},
+                                                                          {"placeholder", "body"},
+                                                                          {"bullets", nlohmann::json::array({"x"})}});
+    REQUIRE(body["ok"] == true);
+}
+
+TEST_CASE("P-6: search_text and replace_text reach table cells and comments [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "replace.pptx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId}, {"title", "Slide 2025"}})["ok"] ==
+            true);
+    REQUIRE(server->Call("add_text_box", nlohmann::json{{"documentId", documentId},
+                                                        {"slide", 1},
+                                                        {"x", "2cm"},
+                                                        {"y", "3cm"},
+                                                        {"width", "8cm"},
+                                                        {"height", "2cm"},
+                                                        {"text", "box 2025"}})["ok"] == true);
+    REQUIRE(server->Call("add_table",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"slide", 1},
+                                        {"rows", 1},
+                                        {"cols", 1},
+                                        {"x", "2cm"},
+                                        {"y", "6cm"},
+                                        {"width", "8cm"},
+                                        {"height", "2cm"},
+                                        {"data", nlohmann::json::array({nlohmann::json::array({"cell 2025"})})}})
+                ["ok"] == true);
+    REQUIRE(server->Call("set_notes", nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"text", "notes 2025"}})
+                ["ok"] == true);
+    REQUIRE(server->Call("add_comment",
+                         nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"text", "comment 2025"}})["ok"] ==
+            true);
+
+    const auto found = server->Call("search_text", nlohmann::json{{"documentId", documentId}, {"needle", "2025"}});
+    REQUIRE(found["ok"] == true);
+    CHECK(found["data"]["matchCount"] == 5);
+
+    const auto replaced = server->Call(
+        "replace_text", nlohmann::json{{"documentId", documentId}, {"needle", "2025"}, {"replacement", "2026"}});
+    REQUIRE(replaced["ok"] == true);
+    CHECK(replaced["data"]["replacementCount"] == 5);
+
+    CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//a:tbl//a:t[.='cell 2026']") == 1);
+    CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//a:t[contains(., '2025')]") == 0);
+    const auto comments = server->Call("list_comments", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(comments["ok"] == true);
+    REQUIRE(comments["data"]["comments"].size() == 1);
+    CHECK(comments["data"]["comments"][0]["text"] == "comment 2026");
+    const auto text = server->Call("get_document_text", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(text["ok"] == true);
+    CHECK(text["data"]["text"].get<std::string>().find("2025") == std::string::npos);
+}
+
+TEST_CASE("P-7: add_section splits the containing section like PowerPoint [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto fourSlides = [&](const std::string& path)
+    {
+        const auto documentId = PowerPointRegressionSupport::ThreeSlides(*server, path);
+        REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId}, {"title", "D"}})["ok"] == true);
+        return documentId;
+    };
+    const auto counts = [](const nlohmann::json& sections)
+    {
+        std::vector<std::pair<std::string, int>> result;
+        for (const auto& section : sections)
+        {
+            result.emplace_back(section["name"].get<std::string>(), section["slideCount"].get<int>());
+        }
+        return result;
+    };
+    using Counts = std::vector<std::pair<std::string, int>>;
+
+    {
+        const auto documentId = fourSlides("sections_xy.pptx");
+        const auto x = server->Call(
+            "add_section", nlohmann::json{{"documentId", documentId}, {"name", "X"}, {"before_slide", 1}});
+        REQUIRE(x["ok"] == true);
+        CHECK(x["data"]["slideCount"] == 4);
+        const auto y = server->Call(
+            "add_section", nlohmann::json{{"documentId", documentId}, {"name", "Y"}, {"before_slide", 3}});
+        REQUIRE(y["ok"] == true);
+        CHECK(y["data"]["slideCount"] == 2);
+        CHECK(counts(y["data"]["sections"]) == Counts{{"X", 2}, {"Y", 2}});
+    }
+    {
+        // The reverse order lands in the same place.
+        const auto documentId = fourSlides("sections_yx.pptx");
+        REQUIRE(server->Call("add_section",
+                             nlohmann::json{{"documentId", documentId}, {"name", "Y"}, {"before_slide", 3}})["ok"] ==
+                true);
+        const auto x = server->Call(
+            "add_section", nlohmann::json{{"documentId", documentId}, {"name", "X"}, {"before_slide", 1}});
+        REQUIRE(x["ok"] == true);
+        CHECK(counts(x["data"]["sections"]) == Counts{{"X", 2}, {"Y", 2}});
+    }
+    {
+        // A first section that would not start at slide 1 gets a default section in front.
+        const auto documentId = fourSlides("sections_y.pptx");
+        const auto y = server->Call(
+            "add_section", nlohmann::json{{"documentId", documentId}, {"name", "Y"}, {"before_slide", 3}});
+        REQUIRE(y["ok"] == true);
+        CHECK(y["data"]["slideCount"] == 2);
+        CHECK(counts(y["data"]["sections"]) == Counts{{"Default Section", 2}, {"Y", 2}});
+        REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+        auto editor = ExyokiOffice::PowerPoint::PowerPointDocumentEditor::Open(server->Path("sections_y.pptx"));
+        REQUIRE(editor != nullptr);
+        const auto sections = editor->Sections();
+        REQUIRE(sections.size() == 2);
+        CHECK(sections[0].SlideIds.size() == 2);
+        CHECK(sections[1].Name == "Y");
+        CHECK(sections[1].SlideIds.size() == 2);
+    }
+}
+
+TEST_CASE("P-8: change_fill_color is written as PowerPoint's Fill Color preset [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto documentId = PowerPointRegressionSupport::TwoShapes(*server, "fillcolor.pptx");
+    const auto added = server->Call("add_animation", nlohmann::json{{"documentId", documentId},
+                                                                    {"slide", 1},
+                                                                    {"shape", "1"},
+                                                                    {"effect_class", "emphasis"},
+                                                                    {"effect", "change_fill_color"},
+                                                                    {"color", "#FF8800"}});
+    REQUIRE(added["ok"] == true);
+
+    // presetID 2 is PowerPoint's Change Font; its Fill Color is 1 with subtype 2.
+    CHECK(PowerPointRegressionSupport::CountXml(
+              *server, documentId,
+              "//p:cTn[@presetClass='emph' and @presetID='1' and @presetSubtype='2']") == 1);
+    CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//p:cTn[@presetID='2']") == 0);
+    CHECK(PowerPointRegressionSupport::CountXml(*server, documentId,
+                                                "//p:animClr/p:cBhvr/p:attrNameLst/p:attrName[.='fillcolor']") == 1);
+    CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//p:set//p:attrName[.='fill.on']") == 1);
+
+    const auto listed = server->Call("list_animations", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    REQUIRE(listed["data"]["animations"].size() == 1);
+    CHECK(listed["data"]["animations"][0]["effect"] == "change_fill_color");
+    CHECK(listed["data"]["animations"][0]["color"] == "#FF8800");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    const auto report = ExyokiOffice::Tools::Run(server->Path("fillcolor.pptx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("P-9: trigger_shape writes the interactive sequence PowerPoint recognises [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto documentId = PowerPointRegressionSupport::TwoShapes(*server, "trigger.pptx");
+    const auto added = server->Call("add_animation", nlohmann::json{{"documentId", documentId},
+                                                                    {"slide", 1},
+                                                                    {"shape", "1"},
+                                                                    {"effect", "fly"},
+                                                                    {"direction", "left"},
+                                                                    {"trigger_shape", "2"}});
+    REQUIRE(added["ok"] == true);
+
+    const auto slide = server->Call("get_slide", nlohmann::json{{"documentId", documentId}, {"slide", 1}});
+    REQUIRE(slide["ok"] == true);
+    const auto buttonId = std::to_string(slide["data"]["shapes"][1]["id"].get<int>());
+
+    // The three things PowerPoint's own AddTriggerEffect writes and the server did not.
+    const std::string sequence = "//p:seq[p:cTn/@nodeType='interactiveSeq']";
+    CHECK(PowerPointRegressionSupport::CountXml(
+              *server, documentId,
+              sequence + "/p:nextCondLst/p:cond[@evt='onClick']/p:tgtEl/p:spTgt[@spid='" + buttonId + "']") == 1);
+    CHECK(PowerPointRegressionSupport::CountXml(*server, documentId,
+                                                sequence + "/p:cTn/p:endSync[@evt='end']/p:rtn[@val='all']") == 1);
+    CHECK(PowerPointRegressionSupport::CountXml(
+              *server, documentId, sequence + "/p:cTn/p:childTnLst/p:par/p:cTn/p:stCondLst/p:cond[@delay='0']") == 1);
+    CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//p:cond[@delay='indefinite']") == 0);
+
+    const auto listed = server->Call("list_animations", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(listed["ok"] == true);
+    REQUIRE(listed["data"]["animations"].size() == 1);
+    CHECK(listed["data"]["animations"][0]["triggerShape"] == "2");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    const auto report = ExyokiOffice::Tools::Run(server->Path("trigger.pptx"));
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("P-10e: list_comments with an unknown slide answers slide_not_found [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto documentId = PowerPointRegressionSupport::ThreeSlides(*server, "comments99.pptx");
+    const auto missing = server->Call("list_comments", nlohmann::json{{"documentId", documentId}, {"slide", 99}});
+    CHECK(missing["ok"] == false);
+    CHECK(missing["error"]["code"] == "slide_not_found");
+
+    const auto present = server->Call("list_comments", nlohmann::json{{"documentId", documentId}, {"slide", 3}});
+    REQUIRE(present["ok"] == true);
+    CHECK(present["data"]["comments"].empty());
+}
+
+TEST_CASE("P-10f: add_chart refuses a series with fewer values than categories [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto documentId = PowerPointRegressionSupport::ThreeSlides(*server, "chart_short.pptx");
+    const auto refused = server->Call(
+        "add_chart",
+        nlohmann::json{{"documentId", documentId},
+                       {"slide", 1},
+                       {"type", "column"},
+                       {"categories", nlohmann::json::array({"Q1", "Q2", "Q3"})},
+                       {"series", nlohmann::json::array({nlohmann::json{{"name", "Short"},
+                                                                        {"values", nlohmann::json::array({1, 2})}}})},
+                       {"x", "2cm"},
+                       {"y", "2cm"},
+                       {"width", "10cm"},
+                       {"height", "6cm"}});
+    CHECK(refused["ok"] == false);
+    CHECK(refused["error"]["code"] == "input_invalid");
+    CHECK(refused["error"]["target"] == "series[1]");
+}
+
+TEST_CASE("P-10g: an unknown animation_id is input_invalid, not shape_not_found [mcp-powerpoint]")
+{
+    auto server = MakePowerPointServer();
+    server->Initialize();
+
+    const auto documentId = PowerPointRegressionSupport::TwoShapes(*server, "anim_unknown.pptx");
+    REQUIRE(server->Call("add_animation", nlohmann::json{{"documentId", documentId},
+                                                         {"slide", 1},
+                                                         {"shape", "1"},
+                                                         {"effect", "fade"}})["ok"] == true);
+
+    const auto updated = server->Call(
+        "update_animation", nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"animation_id", 999}});
+    CHECK(updated["ok"] == false);
+    CHECK(updated["error"]["code"] == "input_invalid");
+
+    const auto removed = server->Call(
+        "remove_animation", nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"animation_id", 999}});
+    CHECK(removed["ok"] == false);
+    CHECK(removed["error"]["code"] == "input_invalid");
+    CHECK(server->Call("list_animations", nlohmann::json{{"documentId", documentId}})["data"]["animations"].size() ==
+          1);
 }

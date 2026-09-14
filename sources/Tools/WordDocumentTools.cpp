@@ -167,7 +167,15 @@ public:
                 finish(i + 1);
             }
         }
-        if (begin < blocks.size())
+        // The tail is a segment only while it still holds content: the final
+        // section properties are a body block too, and a split that ended on
+        // the last paragraph would otherwise write one more, empty, document.
+        bool tailHasContent = false;
+        for (Size i = begin; i < blocks.size() && !tailHasContent; ++i)
+        {
+            tailHasContent = blocks[i].Type() != BodyBlockType::Section;
+        }
+        if (tailHasContent)
         {
             ranges.emplace_back(begin, blocks.size());
         }

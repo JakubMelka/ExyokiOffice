@@ -36,9 +36,9 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         // PresentationML rejects a layout id below 2 147 483 648, and PowerPoint
         // keeps master and layout ids in one id space: a layout id that repeats
         // a master id (or a layout id under another master) triggers repair.
-        CHECK(title->Id() == 0x80000002u);
-        CHECK(content->Id() == 0x80000003u);
-        CHECK(blank->Id() == 0x80000004u);
+        CHECK(title->Id() == 0x80000004u);
+        CHECK(content->Id() == 0x80000005u);
+        CHECK(blank->Id() == 0x80000006u);
         CHECK(title->Id() != corporate->Id());
         CHECK(blank->Id() != alternate->Id());
         CHECK(title->Name() == "Title");
@@ -47,13 +47,15 @@ TEST_SUITE("PowerPointMasterLayoutTests")
 
         auto masters = editor->SlideMasters();
         auto layouts = editor->SlideLayouts();
-        REQUIRE(masters.size() == 2);
-        REQUIRE(layouts.size() == 3);
-        CHECK(masters[0]->Name() == "Corporate");
-        CHECK(masters[1]->Name() == "Alternate");
-        CHECK(layouts[0]->Name() == "Title");
-        CHECK(layouts[1]->Name() == "Title and content");
-        CHECK(layouts[2]->Name() == "Blank");
+        // CreateNew writes the default master and its layout first.
+        REQUIRE(masters.size() == 3);
+        REQUIRE(layouts.size() == 4);
+        CHECK(masters[0]->Name() == "ExyokiOffice");
+        CHECK(masters[1]->Name() == "Corporate");
+        CHECK(masters[2]->Name() == "Alternate");
+        CHECK(layouts[1]->Name() == "Title");
+        CHECK(layouts[2]->Name() == "Title and content");
+        CHECK(layouts[3]->Name() == "Blank");
         CHECK(corporate->Layouts().size() == 2);
         CHECK(alternate->Layouts().size() == 1);
         CHECK(title->GetPart()->GetSlideMasterPart() == corporate->GetPart());
@@ -63,12 +65,12 @@ TEST_SUITE("PowerPointMasterLayoutTests")
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened != nullptr);
-        REQUIRE(reopened->SlideMasters().size() == 2);
-        REQUIRE(reopened->SlideLayouts().size() == 3);
-        CHECK(reopened->GetSlideMaster(0)->Name() == "Corporate");
-        CHECK(reopened->SlideLayouts()[1]->Name() == "Title and content");
-        CHECK(reopened->SlideLayouts()[1]->Type() == SlideLayoutValues::Object);
-        CHECK(reopened->SlideLayouts()[1]->Master()->Id() == reopened->GetSlideMaster(0)->Id());
+        REQUIRE(reopened->SlideMasters().size() == 3);
+        REQUIRE(reopened->SlideLayouts().size() == 4);
+        CHECK(reopened->GetSlideMaster(1)->Name() == "Corporate");
+        CHECK(reopened->SlideLayouts()[2]->Name() == "Title and content");
+        CHECK(reopened->SlideLayouts()[2]->Type() == SlideLayoutValues::Object);
+        CHECK(reopened->SlideLayouts()[2]->Master()->Id() == reopened->GetSlideMaster(1)->Id());
     }
 
     TEST_CASE("placeholder inheritance uses index then type and supports removal [unit] [powerpoint] [masters-layouts]")
@@ -83,6 +85,12 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         REQUIRE(slide != nullptr);
         REQUIRE(editor->SetSlideLayout(0, layout));
 
+        // The inheritance mechanics are exercised on a hand-built master, so
+        // the default design a new master carries is cleared first.
+        for (const auto& placeholder : master->Placeholders())
+        {
+            REQUIRE(placeholder->Remove());
+        }
         REQUIRE(master->AddPlaceholder(PlaceholderValues::Title, 1) != nullptr);
         REQUIRE(master->AddPlaceholder(PlaceholderValues::Footer) != nullptr);
         REQUIRE(layout->AddPlaceholder(PlaceholderValues::CenteredTitle, 1) != nullptr);
@@ -178,7 +186,7 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         CHECK(first->AddSlideLayout(foreignMaster, "Invalid") == nullptr);
         CHECK_FALSE(first->SetSlideLayout(0, foreignLayout));
         CHECK_FALSE(first->SetSlideLayout(1, foreignLayout));
-        CHECK(first->GetSlideMaster(0) == nullptr);
+        CHECK(first->GetSlideMaster(1) == nullptr);
     }
 
     TEST_CASE("type based inheritance handles defaults duplicate keys and non-shape hosts [unit] [powerpoint] [masters-layouts]")
@@ -192,6 +200,10 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         REQUIRE(layout != nullptr);
         REQUIRE(slide != nullptr);
         REQUIRE(editor->SetSlideLayout(0, layout));
+        for (const auto& placeholder : master->Placeholders())
+        {
+            REQUIRE(placeholder->Remove());
+        }
         REQUIRE(master->AddPlaceholder(PlaceholderValues::Object) != nullptr);
         REQUIRE(master->AddPlaceholder(PlaceholderValues::Body) != nullptr);
         REQUIRE(master->AddPlaceholder(PlaceholderValues::Title, 7) != nullptr);
@@ -313,13 +325,13 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         master->GetPart()->SetXmlString(masterXml);
         layout->GetPart()->SetXmlString(layoutXml);
         REQUIRE(editor->SetSlideLayout(0, layout));
-        CHECK(editor->SlideMasters()[0]->GetPart()->GetXmlString().find("urn:vendor:master") != std::string::npos);
-        CHECK(editor->SlideLayouts()[0]->GetPart()->GetXmlString().find("urn:vendor:layout") != std::string::npos);
+        CHECK(editor->SlideMasters()[1]->GetPart()->GetXmlString().find("urn:vendor:master") != std::string::npos);
+        CHECK(editor->SlideLayouts()[1]->GetPart()->GetXmlString().find("urn:vendor:layout") != std::string::npos);
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened != nullptr);
-        CHECK(reopened->SlideMasters()[0]->GetPart()->GetXmlString().find("urn:vendor:master") != std::string::npos);
-        CHECK(reopened->SlideLayouts()[0]->GetPart()->GetXmlString().find("urn:vendor:layout") != std::string::npos);
+        CHECK(reopened->SlideMasters()[1]->GetPart()->GetXmlString().find("urn:vendor:master") != std::string::npos);
+        CHECK(reopened->SlideLayouts()[1]->GetPart()->GetXmlString().find("urn:vendor:layout") != std::string::npos);
         CHECK(reopened->GetSlide(0)->Layout()->Name() == "Extensions");
     }
 
@@ -332,6 +344,9 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         auto slide = editor->AddSlide();
         REQUIRE(layout != nullptr);
         REQUIRE(slide != nullptr);
+        // The new slide already references the default layout; point it at
+        // this layout so the reference below is the one relationship of its type.
+        REQUIRE(editor->SetSlideLayout(0, layout));
         constexpr std::string_view relationshipType =
             "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout";
         const auto firstId = slide->GetPart()->AddPartReference(layout->GetPart(), relationshipType);
@@ -366,12 +381,12 @@ TEST_SUITE("PowerPointMasterLayoutTests")
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened != nullptr);
-        REQUIRE(reopened->GetSlideMaster(0) != nullptr);
-        REQUIRE(reopened->GetSlideMaster(0)->ThemeXml().has_value());
-        CHECK(reopened->GetSlideMaster(0)->ThemeXml()->find("Corporate Blue") != std::string::npos);
-        CHECK(reopened->GetSlideMaster(0)->RemoveTheme());
-        CHECK_FALSE(reopened->GetSlideMaster(0)->RemoveTheme());
-        CHECK_FALSE(reopened->GetSlideMaster(0)->ThemeXml().has_value());
+        REQUIRE(reopened->GetSlideMaster(1) != nullptr);
+        REQUIRE(reopened->GetSlideMaster(1)->ThemeXml().has_value());
+        CHECK(reopened->GetSlideMaster(1)->ThemeXml()->find("Corporate Blue") != std::string::npos);
+        CHECK(reopened->GetSlideMaster(1)->RemoveTheme());
+        CHECK_FALSE(reopened->GetSlideMaster(1)->RemoveTheme());
+        CHECK_FALSE(reopened->GetSlideMaster(1)->ThemeXml().has_value());
     }
 
     TEST_CASE("design import deep copies master layouts theme and extensions [unit] [powerpoint] [masters-layouts]")
@@ -410,8 +425,8 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         CHECK(ExyokiOffice::OpenXmlPackageValidator().Validate(*destination->GetDocument()).IsValid());
         auto reopened = PowerPointDocumentEditor::Open(destination->SaveToMemory());
         REQUIRE(reopened != nullptr);
-        REQUIRE(reopened->SlideMasters().size() == 1);
-        REQUIRE(reopened->SlideLayouts().size() == 2);
+        REQUIRE(reopened->SlideMasters().size() == 2);
+        REQUIRE(reopened->SlideLayouts().size() == 3);
         REQUIRE(reopened->GetSlide(0)->Layout() != nullptr);
         CHECK(reopened->GetSlide(0)->Layout()->Name() == "Imported title");
         CHECK(sourceMaster->Name() == "Imported design");
@@ -437,7 +452,7 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         CHECK_FALSE(editor->RemoveSlideLayout(used));
         CHECK_FALSE(editor->RemoveSlideLayout(used, used));
         REQUIRE(editor->RemoveSlideLayout(used, replacement));
-        CHECK(editor->SlideLayouts().size() == 1);
+        CHECK(editor->SlideLayouts().size() == 2);
         REQUIRE(slide->Layout() != nullptr);
         CHECK(slide->Layout()->Name() == "Replacement");
         CHECK(slide->GetPart()->GetXmlString() == slideXml);
@@ -447,7 +462,7 @@ TEST_SUITE("PowerPointMasterLayoutTests")
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened != nullptr);
-        REQUIRE(reopened->SlideLayouts().size() == 1);
+        REQUIRE(reopened->SlideLayouts().size() == 2);
         CHECK(reopened->GetSlide(0)->Layout()->Name() == "Replacement");
     }
 
@@ -467,8 +482,8 @@ TEST_SUITE("PowerPointMasterLayoutTests")
         CHECK_FALSE(editor->RemoveSlideMaster(obsolete));
         CHECK_FALSE(editor->RemoveSlideMaster(obsolete, obsoleteLayout));
         REQUIRE(editor->RemoveSlideMaster(obsolete, retainedLayout));
-        REQUIRE(editor->SlideMasters().size() == 1);
-        CHECK(editor->SlideMasters()[0]->Name() == "Retained");
+        REQUIRE(editor->SlideMasters().size() == 2);
+        CHECK(editor->SlideMasters()[1]->Name() == "Retained");
         REQUIRE(editor->GetSlide(0)->Layout() != nullptr);
         CHECK(editor->GetSlide(0)->Layout()->Name() == "New");
         CHECK_FALSE(editor->RemoveSlideMaster(obsolete, retainedLayout));
@@ -476,8 +491,8 @@ TEST_SUITE("PowerPointMasterLayoutTests")
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened != nullptr);
-        REQUIRE(reopened->SlideMasters().size() == 1);
-        REQUIRE(reopened->SlideLayouts().size() == 1);
+        REQUIRE(reopened->SlideMasters().size() == 2);
+        REQUIRE(reopened->SlideLayouts().size() == 2);
         CHECK(reopened->GetSlide(0)->Layout()->Name() == "New");
     }
 
@@ -495,13 +510,14 @@ TEST_SUITE("PowerPointMasterLayoutTests")
             ExyokiOffice::DocumentFormat::OpenXml::Presentation::SlideMasterIdList>();
         REQUIRE(list != nullptr);
         auto entries = list->Elements<ExyokiOffice::DocumentFormat::OpenXml::Presentation::SlideMasterId>();
-        REQUIRE(entries.size() == 2);
-        entries[0]->SetId(ExyokiOffice::UInt32Value(0xfffffffeu));
-        entries[1]->SetId(ExyokiOffice::UInt32Value(0xffffffffu));
+        REQUIRE(entries.size() == 3);
+        entries[1]->SetId(ExyokiOffice::UInt32Value(0xfffffffeu));
+        entries[2]->SetId(ExyokiOffice::UInt32Value(0xffffffffu));
 
         auto allocated = editor->AddSlideMaster("First legal gap");
         REQUIRE(allocated != nullptr);
-        CHECK(allocated->Id() == 0x80000000u);
+        // 0x80000000 and 0x80000001 belong to the default master and its layout.
+        CHECK(allocated->Id() == 0x80000002u);
         CHECK(allocated->Id() != first->Id());
         CHECK(allocated->Id() != second->Id());
         CHECK(ExyokiOffice::OpenXmlPackageValidator(ExyokiOffice::OpenXmlDomValidationSettings{}).Validate(*editor->GetDocument()).IsValid());
@@ -561,7 +577,7 @@ TEST_SUITE("PowerPointMasterLayoutTests")
 
         auto reopened = PowerPointDocumentEditor::Open(editor->SaveToMemory());
         REQUIRE(reopened != nullptr);
-        auto roundTrip = reopened->GetSlideMaster(0)->ThemeSettings();
+        auto roundTrip = reopened->GetSlideMaster(1)->ThemeSettings();
         REQUIRE(roundTrip.has_value());
         CHECK(roundTrip->Colors[4].ToHexString() == "0A141E");
         CHECK(roundTrip->MinorFonts.SupplementalFonts[0].second == "Contoso Arabic");

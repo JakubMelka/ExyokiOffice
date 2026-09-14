@@ -69,7 +69,22 @@ auto found = editor->FindBookmark("Chapter1");   // nullptr when absent
 auto all = editor->Bookmarks();
 ```
 
-Bookmark names must be unique in the document; Word additionally requires
-them to start with a letter and contain no spaces. Bookmarks are also the
-anchor mechanism for `PAGEREF`/`REF` fields — see
+`AddBookmark` encloses the paragraph: the start marker goes in front of the
+first run (only the paragraph properties precede it) and the end marker
+behind the last one, so a `REF` field or an internal hyperlink pointing at
+the bookmark lands on the paragraph text rather than on an empty point after
+it. A bookmark over several paragraphs is the same pair with the end moved
+into the closing paragraph:
+
+```cpp
+auto range = first->AddBookmark("Results");
+range->GetEndElement()->MoveInto(last->GetLowLevelApi());   // now spans first..last
+```
+
+Identifiers are allocated over every start and end marker in the document,
+so a stray `w:bookmarkEnd` left by an edit never lends its id to a new
+bookmark. Bookmark names must be unique in the document, and `AddBookmark`
+returns `nullptr` for a name that is already taken; Word additionally
+requires names to start with a letter and contain no spaces. Bookmarks are
+also the anchor mechanism for `PAGEREF`/`REF` fields — see
 [Fields and tables of contents](fields.md).

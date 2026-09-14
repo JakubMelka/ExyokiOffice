@@ -9290,7 +9290,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Group slides into a named section starting at a slide.",
+      "description": "Start a named section at a slide, as PowerPoint's Add Section does: the section runs from that slide to the end of the section it was in (or of the presentation), splitting that section. When the presentation had no sections and the slide is not the first, the slides before it form a \"Default Section\".",
       "example": {
         "before_slide": 3,
         "documentId": "doc-1",
@@ -9339,14 +9339,44 @@
                 "description": "Section identifier, a GUID in braces.",
                 "type": "string"
               },
+              "sections": {
+                "description": "Every section afterwards, in presentation order.",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "One section.",
+                  "properties": {
+                    "name": {
+                      "description": "Section name.",
+                      "type": "string"
+                    },
+                    "sectionId": {
+                      "description": "Section identifier, a GUID in braces.",
+                      "type": "string"
+                    },
+                    "slideCount": {
+                      "description": "Slides in the section.",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "sectionId",
+                    "slideCount"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "slideCount": {
-                "description": "Slides in the section.",
+                "description": "Slides in the new section.",
                 "type": "integer"
               }
             },
             "required": [
               "name",
-              "sectionId"
+              "sectionId",
+              "slideCount",
+              "sections"
             ],
             "type": "object"
           },
@@ -11146,7 +11176,14 @@
                       "type": "string"
                     },
                     "kind": {
-                      "description": "added, removed, changed, or contentType.",
+                      "description": "What changed: the part was added or removed, its XML or its binary payload differs, or its content type changed.",
+                      "enum": [
+                        "added",
+                        "removed",
+                        "changedXml",
+                        "changedBinary",
+                        "contentTypeChanged"
+                      ],
                       "type": "string"
                     },
                     "uri": {
@@ -11169,7 +11206,12 @@
                   "description": "One changed relationship.",
                   "properties": {
                     "kind": {
-                      "description": "added, removed, or changed.",
+                      "description": "What changed.",
+                      "enum": [
+                        "added",
+                        "removed",
+                        "changed"
+                      ],
                       "type": "string"
                     },
                     "relationshipId": {

@@ -31,7 +31,8 @@ Size rejected = editor->RejectAllRevisions();
 Accepting an insertion unwraps the inserted content into the document;
 accepting a deletion removes it. Rejecting mirrors this: inserted content is
 removed and deleted content is restored (deleted text nodes are converted
-back to normal text).
+back to normal text, keeping their `xml:space` so a leading or trailing
+space survives).
 
 ## Comparing two documents
 

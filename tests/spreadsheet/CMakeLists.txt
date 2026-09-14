@@ -32,6 +32,7 @@ exyokioffice_add_test_executable(ExyokiOfficeSpreadsheetTests
         ExcelDataValidationTests.cpp
         ExcelChartTests.cpp
         ExcelWorksheetLayoutTests.cpp
+        ExcelWorksheetCopyTests.cpp
         ExcelWorksheetPrintTests.cpp
         ExcelAdvancedPreservationTests.cpp
         ExcelVbaTests.cpp)

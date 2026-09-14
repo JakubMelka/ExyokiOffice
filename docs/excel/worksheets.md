@@ -33,6 +33,16 @@ Worksheet names follow Excel's rules: non-empty, at most 31 characters, no
 is rejected — a workbook always keeps at least one. `CopyWorksheet` derives
 a unique name automatically when none is supplied.
 
+`CopyWorksheet` copies the sheet's whole part graph, not just its XML:
+drawings with their charts, images (shared, not duplicated), notes with their
+VML boxes, threaded comments, tables, printer settings and external
+hyperlinks all come along with valid relationships. What is identified
+workbook-wide is renamed on the way — the copied tables get new ids and
+names, the copied threads new ids — and the sheet-scoped defined names (print
+area, print titles) are duplicated for the copy. Pivot tables on the copy share
+the original's cache. A slicer on the copied sheet keeps its name, which
+Excel treats as a duplicate; remove or rename it after the copy.
+
 ## Copying a sheet from another workbook
 
 ```cpp
@@ -40,10 +50,15 @@ auto source = ExcelDocumentEditor::Open("template.xlsx");
 auto copied = editor->CopyWorksheetFrom(*source, 0, "Imported");
 ```
 
-`CopyWorksheetFrom` imports the worksheet's complete graph — cells, styles,
-and worksheet-owned parts — allocating fresh identifiers in the destination
-workbook. For appending whole workbooks to one another from the command
-line, see [exyoki](../tools/exyoki.md) `merge`.
+`CopyWorksheetFrom` imports the worksheet's complete graph — cells and
+worksheet-owned parts — allocating fresh identifiers in the destination
+workbook. Everything that is numbered per workbook is translated: shared
+strings are re-indexed, cell and differential style indices are registered in
+the destination stylesheet (so a bold cell stays bold whatever the two
+catalogs look like), table ids and names are made unique, and the persons a
+threaded comment names are merged into the destination's person list. For
+appending whole workbooks to one another from the command line, see
+[exyoki](../tools/exyoki.md) `merge`.
 
 ## Worksheet protection
 

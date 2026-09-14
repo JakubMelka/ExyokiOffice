@@ -93,9 +93,24 @@ public:
     [[nodiscard]] static bool ParseCellValue(const nlohmann::json& value, Excel::ExcelCellValue& result,
                                              ToolOutcome& failure);
 
-    /// Renders a stored cell value as JSON, resolving shared strings.
+    /**
+     * @brief Renders a stored cell value as JSON, resolving shared strings.
+     *
+     * A formula cell renders its cached result typed the way a plain cell
+     * holding that result would be: a number as a number, a boolean as a
+     * boolean, text as text, and null when nothing is cached.
+     */
     [[nodiscard]] static nlohmann::json CellValueToJson(const Excel::ExcelCellValue& value,
                                                         const Excel::SharedStringTableService& sharedStrings);
+
+    /// The whole of @p text as a shared-string index, or nothing.
+    [[nodiscard]] static std::optional<UInt32> ParseSharedStringIndex(const std::string& text);
+
+    /// Whether a stored boolean text (`1`, `true`, `TRUE`) is true.
+    [[nodiscard]] static bool IsTrueText(const std::string& text);
+
+    /// A stored number text as a JSON number, or the text itself when it does not parse.
+    [[nodiscard]] static nlohmann::json NumberTextToJson(const std::string& text);
 
     /// Plain text of a stored cell value, resolving shared strings.
     [[nodiscard]] static std::string CellValueToText(const Excel::ExcelCellValue& value,

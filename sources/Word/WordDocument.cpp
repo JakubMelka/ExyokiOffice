@@ -20,6 +20,7 @@
 #include "Word/WordParagraphSearch.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <cmath>
 #include <cstddef>
@@ -201,7 +202,20 @@ public:
                                             const std::shared_ptr<ExyokiOffice::OpenXMLElement>& fallbackScope)
     {
         std::vector<int> used;
-        auto scan = [&used](const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
+        auto record = [&used](const StringValue& value)
+        {
+            const auto idText = value.ToString();
+            int id = 0;
+            const auto result = std::from_chars(idText.data(), idText.data() + idText.size(), id);
+            if (result.ec == std::errc())
+            {
+                used.push_back(id);
+            }
+        };
+        // Both markers count: an edit can leave a `w:bookmarkEnd` behind without
+        // its start, and handing its id to a new bookmark would give the document
+        // two ends with the same id, which Word answers by dropping the bookmark.
+        auto scan = [&record](const std::shared_ptr<ExyokiOffice::OpenXMLElement>& root)
         {
             if (!root)
             {
@@ -210,16 +224,17 @@ public:
             for (const auto& start :
                  root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>())
             {
-                if (!start)
+                if (start)
                 {
-                    continue;
+                    record(start->GetId());
                 }
-                const auto idText = start->GetId().ToString();
-                int id = 0;
-                const auto result = std::from_chars(idText.data(), idText.data() + idText.size(), id);
-                if (result.ec == std::errc())
+            }
+            for (const auto& end :
+                 root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkEnd>())
+            {
+                if (end)
                 {
-                    used.push_back(id);
+                    record(end->GetId());
                 }
             }
         };
@@ -241,6 +256,28 @@ public:
                               const std::shared_ptr<ExyokiOffice::OpenXMLElement>& fallbackScope)
     {
         return BookmarkIds(mainDocumentPart, fallbackScope).Next();
+    }
+
+    /// True when a bookmark of that name already starts in the main document (or, without one, in @p fallbackScope).
+    static bool HasBookmarkName(const std::shared_ptr<Packaging::MainDocumentPart>& mainDocumentPart,
+                                const std::shared_ptr<ExyokiOffice::OpenXMLElement>& fallbackScope,
+                                std::string_view name)
+    {
+        const std::shared_ptr<ExyokiOffice::OpenXMLElement> root =
+            mainDocumentPart ? mainDocumentPart->GetTypedRootElement() : fallbackScope;
+        if (!root)
+        {
+            return false;
+        }
+        for (const auto& start :
+             root->Descendants<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>())
+        {
+            if (start && start->GetName().ToString() == name)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Rewrites a run's combined text content in place, preserving the run's own formatting
@@ -812,6 +849,23 @@ public:
                 if (auto leaf = std::dynamic_pointer_cast<ExyokiOffice::OpenXmlLeafTextElement>(child))
                 {
                     text->SetText(leaf->GetText());
+                }
+                // The deleted text keeps its edges only through `xml:space`; a
+                // restored run without it loses the space before the next word.
+                auto space = std::dynamic_pointer_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TextType>(child);
+                if (space && space->GetSpace().IsDefined())
+                {
+                    text->SetSpace(space->GetSpace());
+                }
+                else
+                {
+                    const auto content = text->GetText();
+                    if (!content.empty() && (std::isspace(static_cast<unsigned char>(content.front())) != 0 ||
+                                             std::isspace(static_cast<unsigned char>(content.back())) != 0))
+                    {
+                        text->SetSpace(EnumValue<ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues>(
+                            ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues::Preserve));
+                    }
                 }
             }
             parent->RemoveChild(child);
@@ -3367,6 +3421,104 @@ public:
                 cell->RemoveChild(child);
             }
         }
+    }
+
+    /// True for a paragraph that holds nothing but its properties.
+    static bool IsBlankParagraph(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& element)
+    {
+        if (!element || element->QualifiedName() != ExyokiOffice::OpenXmlQualifiedName(kWordNamespace, "p"))
+        {
+            return false;
+        }
+        const ExyokiOffice::OpenXmlQualifiedName propertiesName(kWordNamespace, "pPr");
+        for (const auto& child : element->Children())
+        {
+            if (child && child->QualifiedName() != propertiesName)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// Moves the block content of @p source behind the content of @p target; blank paragraphs stay behind.
+    static void AppendTableCellContent(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& target,
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& source)
+    {
+        if (!target || !source || target->IsSameNode(*source))
+        {
+            return;
+        }
+        for (const auto& child : source->Children())
+        {
+            if (!child ||
+                ExyokiOffice::openxmlelement_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>(child) ||
+                IsBlankParagraph(child))
+            {
+                continue;
+            }
+            child->MoveInto(target);
+        }
+    }
+
+    /// Drops blank paragraphs from a cell as long as another block remains, so a merge does not leave empty lines.
+    static void TrimBlankTableCellParagraphs(
+        const std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>& cell)
+    {
+        if (!cell)
+        {
+            return;
+        }
+        std::vector<std::shared_ptr<ExyokiOffice::OpenXMLElement>> blocks;
+        for (const auto& child : cell->Children())
+        {
+            if (child && !ExyokiOffice::openxmlelement_cast<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCellProperties>(child))
+            {
+                blocks.push_back(child);
+            }
+        }
+        Size remaining = blocks.size();
+        for (const auto& block : blocks)
+        {
+            if (remaining <= 1)
+            {
+                break;
+            }
+            if (IsBlankParagraph(block))
+            {
+                cell->RemoveChild(block);
+                --remaining;
+            }
+        }
+    }
+
+    /// True when every merged cell the region touches lies entirely inside it.
+    static bool RegionIsMergeable(const std::vector<std::vector<TableGridCell>>& grid, Size row, Size column,
+                                  Size rowSpan, Size columnSpan)
+    {
+        if (rowSpan == 0 || columnSpan == 0)
+        {
+            return false;
+        }
+        for (Size rowIndex = row; rowIndex < row + rowSpan && rowIndex < grid.size(); ++rowIndex)
+        {
+            for (Size col = column; col < column + columnSpan && col < grid[rowIndex].size(); ++col)
+            {
+                const auto& slot = grid[rowIndex][col];
+                if (!slot.Cell)
+                {
+                    continue;
+                }
+                if (slot.OriginRow < row || slot.OriginColumn < column ||
+                    slot.OriginRow + slot.RowSpan > row + rowSpan ||
+                    slot.OriginColumn + slot.ColumnSpan > column + columnSpan)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     static std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Text> AppendTextRunToTableCellParagraph(
@@ -6572,6 +6724,60 @@ StyleManager WordDocumentEditor::Styles() const
     return StyleManager(m_document);
 }
 
+bool WordDocumentEditor::HasEvenAndOddHeaders() const
+{
+    auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
+    auto settingsPart = mainPart ? mainPart->GetDocumentSettingsPart() : nullptr;
+    auto settings = settingsPart ? settingsPart->GetTypedRootElement() : nullptr;
+    auto flag = settings ? settings->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EvenAndOddHeaders>()
+                         : nullptr;
+    return flag != nullptr && flag->GetVal().ValueOr(true);
+}
+
+bool WordDocumentEditor::SetEvenAndOddHeaders(bool enabled)
+{
+    auto mainPart = WordStructureHelper::GetMainDocumentPart(m_document);
+    if (!mainPart)
+    {
+        return false;
+    }
+
+    auto settingsPart = mainPart->GetDocumentSettingsPart();
+    if (!settingsPart && !enabled)
+    {
+        // Nothing to clear: an absent settings part already means "off".
+        return true;
+    }
+    if (!settingsPart)
+    {
+        settingsPart = mainPart->AddDocumentSettingsPart();
+    }
+    auto settings = settingsPart ? settingsPart->GetTypedRootElement() : nullptr;
+    if (!settings)
+    {
+        return false;
+    }
+
+    auto flag = settings->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EvenAndOddHeaders>();
+    if (enabled)
+    {
+        if (!flag)
+        {
+            flag = settings->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::EvenAndOddHeaders>();
+        }
+        if (!flag)
+        {
+            return false;
+        }
+        flag->SetVal(OnOffValue(true));
+    }
+    else if (flag)
+    {
+        settings->RemoveChild(flag);
+    }
+    return true;
+}
+
 NumberingManager WordDocumentEditor::Numbering() const
 {
     return NumberingManager(m_document);
@@ -7437,11 +7643,55 @@ std::shared_ptr<Paragraph> WordDocumentEditor::AddPageBreak()
     return paragraph;
 }
 
-/// File-local helper for the document comparison entry point.
-class WordDocumentCompareHelper
+/// The built-in paragraph styles a document is expected to have, and their Word-like defaults.
+class WordBuiltInStyleHelper
 {
 public:
-    // Word-like visual defaults for heading styles created by AddHeading(). Only
+    /// Heading level 1-9 of a `HeadingN` identifier, 0 for anything else.
+    static int HeadingLevel(std::string_view styleId) noexcept
+    {
+        constexpr std::string_view prefix = "Heading";
+        if (styleId.size() != prefix.size() + 1 || styleId.substr(0, prefix.size()) != prefix)
+        {
+            return 0;
+        }
+        const char digit = styleId.back();
+        return digit >= '1' && digit <= '9' ? digit - '0' : 0;
+    }
+
+    static bool IsBuiltIn(std::string_view styleId) noexcept
+    {
+        return styleId == "Normal" || HeadingLevel(styleId) > 0;
+    }
+
+    static StyleDefinition NormalDefinition()
+    {
+        StyleDefinition normal;
+        normal.StyleId = "Normal";
+        normal.Name = "Normal";
+        normal.Type = StyleType::Paragraph;
+        normal.IsDefault = true;
+        normal.IsCustom = false;
+        normal.IsPrimary = true;
+        return normal;
+    }
+
+    static StyleDefinition HeadingDefinition(int level)
+    {
+        StyleDefinition heading;
+        heading.StyleId = "Heading" + std::to_string(level);
+        heading.Name = "heading " + std::to_string(level);
+        heading.Type = StyleType::Paragraph;
+        heading.IsCustom = false;
+        heading.IsPrimary = true;
+        heading.IsUnhideWhenUsed = true;
+        heading.UiPriority = 9;
+        heading.BasedOnStyleId = "Normal";
+        heading.NextStyleId = "Normal";
+        return heading;
+    }
+
+    // Word-like visual defaults for heading styles created on demand. Only
     // applied when the style does not exist yet; documents that already define
     // HeadingN keep their own design.
     static void ApplyDefaultHeadingFormatting(
@@ -7510,36 +7760,7 @@ std::shared_ptr<Paragraph> WordDocumentEditor::AddHeading(std::string_view text,
 
     const int clampedLevel = std::clamp(level, 1, 9);
     const std::string styleId = "Heading" + std::to_string(clampedLevel);
-
-    auto styles = Styles();
-    if (!styles.HasStyle("Normal"))
-    {
-        StyleDefinition normal;
-        normal.StyleId = "Normal";
-        normal.Name = "Normal";
-        normal.Type = StyleType::Paragraph;
-        normal.IsDefault = true;
-        normal.IsCustom = false;
-        normal.IsPrimary = true;
-        styles.CreateStyle(normal);
-    }
-
-    if (!styles.HasStyle(styleId))
-    {
-        StyleDefinition heading;
-        heading.StyleId = styleId;
-        heading.Name = "heading " + std::to_string(clampedLevel);
-        heading.Type = StyleType::Paragraph;
-        heading.IsCustom = false;
-        heading.IsPrimary = true;
-        heading.UiPriority = 9;
-        heading.BasedOnStyleId = "Normal";
-        heading.NextStyleId = "Normal";
-        if (styles.CreateStyle(heading))
-        {
-            WordDocumentCompareHelper::ApplyDefaultHeadingFormatting(styles.GetLowLevelStyle(styleId), clampedLevel);
-        }
-    }
+    Styles().EnsureBuiltInStyle(styleId);
 
     auto paragraph = AddParagraph(text);
     if (!paragraph)
@@ -8279,6 +8500,37 @@ bool StyleManager::RemoveStyle(std::string_view styleId)
         return false;
     }
     return root->RemoveChild(style);
+}
+
+bool StyleManager::IsBuiltInStyleId(std::string_view styleId) noexcept
+{
+    return WordBuiltInStyleHelper::IsBuiltIn(styleId);
+}
+
+bool StyleManager::EnsureBuiltInStyle(std::string_view styleId)
+{
+    if (!m_document || !WordBuiltInStyleHelper::IsBuiltIn(styleId))
+    {
+        return false;
+    }
+
+    if (!HasStyle("Normal") && !CreateStyle(WordBuiltInStyleHelper::NormalDefinition()))
+    {
+        return false;
+    }
+
+    const int level = WordBuiltInStyleHelper::HeadingLevel(styleId);
+    if (level == 0 || HasStyle(styleId))
+    {
+        return true;
+    }
+
+    if (!CreateStyle(WordBuiltInStyleHelper::HeadingDefinition(level)))
+    {
+        return false;
+    }
+    WordBuiltInStyleHelper::ApplyDefaultHeadingFormatting(GetLowLevelStyle(styleId), level);
+    return true;
 }
 
 bool StyleManager::SetDefaultStyle(StyleType type, std::string_view styleId)
@@ -9474,7 +9726,30 @@ std::shared_ptr<Bookmark> Paragraph::AddBookmark(std::string_view name)
         return nullptr;
     }
 
-    auto start = m_paragraph->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>();
+    if (WordIdHelper::HasBookmarkName(m_mainDocumentPart, m_paragraph, name))
+    {
+        return nullptr;
+    }
+
+    // The start goes in front of the first run and the end behind the last
+    // one, so the bookmark encloses the paragraph text instead of marking an
+    // empty point after it. Only the paragraph properties may precede the start.
+    // `w:pPr` is matched by name: the DOM materializes the element under more
+    // than one class, so a typed cast would not recognize every paragraph.
+    const ExyokiOffice::OpenXmlQualifiedName propertiesName(kWordNamespace, "pPr");
+    std::shared_ptr<ExyokiOffice::OpenXMLElement> firstContent;
+    for (const auto& child : m_paragraph->Children())
+    {
+        if (child && child->QualifiedName() != propertiesName)
+        {
+            firstContent = child;
+            break;
+        }
+    }
+
+    // Exact placement: a paragraph whose properties were written after its
+    // runs would otherwise have the start "corrected" behind them.
+    auto start = m_paragraph->InsertChildRaw<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BookmarkStart>(firstContent);
     if (!start)
     {
         return nullptr;
@@ -13814,6 +14089,40 @@ Table& Table::SetAlignment(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing
     return *this;
 }
 
+Table& Table::SetStyleId(std::string_view styleId)
+{
+    auto props = WordPropertiesElementHelper::EnsureTableProperties(m_table);
+    if (!props)
+    {
+        return *this;
+    }
+
+    auto existing = props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableStyle>();
+    if (styleId.empty())
+    {
+        if (existing)
+        {
+            props->RemoveChild(existing);
+        }
+        return *this;
+    }
+
+    auto style = existing ? existing
+                          : props->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableStyle>();
+    if (style)
+    {
+        style->SetVal(StringValue(std::string(styleId)));
+    }
+    return *this;
+}
+
+std::string Table::GetStyleId() const
+{
+    auto props = m_table ? m_table->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableProperties>() : nullptr;
+    auto style = props ? props->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableStyle>() : nullptr;
+    return style ? style->GetVal().ToString() : std::string();
+}
+
 Table& Table::SetBorders(ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::BorderValues style,
                          UInt32 size,
                          const ExyokiOffice::Color& color)
@@ -14322,7 +14631,14 @@ Table& Table::MergeCells(Size row, Size column, Size rowSpan, Size columnSpan)
         return *this;
     }
 
-    SplitAllCells();
+    // Merges elsewhere in the table are none of this merge's business, so the
+    // table is not normalized first; the region is checked against the logical
+    // grid instead and refused when it would cut a merged cell in two.
+    if (!CanMergeCells(row, column, rowSpan, columnSpan))
+    {
+        return *this;
+    }
+
     for (Size rowIndex = row; rowIndex < row + rowSpan; ++rowIndex)
     {
         for (Size col = 0; col < column + columnSpan; ++col)
@@ -14332,36 +14648,92 @@ Table& Table::MergeCells(Size row, Size column, Size rowSpan, Size columnSpan)
     }
     WordTableHelper::EnsureTableGridColumnCount(m_table, std::max(GetLogicalColumnCount(), column + columnSpan));
 
+    const auto grid = GetLogicalGrid();
+    if (row >= grid.size() || column >= grid[row].size() || !grid[row][column].Cell)
+    {
+        return *this;
+    }
+    auto anchor = grid[row][column].Cell;
+
+    // Word carries the content of the covered cells into the merged cell, in
+    // reading order; each covered origin contributes once.
+    std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>> covered;
+    for (Size rowIndex = row; rowIndex < row + rowSpan && rowIndex < grid.size(); ++rowIndex)
+    {
+        for (Size col = column; col < column + columnSpan && col < grid[rowIndex].size(); ++col)
+        {
+            const auto& slot = grid[rowIndex][col];
+            if (slot.IsOrigin && slot.Cell && slot.Cell != anchor &&
+                std::find(covered.begin(), covered.end(), slot.Cell) == covered.end())
+            {
+                covered.push_back(slot.Cell);
+            }
+        }
+    }
+    for (const auto& source : covered)
+    {
+        WordTableHelper::AppendTableCellContent(anchor, source);
+    }
+    WordTableHelper::TrimBlankTableCellParagraphs(anchor);
+
     const auto rows = m_table->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableRow>();
     const auto endRow = std::min(row + rowSpan, rows.size());
     for (Size rowIndex = row; rowIndex < endRow; ++rowIndex)
     {
         auto rowElement = rows[rowIndex];
-        auto cells = rowElement ? rowElement->Elements<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>() : std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>>{};
-        if (column >= cells.size())
+        std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell> keeper;
+        std::vector<std::shared_ptr<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TableCell>> absorbed;
+        for (const auto& physical : WordTableHelper::PhysicalCellsForRow(rowElement))
+        {
+            if (physical.StartColumn < column || physical.StartColumn >= column + columnSpan)
+            {
+                continue;
+            }
+            if (!keeper)
+            {
+                keeper = physical.Cell;
+            }
+            else
+            {
+                absorbed.push_back(physical.Cell);
+            }
+        }
+        if (!keeper)
         {
             continue;
         }
 
-        auto origin = cells[column];
-        WordTableHelper::SetTableCellGridSpan(origin, columnSpan);
+        WordTableHelper::SetTableCellGridSpan(keeper, columnSpan);
         WordTableHelper::SetTableCellVerticalMerge(
-            origin,
+            keeper,
             rowSpan > 1
                 ? std::optional<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MergedCellValues>(
                       rowIndex == row
                           ? ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MergedCellValues::Restart
                           : ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::MergedCellValues::Continue)
                 : std::nullopt);
-
-        const auto removeEnd = std::min(column + columnSpan, cells.size());
-        for (Size physical = removeEnd; physical-- > column + 1;)
+        if (!keeper->IsSameNode(*anchor))
         {
-            rowElement->RemoveChild(cells[physical]);
+            // A vertically merged continuation cell is written empty, as Word does.
+            WordTableHelper::RemoveTableCellBlockContent(keeper);
+            keeper->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::Paragraph>();
+        }
+        for (const auto& cell : absorbed)
+        {
+            rowElement->RemoveChild(cell);
         }
     }
 
     return *this;
+}
+
+bool Table::CanMergeCells(Size row, Size column, Size rowSpan, Size columnSpan) const
+{
+    if (!m_table || rowSpan == 0 || columnSpan == 0)
+    {
+        return false;
+    }
+    return WordTableHelper::RegionIsMergeable(GetLogicalGrid(), row, column, rowSpan, columnSpan);
 }
 
 Table& Table::SplitCell(Size row, Size column)
@@ -14864,6 +15236,40 @@ Section& Section::SetColumns(const SectionColumns& columns)
             std::min<UInt16>(clampedCount, static_cast<UInt16>(std::numeric_limits<Int16>::max())))));
         element->SetSpace(StringValue(std::to_string(WordValueHelper::ToTwipsUInt32(columns.Spacing))));
         element->SetSeparator(OnOffValue(columns.Separator));
+    }
+    return *this;
+}
+
+bool Section::HasTitlePage() const
+{
+    auto flag = m_sectionProperties
+                    ? m_sectionProperties->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TitlePage>()
+                    : nullptr;
+    return flag != nullptr && flag->GetVal().ValueOr(true);
+}
+
+Section& Section::SetTitlePage(bool enabled)
+{
+    if (!m_sectionProperties)
+    {
+        return *this;
+    }
+
+    auto flag = m_sectionProperties->GetFirstChildOfType<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TitlePage>();
+    if (enabled)
+    {
+        if (!flag)
+        {
+            flag = m_sectionProperties->AppendChild<ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing::TitlePage>();
+        }
+        if (flag)
+        {
+            flag->SetVal(OnOffValue(true));
+        }
+    }
+    else if (flag)
+    {
+        m_sectionProperties->RemoveChild(flag);
     }
     return *this;
 }

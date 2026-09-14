@@ -6,6 +6,7 @@
 
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Office2010/Excel.hpp"
 #include "ExyokiOffice/Excel/ExcelAddress.hpp"
+#include "ExyokiOffice/Excel/ExcelDrawingAnchor.hpp"
 #include "ExyokiOffice/Export.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
@@ -143,6 +144,17 @@ struct EXYOKIOFFICE_EXPORT ExcelSlicerDefinition
 
     /** @brief Bottom-right anchor cell of the visible shape. */
     CellAddress To;
+
+    /** @brief Offset of the top-left corner inside @ref From; zero means the cell's edge. */
+    DrawingAnchorOffset FromOffset;
+
+    /**
+     * @brief Offset of the bottom-right corner inside @ref To.
+     *
+     * Zero ends the shape on the top-left edge of @ref To;
+     * @ref Worksheet::DrawingAnchorForSize computes the offsets for a size.
+     */
+    DrawingAnchorOffset ToOffset;
 
     /**
      * @brief Drawing object identifier of the visible shape.
@@ -344,8 +356,14 @@ public:
     /** @brief Returns the two-cell anchor of the visible shape, when one exists. */
     std::optional<std::pair<CellAddress, CellAddress>> Anchor() const;
 
+    /** @brief Returns the anchor of the visible shape with its in-cell offsets, when one exists. */
+    std::optional<DrawingAnchor> DrawingAnchorWithOffsets() const;
+
     /**
      * @brief Moves or resizes the visible shape.
+     *
+     * The corners land on the cells' top-left edges; use the overload taking a
+     * @ref DrawingAnchor to place them inside the cells.
      *
      * @param from Top-left anchor cell.
      * @param to Bottom-right anchor cell.
@@ -353,6 +371,9 @@ public:
      * rectangle, or when the slicer was created without a shape.
      */
     SlicerResult SetAnchor(CellAddress from, CellAddress to);
+
+    /** @brief Moves or resizes the visible shape, offsets included. */
+    SlicerResult SetAnchor(const DrawingAnchor& anchor);
 
     /** @brief Returns the number of button columns. */
     UInt32 ColumnCount() const;

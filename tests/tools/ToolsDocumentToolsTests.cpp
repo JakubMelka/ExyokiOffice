@@ -212,7 +212,7 @@ TEST_SUITE("DocumentToolsTests")
         Remove(outputPath);
     }
 
-    TEST_CASE("Excel merge rejects incompatible style catalogs without writing output [unit] [tools] [document-tools]")
+    TEST_CASE("X-4: Excel merge remaps the styles of a workbook with a different style catalog [unit] [tools] [document-tools]")
     {
         const auto leftPath = Temp("exyokioffice_document_tools_style_left.xlsx");
         const auto rightPath = Temp("exyokioffice_document_tools_style_right.xlsx");
@@ -229,13 +229,22 @@ TEST_SUITE("DocumentToolsTests")
         const auto registered = right->Styles().GetOrAdd(style);
         REQUIRE(registered);
         REQUIRE(right->Styles().ApplyToCell(*right->FirstWorksheet(), Address("A1"), registered.StyleIndex));
+        REQUIRE(right->FirstWorksheet()->SetCellText(Address("A1"), "bold"));
         REQUIRE(left->SaveToFile(leftPath));
         REQUIRE(right->SaveToFile(rightPath));
+        // The first workbook has no bold style at all, so the imported sheet's
+        // style index has to be translated rather than carried over.
         const auto merged = MergeDocuments({leftPath, rightPath}, outputPath);
-        CHECK_FALSE(merged.Ok);
-        CHECK_FALSE(std::filesystem::exists(outputPath));
-        REQUIRE_FALSE(merged.Diagnostics.empty());
-        CHECK(merged.Diagnostics.back().Message.find("style") != std::string::npos);
+        CHECK(merged.Ok);
+        auto reopened = ExcelDocumentEditor::Open(outputPath);
+        REQUIRE(reopened);
+        REQUIRE(reopened->Worksheets().size() == 2);
+        const auto imported = reopened->Worksheets()[1];
+        const auto cellStyle = reopened->Styles().GetCellStyle(*imported, Address("A1"));
+        REQUIRE(cellStyle);
+        REQUIRE(cellStyle->Font);
+        CHECK(cellStyle->Font->Bold);
+        CHECK(CellText(reopened, imported, Address("A1")) == "bold");
         Remove(leftPath);
         Remove(rightPath);
         Remove(outputPath);

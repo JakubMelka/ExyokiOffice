@@ -40,12 +40,12 @@ failed. See
 All factories return `nullptr` when the source cannot be read or parsed —
 always check the result.
 
-One thing distinguishes PowerPoint from the other two formats:
-**`CreateNew()` gives you an empty presentation, not a design.**
 PresentationML requires every slide to reference a layout, every layout to
-belong to a master, and every master to have a theme; PowerPoint reports a
-deck whose slides have no layout as damaged. Create the design before (or
-right after) the first slide — see
+belong to a master, and every master to have a theme; PowerPoint refuses a
+deck without a master or with a slide that has no layout. `CreateNew()`
+therefore starts every presentation with the Office-style default design (a
+master, a "Title and Content" layout, a theme), and `AddSlide()` puts a new
+slide on the first layout until another one is assigned — see
 [Masters, layouts, and placeholders](masters.md).
 
 ## Slide size

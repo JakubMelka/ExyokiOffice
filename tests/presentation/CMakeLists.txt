@@ -31,7 +31,8 @@ exyokioffice_add_test_executable(ExyokiOfficePresentationTests
         PowerPointAnimationTests.cpp
         PowerPointAnimationEffectTests.cpp
         PowerPointNotesCommentsTests.cpp
-        PowerPointProtectionTests.cpp)
+        PowerPointProtectionTests.cpp
+        PowerPointOfficeFidelityTests.cpp)
 
 # Areas follow the rows of the PowerPoint table in docs/Compatibility.md. Their
 # tags must stay disjoint: a case matched by two areas would run twice.

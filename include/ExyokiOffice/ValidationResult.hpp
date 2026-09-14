@@ -147,7 +147,37 @@ enum class ValidationErrorId
      * read" is exactly the difference a redactor or an inspector reports on, and
      * it has to be visible rather than inferred from a part that is not there.
      */
-    OpcEntryUnreadable
+    OpcEntryUnreadable,
+    /**
+     * An attribute in the relationships namespace (`r:id`, `r:embed`, `r:link`,
+     * ...) names a relationship the owning part does not have. Every such
+     * attribute is checked, not only the elements the generated schematron
+     * rules list; Office refuses a part with a reference it cannot resolve.
+     */
+    PackageDanglingRelationshipReference,
+    /** Two table parts of one worksheet cover overlapping cells; Excel refuses the workbook. */
+    PackageTableRangeOverlap,
+    /**
+     * A threaded comment names a `personId` that no person list related from
+     * the workbook defines, or the workbook has no person list at all; Excel
+     * refuses the workbook.
+     */
+    PackageThreadedCommentPersonUndefined,
+    /** The presentation lists no slide master, or relates none; PowerPoint refuses the deck. */
+    PackagePresentationMissingSlideMaster,
+    /** A slide has no slide layout relationship; PowerPoint refuses the deck. */
+    PackageSlideMissingSlideLayout,
+    /** A slide layout has no slide master relationship; PowerPoint refuses the deck. */
+    PackageSlideLayoutMissingSlideMaster,
+    /** A slide master has no theme relationship; PowerPoint refuses the deck. */
+    PackageSlideMasterMissingTheme,
+    /**
+     * A `w:pStyle`, `w:rStyle` or `w:tblStyle` names a style the styles part
+     * does not define. Reported as a warning: Word opens the file but shows
+     * the content in the Normal style, so headings, navigation and tables of
+     * contents silently disappear.
+     */
+    PackageStyleReferenceUndefined
 };
 
 /**

@@ -39,6 +39,89 @@ namespace ExyokiOffice::Mcp
 class SharedToolsetHelper
 {
 public:
+    /**
+     * @brief Explains why the adapter could not open @p resolved.
+     *
+     * The adapter's editor refuses a package of another family exactly as it
+     * refuses a file that is no package at all, so the two are told apart
+     * here: the file is loaded once more as a plain package and its family
+     * read off the root relationship. A workbook handed to the Word server is
+     * then `family_mismatch`, the code the documentation promises and the
+     * one `create_document` and `save_document` already answer, and only a
+     * file no family claims stays `package_load_failed`.
+     */
+    [[nodiscard]] static ToolOutcome DescribeOpenFailure(const ToolContext& context,
+                                                         const std::filesystem::path& resolved,
+                                                         const std::string& path)
+    {
+        OpenXmlPackage probe;
+        probe.SetPackageLimits(context.Adapter().PackageLimits());
+        if (probe.LoadFromFile(resolved))
+        {
+            const auto info = Tools::GetInfo(probe);
+            if (info.Family != Tools::DocumentFamily::Unknown && info.Family != context.Adapter().Family())
+            {
+                return MakeError(ErrorCode::FamilyMismatch,
+                                 "This server handles " + context.Adapter().FamilyName() +
+                                     " documents, but the file is " + std::string(Tools::ToString(info.Family)) +
+                                     ".",
+                                 path, "Use the MCP server matching the document family.");
+            }
+        }
+
+        return MakeError(ErrorCode::PackageLoadFailed,
+                         "The file could not be opened as a " + context.Adapter().FamilyName() + " document.", path,
+                         "Verify the file is a valid " + context.Adapter().FileExtension() + " package.");
+    }
+
+    /**
+     * @brief The error code a failed library operation's diagnostics describe.
+     *
+     * The `ExyokiOffice::Tools` results carry one `Ok` flag and a list of
+     * diagnostics; the messages are the only place the cause survives. A
+     * caller that mapped every failure to @p fallback told an agent that a
+     * mistyped regular expression, an XPath the engine refused, or an output
+     * file that was already there were all "operation failed", when the
+     * closed list has a code for each and the agent branches on it.
+     */
+    [[nodiscard]] static ErrorCode CodeForDiagnostics(const std::vector<Tools::ToolDiagnostic>& diagnostics,
+                                                      ErrorCode fallback)
+    {
+        static constexpr std::string_view inputInvalid[] = {"Invalid regular expression", "invalid XPath expression",
+                                                            "Part not found in package", "Part is not an XML part",
+                                                            "Search text must not be empty"};
+
+        for (const auto& diagnostic : diagnostics)
+        {
+            if (diagnostic.Severity != Tools::ToolSeverity::Error)
+            {
+                continue;
+            }
+
+            if (diagnostic.Message.starts_with("Output file already exists"))
+            {
+                return ErrorCode::FileExists;
+            }
+
+            for (const auto prefix : inputInvalid)
+            {
+                if (diagnostic.Message.starts_with(prefix))
+                {
+                    return ErrorCode::InputInvalid;
+                }
+            }
+        }
+
+        return fallback;
+    }
+
+    /// True when @p diagnostics record at least one error.
+    [[nodiscard]] static bool HasErrors(const std::vector<Tools::ToolDiagnostic>& diagnostics)
+    {
+        return std::any_of(diagnostics.begin(), diagnostics.end(), [](const Tools::ToolDiagnostic& diagnostic)
+                           { return diagnostic.Severity == Tools::ToolSeverity::Error; });
+    }
+
     /// The scheme colour slots, in the fixed order DrawingML stores them.
     static const std::vector<std::pair<const char*, ThemeColorSlot>>& ThemeColorSlots()
     {
@@ -208,7 +291,8 @@ public:
      * afford to read whole: a Word block range, one worksheet, or one slide.
      * The `offset`/`limit` pair then pages through whatever the scope left.
      */
-    static void ApplyScope(Tools::DocumentModel& model, const nlohmann::json& arguments, Size& total, bool& truncated)
+    static bool ApplyScope(Tools::DocumentModel& model, const nlohmann::json& arguments, Size& total,
+                           bool& truncated, ToolOutcome& failure)
     {
         const auto scope = arguments.find("scope");
         const nlohmann::json scopeObject =
@@ -216,6 +300,38 @@ public:
 
         const Size offset = arguments.value("offset", static_cast<Size>(0));
         const Size limit = arguments.value("limit", static_cast<Size>(0));
+
+        // A scope that names something the document does not have is an
+        // error, as it is for every tool that addresses a sheet or a slide
+        // directly: an empty model would read as "nothing there" and an agent
+        // that mistyped a sheet name would take it at its word.
+        if (model.Excel.has_value())
+        {
+            const auto sheetName = scopeObject.value("sheet", std::string());
+            const bool known = sheetName.empty() ||
+                               std::any_of(model.Excel->Sheets.begin(), model.Excel->Sheets.end(),
+                                           [&sheetName](const Tools::ExcelSheetModel& sheet)
+                                           { return AsciiText::EqualsIgnoreCase(sheet.Name, sheetName); });
+            if (!known)
+            {
+                failure = MakeError(ErrorCode::SheetNotFound, "No worksheet is named '" + sheetName + "'.", sheetName,
+                                    "Call list_sheets for the names this workbook has.");
+                return false;
+            }
+        }
+
+        if (model.PowerPoint.has_value())
+        {
+            const Size slide = scopeObject.value("slide", static_cast<Size>(0));
+            if (slide > model.PowerPoint->Slides.size())
+            {
+                failure = MakeError(ErrorCode::SlideNotFound,
+                                    "The presentation has " + std::to_string(model.PowerPoint->Slides.size()) +
+                                        " slide(s); there is no slide " + std::to_string(slide) + ".",
+                                    std::to_string(slide), "Call list_slides for the slides this deck has.");
+                return false;
+            }
+        }
 
         if (model.Word.has_value())
         {
@@ -242,7 +358,7 @@ public:
 
             total = blocks.size();
             truncated = PageItems(blocks, offset, limit);
-            return;
+            return true;
         }
 
         if (model.Excel.has_value())
@@ -259,7 +375,7 @@ public:
 
             total = sheets.size();
             truncated = PageItems(sheets, offset, limit);
-            return;
+            return true;
         }
 
         if (model.PowerPoint.has_value())
@@ -283,6 +399,8 @@ public:
             total = slides.size();
             truncated = PageItems(slides, offset, limit);
         }
+
+        return true;
     }
 
     template <typename Item>
@@ -492,8 +610,7 @@ DocumentAccess::DocumentAccess(ToolContext& context, const nlohmann::json& argum
     m_transient = context.Adapter().Open(*resolved);
     if (m_transient == nullptr)
     {
-        m_failure = MakeError(ErrorCode::PackageLoadFailed, "The file could not be opened as a " + context.Adapter().FamilyName() + " document.",
-                              path, "Verify the file is a valid " + context.Adapter().FileExtension() + " package.");
+        m_failure = SharedToolsetHelper::DescribeOpenFailure(context, *resolved, path);
         return;
     }
 
@@ -1166,8 +1283,7 @@ private:
         auto document = context.Adapter().Open(*resolved);
         if (document == nullptr)
         {
-            return MakeError(ErrorCode::PackageLoadFailed, "The file could not be opened as an OPC package.", path,
-                             "Verify the file is a valid " + context.Adapter().FileExtension() + " document.");
+            return SharedToolsetHelper::DescribeOpenFailure(context, *resolved, path);
         }
 
         auto package = document->Package();
@@ -1627,7 +1743,11 @@ private:
 
         Size total = 0;
         bool paged = false;
-        SharedToolsetHelper::ApplyScope(model, arguments, total, paged);
+        ToolOutcome scopeFailure;
+        if (!SharedToolsetHelper::ApplyScope(model, arguments, total, paged, scopeFailure))
+        {
+            return scopeFailure;
+        }
 
         auto serialized = Tools::SerializeModelJson(model, false);
         auto document = nlohmann::json::parse(serialized, nullptr, false);
@@ -1709,7 +1829,11 @@ private:
 
         Size total = 0;
         bool paged = false;
-        SharedToolsetHelper::ApplyScope(model, arguments, total, paged);
+        ToolOutcome scopeFailure;
+        if (!SharedToolsetHelper::ApplyScope(model, arguments, total, paged, scopeFailure))
+        {
+            return scopeFailure;
+        }
 
         auto markdown = Tools::SerializeModelMarkdown(model, diagnostics);
         const bool truncated = TruncateTextToBudget(markdown);
@@ -1839,9 +1963,10 @@ private:
                                                          arguments.value("ignore_case", false));
         if (!result.Ok)
         {
-            return MakeErrorFromDiagnostics(ErrorCode::OperationFailed, "The search could not run.",
-                                            result.Diagnostics,
-                                            "Check that 'needle' is not empty and that a regex is well formed.");
+            return MakeErrorFromDiagnostics(
+                SharedToolsetHelper::CodeForDiagnostics(result.Diagnostics, ErrorCode::OperationFailed),
+                "The search could not run.", result.Diagnostics,
+                "Check that 'needle' is not empty and that a regex is well formed.");
         }
 
         const Size maximum = arguments.value("max_matches", static_cast<Size>(200));
@@ -2029,9 +2154,11 @@ private:
         const auto result = Tools::Query(*package, arguments.value("xpath", std::string()), options);
         if (!result.Ok)
         {
-            return MakeErrorFromDiagnostics(ErrorCode::OperationFailed, "The XPath query could not run.",
-                                            result.Diagnostics,
-                                            "Check the expression and that every prefix is bound.");
+            return MakeErrorFromDiagnostics(
+                SharedToolsetHelper::CodeForDiagnostics(result.Diagnostics, ErrorCode::OperationFailed),
+                "The XPath query could not run.", result.Diagnostics,
+                "Check the expression, that every prefix is bound, and that 'part' names an XML part of the "
+                "package.");
         }
 
         nlohmann::json matches = nlohmann::json::array();
@@ -2445,9 +2572,10 @@ private:
             arguments.value("ignore_case", false));
         if (!result.Ok)
         {
-            return MakeErrorFromDiagnostics(ErrorCode::OperationFailed, "The replacement could not run.",
-                                            result.Diagnostics,
-                                            "Check that 'needle' is not empty and that a regex is well formed.");
+            return MakeErrorFromDiagnostics(
+                SharedToolsetHelper::CodeForDiagnostics(result.Diagnostics, ErrorCode::OperationFailed),
+                "The replacement could not run.", result.Diagnostics,
+                "Check that 'needle' is not empty and that a regex is well formed.");
         }
 
         if (guard.has_value())
@@ -2683,17 +2811,65 @@ private:
             return MakeError(ErrorCode::InternalError, "The document has no package.", session->Id());
         }
 
+        // Every member is checked before the first one is written, so a bad
+        // value is refused as such instead of being dropped from an otherwise
+        // successful call, or blamed on a properties part that is not there.
+        static constexpr std::string_view coreNames[] = {"title", "creator", "subject", "keywords",
+                                                         "description", "category", "company"};
+        Size requested = 0;
+        for (const auto name : coreNames)
+        {
+            const auto member = arguments.find(std::string(name));
+            if (member == arguments.end())
+            {
+                continue;
+            }
+
+            if (!member->is_string())
+            {
+                return MakeError(ErrorCode::InputInvalid, "'" + std::string(name) + "' must be a string.",
+                                 std::string(name));
+            }
+
+            ++requested;
+        }
+
+        const auto custom = arguments.find("custom");
+        if (custom != arguments.end())
+        {
+            if (!custom->is_object())
+            {
+                return MakeError(ErrorCode::InputInvalid, "'custom' must be an object of name-value pairs.", "custom");
+            }
+
+            for (const auto& [key, value] : custom->items())
+            {
+                if (!value.is_string() && !value.is_boolean() && !value.is_number())
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "Custom property '" + key + "' must be a string, a number or a boolean.",
+                                     "custom." + key, "Nested objects, arrays and null cannot be stored.");
+                }
+
+                ++requested;
+            }
+        }
+
+        if (requested == 0)
+        {
+            return MakeError(ErrorCode::InputInvalid, "Nothing to write.", session->Id(),
+                             "Pass at least one core property or a 'custom' member.");
+        }
+
         MutationGuard guard(*session);
         Packaging::DocumentProperties documentProperties(*package);
 
         nlohmann::json written = nlohmann::json::array();
-        static constexpr std::string_view coreNames[] = {"title", "creator", "subject", "keywords",
-                                                         "description", "category", "company"};
         for (const auto name : coreNames)
         {
             const std::string key(name);
             const auto member = arguments.find(key);
-            if (member == arguments.end() || !member->is_string())
+            if (member == arguments.end())
             {
                 continue;
             }
@@ -2704,8 +2880,7 @@ private:
             }
         }
 
-        const auto custom = arguments.find("custom");
-        if (custom != arguments.end() && custom->is_object())
+        if (custom != arguments.end())
         {
             for (const auto& [key, value] : custom->items())
             {
@@ -3136,14 +3311,18 @@ private:
         nlohmann::json partChange =
             Schema::Object("One changed part.", {"uri", "kind"},
                            nlohmann::json{{"uri", Schema::String("Part URI.")},
-                                          {"kind", Schema::String("added, removed, changed, or contentType.")},
+                                          {"kind", Schema::Enumeration(
+                                                       "What changed: the part was added or removed, its XML or "
+                                                       "its binary payload differs, or its content type changed.",
+                                                       {"added", "removed", "changedXml", "changedBinary",
+                                                        "contentTypeChanged"})},
                                           {"firstDifference", Schema::String("Approximate path of the first XML "
                                                                              "difference.")}});
         nlohmann::json relationshipChange =
             Schema::Object("One changed relationship.", {"sourceUri", "relationshipId", "kind"},
                            nlohmann::json{{"sourceUri", Schema::String("Container URI.")},
                                           {"relationshipId", Schema::String("Relationship identifier.")},
-                                          {"kind", Schema::String("added, removed, or changed.")}});
+                                          {"kind", Schema::Enumeration("What changed.", {"added", "removed", "changed"})}});
 
         ToolDefinition definition;
         definition.Name = "diff_documents";
@@ -3494,9 +3673,10 @@ private:
         const auto prefix = arguments.value("prefix", std::string("part"));
         if (!Workspace::IsAcceptableName(prefix))
         {
-            return MakeError(ErrorCode::InputInvalid,
+            return MakeError(ErrorCode::PathInvalid,
                              "The prefix names the output files and must be a plain file-name fragment.", prefix,
-                             "Pass a name without a path separator or '..'; output_dir chooses the directory.");
+                             "Pass a name without a path separator, '..' or a reserved device name; output_dir "
+                             "chooses the directory.");
         }
 
         Tools::DocumentSplitOptions options;
@@ -3509,8 +3689,15 @@ private:
         const auto result = Tools::SplitDocument(*input, *outputDirectory, options);
         if (!result.Ok)
         {
-            return MakeErrorFromDiagnostics(ErrorCode::OperationFailed, "The document could not be split.",
-                                            result.Diagnostics,
+            const auto code = SharedToolsetHelper::CodeForDiagnostics(result.Diagnostics, ErrorCode::OperationFailed);
+            if (code == ErrorCode::FileExists)
+            {
+                return MakeErrorFromDiagnostics(code, "An output file already exists.", result.Diagnostics,
+                                                "Pass overwrite: true deliberately, or choose another prefix or "
+                                                "output_dir.");
+            }
+
+            return MakeErrorFromDiagnostics(code, "The document could not be split.", result.Diagnostics,
                                             "Check that 'by' matches the family and that 'count' or 'marker' is set "
                                             "where the strategy needs it.");
         }
@@ -3737,6 +3924,22 @@ private:
             return MakeErrorFromDiagnostics(ErrorCode::OperationFailed, "The media could not be exported.",
                                             result.Diagnostics,
                                             "Pass overwrite: true when the destination already holds files.");
+        }
+
+        // The exporter finishes the run and records each file it could not
+        // write as an error diagnostic, so a destination that already holds
+        // the files answered "exported 0 media file(s)" with `ok`. Every other
+        // tool that would overwrite refuses with file_exists, and so does this
+        // one now; the files it did write before the first refusal stay.
+        if (SharedToolsetHelper::HasErrors(result.Diagnostics))
+        {
+            const auto code = SharedToolsetHelper::CodeForDiagnostics(result.Diagnostics, ErrorCode::OperationFailed);
+            return MakeErrorFromDiagnostics(code,
+                                            code == ErrorCode::FileExists
+                                                ? "The output directory already holds media files with these names."
+                                                : "Some media files could not be written.",
+                                            result.Diagnostics,
+                                            "Pass overwrite: true to replace them, or export into an empty directory.");
         }
 
         nlohmann::json files = nlohmann::json::array();

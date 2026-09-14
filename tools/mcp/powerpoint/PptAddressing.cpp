@@ -621,7 +621,9 @@ nlohmann::json PptAddressing::ShapeToJson(const PowerPoint::PresentationShape& s
     entry["id"] = shape.Id();
     entry["isGroup"] = shape.IsGroup();
 
-    const auto transform = shape.GetTransform();
+    // The transform PowerPoint draws with: a placeholder without its own
+    // a:xfrm reports the layout or master geometry it inherits, not zeros.
+    const auto transform = shape.GetEffectiveTransform();
     if (transform.has_value())
     {
         entry["transform"] = TransformToJson(*transform);

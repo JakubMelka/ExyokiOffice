@@ -1045,10 +1045,14 @@ private:
         properties["anchor"] = WordAddressing::AnchorSchema();
         properties["text"] = WordAddressing::TextSchema();
         properties["inlines"] = Schema::Array("Formatted inline content.", WordAddressing::InlineSchema());
-        properties["style_id"] = Schema::String("Paragraph style identifier, for example \"Heading1\".");
+        properties["style_id"] = Schema::String(
+            "Paragraph style identifier, for example \"Heading1\"; Normal and Heading1 to Heading9 are created on "
+            "demand, any other identifier must exist (style_not_found).");
         properties["alignment"] = Schema::Enumeration("Paragraph alignment.", WordAddressing::AlignmentTokens());
-        properties["heading_level"] =
-            Schema::Integer("Applies the built-in HeadingN style; overrides style_id.", 1, 9);
+        properties["heading_level"] = Schema::Integer(
+            "Applies the built-in HeadingN style, defining it (and Normal) when the document lacks it; "
+            "overrides style_id.",
+            1, 9);
         properties["list"] = Schema::Object("Attaches the paragraph to a numbering instance.", {"numberingId"},
                                             nlohmann::json{{"numberingId", Schema::Integer("Numbering identifier "
                                                                                            "from insert_list; it "
@@ -1144,7 +1148,11 @@ private:
                                               : arguments.value("style_id", std::string());
         if (!styleId.empty())
         {
-            if (headingLevel == 0 && !editor.Styles().HasStyle(styleId))
+            // A document created here has no styles part, so a heading would be
+            // a style reference Word resolves to body text; the built-in
+            // definition is created on first use, as Word itself would have it.
+            auto styles = editor.Styles();
+            if (!styles.HasStyle(styleId) && !styles.EnsureBuiltInStyle(styleId))
             {
                 failure = MakeError(ErrorCode::StyleNotFound, "The document defines no style '" + styleId + "'.",
                                     styleId, "Call list_styles to see the available style identifiers.");
@@ -1344,12 +1352,16 @@ private:
         properties["block"] = Schema::Integer("1-based index of the paragraph to rewrite.", 1);
         properties["text"] = WordAddressing::TextSchema();
         properties["inlines"] = Schema::Array("Formatted inline content.", WordAddressing::InlineSchema());
-        properties["style_id"] = Schema::String("Paragraph style identifier.");
+        properties["style_id"] = Schema::String(
+            "Paragraph style identifier; Normal and Heading1 to Heading9 are created on demand.");
+        properties["heading_level"] =
+            Schema::Integer("Applies the built-in HeadingN style; overrides style_id.", 1, 9);
         properties["alignment"] = Schema::Enumeration("Paragraph alignment.", WordAddressing::AlignmentTokens());
 
         auto definition = MakeDefinition("edit_paragraph", "Edit paragraph",
                                          "Replace the content and formatting of one paragraph. Omit 'text' and "
-                                         "'inlines' to change only the style or alignment.",
+                                         "'inlines' to change only the style, heading level, or alignment; "
+                                         "bookmark and comment markers in the paragraph are kept.",
                                          "content");
         definition.InputSchema =
             Schema::Object("Arguments of edit_paragraph.", {"documentId", "block"}, std::move(properties));
@@ -1523,7 +1535,13 @@ private:
         }
 
         const auto styleId = arguments.value("style_id", std::string());
-        const auto definition = session.Editor().Styles().GetStyle(styleId);
+        auto styles = session.Editor().Styles();
+        auto definition = styles.GetStyle(styleId);
+        if (!definition.has_value() && styles.EnsureBuiltInStyle(styleId))
+        {
+            // Normal and HeadingN are created on demand, as insert_paragraph does.
+            definition = styles.GetStyle(styleId);
+        }
         if (!definition.has_value())
         {
             return MakeError(ErrorCode::StyleNotFound, "The document defines no style '" + styleId + "'.", styleId,
@@ -1723,9 +1741,10 @@ private:
             Schema::Integer("1-based last paragraph of a range bookmark; defaults to 'block'.", 1);
 
         auto definition = MakeDefinition("add_bookmark", "Add bookmark",
-                                         "Add a bookmark to a paragraph, or to the range from 'block' to "
+                                         "Add a bookmark enclosing a paragraph, or the range from 'block' to "
                                          "'end_block', so internal hyperlinks and templates can address it by "
-                                         "name.",
+                                         "name. Names are unique: a name the document already uses is refused "
+                                         "with input_invalid.",
                                          "content");
         definition.InputSchema =
             Schema::Object("Arguments of add_bookmark.", {"documentId", "name", "block"}, std::move(properties));
@@ -1780,14 +1799,25 @@ private:
         }
 
         const auto name = arguments.value("name", std::string());
+        if (name.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A bookmark needs a name.", "name");
+        }
+        if (session.Editor().FindBookmark(name) != nullptr)
+        {
+            return MakeError(ErrorCode::InputInvalid, "The document already has a bookmark named '" + name + "'.",
+                             name, "Bookmark names are unique; pick another name or address the existing bookmark.");
+        }
+
         auto bookmark = paragraph->AddBookmark(name);
         if (bookmark == nullptr)
         {
             return MakeError(ErrorCode::OperationFailed, "The bookmark could not be added.", name);
         }
 
-        // Paragraph::AddBookmark() marks one paragraph; a range bookmark is the
-        // same pair of markers with the end moved to the closing paragraph.
+        // Paragraph::AddBookmark() encloses one paragraph; a range bookmark is
+        // the same pair of markers with the end moved behind the closing
+        // paragraph's content.
         if (endParagraph != nullptr)
         {
             auto rangeEnd = bookmark->GetEndElement();
@@ -1824,11 +1854,14 @@ private:
         properties["data"] = Schema::Array("Cell texts, row by row.",
                                            Schema::Array("One row of cell texts.", Schema::String("Cell text.")));
         properties["header_row"] = Schema::BooleanWithDefault("Repeat the first row on every page.", false);
-        properties["style_id"] = Schema::String("Table style identifier.");
+        properties["style_id"] = Schema::String(
+            "Identifier of a table style the document defines (define_style with kind 'table', or one "
+            "list_styles reports); an unknown identifier is refused with style_not_found.");
 
         auto definition = MakeDefinition("insert_table", "Insert table",
                                          "Insert a table at an anchor, optionally filled from a two-dimensional "
-                                         "array of cell texts.",
+                                         "array of cell texts. Rows and cells of 'data' beyond 'rows' and 'cols' "
+                                         "are not written and are reported in a warning.",
                                          "tables");
         definition.InputSchema = Schema::Object("Arguments of insert_table.", {"documentId", "anchor", "rows", "cols"},
                                                 std::move(properties));
@@ -1865,6 +1898,24 @@ private:
         const Size rows = arguments.value("rows", static_cast<Size>(0));
         const Size columns = arguments.value("cols", static_cast<Size>(0));
 
+        const auto styleId = arguments.value("style_id", std::string());
+        if (!styleId.empty())
+        {
+            const auto definition = session.Editor().Styles().GetStyle(styleId);
+            if (!definition.has_value())
+            {
+                return MakeError(ErrorCode::StyleNotFound, "The document defines no style '" + styleId + "'.",
+                                 styleId, "Define it with define_style {kind: \"table\"} first, or call list_styles.");
+            }
+            if (definition->Type != Word::StyleType::Table)
+            {
+                return MakeError(ErrorCode::InputInvalid,
+                                 "'" + styleId + "' is a " + StyleTypeToken(definition->Type) +
+                                     " style; a table needs a table style.",
+                                 styleId, "Define one with define_style {kind: \"table\"}.");
+            }
+        }
+
         MutationGuard guard(session.Session());
 
         Word::WordDocumentEditor::BodyCursor cursor;
@@ -1879,9 +1930,17 @@ private:
             return MakeError(ErrorCode::OperationFailed, "The table could not be inserted.");
         }
 
+        if (!styleId.empty())
+        {
+            table->SetStyleId(styleId);
+        }
+
+        Size droppedRows = 0;
+        Size droppedCells = 0;
         const auto data = arguments.find("data");
         if (data != arguments.end() && data->is_array())
         {
+            droppedRows = data->size() > rows ? data->size() - rows : 0;
             for (Size row = 0; row < data->size() && row < rows; ++row)
             {
                 const auto& rowValues = (*data)[row];
@@ -1890,6 +1949,7 @@ private:
                     continue;
                 }
 
+                droppedCells += rowValues.size() > columns ? rowValues.size() - columns : 0;
                 for (Size column = 0; column < rowValues.size() && column < columns; ++column)
                 {
                     table->SetCellText(row, column, rowValues[column].get<std::string>(), true);
@@ -1911,11 +1971,19 @@ private:
         result["rows"] = static_cast<UInt64>(table->GetRowCount());
         result["columns"] = static_cast<UInt64>(table->GetLogicalColumnCount());
 
-        return ResultBuilder("Inserted a " + std::to_string(rows) + "x" + std::to_string(columns) +
-                             " table as block " + std::to_string(index) + ".")
-            .WithSession(session.Session())
-            .WithData(std::move(result))
-            .Build();
+        ResultBuilder builder("Inserted a " + std::to_string(rows) + "x" + std::to_string(columns) +
+                              " table as block " + std::to_string(index) + ".");
+        builder.WithSession(session.Session()).WithData(std::move(result));
+        if (droppedRows > 0 || droppedCells > 0)
+        {
+            builder.WithWarning("data_truncated",
+                                "'data' holds " + std::to_string(droppedRows) + " row(s) and " +
+                                    std::to_string(droppedCells) + " cell(s) beyond the " + std::to_string(rows) +
+                                    "x" + std::to_string(columns) + " table; they were not written.",
+                                "data");
+        }
+
+        return builder.Build();
     }
 
     static void RegisterEditTableCell(ToolRegistry& registry)
@@ -2444,7 +2512,10 @@ private:
         auto definition = MakeDefinition("modify_table", "Modify table structure",
                                          "Add or delete table rows and columns, or merge a rectangular region of "
                                          "cells. A delete 'count' larger than what is left removes the rest and "
-                                         "reports it; a merge range outside the table is refused.",
+                                         "reports it; a merge range outside the table is refused. Merging keeps "
+                                         "the other merges of the table and appends the text of the covered "
+                                         "cells to the top-left cell; a range that cuts through an existing "
+                                         "merged cell is refused with range_invalid.",
                                          "tables");
         definition.InputSchema = Schema::Object("Arguments of modify_table.", {"documentId", "block", "operation"},
                                                 std::move(properties));
@@ -2585,6 +2656,16 @@ private:
                                  "Reduce rowSpan and colSpan, or grow the table with add_row and add_column first.");
             }
 
+            if (!table->CanMergeCells(row - 1, column - 1, rowSpan, columnSpan))
+            {
+                return MakeError(ErrorCode::RangeInvalid,
+                                 "The merge range " + std::to_string(rowSpan) + "x" + std::to_string(columnSpan) +
+                                     " from cell " + origin + " cuts through a cell that is already merged.",
+                                 origin,
+                                 "Widen the range to cover the whole merged cell; read_blocks shows the current "
+                                 "merges.");
+            }
+
             table->MergeCells(row - 1, column - 1, rowSpan, columnSpan);
         }
         else
@@ -2637,7 +2718,9 @@ private:
                                          "Replace the content of a header or footer. Existing paragraphs are "
                                          "discarded. Use 'inlines' or 'blocks' for a page-number field or other "
                                          "formatted content; a picture and an external link are not supported in "
-                                         "a running element.",
+                                         "a running element. Kind 'first' turns on the section's different first "
+                                         "page, and 'even' the document's different odd and even pages, so Word "
+                                         "shows what was written.",
                                          "layout");
         definition.InputSchema =
             Schema::Object("Arguments of set_header_footer.", {"documentId", "target"}, std::move(properties));
@@ -2780,6 +2863,19 @@ private:
             return MakeError(ErrorCode::OperationFailed, "The running element could not be created.", target);
         }
 
+        // The reference alone is not shown: Word renders a first-page variant
+        // only under w:titlePg and an even-page variant only under the
+        // document-wide w:evenAndOddHeaders switch.
+        if (kind == Word::HeaderFooterType::First)
+        {
+            section->SetTitlePage(true);
+        }
+        else if (kind == Word::HeaderFooterType::Even && !session.Editor().SetEvenAndOddHeaders(true))
+        {
+            return MakeError(ErrorCode::OperationFailed,
+                             "The document settings could not be written to enable even-page headers.", target);
+        }
+
         content->Clear();
 
         Size paragraphs = 0;
@@ -2901,11 +2997,16 @@ private:
         ToolSupport::AddDocumentIdProperty(properties);
         properties["section"] = Schema::Integer("1-based section; omit for the last section.", 1);
         properties["page_size"] = Schema::Object(
-            "Page dimensions; use either 'preset' or both 'width' and 'height'.", {},
+            "Page dimensions; use either 'preset' or both 'width' and 'height', not both (input_invalid). A "
+            "preset keeps the section's orientation: a landscape section gets the preset's long edge as its "
+            "width. Explicit dimensions are written as given and, without 'orientation', set it from their "
+            "proportions.",
+            {},
             nlohmann::json{{"preset", Schema::Enumeration("Named paper size.", {"A3", "A4", "A5", "Letter", "Legal"})},
                            {"width", Schema::Length("Page width.")},
                            {"height", Schema::Length("Page height.")}});
-        properties["orientation"] = Schema::Enumeration("Page orientation.", {"portrait", "landscape"});
+        properties["orientation"] = Schema::Enumeration(
+            "Page orientation. The page dimensions are swapped when they contradict it.", {"portrait", "landscape"});
         properties["margins"] = Schema::Object("Page margins; omitted members keep their value.", {},
                                                nlohmann::json{{"top", Schema::Length("Top margin.")},
                                                               {"right", Schema::Length("Right margin.")},
@@ -3002,21 +3103,40 @@ private:
             MeasuringUnits(210.0, MeasurementUnit::Millimeter), MeasuringUnits(297.0, MeasurementUnit::Millimeter),
             Word::PageOrientation::Portrait});
 
+        const auto orientation = arguments.value("orientation", std::string());
+        if (!orientation.empty())
+        {
+            pageSize.Orientation =
+                orientation == "landscape" ? Word::PageOrientation::Landscape : Word::PageOrientation::Portrait;
+        }
+
+        // A preset is a portrait sheet; the section's orientation, current or
+        // requested, decides which edge becomes the width. Explicit dimensions
+        // are taken as they are, and without an orientation argument they
+        // decide the orientation rather than contradict the stored one.
+        bool alignToOrientation = !orientation.empty();
         const auto size = arguments.find("page_size");
         if (size != arguments.end() && size->is_object())
         {
             const auto preset = size->value("preset", std::string());
+            const auto width = size->find("width");
+            const auto height = size->find("height");
             if (!preset.empty())
             {
+                if (width != size->end() || height != size->end())
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "'page_size' takes either 'preset' or 'width' and 'height', not both.", preset,
+                                     "Drop the preset to set explicit dimensions, or the dimensions to use it.");
+                }
                 if (!PresetPageSize(preset, pageSize.Width, pageSize.Height))
                 {
                     return MakeError(ErrorCode::InputInvalid, "Unknown page size preset '" + preset + "'.", preset);
                 }
+                alignToOrientation = true;
             }
             else
             {
-                const auto width = size->find("width");
-                const auto height = size->find("height");
                 if (width == size->end() || height == size->end())
                 {
                     return MakeError(ErrorCode::InputInvalid,
@@ -3032,16 +3152,19 @@ private:
 
                 pageSize.Width = *parsedWidth;
                 pageSize.Height = *parsedHeight;
+                if (orientation.empty())
+                {
+                    pageSize.Orientation = pageSize.Width.ToEmu().GetValue() > pageSize.Height.ToEmu().GetValue()
+                                               ? Word::PageOrientation::Landscape
+                                               : Word::PageOrientation::Portrait;
+                }
             }
         }
 
-        const auto orientation = arguments.value("orientation", std::string());
-        if (!orientation.empty())
+        if (alignToOrientation)
         {
-            pageSize.Orientation =
-                orientation == "landscape" ? Word::PageOrientation::Landscape : Word::PageOrientation::Portrait;
             // Landscape stores the wider edge as the width, so the two are
-            // swapped when the requested orientation contradicts the values.
+            // swapped when the orientation contradicts the values.
             const bool wide = pageSize.Width.ToEmu().GetValue() >= pageSize.Height.ToEmu().GetValue();
             if ((pageSize.Orientation == Word::PageOrientation::Landscape) != wide)
             {
@@ -4350,10 +4473,13 @@ private:
             "or numbering definitions. Ignored when the style already exists.",
             {"paragraph", "character", "table", "numbering"}, "paragraph");
         properties["name"] = Schema::String("Name Word shows in its style gallery; defaults to the identifier.");
-        properties["based_on"] = Schema::String("Identifier of the style this one inherits from.");
+        properties["based_on"] = Schema::String(
+            "Identifier of the style this one inherits from. It must exist, or be a built-in style (Normal, "
+            "Heading1 to Heading9), which is created on demand; anything else is refused with style_not_found.");
         properties["next"] = Schema::String(
             "Identifier of the style Word applies to the paragraph created by pressing Enter at the end of one "
-            "carrying this style. A heading usually names the body style here.");
+            "carrying this style. A heading usually names the body style here. Resolved like 'based_on'; the "
+            "style may name itself.");
         properties["linked"] = Schema::String(
             "Identifier of the character style that pairs with this paragraph style, or the other way round.");
         properties["aliases"] = Schema::String("Comma-separated alternative names.");
@@ -4727,10 +4853,33 @@ private:
         if (arguments.contains("based_on"))
         {
             definition.BasedOnStyleId = arguments.value("based_on", std::string());
+            if (definition.BasedOnStyleId == styleId)
+            {
+                return MakeError(ErrorCode::InputInvalid, "A style cannot be based on itself.", "based_on");
+            }
         }
         if (arguments.contains("next"))
         {
             definition.NextStyleId = arguments.value("next", std::string());
+        }
+
+        // A reference to a style the document does not define points at
+        // nothing: Word falls back to the style itself. Built-in targets are
+        // created here rather than refused, since that is what the caller means.
+        for (const auto* member : {"based_on", "next"})
+        {
+            const auto target = arguments.value(member, std::string());
+            if (target.empty() || target == styleId || styles.HasStyle(target))
+            {
+                continue;
+            }
+            if (!Word::StyleManager::IsBuiltInStyleId(target))
+            {
+                return MakeError(ErrorCode::StyleNotFound,
+                                 "'" + std::string(member) + "' names the style '" + target +
+                                     "', which the document does not define.",
+                                 target, "Define that style first, or call list_styles to see the identifiers.");
+            }
         }
         if (arguments.contains("linked"))
         {
@@ -4766,6 +4915,16 @@ private:
         }
 
         MutationGuard guard(session.Session());
+
+        for (const auto* member : {"based_on", "next"})
+        {
+            const auto target = arguments.value(member, std::string());
+            if (!target.empty() && target != styleId && !styles.HasStyle(target) && !styles.EnsureBuiltInStyle(target))
+            {
+                return MakeError(ErrorCode::OperationFailed, "The built-in style '" + target + "' could not be created.",
+                                 target);
+            }
+        }
 
         if (!styles.UpsertStyle(definition))
         {
@@ -4818,7 +4977,8 @@ private:
             "delete_style", "Delete style",
             "Remove a style definition. Content that still names the style keeps the reference and falls back "
             "to the document defaults, so the answer reports how many blocks are in that position; move them "
-            "to another style with apply_style first if that is not what you want.",
+            "to another style with apply_style first if that is not what you want. A style the document does "
+            "not define answers ok with 'removed' false, so repeating the call is harmless.",
             "content");
         definition.InputSchema =
             Schema::Object("Arguments of delete_style.", {"documentId", "style_id"}, std::move(properties));
@@ -4848,11 +5008,23 @@ private:
         }
 
         const auto styleId = arguments.value("style_id", std::string());
+        if (styleId.empty())
+        {
+            return MakeError(ErrorCode::InputInvalid, "A style identifier is required.", "style_id");
+        }
+
         auto styles = session.Editor().Styles();
         if (!styles.HasStyle(styleId))
         {
-            return MakeError(ErrorCode::StyleNotFound, "No style '" + styleId + "' is defined.", styleId,
-                             "list_styles reports the identifiers this document defines.");
+            // Idempotent: the state asked for - no such definition - already holds.
+            nlohmann::json absent = nlohmann::json::object();
+            absent["styleId"] = styleId;
+            absent["removed"] = false;
+            absent["danglingBlocks"] = nlohmann::json::array();
+            return ResultBuilder("No style '" + styleId + "' is defined; nothing was removed.")
+                .WithSession(session.Session())
+                .WithData(std::move(absent))
+                .Build();
         }
 
         MutationGuard guard(session.Session());

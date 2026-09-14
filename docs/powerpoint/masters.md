@@ -2,11 +2,35 @@
 
 A presentation is only valid once it has a design: PresentationML requires
 each slide to reference a slide layout, each layout to belong to a slide
-master, and each master to have a theme. `CreateNew()` gives you an empty
-presentation, not a design, so create one before (or right after) the first
-slide — PowerPoint reports a deck whose slides have no layout as damaged.
+master, and each master to have a theme, and PowerPoint refuses a deck that
+lacks any of them. `CreateNew()` therefore writes the default design described
+below, and `AddSlide()` places a new slide on the first registered layout;
+`SetSlideLayout` moves it to any other. Masters you add come after the
+default one in `SlideMasters()`.
 
 The namespace aliases from [Presentations](presentations.md) are assumed.
+
+## The default design
+
+`EnsureDefaultLayout()` returns the first layout the presentation has; when
+there is none (a deck opened from a file without one, or after every master
+was removed) it creates a master named `ExyokiOffice` with the Office
+default theme, a theme background, the title/body/other text styles, and
+the five standard placeholders (title, body, date, footer, slide number)
+positioned for the presentation's slide size, plus a "Title and Content"
+layout carrying the same placeholders. `CreateNew()` calls it, so a fresh
+presentation already carries this design:
+
+```cpp
+auto layout = editor->EnsureDefaultLayout();
+auto slide = editor->AddSlide(editor->CreateSlideBuilder().SetLayout(layout));
+slide->AddPlaceholder(Presentation::PlaceholderValues::Title);   // drawn where the layout says
+```
+
+PowerPoint draws a slide placeholder at the position it inherits, so a
+master whose placeholders had no geometry rendered every title and body at
+0 x 0. The converters (`exyoki convert`, the MCP servers' `add_slide`) go
+through this call.
 
 ## Building the design hierarchy
 
@@ -16,7 +40,6 @@ auto layout = editor->AddSlideLayout(master, "Title and content",
                                      Presentation::SlideLayoutValues::Object);
 editor->SetSlideLayout(0, layout);   // assign to slide 0 without rewriting its XML
 
-master->AddPlaceholder(Presentation::PlaceholderValues::Title, 1);
 layout->AddPlaceholder(Presentation::PlaceholderValues::Body, 2);
 auto slidePlaceholder = slide->AddPlaceholder(Presentation::PlaceholderValues::Object, 2);
 
@@ -27,8 +50,17 @@ for (const auto& placeholder : slide->Placeholders())
 }
 ```
 
-`AddSlideMaster` writes the default Office theme into the new master;
-`SetThemeXml`/`SetThemeSettings` replace it (below).
+`AddSlideMaster` writes the default Office theme and the default design
+described above into the new master; `SetThemeXml`/`SetThemeSettings`
+replace the theme (below). `AddSlideLayout` creates an empty layout; a
+placeholder added to it takes the geometry of the master placeholder it
+inherits from (same index, else same type, else the type it draws where — a
+subtitle or content placeholder sits in the body area), so a layout built by
+hand renders like one PowerPoint wrote.
+`layout->FindPlaceholder(type)` answers which of the layout's own
+placeholders a slide placeholder of that type would inherit from, or
+`nullptr` when the layout offers none — a Blank layout has no title even
+though the master does.
 
 ## Importing a master
 
@@ -108,6 +140,12 @@ for (const auto& shape : slide->ShapeTree()->Shapes())
 titleShape->SetTransform(frame);
 titleShape->SetTextFrame(text);
 ```
+
+A slide placeholder does not need a transform of its own: without one it is
+drawn where the layout (or, failing that, the master) puts the placeholder
+it inherits from. `GetTransform()` reports only what the shape carries;
+`GetEffectiveTransform()` resolves that inheritance and reports the box
+PowerPoint draws, which is what the MCP servers' `get_slide` shows.
 
 This is how a slide gets a title that other tools — the outline pane,
 "Reset Slide", accessibility checkers — recognize as a title;

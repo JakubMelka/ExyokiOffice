@@ -94,6 +94,85 @@ in [docs/](docs/README.md).
 
 ### Fixed
 
+- `OpenXmlPackageValidator` reports the package-semantic rules Office enforces
+  and `validate_document` no longer passes such files. See the `validate`
+  section of [exyoki](docs/tools/exyoki.md).
+  - `PackageDanglingRelationshipReference`: any relationship-namespace
+    attribute (`r:id`, `r:embed`, …) naming no relationship of its part,
+    including `x:tablePart`, which the schematron rules did not cover.
+  - `PackageTableRangeOverlap`, `PackageThreadedCommentPersonUndefined`,
+    `PackagePresentationMissingSlideMaster`, `PackageSlideMissingSlideLayout`,
+    `PackageSlideLayoutMissingSlideMaster`, `PackageSlideMasterMissingTheme`.
+  - `PackageStyleReferenceUndefined`, a warning when `w:pStyle`, `w:rStyle`
+    or `w:tblStyle` names a style `styles.xml` does not define.
+- Excel defects the Office COM test found. See [MCP servers](docs/tools/mcp-servers.md#exyoki-mcp-excel)
+  and [Worksheets](docs/excel/worksheets.md).
+  - `copy_sheet` and `ExcelDocumentEditor::CopyWorksheet` clone the sheet's
+    drawings, charts, comments, tables and hyperlinks with valid relationships
+    and fresh table and thread ids; Excel refused the copy before.
+  - `CopyWorksheetFrom` and `merge_documents` remap styles into the target
+    stylesheet and carry threaded-comment persons along, instead of refusing
+    formatted sheets or writing a workbook Excel refuses.
+  - `add_table` and `Worksheet::CreateTable` refuse a range overlapping
+    another table with `range_invalid`.
+  - `add_image` and `add_chart` keep the requested size: they write one-cell
+    anchors with an extent (`Worksheet::DrawingAnchorForSize`,
+    `DrawingAnchor`) instead of rounding to whole default cells.
+  - `set_print_setup` and `Worksheet::SetPageSetup` switch
+    `sheetPr/pageSetUpPr fitToPage` on for fit-to-width and fit-to-height.
+  - `set_slicer_selection` on a table slicer hides the excluded rows as
+    `update_table` does.
+  - `read_range` reports numeric and boolean formula results typed, not as
+    strings.
+  - `set_column_width` and `set_row_height` refuse widths outside 0..255 and
+    heights outside 0..409.5 with `input_invalid`.
+  - An unknown table answers `block_not_found`, an unknown slicer
+    `shape_not_found`, and `remove_vba_project` without a project answers ok
+    with `removed: false`.
+- Word defects the Office COM test found. See [MCP servers](docs/tools/mcp-servers.md#exyoki-mcp-word)
+  and the Word chapters under [docs/word](docs/word/).
+  - `insert_paragraph`, `edit_paragraph` and `apply_style` define the built-in
+    `Normal` and `HeadingN` styles on first use
+    (`StyleManager::EnsureBuiltInStyle`); Word showed such headings as body
+    text before. `edit_paragraph` takes `heading_level`.
+  - `Paragraph::AddBookmark` encloses the paragraph text, refuses a duplicate
+    name and allocates ids over end markers; `edit_paragraph` keeps bookmark
+    and comment markers in place.
+  - `set_header_footer` kinds `first` and `even` write `w:titlePg` and
+    `w:evenAndOddHeaders` (`Section::SetTitlePage`,
+    `WordDocumentEditor::SetEvenAndOddHeaders`).
+  - `Table::MergeCells` keeps earlier merges and carries the covered cells'
+    text into the anchor; `Table::CanMergeCells` and `Table::SetStyleId` are
+    new, and `insert_table` honours `style_id`.
+  - `resolve_revisions` rejecting a tracked deletion keeps the restored
+    text's `xml:space`.
+  - `set_section`: a `page_size` preset keeps the section's orientation, and
+    a preset together with `width` or `height` is `input_invalid`.
+  - `split_document` by paragraphs writes no empty trailing file;
+    `define_style` refuses a dangling `based_on` or `next`; `delete_style` of
+    a missing style answers ok with `removed: false`.
+- MCP `batch` no longer corrupts the undo history when it is already
+  `--snapshot-depth` deep; `undo` after a batch restores the step before it.
+  See [Sessions, undo, and batches](docs/tools/mcp-servers.md#sessions-undo-and-batches).
+- MCP error codes that misled an agent branching on them. See
+  [Troubleshooting](docs/tools/mcp-servers.md#troubleshooting).
+  - `export_media` onto existing files and `split_document` onto existing
+    outputs answer `file_exists`; a `split_document` prefix that is not a plain
+    file name answers `path_invalid`.
+  - `open_document` and the reading tools given a `path` of another family
+    answer `family_mismatch` instead of `package_load_failed`.
+  - `search_text`, `replace_text` and `query_xml` answer `input_invalid` for a
+    malformed regular expression or XPath and for an unknown `part`.
+  - `set_properties` refuses a custom value it cannot store with
+    `input_invalid` instead of dropping it silently.
+  - `get_document_model` and `get_document_markdown` answer `sheet_not_found`
+    or `slide_not_found` for a `scope` the document does not have.
+- The Python MCP suite and `oracle_corpus.py` take the most recently built
+  server binaries and print which ones they run against. See
+  [tests/mcp_python/README.md](tests/mcp_python/README.md).
+- The Office oracle gate saves Word documents with `Save` on a copy rather than
+  `SaveAs2`, which can hang, and on a timeout ends only the Office instance its
+  worker started.
 - Excel constructs that the library wrote as valid markup and Excel then threw
   away. See [MCP servers](docs/tools/mcp-servers.md).
   - `Worksheet::AddThreadedComment` writes the legacy note and VML drawing that

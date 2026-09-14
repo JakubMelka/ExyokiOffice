@@ -5,6 +5,7 @@
 #pragma once
 
 #include "ExyokiOffice/Excel/ExcelAddress.hpp"
+#include "ExyokiOffice/Excel/ExcelDrawingAnchor.hpp"
 #include "ExyokiOffice/Export.hpp"
 #include "ExyokiOffice/StandardTypes.hpp"
 
@@ -103,6 +104,27 @@ struct EXYOKIOFFICE_EXPORT ExcelWorksheetImage
 
     /** @brief Bottom-right anchor cell, exclusive in drawing coordinates. */
     CellAddress To;
+
+    /** @brief Offset of the top-left corner inside @ref From; zero means the cell's edge. */
+    DrawingAnchorOffset FromOffset;
+
+    /**
+     * @brief Offset of the bottom-right corner inside @ref To.
+     *
+     * With zero offsets the picture ends exactly on the top-left edge of
+     * @ref To, so its size is a whole number of columns and rows.
+     */
+    DrawingAnchorOffset ToOffset;
+
+    /**
+     * @brief Exact size of the picture.
+     *
+     * When set, the picture is written as a one-cell anchor (`xdr:oneCellAnchor`
+     * with `xdr:ext`): it starts at @ref From and is exactly this large on any
+     * screen, and @ref To is not needed. @ref Worksheet::DrawingAnchorForSize
+     * computes it together with the two-cell equivalent.
+     */
+    std::optional<DrawingExtent> Extent;
 
     /** @brief Encoded image bytes. */
     std::vector<Byte> Data;

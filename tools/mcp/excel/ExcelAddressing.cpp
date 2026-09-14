@@ -324,10 +324,57 @@ std::string ExcelAddressing::CellValueToText(const Excel::ExcelCellValue& value,
 
     if (value.Kind() == Excel::CellValueKind::Formula)
     {
-        return value.FormulaValue().CachedText;
+        const auto& formula = value.FormulaValue();
+        if (formula.CachedKind == Excel::FormulaCachedValueKind::SharedString)
+        {
+            const auto index = ExcelAddressing::ParseSharedStringIndex(formula.CachedText);
+            return index.has_value() ? sharedStrings.Lookup(*index).value_or(std::string()) : std::string();
+        }
+
+        if (formula.CachedKind == Excel::FormulaCachedValueKind::Boolean)
+        {
+            return ExcelAddressing::IsTrueText(formula.CachedText) ? "TRUE" : "FALSE";
+        }
+
+        return formula.CachedText;
     }
 
     return value.Text();
+}
+
+std::optional<UInt32> ExcelAddressing::ParseSharedStringIndex(const std::string& text)
+{
+    UInt32 index = 0;
+    const auto* const end = text.data() + text.size();
+    const auto parsed = std::from_chars(text.data(), end, index);
+    if (parsed.ec != std::errc{} || parsed.ptr != end)
+    {
+        return std::nullopt;
+    }
+
+    return index;
+}
+
+bool ExcelAddressing::IsTrueText(const std::string& text)
+{
+    return text == "1" || text == "true" || text == "TRUE";
+}
+
+nlohmann::json ExcelAddressing::NumberTextToJson(const std::string& text)
+{
+    // The stored text is authoritative; converting it back keeps the exact
+    // value the workbook holds instead of a reformatted one. It is read with
+    // from_chars, which is exception-free and reads the invariant spelling the
+    // file uses whatever locale the host has.
+    Real number = 0.0;
+    const auto* const end = text.data() + text.size();
+    const auto parsed = std::from_chars(text.data(), end, number, std::chars_format::general);
+    if (parsed.ec != std::errc{} || parsed.ptr != end)
+    {
+        return text;
+    }
+
+    return number;
 }
 
 nlohmann::json ExcelAddressing::CellValueToJson(const Excel::ExcelCellValue& value,
@@ -340,20 +387,25 @@ nlohmann::json ExcelAddressing::CellValueToJson(const Excel::ExcelCellValue& val
         case Excel::CellValueKind::Boolean:
             return value.BooleanValue().value_or(false);
         case Excel::CellValueKind::Number:
+            return NumberTextToJson(value.Text());
+        case Excel::CellValueKind::Formula:
         {
-            // The stored text is authoritative; converting it back keeps the
-            // exact value the workbook holds instead of a reformatted one. It
-            // is read with from_chars, which is exception-free and reads the
-            // invariant spelling the file uses whatever locale the host has.
-            const auto& text = value.Text();
-            Real number = 0.0;
-            const auto* const end = text.data() + text.size();
-            const auto parsed = std::from_chars(text.data(), end, number, std::chars_format::general);
-            if (parsed.ec != std::errc{} || parsed.ptr != end)
+            // A formula reports its cached result typed the way a plain cell
+            // holding that result would be, so a client reads =1+1 and 2 the
+            // same way; the kind of the cell stays "formula" in cells mode.
+            const auto& formula = value.FormulaValue();
+            switch (formula.CachedKind)
             {
-                return text;
+                case Excel::FormulaCachedValueKind::None:
+                    return nullptr;
+                case Excel::FormulaCachedValueKind::Number:
+                    return NumberTextToJson(formula.CachedText);
+                case Excel::FormulaCachedValueKind::Boolean:
+                    return IsTrueText(formula.CachedText);
+                default:
+                    break;
             }
-            return number;
+            break;
         }
         default:
             break;

@@ -99,7 +99,26 @@ def _candidate_directories() -> list[Path]:
     ]
 
 
+def _built_executables(spec: ServerSpec) -> list[Path]:
+    suffixes = [".exe", ""] if os.name == "nt" else ["", ".exe"]
+    found: list[Path] = []
+    for directory in _candidate_directories():
+        for suffix in suffixes:
+            path = directory / f"{spec.executable_name}{suffix}"
+            if path.is_file():
+                found.append(path.resolve())
+    return found
+
+
 def resolve_executable(spec: ServerSpec) -> Path:
+    """The server binary under test: the configured one, else the newest build.
+
+    Several build trees coexist on a developer machine. A fixed preference
+    order once picked a month-old Debug binary over the release build made a
+    minute earlier, and a green run against it said nothing about the change,
+    so among the trees that hold the binary the most recently built one wins.
+    The path chosen is printed in the pytest header so a surprise is visible.
+    """
     configured = os.environ.get(spec.environment_variable)
     if configured:
         path = Path(configured).expanduser().resolve()
@@ -107,18 +126,31 @@ def resolve_executable(spec: ServerSpec) -> Path:
             raise pytest.UsageError(f"{spec.environment_variable} does not name a file: {path}")
         return path
 
-    suffixes = [".exe", ""] if os.name == "nt" else ["", ".exe"]
-    for directory in _candidate_directories():
-        for suffix in suffixes:
-            path = directory / f"{spec.executable_name}{suffix}"
-            if path.is_file():
-                return path.resolve()
+    candidates = _built_executables(spec)
+    if candidates:
+        return max(candidates, key=lambda path: path.stat().st_mtime)
 
     search = ", ".join(str(path) for path in _candidate_directories())
     raise pytest.UsageError(
         f"Cannot find {spec.executable_name}. Build the MCP targets, set "
         f"{spec.environment_variable}, or place it under one of: {search}"
     )
+
+
+def describe_executables() -> list[str]:
+    """One line per family naming the binary a run would use, for reports."""
+    lines = []
+    for family, spec in SERVER_SPECS.items():
+        try:
+            resolved: object = resolve_executable(spec)
+        except pytest.UsageError as error:
+            resolved = f"not found ({error})"
+        lines.append(f"{spec.executable_name}: {resolved}")
+    return lines
+
+
+def pytest_report_header(config: pytest.Config) -> list[str]:
+    return describe_executables()
 
 
 @pytest.fixture(scope="session", params=tuple(SERVER_SPECS))

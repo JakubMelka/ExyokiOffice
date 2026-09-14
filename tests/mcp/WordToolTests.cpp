@@ -11,8 +11,10 @@
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 using namespace ExyokiOfficeTests;
 using namespace ExyokiOffice::Mcp;
@@ -1568,9 +1570,11 @@ TEST_CASE("a style definition carries the formatting it was given [mcp-word]")
                                                                                 {"color", "#C00000"}}}})["ok"] ==
             true);
 
+    // Heading1, ReportHeading, Caution, and the Normal that ReportHeading's
+    // 'next' named, created on demand rather than left dangling (W-10).
     const auto listed = server->Call("list_styles", nlohmann::json{{"documentId", documentId}});
     REQUIRE(listed["ok"] == true);
-    CHECK(listed["data"]["styles"].size() == 3);
+    CHECK(listed["data"]["styles"].size() == 4);
 
     REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
 
@@ -1656,10 +1660,12 @@ TEST_CASE("a style definition is refused when it cannot be built [mcp-word]")
     CHECK(badLength["ok"] == false);
     CHECK(badLength["error"]["code"] == "input_invalid");
 
+    // delete_style is idempotent: a style that is not there is already in the
+    // state asked for, so the answer is ok with nothing removed (W-11).
     const auto missing =
         server->Call("delete_style", nlohmann::json{{"documentId", documentId}, {"style_id", "Nowhere"}});
-    CHECK(missing["ok"] == false);
-    CHECK(missing["error"]["code"] == "style_not_found");
+    CHECK(missing["ok"] == true);
+    CHECK(missing["data"]["removed"] == false);
 
     // 'Inline' was created above, so only that one style may exist.
     const auto listed = server->Call("list_styles", nlohmann::json{{"documentId", documentId}});
@@ -2159,4 +2165,643 @@ TEST_CASE("a character style goes on the runs and a paragraph style on the block
 
     const auto report = ExyokiOffice::Tools::Run(server->Path("runs.docx"));
     CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+// ---------------------------------------------------------------------------
+// Regressions for the defects the Office COM run found (MCP_ERRORS.md, W-*).
+// ---------------------------------------------------------------------------
+
+namespace
+{
+namespace W = ExyokiOffice::DocumentFormat::OpenXml::Wordprocessing;
+
+/// Inserts one plain paragraph at the end and requires success.
+void AppendParagraph(McpTestServer& server, const std::string& documentId, const std::string& text)
+{
+    REQUIRE(server.Call("insert_paragraph", nlohmann::json{{"documentId", documentId},
+                                                           {"anchor", nlohmann::json{{"position", "end"}}},
+                                                           {"text", text}})["ok"] == true);
+}
+
+/// True when @p marker sits in front of every run of its paragraph.
+bool PrecedesFirstRun(const std::shared_ptr<ExyokiOffice::OpenXMLElement>& marker)
+{
+    auto parent = marker ? marker->Parent() : nullptr;
+    if (parent == nullptr)
+    {
+        return false;
+    }
+    for (const auto& child : parent->Children())
+    {
+        if (child->IsSameNode(*marker))
+        {
+            return true;
+        }
+        if (ExyokiOffice::openxmlelement_cast<W::Run>(child) != nullptr)
+        {
+            return false;
+        }
+    }
+    return false;
+}
+
+/// Number of matches query_xml reports for an XPath in the main part.
+ExyokiOffice::Size CountXml(McpTestServer& server, const std::string& documentId, const std::string& xpath)
+{
+    const auto matched = server.Call("query_xml", nlohmann::json{{"documentId", documentId}, {"xpath", xpath}});
+    REQUIRE(matched["ok"] == true);
+    return matched["data"]["matches"].size();
+}
+} // namespace
+
+TEST_CASE("W-1: heading_level defines the built-in heading style [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "headings.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("insert_paragraph", nlohmann::json{{"documentId", documentId},
+                                                            {"anchor", nlohmann::json{{"position", "end"}}},
+                                                            {"text", "Plain heading"},
+                                                            {"heading_level", 1}})["ok"] == true);
+    REQUIRE(server->Call("insert_paragraph", nlohmann::json{{"documentId", documentId},
+                                                            {"anchor", nlohmann::json{{"position", "end"}}},
+                                                            {"text", "Sub heading"},
+                                                            {"heading_level", 2}})["ok"] == true);
+    AppendParagraph(*server, documentId, "Body");
+    // edit_paragraph shares the code path, and apply_style resolves the built-in name too.
+    const auto edited = server->Call("edit_paragraph", nlohmann::json{{"documentId", documentId},
+                                                                      {"block", 3},
+                                                                      {"heading_level", 3}});
+    INFO(edited.dump());
+    REQUIRE(edited["ok"] == true);
+    AppendParagraph(*server, documentId, "Styled");
+    REQUIRE(server->Call("apply_style", nlohmann::json{{"documentId", documentId},
+                                                       {"blocks", nlohmann::json::array({4})},
+                                                       {"style_id", "Heading1"}})["ok"] == true);
+
+    const auto styles = server->Call("list_styles", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(styles["ok"] == true);
+    std::vector<std::string> ids;
+    for (const auto& entry : styles["data"]["styles"])
+    {
+        ids.push_back(entry["id"].get<std::string>());
+    }
+    CHECK(std::find(ids.begin(), ids.end(), "Normal") != ids.end());
+    CHECK(std::find(ids.begin(), ids.end(), "Heading1") != ids.end());
+    CHECK(std::find(ids.begin(), ids.end(), "Heading2") != ids.end());
+    CHECK(std::find(ids.begin(), ids.end(), "Heading3") != ids.end());
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("headings.docx"));
+    REQUIRE(editor != nullptr);
+    auto definitions = editor->Styles();
+    REQUIRE(definitions.HasStyle("Heading1"));
+    REQUIRE(definitions.HasStyle("Heading2"));
+    auto heading = definitions.GetStyle("Heading2");
+    REQUIRE(heading.has_value());
+    CHECK(heading->BasedOnStyleId == "Normal");
+    CHECK(heading->NextStyleId == "Normal");
+    CHECK_FALSE(heading->IsCustom);
+
+    // What Word reads for the navigation pane and the outline level.
+    auto lowLevel = definitions.GetLowLevelStyle("Heading2");
+    REQUIRE(lowLevel != nullptr);
+    auto properties = lowLevel->GetFirstChildOfType<W::StyleParagraphProperties>();
+    REQUIRE(properties != nullptr);
+    auto outline = properties->GetFirstChildOfType<W::OutlineLevel>();
+    REQUIRE(outline != nullptr);
+    CHECK(outline->GetVal().Value() == 1);
+    CHECK(editor->Paragraphs()[0]->GetStyleId() == "Heading1");
+    CHECK(editor->Paragraphs()[2]->GetStyleId() == "Heading3");
+    CHECK(editor->Paragraphs()[3]->GetStyleId() == "Heading1");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("headings.docx"));
+    CHECK(report.Loaded);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("W-2: add_bookmark encloses the paragraph text [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "enclosed.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    for (const auto* text : {"One", "Two", "Three"})
+    {
+        AppendParagraph(*server, documentId, text);
+    }
+
+    REQUIRE(server->Call("add_bookmark",
+                         nlohmann::json{{"documentId", documentId}, {"name", "a"}, {"block", 1}})["ok"] == true);
+    REQUIRE(server->Call("add_bookmark", nlohmann::json{{"documentId", documentId},
+                                                        {"name", "b"},
+                                                        {"block", 2},
+                                                        {"end_block", 3}})["ok"] == true);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("enclosed.docx"));
+    REQUIRE(editor != nullptr);
+    const auto paragraphs = editor->Paragraphs();
+    REQUIRE(paragraphs.size() == 3);
+
+    // "a": start before the first run of block 1, end after its last run.
+    auto a = editor->FindBookmark("a");
+    REQUIRE(a != nullptr);
+    REQUIRE(a->GetStartElement() != nullptr);
+    REQUIRE(a->GetEndElement() != nullptr);
+    CHECK(a->GetStartElement()->Parent()->IsSameNode(*paragraphs[0]->GetLowLevelApi()));
+    CHECK(ExyokiOffice::openxmlelement_cast<W::Run>(a->GetStartElement()->NextSibling()) != nullptr);
+    CHECK(a->GetEndElement()->Parent()->IsSameNode(*paragraphs[0]->GetLowLevelApi()));
+    CHECK(a->GetEndElement()->NextSibling() == nullptr);
+
+    // "b": start before block 2's text, end after block 3's text.
+    auto b = editor->FindBookmark("b");
+    REQUIRE(b != nullptr);
+    REQUIRE(b->GetStartElement() != nullptr);
+    REQUIRE(b->GetEndElement() != nullptr);
+    CHECK(b->GetStartElement()->Parent()->IsSameNode(*paragraphs[1]->GetLowLevelApi()));
+    CHECK(ExyokiOffice::openxmlelement_cast<W::Run>(b->GetStartElement()->NextSibling()) != nullptr);
+    CHECK(b->GetEndElement()->Parent()->IsSameNode(*paragraphs[2]->GetLowLevelApi()));
+    CHECK(b->GetEndElement()->NextSibling() == nullptr);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("enclosed.docx"));
+    CHECK(report.Loaded);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("W-3: edit_paragraph keeps bookmark markers and later bookmarks get fresh ids [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "markers.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    for (const auto* text : {"One", "Two", "Three", "Four", "Five"})
+    {
+        AppendParagraph(*server, documentId, text);
+    }
+
+    const auto span = server->Call("add_bookmark", nlohmann::json{{"documentId", documentId},
+                                                                  {"name", "span"},
+                                                                  {"block", 4},
+                                                                  {"end_block", 5}});
+    REQUIRE(span["ok"] == true);
+    const auto spanId = span["data"]["id"].get<int>();
+
+    // A comment on block 4 as well: its range markers and reference must survive too.
+    REQUIRE(server->Call("add_comment", nlohmann::json{{"documentId", documentId},
+                                                       {"block", 4},
+                                                       {"text", "Note"},
+                                                       {"author", "Reviewer"}})["ok"] == true);
+
+    REQUIRE(server->Call("edit_paragraph",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"block", 4},
+                                        {"inlines", nlohmann::json::array({nlohmann::json{{"text", "Rewritten"},
+                                                                                          {"bold", true}}})}})["ok"] ==
+            true);
+
+    const auto other =
+        server->Call("add_bookmark", nlohmann::json{{"documentId", documentId}, {"name", "other"}, {"block", 1}});
+    REQUIRE(other["ok"] == true);
+    CHECK(other["data"]["id"].get<int>() != spanId);
+
+    // The session and the file both validate: no duplicate ids, no orphaned end.
+    const auto validated = server->Call("validate_document", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(validated["ok"] == true);
+    CHECK(validated["data"]["errorCount"] == 0);
+    CHECK(CountXml(*server, documentId, "//w:bookmarkStart") == 2);
+    CHECK(CountXml(*server, documentId, "//w:bookmarkEnd") == 2);
+    CHECK(CountXml(*server, documentId, "//w:commentRangeStart") == 1);
+    CHECK(CountXml(*server, documentId, "//w:commentRangeEnd") == 1);
+    CHECK(CountXml(*server, documentId, "//w:commentReference") == 1);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("markers.docx"));
+    REQUIRE(editor != nullptr);
+    CHECK(editor->Bookmarks().size() == 2);
+    auto kept = editor->FindBookmark("span");
+    REQUIRE(kept != nullptr);
+    REQUIRE(kept->GetStartElement() != nullptr);
+    REQUIRE(kept->GetEndElement() != nullptr);
+    const auto paragraphs = editor->Paragraphs();
+    REQUIRE(paragraphs.size() == 5);
+    CHECK(paragraphs[3]->PlainText() == "Rewritten");
+    CHECK(kept->GetStartElement()->Parent()->IsSameNode(*paragraphs[3]->GetLowLevelApi()));
+    // The comment range start shares the paragraph head; what matters is
+    // that no run precedes the bookmark start.
+    CHECK(PrecedesFirstRun(kept->GetStartElement()));
+    CHECK(kept->GetEndElement()->Parent()->IsSameNode(*paragraphs[4]->GetLowLevelApi()));
+    REQUIRE(editor->Comments().size() == 1);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("markers.docx"));
+    CHECK(report.Loaded);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("W-4: first-page and even-page headers switch themselves on [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "variants.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    AppendParagraph(*server, documentId, "Body");
+
+    REQUIRE(server->Call("set_header_footer",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"target", "header"},
+                                        {"kind", "first"},
+                                        {"lines", nlohmann::json::array({"Title page"})}})["ok"] == true);
+    REQUIRE(server->Call("set_header_footer",
+                         nlohmann::json{{"documentId", documentId},
+                                        {"target", "footer"},
+                                        {"kind", "even"},
+                                        {"blocks", nlohmann::json::array({nlohmann::json{{"text", "Even"}}})}})["ok"] ==
+            true);
+
+    CHECK(CountXml(*server, documentId, "//w:sectPr/w:titlePg") == 1);
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("variants.docx"));
+    REQUIRE(editor != nullptr);
+    REQUIRE(editor->Sections().size() == 1);
+    auto section = editor->Sections().front();
+    CHECK(section->HasTitlePage());
+    CHECK(section->HasHeader(ExyokiOffice::Word::HeaderFooterType::First));
+    CHECK(section->HasFooter(ExyokiOffice::Word::HeaderFooterType::Even));
+    CHECK(editor->HasEvenAndOddHeaders());
+
+    auto settingsPart = editor->GetDocument()->GetMainDocumentPart()->GetDocumentSettingsPart();
+    REQUIRE(settingsPart != nullptr);
+    auto settings = settingsPart->GetTypedRootElement();
+    REQUIRE(settings != nullptr);
+    CHECK(settings->GetFirstChildOfType<W::EvenAndOddHeaders>() != nullptr);
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("variants.docx"));
+    CHECK(report.Loaded);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("W-5: a second merge keeps the first and the covered text [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "merges.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    const auto table = server->Call(
+        "insert_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"rows", 3},
+                       {"cols", 3},
+                       {"data", nlohmann::json::array({nlohmann::json::array({"a", "b", "c"}),
+                                                       nlohmann::json::array({"d", "e", "f"}),
+                                                       nlohmann::json::array({"g", "h", "i"})})}});
+    REQUIRE(table["ok"] == true);
+    const auto block = table["data"]["block"].get<int>();
+
+    const auto first = server->Call("modify_table", nlohmann::json{{"documentId", documentId},
+                                                                   {"block", block},
+                                                                   {"operation", "merge_cells"},
+                                                                   {"range", nlohmann::json{{"row", 1},
+                                                                                            {"col", 1},
+                                                                                            {"rowSpan", 1},
+                                                                                            {"colSpan", 2}}}});
+    REQUIRE(first["ok"] == true);
+    const auto second = server->Call("modify_table", nlohmann::json{{"documentId", documentId},
+                                                                    {"block", block},
+                                                                    {"operation", "merge_cells"},
+                                                                    {"range", nlohmann::json{{"row", 2},
+                                                                                             {"col", 3},
+                                                                                             {"rowSpan", 2},
+                                                                                             {"colSpan", 1}}}});
+    REQUIRE(second["ok"] == true);
+    CHECK(second["data"]["columns"] == 3);
+
+    // Cutting through the merged a+b cell is refused, not silently split.
+    const auto cut = server->Call("modify_table", nlohmann::json{{"documentId", documentId},
+                                                                 {"block", block},
+                                                                 {"operation", "merge_cells"},
+                                                                 {"range", nlohmann::json{{"row", 1},
+                                                                                          {"col", 2},
+                                                                                          {"rowSpan", 2},
+                                                                                          {"colSpan", 1}}}});
+    CHECK(cut["ok"] == false);
+    CHECK(cut["error"]["code"] == "range_invalid");
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("merges.docx"));
+    REQUIRE(editor != nullptr);
+    REQUIRE(editor->Tables().size() == 1);
+    const auto grid = editor->Tables().front()->GetLogicalGrid();
+    REQUIRE(grid.size() == 3);
+    CHECK(grid[0][0].ColumnSpan == 2);
+    CHECK(grid[0][1].Cell == grid[0][0].Cell);
+    CHECK(grid[1][2].RowSpan == 2);
+    CHECK(grid[2][2].Cell == grid[1][2].Cell);
+
+    auto merged = grid[0][0].Cell->Descendants<W::Text>();
+    REQUIRE(merged.size() == 2);
+    CHECK(merged[0]->GetText() == "a");
+    CHECK(merged[1]->GetText() == "b");
+    auto vertical = grid[1][2].Cell->Descendants<W::Text>();
+    REQUIRE(vertical.size() == 2);
+    CHECK(vertical[0]->GetText() == "f");
+    CHECK(vertical[1]->GetText() == "i");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("merges.docx"));
+    CHECK(report.Loaded);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("W-6: rejecting a tracked deletion keeps its leading and trailing spaces [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    // A Word-authored deletion of "to delete " inside a sentence.
+    {
+        auto editor = ExyokiOffice::Word::WordDocumentEditor::CreateNew();
+        REQUIRE(editor != nullptr);
+        auto paragraph = editor->AddParagraph("Second paragraph ");
+        REQUIRE(paragraph != nullptr);
+        auto deletion = paragraph->GetLowLevelApi()->AppendChild<W::DeletedRun>();
+        REQUIRE(deletion != nullptr);
+        deletion->SetId(ExyokiOffice::StringValue("3"));
+        deletion->SetAuthor(ExyokiOffice::StringValue("Word"));
+        auto run = deletion->AppendChild<W::Run>();
+        REQUIRE(run != nullptr);
+        auto deleted = run->AppendChild<W::DeletedText>();
+        REQUIRE(deleted != nullptr);
+        deleted->SetText("to delete ");
+        deleted->SetSpace(ExyokiOffice::EnumValue<ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues>(
+            ExyokiOffice::DocumentFormat::OpenXml::SpaceProcessingModeValues::Preserve));
+        paragraph->AddText("words.");
+        REQUIRE(editor->SaveToFile(server->Path("deletion.docx")));
+    }
+
+    const auto opened = server->Call("open_document", nlohmann::json{{"path", "deletion.docx"}});
+    REQUIRE(opened["ok"] == true);
+    const auto documentId = opened["data"]["documentId"].get<std::string>();
+
+    const auto resolved =
+        server->Call("resolve_revisions", nlohmann::json{{"documentId", documentId}, {"mode", "reject"}});
+    REQUIRE(resolved["ok"] == true);
+    CHECK(resolved["data"]["resolved"] == 1);
+
+    const auto blocks = server->Call("read_blocks", nlohmann::json{{"documentId", documentId}});
+    REQUIRE(blocks["ok"] == true);
+    CHECK(blocks["data"]["blocks"][0]["text"] == "Second paragraph to delete words.");
+    // The restored run is a plain w:t again; the saved XML below shows its xml:space.
+    CHECK(CountXml(*server, documentId, "//w:t[.='to delete ']") == 1);
+    CHECK(CountXml(*server, documentId, "//w:delText") == 0);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    auto reopened = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("deletion.docx"));
+    REQUIRE(reopened != nullptr);
+    REQUIRE(reopened->Paragraphs().size() == 1);
+    CHECK(reopened->Paragraphs().front()->PlainText() == "Second paragraph to delete words.");
+    CHECK(reopened->Revisions().empty());
+    const auto xml = reopened->GetDocument()->GetMainDocumentPart()->GetXmlString();
+    CHECK(xml.find("xml:space=\"preserve\">to delete <") != std::string::npos);
+}
+
+TEST_CASE("W-7: a page preset keeps the orientation and refuses explicit dimensions next to it [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "pages.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    AppendParagraph(*server, documentId, "Body");
+
+    const auto landscape = server->Call("set_section", nlohmann::json{{"documentId", documentId},
+                                                                      {"orientation", "landscape"},
+                                                                      {"page_size", nlohmann::json{{"preset", "A4"}}}});
+    REQUIRE(landscape["ok"] == true);
+    CHECK(landscape["data"]["orientation"] == "landscape");
+    CHECK(landscape["data"]["widthPt"].get<double>() > landscape["data"]["heightPt"].get<double>());
+
+    // The preset alone keeps the section landscape, with the long edge as the width.
+    const auto presetOnly = server->Call(
+        "set_section", nlohmann::json{{"documentId", documentId}, {"page_size", nlohmann::json{{"preset", "A4"}}}});
+    REQUIRE(presetOnly["ok"] == true);
+    CHECK(presetOnly["data"]["orientation"] == "landscape");
+    CHECK(presetOnly["data"]["widthPt"].get<double>() > presetOnly["data"]["heightPt"].get<double>());
+    CHECK(presetOnly["data"]["widthPt"].get<double>() == doctest::Approx(841.89).epsilon(0.01));
+
+    const auto both = server->Call("set_section", nlohmann::json{{"documentId", documentId},
+                                                                 {"page_size", nlohmann::json{{"preset", "Letter"},
+                                                                                              {"width", 100}}}});
+    CHECK(both["ok"] == false);
+    CHECK(both["error"]["code"] == "input_invalid");
+
+    // Explicit dimensions are written as given and decide the orientation.
+    const auto custom = server->Call("set_section", nlohmann::json{{"documentId", documentId},
+                                                                   {"page_size", nlohmann::json{{"width", 100},
+                                                                                                {"height", 200}}}});
+    REQUIRE(custom["ok"] == true);
+    CHECK(custom["data"]["orientation"] == "portrait");
+    CHECK(custom["data"]["widthPt"].get<double>() == doctest::Approx(100.0).epsilon(0.01));
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("pages.docx"));
+    REQUIRE(editor != nullptr);
+    REQUIRE(editor->Sections().size() == 1);
+    const auto pageSize = editor->Sections().front()->GetPageSize();
+    REQUIRE(pageSize.has_value());
+    CHECK(pageSize->Orientation == ExyokiOffice::Word::PageOrientation::Portrait);
+    CHECK(pageSize->Width.ToPt().GetValue() == doctest::Approx(100.0).epsilon(0.01));
+    CHECK(pageSize->Height.ToPt().GetValue() == doctest::Approx(200.0).epsilon(0.01));
+}
+
+TEST_CASE("W-8: insert_table honours style_id and refuses an unknown one [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "styled-table.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "GridStyle"},
+                                                        {"kind", "table"}})["ok"] == true);
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Quote"},
+                                                        {"kind", "paragraph"}})["ok"] == true);
+
+    const auto unknown = server->Call("insert_table", nlohmann::json{{"documentId", documentId},
+                                                                     {"anchor", nlohmann::json{{"position", "end"}}},
+                                                                     {"rows", 1},
+                                                                     {"cols", 1},
+                                                                     {"style_id", "NoSuchStyle"}});
+    CHECK(unknown["ok"] == false);
+    CHECK(unknown["error"]["code"] == "style_not_found");
+
+    const auto wrongKind = server->Call("insert_table", nlohmann::json{{"documentId", documentId},
+                                                                       {"anchor", nlohmann::json{{"position", "end"}}},
+                                                                       {"rows", 1},
+                                                                       {"cols", 1},
+                                                                       {"style_id", "Quote"}});
+    CHECK(wrongKind["ok"] == false);
+    CHECK(wrongKind["error"]["code"] == "input_invalid");
+
+    const auto styled = server->Call(
+        "insert_table",
+        nlohmann::json{{"documentId", documentId},
+                       {"anchor", nlohmann::json{{"position", "end"}}},
+                       {"rows", 2},
+                       {"cols", 2},
+                       {"style_id", "GridStyle"},
+                       {"data", nlohmann::json::array({nlohmann::json::array({"a", "b", "cut"}),
+                                                       nlohmann::json::array({"c", "d"}),
+                                                       nlohmann::json::array({"dropped"})})}});
+    REQUIRE(styled["ok"] == true);
+    // Data beyond the table is reported rather than silently cut.
+    REQUIRE(styled["warnings"].size() == 1);
+    CHECK(styled["warnings"][0]["code"] == "data_truncated");
+    CHECK(CountXml(*server, documentId, "//w:tblPr/w:tblStyle[@w:val='GridStyle']") == 1);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("styled-table.docx"));
+    REQUIRE(editor != nullptr);
+    REQUIRE(editor->Tables().size() == 1);
+    CHECK(editor->Tables().front()->GetStyleId() == "GridStyle");
+
+    const auto report = ExyokiOffice::Tools::Run(server->Path("styled-table.docx"));
+    CHECK(report.Loaded);
+    CHECK_MESSAGE(report.ErrorCount == 0, DescribeValidationErrors(report));
+}
+
+TEST_CASE("W-9: split_document by paragraphs writes no empty extra file [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "tosplit.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    for (const auto* text : {"One", "Two", "Three"})
+    {
+        AppendParagraph(*server, documentId, text);
+    }
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+
+    const auto split = server->Call("split_document", nlohmann::json{{"input_path", "tosplit.docx"},
+                                                                     {"output_dir", "parts"},
+                                                                     {"by", "paragraphs"},
+                                                                     {"count", 1}});
+    REQUIRE(split["ok"] == true);
+    REQUIRE(split["data"]["outputFiles"].size() == 3);
+    for (const auto& file : split["data"]["outputFiles"])
+    {
+        auto part = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path(file.get<std::string>()));
+        REQUIRE(part != nullptr);
+        REQUIRE(part->Paragraphs().size() == 1);
+        CHECK_FALSE(part->Paragraphs().front()->PlainText().empty());
+    }
+
+    // Two per part: the odd paragraph ends up alone, and nothing follows it.
+    const auto pairs = server->Call("split_document", nlohmann::json{{"input_path", "tosplit.docx"},
+                                                                     {"output_dir", "pairs"},
+                                                                     {"by", "paragraphs"},
+                                                                     {"count", 2}});
+    REQUIRE(pairs["ok"] == true);
+    CHECK(pairs["data"]["outputFiles"].size() == 2);
+}
+
+TEST_CASE("W-10: define_style refuses dangling next and based_on but creates built-in targets [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "dangling.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+
+    const auto dangling = server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                                      {"style_id", "Body"},
+                                                                      {"kind", "paragraph"},
+                                                                      {"next", "Nowhere"}});
+    CHECK(dangling["ok"] == false);
+    CHECK(dangling["error"]["code"] == "style_not_found");
+    CHECK(server->Call("list_styles", nlohmann::json{{"documentId", documentId}})["data"]["styles"].empty());
+
+    const auto danglingBase = server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                                          {"style_id", "Body"},
+                                                                          {"based_on", "Nowhere"}});
+    CHECK(danglingBase["ok"] == false);
+    CHECK(danglingBase["error"]["code"] == "style_not_found");
+
+    const auto self = server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                                  {"style_id", "Body"},
+                                                                  {"based_on", "Body"}});
+    CHECK(self["ok"] == false);
+    CHECK(self["error"]["code"] == "input_invalid");
+
+    // Built-in targets are created rather than refused.
+    const auto body = server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                                  {"style_id", "Body"},
+                                                                  {"kind", "paragraph"},
+                                                                  {"next", "Normal"}});
+    REQUIRE(body["ok"] == true);
+    const auto report = server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                                    {"style_id", "ReportHeading"},
+                                                                    {"based_on", "Heading1"},
+                                                                    {"next", "Body"}});
+    REQUIRE(report["ok"] == true);
+
+    REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", documentId}})["ok"] == true);
+    auto editor = ExyokiOffice::Word::WordDocumentEditor::Open(server->Path("dangling.docx"));
+    REQUIRE(editor != nullptr);
+    auto styles = editor->Styles();
+    CHECK(styles.HasStyle("Normal"));
+    CHECK(styles.HasStyle("Heading1"));
+    REQUIRE(styles.GetStyle("Body").has_value());
+    CHECK(styles.GetStyle("Body")->NextStyleId == "Normal");
+    REQUIRE(styles.GetStyle("ReportHeading").has_value());
+    CHECK(styles.GetStyle("ReportHeading")->BasedOnStyleId == "Heading1");
+    CHECK(styles.GetStyle("ReportHeading")->NextStyleId == "Body");
+
+    const auto validation = ExyokiOffice::Tools::Run(server->Path("dangling.docx"));
+    CHECK(validation.Loaded);
+    CHECK_MESSAGE(validation.ErrorCount == 0, DescribeValidationErrors(validation));
+}
+
+TEST_CASE("W-11: duplicate bookmark names are refused and delete_style is idempotent [mcp-word]")
+{
+    auto server = MakeWordServer();
+    server->Initialize();
+
+    const auto created = server->Call("create_document", nlohmann::json{{"path", "contract.docx"}});
+    const auto documentId = created["data"]["documentId"].get<std::string>();
+    AppendParagraph(*server, documentId, "One");
+    AppendParagraph(*server, documentId, "Two");
+
+    REQUIRE(server->Call("add_bookmark",
+                         nlohmann::json{{"documentId", documentId}, {"name", "twice"}, {"block", 1}})["ok"] == true);
+    const auto duplicate =
+        server->Call("add_bookmark", nlohmann::json{{"documentId", documentId}, {"name", "twice"}, {"block", 2}});
+    CHECK(duplicate["ok"] == false);
+    CHECK(duplicate["error"]["code"] == "input_invalid");
+    CHECK(CountXml(*server, documentId, "//w:bookmarkStart[@w:name='twice']") == 1);
+
+    REQUIRE(server->Call("define_style", nlohmann::json{{"documentId", documentId},
+                                                        {"style_id", "Callout"},
+                                                        {"kind", "paragraph"}})["ok"] == true);
+    const auto first =
+        server->Call("delete_style", nlohmann::json{{"documentId", documentId}, {"style_id", "Callout"}});
+    REQUIRE(first["ok"] == true);
+    CHECK(first["data"]["removed"] == true);
+    const auto second =
+        server->Call("delete_style", nlohmann::json{{"documentId", documentId}, {"style_id", "Callout"}});
+    REQUIRE(second["ok"] == true);
+    CHECK(second["data"]["removed"] == false);
+    CHECK(second["data"]["danglingBlocks"].empty());
+    CHECK(second["revision"] == first["revision"]);
 }

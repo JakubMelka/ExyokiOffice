@@ -30,7 +30,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "tests"))
 
-from conftest import REPOSITORY_ROOT, SERVER_SPECS, open_client, resolve_executable  # noqa: E402
+from conftest import (  # noqa: E402
+    REPOSITORY_ROOT,
+    SERVER_SPECS,
+    describe_executables,
+    open_client,
+    resolve_executable,
+)
 
 
 # Lifecycle tools, file-to-file utilities, and tools that end or rewind the
@@ -126,6 +132,9 @@ async def main() -> int:
 
     output = Path(sys.argv[1]).resolve()
     output.mkdir(parents=True, exist_ok=True)
+    # The gate is only as good as the binaries it ran: name them.
+    for line in describe_executables():
+        print(line)
     write_fixtures(output)
     reports = [await build(family, output) for family in SERVER_SPECS]
     (output / "corpus.json").write_text(json.dumps(reports, indent=2), encoding="utf-8")

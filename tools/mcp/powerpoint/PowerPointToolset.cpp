@@ -815,8 +815,12 @@ private:
                 continue;
             }
 
+            // Only what the layout declares itself: a slide on this layout can
+            // carry those placeholders, while the master's others stay out of
+            // its reach (a Blank layout offers no title although the master
+            // has one).
             nlohmann::json placeholders = nlohmann::json::array();
-            for (const auto& placeholder : layout->Placeholders(true))
+            for (const auto& placeholder : layout->Placeholders(false))
             {
                 if (placeholder == nullptr)
                 {
@@ -925,6 +929,20 @@ private:
         return false;
     }
 
+    /// True when the slide itself declares a placeholder of the given type.
+    static bool HasPlaceholder(const PowerPoint::PresentationSlide& slide, P::PlaceholderValues::Value type)
+    {
+        for (const auto& candidate : slide.Placeholders(false))
+        {
+            if (candidate != nullptr && candidate->Type() == type)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// Writes a placeholder when the caller has no use for the resulting path.
     static bool WritePlaceholderText(PowerPoint::PresentationSlide& slide, P::PlaceholderValues::Value type,
                                      const PowerPoint::PresentationTextFrame& frame)
@@ -954,13 +972,11 @@ private:
         if (layouts.empty() && layoutName.empty())
         {
             // A freshly created presentation has no master and no layout, and
-            // a slide without a layout cannot carry real placeholders. One
-            // default pair is created so the very first add_slide works.
-            auto master = session.Editor().AddSlideMaster("ExyokiOffice");
-            if (master != nullptr)
+            // a slide without a layout cannot carry real placeholders. The
+            // library's default design is created so the very first add_slide
+            // works and its placeholders have somewhere to draw.
+            if (session.Editor().EnsureDefaultLayout() != nullptr)
             {
-                session.Editor().AddSlideLayout(master, "Title and Content",
-                                                P::SlideLayoutValues::Object);
                 layouts = session.Editor().SlideLayouts();
             }
         }
@@ -1215,12 +1231,15 @@ private:
                              std::to_string(source));
         }
 
-        Size index = session.Editor().SlideCount();
+        // CopySlide places the copy right after its source; the documented
+        // position is to_index, or the end of the presentation when omitted.
+        const Size count = session.Editor().SlideCount();
         const Size requested = arguments.value("to_index", static_cast<Size>(0));
-        if (requested > 0 && requested < index)
+        const Size index = requested > 0 ? requested : count;
+        if (index != source + 1 && !session.Editor().MoveSlide(source, index - 1))
         {
-            session.Editor().MoveSlide(index - 1, requested - 1);
-            index = requested;
+            return MakeError(ErrorCode::OperationFailed, "The copy could not be moved to its position.",
+                             std::to_string(index));
         }
 
         guard.Commit();
@@ -1447,6 +1466,25 @@ private:
         std::string path;
         if (type.has_value())
         {
+            // A placeholder the slide lacks is created only when its layout
+            // offers one: PowerPoint draws a slide placeholder where the
+            // layout says, and one the layout does not know renders as an
+            // invisible 0 x 0 box.
+            if (!HasPlaceholder(*slide, *type))
+            {
+                auto layout = slide->Layout();
+                if (layout == nullptr || layout->FindPlaceholder(*type) == nullptr)
+                {
+                    const auto layoutName = layout != nullptr ? "'" + layout->Name() + "'" : std::string("(none)");
+                    return MakeError(ErrorCode::ShapeNotFound,
+                                     "The slide has no '" + token + "' placeholder and its layout " + layoutName +
+                                         " does not provide one.",
+                                     token,
+                                     "Call add_text_box to place free text, or set_slide_layout to switch to a "
+                                     "layout that has this placeholder; list_layouts shows what each offers.");
+                }
+            }
+
             if (!WritePlaceholderText(*slide, *type, frame, path))
             {
                 return MakeError(ErrorCode::ShapeNotFound, "The '" + token + "' placeholder could not be written.",
@@ -2967,6 +3005,15 @@ private:
 
             if (!categories.empty())
             {
+                if (series.Values.size() != categories.size())
+                {
+                    return MakeError(ErrorCode::InputInvalid,
+                                     "Series " + position + " has " + std::to_string(series.Values.size()) +
+                                         " values but there are " + std::to_string(categories.size()) +
+                                         " categories.",
+                                     "series[" + position + "]", "Give every series one value per category.");
+                }
+
                 series.Categories = categories;
             }
 
@@ -3171,6 +3218,13 @@ private:
         const Size wanted = arguments.value("slide", static_cast<Size>(0));
         nlohmann::json comments = nlohmann::json::array();
         const auto slides = reader.Editor().Slides();
+        if (wanted > slides.size())
+        {
+            return MakeError(ErrorCode::SlideNotFound,
+                             "The presentation has " + std::to_string(slides.size()) + " slide(s).",
+                             std::to_string(wanted), "Call list_slides to see the slide indices.");
+        }
+
         for (Size index = 0; index < slides.size(); ++index)
         {
             if (wanted > 0 && index + 1 != wanted)
@@ -3941,8 +3995,10 @@ private:
                                         { return effect.Id == animationId; });
         if (match == existing.end())
         {
-            return MakeError(ErrorCode::ShapeNotFound, "No animation effect has that identifier.",
-                             std::to_string(animationId), "Call list_animations to see them.");
+            // An unknown effect identifier is a bad argument, not a missing
+            // shape; the closed error list has no code of its own for it.
+            return MakeError(ErrorCode::InputInvalid, "No animation effect on this slide has that identifier.",
+                             std::to_string(animationId), "Call list_animations to see the identifiers.");
         }
 
         // The target shape is the one member worth carrying over: re-pointing
@@ -4077,8 +4133,8 @@ private:
             const auto animationId = arguments.value("animation_id", 0U);
             if (!slide->RemoveAnimationEffect(animationId))
             {
-                return MakeError(ErrorCode::ShapeNotFound, "No animation effect has that identifier.",
-                                 std::to_string(animationId), "Call list_animations to see them.");
+                return MakeError(ErrorCode::InputInvalid, "No animation effect on this slide has that identifier.",
+                                 std::to_string(animationId), "Call list_animations to see the identifiers.");
             }
 
             removed = 1;
@@ -4283,17 +4339,29 @@ private:
         properties["name"] = Schema::String("Section name.");
         properties["before_slide"] = Schema::Integer("1-based slide the section starts at.", 1);
 
-        auto definition = MakeDefinition("add_section", "Add section",
-                                         "Group slides into a named section starting at a slide.", "design");
+        auto definition = MakeDefinition(
+            "add_section", "Add section",
+            "Start a named section at a slide, as PowerPoint's Add Section does: the section runs from that "
+            "slide to the end of the section it was in (or of the presentation), splitting that section. When "
+            "the presentation had no sections and the slide is not the first, the slides before it form a "
+            "\"Default Section\".",
+            "design");
         definition.InputSchema = Schema::Object("Arguments of add_section.", {"documentId", "name", "before_slide"},
                                                 std::move(properties));
-        definition.OutputSchema =
-            Schema::Envelope(Schema::Object("New section.", {"name", "sectionId"},
-                                            nlohmann::json{{"name", Schema::String("Section name.")},
-                                                           {"sectionId", Schema::String("Section identifier, a GUID "
-                                                                                        "in braces.")},
-                                                           {"slideCount", Schema::Integer("Slides in the section.")}}),
-                             true);
+        nlohmann::json section = Schema::Object(
+            "One section.", {"name", "sectionId", "slideCount"},
+            nlohmann::json{{"name", Schema::String("Section name.")},
+                           {"sectionId", Schema::String("Section identifier, a GUID in braces.")},
+                           {"slideCount", Schema::Integer("Slides in the section.")}});
+        definition.OutputSchema = Schema::Envelope(
+            Schema::Object("New section.", {"name", "sectionId", "slideCount", "sections"},
+                           nlohmann::json{{"name", Schema::String("Section name.")},
+                                          {"sectionId", Schema::String("Section identifier, a GUID in braces.")},
+                                          {"slideCount", Schema::Integer("Slides in the new section.")},
+                                          {"sections", Schema::Array("Every section afterwards, in presentation "
+                                                                     "order.",
+                                                                     std::move(section))}}),
+            true);
         definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"name", "Results"}, {"before_slide", 3}};
         definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
         { return AddSection(context, arguments); };
@@ -4317,37 +4385,41 @@ private:
                              std::to_string(first), "Call list_slides to see the slide indices.");
         }
 
-        // PowerPoint identifies a section by a GUID in braces, which is what
-        // Guid::New mints; a name-derived identifier is neither unique nor the
-        // shape the format expects.
-        PowerPoint::PresentationSection section;
-        section.Name = arguments.value("name", std::string());
-        section.Id = Guid::New();
-        for (Size index = first - 1; index < slides.size(); ++index)
+        const auto name = arguments.value("name", std::string());
+        if (name.empty())
         {
-            if (slides[index] != nullptr)
-            {
-                section.SlideIds.push_back(slides[index]->Id());
-            }
+            return MakeError(ErrorCode::InputInvalid, "A section needs a name.", "name");
         }
 
         MutationGuard guard(session.Session());
 
-        if (!session.Editor().AddSection(section))
+        // The library splits the containing section the way PowerPoint does
+        // and mints the braced GUID PowerPoint expects as the identifier.
+        const auto section = session.Editor().AddSectionAt(first - 1, name);
+        if (!section.has_value())
         {
-            return MakeError(ErrorCode::OperationFailed, "The section could not be added.", section.Name,
-                             "Every slide belongs to at most one section; the slides from 'before_slide' on may "
-                             "already belong to another one.");
+            return MakeError(ErrorCode::OperationFailed, "The section could not be added.", name);
         }
 
         guard.Commit();
 
-        nlohmann::json data = nlohmann::json::object();
-        data["name"] = section.Name;
-        data["sectionId"] = section.Id;
-        data["slideCount"] = static_cast<UInt64>(section.SlideIds.size());
+        nlohmann::json sections = nlohmann::json::array();
+        for (const auto& entry : session.Editor().Sections())
+        {
+            nlohmann::json item = nlohmann::json::object();
+            item["name"] = entry.Name;
+            item["sectionId"] = entry.Id;
+            item["slideCount"] = static_cast<UInt64>(entry.SlideIds.size());
+            sections.push_back(std::move(item));
+        }
 
-        return ResultBuilder("Added section '" + section.Name + "'.")
+        nlohmann::json data = nlohmann::json::object();
+        data["name"] = section->Name;
+        data["sectionId"] = section->Id;
+        data["slideCount"] = static_cast<UInt64>(section->SlideIds.size());
+        data["sections"] = std::move(sections);
+
+        return ResultBuilder("Added section '" + section->Name + "'.")
             .WithSession(session.Session())
             .WithData(std::move(data))
             .Build();

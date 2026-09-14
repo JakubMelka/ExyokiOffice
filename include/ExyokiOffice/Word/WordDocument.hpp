@@ -995,6 +995,32 @@ public:
     bool RemoveStyle(std::string_view styleId);
 
     /**
+     * @brief Tells whether an identifier names a built-in style this manager can create.
+     *
+     * The set is the paragraph styles every Word document is expected to have:
+     * `Normal` and `Heading1` to `Heading9`.
+     */
+    [[nodiscard]] static bool IsBuiltInStyleId(std::string_view styleId) noexcept;
+
+    /**
+     * @brief Makes sure a built-in style exists, creating it with Word-like defaults.
+     *
+     * A document created by this library starts without a styles part, so a
+     * paragraph carrying `w:pStyle w:val="Heading1"` would be shown by Word as
+     * body text. This creates the definition Word would have written: `Normal`
+     * as the default paragraph style, and `HeadingN` based on `Normal` with
+     * `Normal` as its next style, the outline level `N - 1`, keep-with-next
+     * pagination, bold colored text and a size decreasing with the level. A
+     * style that already exists is left untouched, so documents from Word or a
+     * template keep their own design. `HeadingN` also ensures `Normal`.
+     *
+     * @param styleId One of the identifiers IsBuiltInStyleId() accepts.
+     * @return True when the style exists afterwards; false for an identifier
+     * that is not a built-in style, or when the styles part cannot be written.
+     */
+    bool EnsureBuiltInStyle(std::string_view styleId);
+
+    /**
      * @brief Marks one style as the default for its type.
      *
      * Any existing default flag on another style of the same type is cleared.
@@ -1628,6 +1654,26 @@ public:
      * @brief Returns a high-level manager for the document style definitions.
      */
     StyleManager Styles() const;
+
+    /**
+     * @brief Reads the document-wide "different odd and even pages" setting.
+     *
+     * The flag lives in the settings part (`w:evenAndOddHeaders`). Word shows
+     * `Even` headers and footers only while it is set.
+     *
+     * @return True when the setting is on; false when it is off or the
+     * document has no settings part.
+     */
+    [[nodiscard]] bool HasEvenAndOddHeaders() const;
+
+    /**
+     * @brief Sets or clears the "different odd and even pages" setting.
+     *
+     * Turning it on creates the settings part when the document has none.
+     *
+     * @return False when the settings part could not be created.
+     */
+    bool SetEvenAndOddHeaders(bool enabled);
 
     /**
      * @return Essential typed theme settings of the document theme part, or
@@ -3078,17 +3124,22 @@ public:
     std::vector<std::shared_ptr<Hyperlink>> Hyperlinks() const;
 
     /**
-     * @brief Inserts a named bookmark at the logical end of the paragraph's content.
+     * @brief Inserts a named bookmark that encloses the paragraph's content.
      *
-     * The bookmark is a zero-width point (`<w:bookmarkStart>` immediately followed by
-     * `<w:bookmarkEnd>`), which is sufficient to serve as a navigation target for internal
-     * hyperlinks and cross-references. The bookmark ID is allocated to be unique across
-     * the whole document when a main document part is attached; otherwise uniqueness is
-     * only guaranteed within this paragraph.
+     * `<w:bookmarkStart>` is placed before the first run of the paragraph (directly
+     * after the paragraph properties) and `<w:bookmarkEnd>` after the last one, so
+     * the bookmark covers the paragraph text and a `REF` field or an internal
+     * hyperlink pointing at it lands on that text. To span several paragraphs,
+     * move the end marker (Bookmark::GetEndElement()) into the closing paragraph.
+     * The bookmark ID is allocated to be unique across the whole document — over
+     * start and end markers alike — when a main document part is attached;
+     * otherwise uniqueness is only guaranteed within this paragraph.
      *
      * @param name Bookmark name. Word restricts bookmark names to 40 characters, letters,
      * digits, and underscore, starting with a letter; this method does not validate that.
-     * @return Bookmark wrapper, or nullptr when the paragraph is invalid or name is empty.
+     * Names are unique in a document: a name that already marks a bookmark is refused.
+     * @return Bookmark wrapper, or nullptr when the paragraph is invalid, name is empty,
+     * or the document already has a bookmark of that name.
      */
     std::shared_ptr<Bookmark> AddBookmark(std::string_view name);
 
@@ -5783,6 +5834,23 @@ public:
      */
     Table& SetAlignment(DocumentFormat::OpenXml::Wordprocessing::TableRowAlignmentValues alignment);
     /**
+     * @brief Applies a table style (`<w:tblStyle>`).
+     *
+     * The style is referenced by identifier; whether the document defines it is
+     * the caller's concern (see StyleManager::HasStyle()). An empty identifier
+     * removes the reference.
+     *
+     * @param styleId Table style identifier (e.g. "TableGrid").
+     * @return Reference to this table for fluent chaining.
+     */
+    Table& SetStyleId(std::string_view styleId);
+    /**
+     * @brief Reads the table style identifier, if present.
+     *
+     * @return Style identifier, or an empty string when the table has no `w:tblStyle`.
+     */
+    std::string GetStyleId() const;
+    /**
      * @brief Sets table borders on all sides.
      *
      * @param style Border style.
@@ -6060,7 +6128,17 @@ public:
     /**
      * @brief Merges a rectangular block of cells.
      *
-     * The merge starts at (row, column). A rowSpan or columnSpan of 0 does nothing.
+     * The merge starts at (row, column) in the logical grid. A rowSpan or
+     * columnSpan of 0 does nothing. Merges elsewhere in the table are kept, and
+     * a merged cell that lies entirely inside the region is absorbed. The
+     * content of the covered cells is appended to the anchor cell, in row-major
+     * order, as Word does when it merges cells; paragraphs that hold nothing are
+     * dropped rather than carried over as blank lines.
+     *
+     * A region that cuts through a merged cell — one that is only partly inside
+     * it — is refused and the table is left unchanged, because the result would
+     * not be rectangular. Split that cell first (SplitCell()) or widen the
+     * region to cover it; CanMergeCells() tells the two cases apart beforehand.
      *
      * @param row Starting row index (0-based).
      * @param column Starting column index (0-based).
@@ -6069,6 +6147,14 @@ public:
      * @return Reference to this table for fluent chaining.
      */
     Table& MergeCells(Size row, Size column, Size rowSpan, Size columnSpan);
+
+    /**
+     * @brief Checks whether MergeCells() would merge the region.
+     *
+     * @return False when the region is empty, or when it partly overlaps a cell
+     * that is already merged, which MergeCells() refuses.
+     */
+    [[nodiscard]] bool CanMergeCells(Size row, Size column, Size rowSpan, Size columnSpan) const;
 
     /**
      * @brief Splits the cell that occupies the specified logical coordinate.
@@ -6328,6 +6414,23 @@ public:
      * @return This section wrapper for fluent calls.
      */
     Section& SetColumns(const SectionColumns& columns);
+
+    /**
+     * @brief Reads the "different first page" flag (`w:titlePg`).
+     *
+     * Word shows a section's `First` header and footer only while this flag is
+     * set; without it the references are stored but never rendered.
+     */
+    [[nodiscard]] bool HasTitlePage() const;
+
+    /**
+     * @brief Sets or clears the "different first page" flag (`w:titlePg`).
+     *
+     * @param enabled True to show the `First` header and footer on the first
+     * page of the section; false removes the flag.
+     * @return This section wrapper for fluent calls.
+     */
+    Section& SetTitlePage(bool enabled);
 
     /**
      * @brief Returns true when this section has an explicit header reference.

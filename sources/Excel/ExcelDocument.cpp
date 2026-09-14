@@ -6,7 +6,9 @@
 #include "ExyokiOffice/Excel/ExcelReference.hpp"
 
 #include "ExyokiOffice/DOM/Namespaces.hpp"
+#include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Office2019/Excel/ThreadedComments.hpp"
 #include "ExyokiOffice/DOM/DocumentFormat/OpenXml/Spreadsheet.hpp"
+#include "ExyokiOffice/Guid.hpp"
 #include "OpenXmlDomInternal.hpp"
 #include "XmlNamespaceResolver.hpp"
 #include "Excel/ExcelSlicerInternal.hpp"
@@ -20,6 +22,7 @@
 #include <charconv>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace ExyokiOffice::Excel
@@ -1622,6 +1625,16 @@ ExcelTable::Ptr Worksheet::CreateTable(std::string_view name,
             return nullptr;
         }
     }
+    // So do two tables sharing a cell; and the header row written for the new
+    // table would overwrite the old table's cells before Excel ever saw it.
+    for (const auto& existing : Tables())
+    {
+        const auto area = existing ? existing->Range() : std::nullopt;
+        if (area && RangesIntersect(*area, range))
+        {
+            return nullptr;
+        }
+    }
     const auto workbookPart = m_document->GetWorkbookPart();
     if (!workbookPart)
     {
@@ -2639,6 +2652,538 @@ bool ExcelDocumentEditor::MoveWorksheet(Size fromIndex, Size toIndex)
     return sheets->RemoveChild(source);
 }
 
+/**
+ * @brief The fix-ups a copied or imported worksheet needs before the workbook is consistent again.
+ *
+ * Copying a worksheet part graph reproduces everything the sheet refers to,
+ * and some of it is identified workbook-wide: table ids and names, threaded
+ * comment ids, the person list a thread's author points at, the style indices
+ * cells carry, and the defined names scoped to the sheet. Each helper here
+ * repairs one of those after the graph itself has been copied.
+ */
+class WorksheetCopyHelpers final
+{
+public:
+    WorksheetCopyHelpers() = delete;
+
+    /**
+     * @brief Relationship types a within-workbook copy shares instead of duplicating.
+     *
+     * Media bytes are immutable, and a pivot table's cache is registered once
+     * in the workbook's `pivotCaches` list, so both stay shared like PowerPoint
+     * shares a copied slide's layout and media.
+     */
+    static const std::vector<std::string_view>& SharedRelationshipTypes()
+    {
+        static const std::vector<std::string_view> types = {
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotCacheDefinition"};
+        return types;
+    }
+
+    /// The id of the relationship from @p workbookPart to @p part, or empty.
+    static std::string WorkbookRelationshipId(const std::shared_ptr<Packaging::WorkbookPart>& workbookPart,
+                                              const std::shared_ptr<Packaging::WorksheetPart>& part)
+    {
+        for (const auto& incoming : part->IncomingRelationships())
+        {
+            if (incoming.SourceUri == workbookPart->Uri())
+            {
+                return incoming.Id;
+            }
+        }
+        return part->RelationshipId();
+    }
+
+    /**
+     * @brief Gives every table of @p part an id and a name no other table in the workbook uses.
+     *
+     * A table id is unique workbook-wide and a table name is what structured
+     * references and slicers resolve, so a copied table cannot keep either.
+     */
+    static void RenumberTables(const ExcelDocument::Ptr& document, const std::shared_ptr<Packaging::WorksheetPart>& part)
+    {
+        const auto workbookPart = document ? document->GetWorkbookPart() : nullptr;
+        if (!workbookPart || !part)
+        {
+            return;
+        }
+        UInt32 nextId = 1;
+        std::unordered_set<std::string> names;
+        for (const auto& worksheetPart : workbookPart->GetWorksheetParts())
+        {
+            if (!worksheetPart || worksheetPart == part)
+            {
+                continue;
+            }
+            for (const auto& tablePart : worksheetPart->GetTableDefinitionParts())
+            {
+                ExcelTable existing(tablePart);
+                nextId = std::max(nextId, existing.Id() + 1);
+                names.insert(AsciiText::ToLower(existing.Name()));
+            }
+        }
+        for (const auto& tablePart : part->GetTableDefinitionParts())
+        {
+            const auto element = tablePart ? tablePart->GetTable() : nullptr;
+            if (!element)
+            {
+                continue;
+            }
+            element->SetId(UInt32Value(nextId++));
+            ExcelTable table(tablePart);
+            const auto base = table.Name();
+            auto candidate = base;
+            for (UInt32 suffix = 2; names.contains(AsciiText::ToLower(candidate)) && suffix < 100000; ++suffix)
+            {
+                candidate = base + std::to_string(suffix);
+            }
+            if (candidate != base)
+            {
+                table.SetName(candidate);
+            }
+            names.insert(AsciiText::ToLower(table.Name()));
+        }
+    }
+
+    /**
+     * @brief Gives every threaded comment of @p part a fresh identifier.
+     *
+     * Replies follow their parent, and the plain note that backs each thread
+     * names the thread's id in its author, so that is rewritten too.
+     */
+    static void RenumberThreadedComments(const std::shared_ptr<Packaging::WorksheetPart>& part)
+    {
+        namespace Xltc = ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments;
+        if (!part)
+        {
+            return;
+        }
+        std::unordered_map<std::string, std::string> ids;
+        std::vector<std::shared_ptr<Xltc::ThreadedComment>> comments;
+        for (const auto& threadPart : part->GetWorksheetThreadedCommentsParts())
+        {
+            const auto root = threadPart ? threadPart->GetTypedRootElement() : nullptr;
+            if (!root)
+            {
+                continue;
+            }
+            for (const auto& comment : root->Elements<Xltc::ThreadedComment>())
+            {
+                if (!comment)
+                {
+                    continue;
+                }
+                const auto replacement = Guid::New();
+                ids.emplace(comment->GetId().ToString(), replacement);
+                comment->SetId(StringValue(replacement));
+                comments.push_back(comment);
+            }
+        }
+        if (ids.empty())
+        {
+            return;
+        }
+        for (const auto& comment : comments)
+        {
+            const auto parent = ids.find(comment->GetParentId().ToString());
+            if (comment->GetParentId().IsDefined() && parent != ids.end())
+            {
+                comment->SetParentId(StringValue(parent->second));
+            }
+        }
+
+        constexpr std::string_view backingPrefix = "tc=";
+        const auto commentsPart = part->GetWorksheetCommentsPart();
+        const auto commentsRoot = commentsPart ? commentsPart->GetTypedRootElement() : nullptr;
+        const auto authors = commentsRoot ? commentsRoot->GetFirstChildOfType<Spreadsheet::Authors>() : nullptr;
+        if (!authors)
+        {
+            return;
+        }
+        for (const auto& author : authors->Elements<Spreadsheet::Author>())
+        {
+            const auto text = std::string(author->GetText());
+            if (!text.starts_with(backingPrefix))
+            {
+                continue;
+            }
+            const auto replacement = ids.find(text.substr(backingPrefix.size()));
+            if (replacement != ids.end())
+            {
+                author->SetText(std::string(backingPrefix) + replacement->second);
+            }
+        }
+    }
+
+    /**
+     * @brief Drops the state that belongs to the original sheet alone.
+     *
+     * Two selected tabs would group the sheets, and a VBA code name has to be
+     * unique in the project.
+     */
+    static void ClearCopyOnlyState(const std::shared_ptr<Spreadsheet::Worksheet>& root)
+    {
+        if (!root)
+        {
+            return;
+        }
+        if (const auto views = root->GetFirstChildOfType<Spreadsheet::SheetViews>())
+        {
+            for (const auto& view : views->Elements<Spreadsheet::SheetView>())
+            {
+                view->SetTabSelected(BooleanValue());
+            }
+        }
+        if (const auto properties = root->GetFirstChildOfType<Spreadsheet::SheetProperties>())
+        {
+            properties->SetCodeName(StringValue());
+        }
+    }
+
+    /// Whether a sheet name has to be quoted in a formula reference.
+    static bool SheetNameNeedsQuoting(std::string_view name)
+    {
+        if (name.empty() || (name.front() >= '0' && name.front() <= '9') || name.front() == '.')
+        {
+            return true;
+        }
+        for (const char character : name)
+        {
+            if (!AsciiText::IsAlnum(character) && !AsciiText::IsNonAscii(character) && character != '_' &&
+                character != '.')
+            {
+                return true;
+            }
+        }
+        return CellAddress::ParseA1(name).has_value();
+    }
+
+    static std::string QuoteSheetName(std::string_view name)
+    {
+        if (!SheetNameNeedsQuoting(name))
+        {
+            return std::string(name);
+        }
+        std::string quoted = "'";
+        for (const char character : name)
+        {
+            quoted += character;
+            if (character == '\'')
+            {
+                quoted += '\'';
+            }
+        }
+        return quoted + "'";
+    }
+
+    /// Re-points the sheet-qualified references in @p text from @p oldName to @p newName.
+    static std::string RewriteSheetReferences(std::string text, std::string_view oldName, std::string_view newName)
+    {
+        const auto replaceAll = [&text](const std::string& from, const std::string& to, bool bareIdentifier)
+        {
+            Size position = 0;
+            while ((position = text.find(from, position)) != std::string::npos)
+            {
+                const bool boundary = !bareIdentifier || position == 0 ||
+                                      !(AsciiText::IsAlnum(text[position - 1]) || text[position - 1] == '_' ||
+                                        text[position - 1] == '.' || text[position - 1] == '\'');
+                if (!boundary)
+                {
+                    position += from.size();
+                    continue;
+                }
+                text.replace(position, from.size(), to);
+                position += to.size();
+            }
+        };
+
+        std::string quotedOld = "'";
+        for (const char character : oldName)
+        {
+            quotedOld += character;
+            if (character == '\'')
+            {
+                quotedOld += '\'';
+            }
+        }
+        quotedOld += "'!";
+        const auto replacement = QuoteSheetName(newName) + "!";
+        replaceAll(quotedOld, replacement, false);
+        if (!SheetNameNeedsQuoting(oldName))
+        {
+            replaceAll(std::string(oldName) + "!", replacement, true);
+        }
+        return text;
+    }
+
+    /**
+     * @brief Duplicates the defined names scoped to one sheet for another.
+     *
+     * Print areas, print titles and other sheet-scoped names live in the
+     * workbook, keyed by sheet index, so the copied sheet gets its own set with
+     * the references re-pointed at it.
+     */
+    static void CopySheetScopedDefinedNames(const ExcelDocument::Ptr& sourceDocument, Size sourceIndex,
+                                            std::string_view sourceName, const ExcelDocument::Ptr& targetDocument,
+                                            Size targetIndex, std::string_view targetName)
+    {
+        const auto sourcePart = sourceDocument ? sourceDocument->GetWorkbookPart() : nullptr;
+        const auto sourceWorkbook = sourcePart ? sourcePart->GetWorkbook() : nullptr;
+        const auto sourceNames = sourceWorkbook ? sourceWorkbook->GetFirstChildOfType<Spreadsheet::DefinedNames>()
+                                                : nullptr;
+        const auto targetPart = targetDocument ? targetDocument->GetWorkbookPart() : nullptr;
+        const auto targetWorkbook = targetPart ? targetPart->GetWorkbook() : nullptr;
+        if (!sourceNames || !targetWorkbook)
+        {
+            return;
+        }
+
+        std::vector<std::shared_ptr<Spreadsheet::DefinedName>> scoped;
+        for (const auto& item : sourceNames->Elements<Spreadsheet::DefinedName>())
+        {
+            if (item && item->GetLocalSheetId().IsDefined() && item->GetLocalSheetId().Value() == sourceIndex)
+            {
+                scoped.push_back(item);
+            }
+        }
+        if (scoped.empty())
+        {
+            return;
+        }
+
+        auto targetNames = targetWorkbook->GetFirstChildOfType<Spreadsheet::DefinedNames>();
+        if (!targetNames)
+        {
+            targetNames = targetWorkbook->AppendChild<Spreadsheet::DefinedNames>();
+        }
+        for (const auto& item : scoped)
+        {
+            auto copy = targetNames->AppendChild<Spreadsheet::DefinedName>();
+            if (!copy)
+            {
+                continue;
+            }
+            copy->SetName(item->GetName());
+            copy->SetLocalSheetId(UInt32Value(static_cast<UInt32>(targetIndex)));
+            copy->SetComment(item->GetComment());
+            copy->SetHidden(item->GetHidden());
+            copy->SetText(RewriteSheetReferences(std::string(item->GetText()), sourceName, targetName));
+        }
+    }
+
+    /**
+     * @brief Brings the persons an imported sheet's threads refer to into the target workbook.
+     *
+     * The person list hangs off the workbook, not the worksheet, so importing
+     * the sheet's part graph alone leaves each `personId` dangling - and Excel
+     * refuses a workbook whose threads name a person it does not list.
+     */
+    static void MergePersons(const std::shared_ptr<Packaging::WorkbookPart>& sourceWorkbook,
+                             const std::shared_ptr<Packaging::WorkbookPart>& targetWorkbook,
+                             const std::shared_ptr<Packaging::WorksheetPart>& importedPart)
+    {
+        namespace Xltc = ExyokiOffice::DocumentFormat::OpenXml::Office2019::Excel::ThreadedComments;
+        if (!sourceWorkbook || !targetWorkbook || !importedPart)
+        {
+            return;
+        }
+
+        std::vector<std::string> referenced;
+        for (const auto& threadPart : importedPart->GetWorksheetThreadedCommentsParts())
+        {
+            const auto root = threadPart ? threadPart->GetTypedRootElement() : nullptr;
+            if (!root)
+            {
+                continue;
+            }
+            for (const auto& comment : root->Elements<Xltc::ThreadedComment>())
+            {
+                const auto id = comment ? comment->GetPersonId().ToString() : std::string{};
+                if (!id.empty() && std::find(referenced.begin(), referenced.end(), id) == referenced.end())
+                {
+                    referenced.push_back(id);
+                }
+            }
+        }
+        if (referenced.empty())
+        {
+            return;
+        }
+
+        std::unordered_map<std::string, std::shared_ptr<Xltc::Person>> sourcePersons;
+        for (const auto& personPart : sourceWorkbook->GetWorkbookPersonParts())
+        {
+            const auto root = personPart ? personPart->GetTypedRootElement() : nullptr;
+            for (const auto& person : root ? root->Elements<Xltc::Person>() : std::vector<Xltc::Person::Ptr>{})
+            {
+                if (person)
+                {
+                    sourcePersons.emplace(person->GetId().ToString(), person);
+                }
+            }
+        }
+
+        const auto targetParts = targetWorkbook->GetWorkbookPersonParts();
+        const auto targetPart = targetParts.empty() ? targetWorkbook->AddWorkbookPersonPart() : targetParts.front();
+        const auto targetList = targetPart ? targetPart->GetTypedRootElement() : nullptr;
+        if (!targetList)
+        {
+            return;
+        }
+        std::unordered_set<std::string> present;
+        for (const auto& person : targetList->Elements<Xltc::Person>())
+        {
+            if (person)
+            {
+                present.insert(person->GetId().ToString());
+            }
+        }
+        for (const auto& id : referenced)
+        {
+            if (present.contains(id))
+            {
+                continue;
+            }
+            auto person = targetList->AppendChild<Xltc::Person>();
+            if (!person)
+            {
+                continue;
+            }
+            const auto source = sourcePersons.find(id);
+            person->SetId(StringValue(id));
+            if (source != sourcePersons.end())
+            {
+                person->SetDisplayName(source->second->GetDisplayName());
+                person->SetUserId(source->second->GetUserId());
+                person->SetProviderId(source->second->GetProviderId());
+            }
+            else
+            {
+                // The source workbook was already missing this person; Excel
+                // still needs an entry to open the thread at all.
+                person->SetDisplayName(StringValue("Unknown"));
+                person->SetProviderId(StringValue("None"));
+            }
+            present.insert(id);
+        }
+    }
+
+    /**
+     * @brief Rewrites the style indices of an imported sheet against the target stylesheet.
+     *
+     * Cell style indices and differential-format indices are workbook-global,
+     * so the imported sheet's numbers point into the wrong stylesheet unless
+     * both workbooks happen to share one. Each referenced style is read back
+     * from the source and registered in the target, which deduplicates, and the
+     * cells, rows, columns, conditional-format rules and table formats are
+     * pointed at the result. An index the source cannot resolve falls back to
+     * the default style, which is what Excel shows for it as well.
+     */
+    static void RemapStyles(const ExcelDocumentEditor& source, ExcelDocumentEditor& target,
+                            const std::shared_ptr<Packaging::WorksheetPart>& importedPart)
+    {
+        const auto sourceStyles = source.GetDocument()->GetWorkbookPart()->GetWorkbookStylesPart();
+        const auto targetStyles = target.GetDocument()->GetWorkbookPart()->GetWorkbookStylesPart();
+        if (sourceStyles && targetStyles && sourceStyles->GetXmlString() == targetStyles->GetXmlString())
+        {
+            return;
+        }
+        const auto root = importedPart ? importedPart->GetTypedRootElement() : nullptr;
+        if (!root)
+        {
+            return;
+        }
+
+        const auto from = source.Styles();
+        auto to = target.Styles();
+        std::unordered_map<UInt32, UInt32> cellFormats;
+        const auto mapCellFormat = [&](UInt32 index) -> UInt32
+        {
+            if (index == 0)
+            {
+                return 0;
+            }
+            if (const auto known = cellFormats.find(index); known != cellFormats.end())
+            {
+                return known->second;
+            }
+            const auto style = from.GetStyle(index);
+            const auto registered = style ? to.GetOrAdd(*style) : StyleRegistrationResult{};
+            const auto mapped = style && registered ? registered.StyleIndex : 0;
+            cellFormats.emplace(index, mapped);
+            return mapped;
+        };
+        std::unordered_map<UInt32, std::optional<UInt32>> differentialFormats;
+        const auto mapDifferentialFormat = [&](UInt32 index) -> std::optional<UInt32>
+        {
+            if (const auto known = differentialFormats.find(index); known != differentialFormats.end())
+            {
+                return known->second;
+            }
+            const auto style = from.GetDifferentialFormat(index);
+            const auto registered = style ? to.GetOrAddDifferentialFormat(*style) : StyleRegistrationResult{};
+            const std::optional<UInt32> mapped =
+                style && registered ? std::optional<UInt32>(registered.StyleIndex) : std::nullopt;
+            differentialFormats.emplace(index, mapped);
+            return mapped;
+        };
+        const auto remapped = [](UInt32 value) { return value == 0 ? UInt32Value() : UInt32Value(value); };
+
+        for (const auto& cell : root->Descendants<Spreadsheet::Cell>())
+        {
+            if (cell && cell->GetStyleIndex().IsDefined())
+            {
+                cell->SetStyleIndex(remapped(mapCellFormat(cell->GetStyleIndex().Value())));
+            }
+        }
+        for (const auto& row : root->Descendants<Spreadsheet::Row>())
+        {
+            if (row && row->GetStyleIndex().IsDefined())
+            {
+                row->SetStyleIndex(remapped(mapCellFormat(row->GetStyleIndex().Value())));
+            }
+        }
+        for (const auto& column : root->Descendants<Spreadsheet::Column>())
+        {
+            if (column && column->GetStyle().IsDefined())
+            {
+                column->SetStyle(remapped(mapCellFormat(column->GetStyle().Value())));
+            }
+        }
+        const auto remappedDifferential = [&](const UInt32Value& value)
+        {
+            if (!value.IsDefined())
+            {
+                return value;
+            }
+            const auto mapped = mapDifferentialFormat(value.Value());
+            return mapped ? UInt32Value(*mapped) : UInt32Value();
+        };
+        for (const auto& rule : root->Descendants<Spreadsheet::ConditionalFormattingRule>())
+        {
+            if (rule)
+            {
+                rule->SetFormatId(remappedDifferential(rule->GetFormatId()));
+            }
+        }
+        for (const auto& tablePart : importedPart->GetTableDefinitionParts())
+        {
+            const auto table = tablePart ? tablePart->GetTable() : nullptr;
+            if (!table)
+            {
+                continue;
+            }
+            table->SetHeaderRowFormatId(remappedDifferential(table->GetHeaderRowFormatId()));
+            table->SetDataFormatId(remappedDifferential(table->GetDataFormatId()));
+            table->SetTotalsRowFormatId(remappedDifferential(table->GetTotalsRowFormatId()));
+            table->SetHeaderRowBorderFormatId(remappedDifferential(table->GetHeaderRowBorderFormatId()));
+            table->SetBorderFormatId(remappedDifferential(table->GetBorderFormatId()));
+            table->SetTotalsRowBorderFormatId(remappedDifferential(table->GetTotalsRowBorderFormatId()));
+        }
+    }
+};
+
 Worksheet::Ptr ExcelDocumentEditor::CopyWorksheet(Size sourceIndex, std::string_view name)
 {
     if (!m_document)
@@ -2654,19 +3199,33 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheet(Size sourceIndex, std::string_
         return nullptr;
     }
 
-    const auto sheetName = name.empty() ? ExcelDocumentXmlHelper::MakeUniqueWorksheetName(m_document, sourceSheet->GetName().ToString())
+    const auto sourceName = sourceSheet->GetName().ToString();
+    const auto sheetName = name.empty() ? ExcelDocumentXmlHelper::MakeUniqueWorksheetName(m_document, sourceName)
                                         : std::string(name);
     if (!ExcelDocumentXmlHelper::IsValidWorksheetName(sheetName) || ExcelDocumentXmlHelper::WorksheetNameExists(m_document, sheetName))
     {
         return nullptr;
     }
 
-    auto worksheetPart = workbookPart->AddWorksheetPart();
+    // The sheet's drawings, charts, comments, tables and printer settings are
+    // parts of their own, reached through relationships the sheet XML names by
+    // id. Copying the XML alone would leave every one of those ids dangling,
+    // which Excel treats as a corrupt workbook.
+    auto copiedBase = workbookPart->ClonePartGraph(sourcePart, WorksheetCopyHelpers::SharedRelationshipTypes());
+    auto worksheetPart = std::dynamic_pointer_cast<Packaging::WorksheetPart>(copiedBase);
     if (!worksheetPart)
     {
         return nullptr;
     }
-    worksheetPart->SetXmlString(sourcePart->GetXmlString());
+    const auto relationshipId = WorksheetCopyHelpers::WorkbookRelationshipId(workbookPart, worksheetPart);
+    if (relationshipId.empty())
+    {
+        workbookPart->RemoveWorksheetPart(worksheetPart);
+        return nullptr;
+    }
+    WorksheetCopyHelpers::RenumberTables(m_document, worksheetPart);
+    WorksheetCopyHelpers::RenumberThreadedComments(worksheetPart);
+    WorksheetCopyHelpers::ClearCopyOnlyState(worksheetPart->GetTypedRootElement());
 
     auto sheet = sheets->AppendChild<Spreadsheet::Sheet>();
     if (!sheet)
@@ -2676,7 +3235,10 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheet(Size sourceIndex, std::string_
     }
     sheet->SetName(StringValue(sheetName));
     sheet->SetSheetId(UInt32Value(ExcelDocumentXmlHelper::NextSheetId(sheets)));
-    sheet->SetId(StringValue(worksheetPart->RelationshipId()));
+    sheet->SetId(StringValue(relationshipId));
+    WorksheetCopyHelpers::CopySheetScopedDefinedNames(m_document, sourceIndex, sourceName, m_document,
+                                                      ExcelDocumentXmlHelper::SheetElements(m_document).size() - 1,
+                                                      sheetName);
     return std::make_shared<Worksheet>(sheetName, worksheetPart, m_document);
 }
 
@@ -2699,37 +3261,15 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheetFrom(const ExcelDocumentEditor&
         return nullptr;
     }
 
+    const auto sourceName = sourceSheet->GetName().ToString();
     const auto sheetName = name.empty()
-                               ? (ExcelDocumentXmlHelper::WorksheetNameExists(m_document, sourceSheet->GetName().ToString())
-                                      ? ExcelDocumentXmlHelper::MakeUniqueWorksheetName(m_document, sourceSheet->GetName().ToString())
-                                      : sourceSheet->GetName().ToString())
+                               ? (ExcelDocumentXmlHelper::WorksheetNameExists(m_document, sourceName)
+                                      ? ExcelDocumentXmlHelper::MakeUniqueWorksheetName(m_document, sourceName)
+                                      : sourceName)
                                : std::string(name);
     if (!ExcelDocumentXmlHelper::IsValidWorksheetName(sheetName) || ExcelDocumentXmlHelper::WorksheetNameExists(m_document, sheetName))
     {
         return nullptr;
-    }
-
-    auto sourceRoot = sourcePart->GetTypedRootElement();
-    bool usesStyles = false;
-    if (sourceRoot)
-    {
-        for (const auto& cell : sourceRoot->Descendants<Spreadsheet::Cell>())
-        {
-            if (cell && cell->GetStyleIndex().IsDefined() && cell->GetStyleIndex().ValueOr(0) != 0)
-            {
-                usesStyles = true;
-                break;
-            }
-        }
-    }
-    if (usesStyles)
-    {
-        auto sourceStyles = sourceEditor.m_document->GetWorkbookPart()->GetWorkbookStylesPart();
-        auto targetStyles = workbookPart->GetWorkbookStylesPart();
-        if (!sourceStyles || !targetStyles || sourceStyles->GetXmlString() != targetStyles->GetXmlString())
-        {
-            return nullptr;
-        }
     }
 
     auto importedBase = workbookPart->ImportPartGraph(sourcePart);
@@ -2759,6 +3299,14 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheetFrom(const ExcelDocumentEditor&
         }
     }
 
+    // Everything the sheet identifies workbook-wide comes from the other
+    // workbook's numbering: style indices, table ids and names, and the person
+    // list its threads point at.
+    WorksheetCopyHelpers::RemapStyles(sourceEditor, *this, importedPart);
+    WorksheetCopyHelpers::RenumberTables(m_document, importedPart);
+    WorksheetCopyHelpers::MergePersons(sourceEditor.m_document->GetWorkbookPart(), workbookPart, importedPart);
+    WorksheetCopyHelpers::ClearCopyOnlyState(importedRoot);
+
     auto sheet = sheets->AppendChild<Spreadsheet::Sheet>();
     if (!sheet)
     {
@@ -2768,6 +3316,9 @@ Worksheet::Ptr ExcelDocumentEditor::CopyWorksheetFrom(const ExcelDocumentEditor&
     sheet->SetName(StringValue(sheetName));
     sheet->SetSheetId(UInt32Value(ExcelDocumentXmlHelper::NextSheetId(sheets)));
     sheet->SetId(StringValue(importedPart->RelationshipId()));
+    WorksheetCopyHelpers::CopySheetScopedDefinedNames(sourceEditor.m_document, sourceIndex, sourceName, m_document,
+                                                      ExcelDocumentXmlHelper::SheetElements(m_document).size() - 1,
+                                                      sheetName);
     return std::make_shared<Worksheet>(sheetName, importedPart, m_document);
 }
 

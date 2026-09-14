@@ -119,7 +119,14 @@ public:
         bool Dirty = false;
     };
 
-    /// Captures the state a batch can be rolled back to; nullopt on failure.
+    /**
+     * @brief Captures the state a batch can be rolled back to; nullopt on failure.
+     *
+     * Until CommitBatch or RollbackBatch ends the batch, the history is not
+     * trimmed to the snapshot depth: the operations inside the batch snapshot
+     * as usual, and the marker's count must still identify where their
+     * snapshots begin when the batch collapses them into one step.
+     */
     [[nodiscard]] std::optional<BatchMarker> BeginBatch();
 
     /// Restores the marker's state and discards everything the batch did.
@@ -141,6 +148,12 @@ private:
 
     void CaptureFileTime();
 
+    /// Evicts the oldest snapshots until the history fits the configured depth.
+    void TrimToDepth();
+
+    /// Ends a batch: drops the snapshots its operations pushed and re-applies the depth.
+    void DropBatchSnapshots(const BatchMarker& marker);
+
     std::string m_id;
     std::unique_ptr<DocumentHandle> m_document;
     std::filesystem::path m_path;
@@ -148,6 +161,7 @@ private:
     UInt64 m_revision = 0;
     bool m_dirty = false;
     bool m_rollbackFailed = false;
+    bool m_inBatch = false;
     std::optional<std::filesystem::file_time_type> m_fileTime;
     std::deque<Snapshot> m_snapshots;
 };
