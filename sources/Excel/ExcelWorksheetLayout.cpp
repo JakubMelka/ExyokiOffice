@@ -444,10 +444,12 @@ std::optional<DrawingAnchor> Worksheet::DrawingAnchorForSize(CellAddress from, E
 
     const auto [column, columnOffset] = DrawingAnchorArithmetic::Walk(
         from.Column().Value(), MaxColumnIndex, anchor.Extent->Width,
-        [&](UInt32 index) { return DrawingAnchorArithmetic::ColumnWidthEmu(*this, root, index); });
+        [&](UInt32 index)
+        { return DrawingAnchorArithmetic::ColumnWidthEmu(*this, root, index); });
     const auto [row, rowOffset] = DrawingAnchorArithmetic::Walk(
         from.Row().Value(), MaxRowIndex, anchor.Extent->Height,
-        [&](UInt32 index) { return DrawingAnchorArithmetic::RowHeightEmu(*this, root, index); });
+        [&](UInt32 index)
+        { return DrawingAnchorArithmetic::RowHeightEmu(*this, root, index); });
 
     const auto to = CellAddress::TryCreate(row, column);
     if (!to)

@@ -1300,8 +1300,7 @@ TEST_CASE("the shape tools refuse geometry and colors they cannot write [mcp-pow
     const auto documentId = created["data"]["documentId"].get<std::string>();
     REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId}})["ok"] == true);
 
-    const auto base = nlohmann::json{{"documentId", documentId}, {"slide", 1},     {"x", "1cm"},
-                                     {"y", "1cm"},               {"width", "4cm"}, {"height", "2cm"}};
+    const auto base = nlohmann::json{{"documentId", documentId}, {"slide", 1}, {"x", "1cm"}, {"y", "1cm"}, {"width", "4cm"}, {"height", "2cm"}};
 
     auto withPreset = base;
     withPreset["preset"] = "definitely_not_a_shape";
@@ -2331,6 +2330,33 @@ TEST_CASE("P-3: placeholders of a deck built from scratch have a position [mcp-p
             CHECK(PowerPointRegressionSupport::EffectiveWidth(*shape) > 0.0);
         }
     }
+
+    // PowerPoint binds a slide placeholder to its layout by idx before type,
+    // so the body written by add_slide carries the layout body's idx 1 and
+    // resolves to the body box (y = 1600200), not to the title box.
+    bool sawBody = false;
+    for (const auto& placeholder : editor->GetSlide(0)->Placeholders(false))
+    {
+        if (placeholder->Type() != P::PlaceholderValues::Body)
+        {
+            continue;
+        }
+        sawBody = true;
+        CHECK(placeholder->Index() == 1u);
+        for (const auto& shape : editor->GetSlide(0)->ShapeTree()->Shapes())
+        {
+            if (shape->GetElement()->IsSameNode(placeholder->GetElement()))
+            {
+                const auto transform = shape->GetEffectiveTransform();
+                REQUIRE(transform.has_value());
+                CHECK(transform->Position.Y.ToEmu().GetValue() == 1600200.0);
+            }
+        }
+    }
+    CHECK(sawBody);
+    CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//p:ph[@type='body' and @idx='1']",
+                                                "/ppt/slideLayouts/slideLayout1.xml") == 1);
+    CHECK(PowerPointRegressionSupport::CountXml(*server, documentId, "//p:ph[@type='body' and @idx='1']") == 1);
 
     // The notes page body and its master's placeholders carry explicit geometry.
     auto notesPart = editor->GetSlide(0)->GetPart()->GetNotesSlidePart();

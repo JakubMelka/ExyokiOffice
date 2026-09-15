@@ -357,15 +357,14 @@ TEST_CASE("the theme reads and writes for every document family [mcp-lifecycle]"
         REQUIRE(created["ok"] == true);
         const auto documentId = created["data"]["documentId"].get<std::string>();
 
-        // A presentation keeps its theme on a slide master, so an empty one has
-        // nowhere to put it; the other two hang it off their main part.
+        // A presentation keeps its theme on a slide master. A new deck now
+        // carries the default master from the start, so even an empty one has
+        // somewhere to put the theme, as the tool description promises.
         if (family == TestFamily::PowerPoint)
         {
             const auto empty = server->Call(
-                "set_theme", nlohmann::json{{"documentId", documentId}, {"colors", nlohmann::json{{"accent1",
-                                                                                                   "1F6FEB"}}}});
-            CHECK(empty["ok"] == false);
-            CHECK(empty["error"]["code"] == "operation_failed");
+                "set_theme", nlohmann::json{{"documentId", documentId}, {"colors", nlohmann::json{{"accent1", "1F6FEB"}}}});
+            CHECK(empty["ok"] == true);
             REQUIRE(server->Call("add_slide", nlohmann::json{{"documentId", documentId},
                                                              {"title", "Hello"}})["ok"] == true);
         }

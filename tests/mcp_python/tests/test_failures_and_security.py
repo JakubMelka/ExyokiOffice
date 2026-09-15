@@ -54,7 +54,7 @@ async def test_split_prefix_cannot_leave_the_output_directory(family, server_exe
         await call_error(
             client, "split_document",
             {"input_path": source, "output_dir": "parts", "prefix": "../../evil"},
-            code="input_invalid",
+            code="path_invalid",
         )
     assert not list(workspace.parent.glob("evil*"))
 

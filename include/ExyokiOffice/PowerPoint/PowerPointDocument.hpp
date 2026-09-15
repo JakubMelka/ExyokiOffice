@@ -53,7 +53,8 @@ struct PresentationPoint
     MeasuringUnits X{};
     MeasuringUnits Y{};
     PresentationPoint() = default;
-    PresentationPoint(MeasuringUnits x, MeasuringUnits y) : X(std::move(x)), Y(std::move(y)) {}
+    PresentationPoint(MeasuringUnits x, MeasuringUnits y)
+        : X(std::move(x)), Y(std::move(y)) {}
     /** @brief Convenience constructor for native EMU coordinates. */
     PresentationPoint(Int64 xEmu, Int64 yEmu)
         : X(static_cast<Real>(xEmu), MeasurementUnit::Emu),
@@ -1905,7 +1906,9 @@ public:
      * The placeholder takes the position and extent of the master placeholder
      * it inherits from (same index, else same type, else the type it draws
      * where - a subtitle or content placeholder in the body area), when the
-     * master has one with geometry.
+     * master has one with geometry. Without @p index it carries the `idx`
+     * PowerPoint's own layouts write: the master body's index for body-like
+     * placeholders, 10/11/12 for date, footer and slide number, none for titles.
      * @return The new placeholder, or nullptr when the layout part is unavailable.
      */
     PresentationPlaceholder::Ptr AddPlaceholder(
@@ -2059,6 +2062,10 @@ public:
     std::vector<PresentationPlaceholder::Ptr> Placeholders(bool includeInherited = true) const;
     /**
      * @brief Appends a placeholder declared directly by this slide.
+     *
+     * Without @p index the placeholder repeats the `idx` of the layout
+     * placeholder it binds to (see PresentationSlideLayout::FindPlaceholder),
+     * because PowerPoint resolves a slide placeholder by index before type.
      * @return The new placeholder, or nullptr when the slide part is unavailable.
      */
     PresentationPlaceholder::Ptr AddPlaceholder(

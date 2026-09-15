@@ -219,7 +219,9 @@ TEST_SUITE("PowerPointMatrixTests")
         REQUIRE(reopened != nullptr);
         REQUIRE_FALSE(reopened->SlideMasters().empty());
 
-        auto master = reopened->SlideMasters().front();
+        // A new deck carries the default master first; the one this case
+        // added is the second.
+        auto master = reopened->GetSlideMaster(1);
         REQUIRE(master != nullptr);
         CHECK(master->Name() == "Compat");
         CHECK(master->Layouts().size() == 2);
@@ -237,7 +239,8 @@ TEST_SUITE("PowerPointMatrixTests")
         auto edited = RoundTrip(reopened);
         REQUIRE(edited != nullptr);
         REQUIRE_FALSE(edited->SlideMasters().empty());
-        CHECK(edited->SlideMasters().front()->Layouts().size() == 2);
+        REQUIRE(edited->GetSlideMaster(1) != nullptr);
+        CHECK(edited->GetSlideMaster(1)->Layouts().size() == 2);
 
         CheckSavesValidatesAndPreserves(edited);
     }

@@ -559,7 +559,9 @@ parameters, or an `initialize` missing a member the specification requires, and
 
 The list is closed: an agent may branch on these strings. A few codes are
 shared by neighbouring concepts: `block_not_found` is also the answer for an
-unknown Excel table, and `shape_not_found` for an unknown Excel slicer.
+unknown Excel table, and `shape_not_found` for an unknown Excel slicer;
+`update_animation` and `remove_animation` answer `input_invalid` for an
+unknown `animation_id`.
 
 ## Addressing content
 
@@ -722,9 +724,9 @@ Editing:
 | `batch` | M | Apply several mutating tools as one transaction |
 
 A theme is the same DrawingML in all three families; only the part it hangs off
-differs, and a presentation keeps it on a slide master, so an empty one has
-nowhere to put it. A document this library creates carries no theme at all, so
-`set_theme` writes the Office default first and changes that. Everything the
+differs: a presentation keeps it on its slide master, which a new deck carries
+from the start. A Word document or workbook this library creates carries no
+theme at all, so `set_theme` writes the Office default first and changes that. Everything the
 theme holds beyond colours and fonts — the effect and format matrices — is left
 untouched.
 
@@ -926,10 +928,10 @@ CSV import and export run through `convert_document`, which takes
 | `add_slide` | slides | M | Add a slide built from a layout |
 | `delete_slide` | slides | D | Remove a slide |
 | `move_slide` | slides | M | Move a slide to another position |
-| `duplicate_slide` | slides | M | Copy a slide inside the presentation |
+| `duplicate_slide` | slides | M | Copy a slide inside the presentation; the copy lands at `to_index` or at the end, and `slide` is its final position |
 | `copy_slide_from` | slides | M | Import a slide from another presentation |
 | `set_slide_hidden` | slides | M I | Show or hide a slide in a show |
-| `set_placeholder_text` | content | M I | Write text into a layout placeholder |
+| `set_placeholder_text` | content | M I | Write text into a layout placeholder; `shape_not_found` when the slide's layout has no such placeholder (use `add_text_box` or `set_slide_layout`) |
 | `add_text_box` | content | M | Add a free-floating text box |
 | `add_shape` | content | M | Add a shape with preset geometry, text, fill, and outline, or a connector between two shapes |
 | `format_shape` | content | M I | Change the fill, outline, or preset geometry of a shape |
@@ -940,7 +942,7 @@ CSV import and export run through `convert_document`, which takes
 | `edit_table_cell` | content | M | Rewrite one table cell |
 | `add_chart` | content | M | Add a chart from categories and series |
 | `set_notes` | content | M I | Replace the speaker notes |
-| `list_comments` | content | R I | List comments, optionally per slide |
+| `list_comments` | content | R I | List comments, optionally per slide; an unknown `slide` is `slide_not_found` |
 | `add_comment` | content | M | Attach a comment to a slide |
 | `add_image` | media | M | Place a picture on a slide |
 | `add_media` | media | M | Place audio or video, embedded from a file or linked |
@@ -949,7 +951,7 @@ CSV import and export run through `convert_document`, which takes
 | `update_animation` | animation | M I | Replace one effect, and optionally move it in the order |
 | `remove_animation` | animation | D | Remove one effect, or every effect on a slide |
 | `set_transition` | design | M I | Set or remove a slide transition |
-| `add_section` | design | M | Group slides into a named section |
+| `add_section` | design | M | Start a section at a slide, splitting the section it was in as PowerPoint does; leading slides form a "Default Section"; returns `sections` |
 | `set_slide_size` | design | M I | Slide size from a preset or dimensions |
 | `set_protection` | review | M I | Require a password before the presentation may be saved over, or lift it |
 

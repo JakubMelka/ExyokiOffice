@@ -9338,9 +9338,9 @@ Paragraph& Paragraph::SetBorders(ExyokiOffice::DocumentFormat::OpenXml::Wordproc
     // w:space is a border spacing measurement in whole points (ST_PointMeasure,
     // 0..31), not the twips most other paragraph measures use.
     const auto spaceValue = spacing
-        ? static_cast<UInt32>(std::clamp(static_cast<Int64>(std::lround(spacing->ToUnit(MeasurementUnit::Point).GetValue())),
-                                         Int64{0}, Int64{31}))
-        : 0u;
+                                ? static_cast<UInt32>(std::clamp(static_cast<Int64>(std::lround(spacing->ToUnit(MeasurementUnit::Point).GetValue())),
+                                                                 Int64{0}, Int64{31}))
+                                : 0u;
     const auto colorValue = color.ToHexString();
 
     auto applyBorder = [&](auto border)

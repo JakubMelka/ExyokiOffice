@@ -1505,7 +1505,7 @@ TEST_CASE("worksheets are moved and copied, within a workbook and across two [mc
     REQUIRE(server->Call("write_cells",
                          nlohmann::json{{"documentId", sourceId},
                                         {"cells", nlohmann::json::array({nlohmann::json{
-                                            {"address", "A1"}, {"value", "from elsewhere"}}})}})["ok"] == true);
+                                                      {"address", "A1"}, {"value", "from elsewhere"}}})}})["ok"] == true);
     REQUIRE(server->Call("save_document", nlohmann::json{{"documentId", sourceId}})["ok"] == true);
     REQUIRE(server->Call("close_document", nlohmann::json{{"documentId", sourceId}})["ok"] == true);
 
@@ -1674,19 +1674,19 @@ TEST_CASE("the overview reports what a workbook restricts [mcp-excel]")
     const auto created = server->Call("create_document", nlohmann::json{{"path", "guarded.xlsx"}});
     const auto documentId = created["data"]["documentId"].get<std::string>();
     REQUIRE(server->Call("add_sheet", nlohmann::json{{"documentId", documentId},
-                                                      {"name", "Open"}})["ok"] == true);
+                                                     {"name", "Open"}})["ok"] == true);
 
     // A workbook nobody restricted says so by leaving the field out.
     const auto before = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
     CHECK_FALSE(before["data"].contains("protection"));
 
     REQUIRE(server->Call("set_protection", nlohmann::json{{"documentId", documentId},
-                                                           {"scope", "workbook"},
-                                                           {"lock_windows", true}})["ok"] == true);
+                                                          {"scope", "workbook"},
+                                                          {"lock_windows", true}})["ok"] == true);
     REQUIRE(server->Call("set_protection", nlohmann::json{{"documentId", documentId},
-                                                           {"scope", "sheet"},
-                                                           {"sheet", "Sheet1"},
-                                                           {"password", "secret"}})["ok"] == true);
+                                                          {"scope", "sheet"},
+                                                          {"sheet", "Sheet1"},
+                                                          {"password", "secret"}})["ok"] == true);
 
     const auto reported = server->Call("get_document_info", nlohmann::json{{"documentId", documentId}});
     REQUIRE(reported["data"].contains("protection"));
@@ -1752,12 +1752,11 @@ static std::string MakeSlicerWorkbook(McpTestServer& server, const std::string& 
     REQUIRE(server.Call("write_range",
                         nlohmann::json{{"documentId", documentId},
                                        {"origin", "A1"},
-                                       {"values", nlohmann::json::array({
-                                           nlohmann::json::array({"Region", "Revenue"}),
-                                           nlohmann::json::array({"North", 1200}),
-                                           nlohmann::json::array({"South", 900}),
-                                           nlohmann::json::array({"East", 700}),
-                                           nlohmann::json::array({"North", 300})})}})["ok"] == true);
+                                       {"values", nlohmann::json::array({nlohmann::json::array({"Region", "Revenue"}),
+                                                                         nlohmann::json::array({"North", 1200}),
+                                                                         nlohmann::json::array({"South", 900}),
+                                                                         nlohmann::json::array({"East", 700}),
+                                                                         nlohmann::json::array({"North", 300})})}})["ok"] == true);
 
     REQUIRE(server.Call("add_table", nlohmann::json{{"documentId", documentId},
                                                     {"range", "A1:B5"},
@@ -1920,12 +1919,11 @@ static std::string MakeTableWorkbook(McpTestServer& server, const std::string& p
     REQUIRE(server.Call("write_range",
                         nlohmann::json{{"documentId", documentId},
                                        {"origin", "A1"},
-                                       {"values", nlohmann::json::array({
-                                           nlohmann::json::array({"Region", "Quarter", "Amount"}),
-                                           nlohmann::json::array({"North", "Q1", 100}),
-                                           nlohmann::json::array({"South", "Q2", 200}),
-                                           nlohmann::json::array({"East", "Q1", 300}),
-                                           nlohmann::json::array({"North", "Q2", 400})})}})["ok"] == true);
+                                       {"values", nlohmann::json::array({nlohmann::json::array({"Region", "Quarter", "Amount"}),
+                                                                         nlohmann::json::array({"North", "Q1", 100}),
+                                                                         nlohmann::json::array({"South", "Q2", 200}),
+                                                                         nlohmann::json::array({"East", "Q1", 300}),
+                                                                         nlohmann::json::array({"North", "Q2", 400})})}})["ok"] == true);
 
     REQUIRE(server.Call("add_table", nlohmann::json{{"documentId", documentId},
                                                     {"range", "A1:C5"},
@@ -1959,8 +1957,8 @@ TEST_CASE("tables are listed with their columns and the filters in force [mcp-ex
         nlohmann::json{{"documentId", documentId},
                        {"table", "sales"},
                        {"filters", nlohmann::json::array({nlohmann::json{
-                           {"column", "Region"},
-                           {"values", nlohmann::json::array({"North", "South"})}}})}});
+                                       {"column", "Region"},
+                                       {"values", nlohmann::json::array({"North", "South"})}}})}});
     REQUIRE(filtered["ok"] == true);
     CHECK(filtered["data"]["filterCount"] == 1);
 
@@ -2005,8 +2003,8 @@ TEST_CASE("clearing a table filter brings the hidden rows back [mcp-excel]")
                          nlohmann::json{{"documentId", documentId},
                                         {"table", "Sales"},
                                         {"filters", nlohmann::json::array({nlohmann::json{
-                                            {"column", 1},
-                                            {"values", nlohmann::json::array({"North"})}}})}})["ok"] == true);
+                                                        {"column", 1},
+                                                        {"values", nlohmann::json::array({"North"})}}})}})["ok"] == true);
 
     const auto cleared = server->Call("update_table", nlohmann::json{{"documentId", documentId},
                                                                      {"table", "Sales"},
@@ -2075,7 +2073,7 @@ TEST_CASE("the table tools refuse a table, a column or a filter that makes no se
         nlohmann::json{{"documentId", documentId},
                        {"table", "Sales"},
                        {"filters", nlohmann::json::array({nlohmann::json{
-                           {"column", "Nope"}, {"values", nlohmann::json::array({"North"})}}})}});
+                                       {"column", "Nope"}, {"values", nlohmann::json::array({"North"})}}})}});
     CHECK(unknownColumn["ok"] == false);
     CHECK(unknownColumn["error"]["code"] == "input_invalid");
 
@@ -2084,7 +2082,7 @@ TEST_CASE("the table tools refuse a table, a column or a filter that makes no se
         nlohmann::json{{"documentId", documentId},
                        {"table", "Sales"},
                        {"filters", nlohmann::json::array({nlohmann::json{
-                           {"column", 9}, {"values", nlohmann::json::array({"North"})}}})}});
+                                       {"column", 9}, {"values", nlohmann::json::array({"North"})}}})}});
     CHECK(pastEnd["ok"] == false);
     CHECK(pastEnd["error"]["code"] == "input_invalid");
 
@@ -2093,8 +2091,8 @@ TEST_CASE("the table tools refuse a table, a column or a filter that makes no se
         "update_table", nlohmann::json{{"documentId", documentId},
                                        {"table", "Sales"},
                                        {"filters", nlohmann::json::array({nlohmann::json{
-                                           {"column", "Region"},
-                                           {"values", nlohmann::json::array()}}})}});
+                                                       {"column", "Region"},
+                                                       {"values", nlohmann::json::array()}}})}});
     CHECK(empty["ok"] == false);
     CHECK(empty["error"]["code"] == "input_invalid");
 
@@ -2188,8 +2186,7 @@ TEST_CASE("a conditional formatting rule is refused when it cannot be built [mcp
     // schema says so, so the call never reaches the handler.
     const auto colorScale = server->Call(
         "add_conditional_formatting",
-        nlohmann::json{{"documentId", documentId}, {"range", "A1:A4"}, {"rule", nlohmann::json{{"type",
-                                                                                               "colorScale"}}}});
+        nlohmann::json{{"documentId", documentId}, {"range", "A1:A4"}, {"rule", nlohmann::json{{"type", "colorScale"}}}});
     CHECK(colorScale["ok"] == false);
     CHECK(colorScale["error"]["code"] == "input_invalid");
 
@@ -2497,7 +2494,8 @@ static bool HasRelationship(const ExyokiOffice::OpenXmlPackagePart& part, const 
 {
     const auto& relationships = part.Relationships();
     return std::any_of(relationships.begin(), relationships.end(),
-                       [&id](const ExyokiOffice::OpenXmlRelationship& relationship) { return relationship.Id == id; });
+                       [&id](const ExyokiOffice::OpenXmlRelationship& relationship)
+                       { return relationship.Id == id; });
 }
 
 /// Every relationship id an XML part refers to (`r:id`, `r:embed`, `r:link`).
@@ -2537,10 +2535,9 @@ TEST_CASE("X-1: copy_sheet within a workbook keeps every related part reachable 
     REQUIRE(server->Call("write_range",
                          nlohmann::json{{"documentId", documentId},
                                         {"origin", "A1"},
-                                        {"values", nlohmann::json::array({
-                                            nlohmann::json::array({"Region", "Revenue"}),
-                                            nlohmann::json::array({"North", 120}),
-                                            nlohmann::json::array({"South", 90})})}})["ok"] == true);
+                                        {"values", nlohmann::json::array({nlohmann::json::array({"Region", "Revenue"}),
+                                                                          nlohmann::json::array({"North", 120}),
+                                                                          nlohmann::json::array({"South", 90})})}})["ok"] == true);
     REQUIRE(server->Call("add_image", nlohmann::json{{"documentId", documentId},
                                                      {"anchor_cell", "D2"},
                                                      {"dataBase64", OnePixelPng},
@@ -2642,11 +2639,10 @@ TEST_CASE("X-2: add_table refuses a range that overlaps another table [mcp-excel
     REQUIRE(server->Call("write_range",
                          nlohmann::json{{"documentId", documentId},
                                         {"origin", "A1"},
-                                        {"values", nlohmann::json::array({
-                                            nlohmann::json::array({"a", "b", "c"}),
-                                            nlohmann::json::array({1, 2, 3}),
-                                            nlohmann::json::array({4, 5, 6}),
-                                            nlohmann::json::array({7, 8, 9})})}})["ok"] == true);
+                                        {"values", nlohmann::json::array({nlohmann::json::array({"a", "b", "c"}),
+                                                                          nlohmann::json::array({1, 2, 3}),
+                                                                          nlohmann::json::array({4, 5, 6}),
+                                                                          nlohmann::json::array({7, 8, 9})})}})["ok"] == true);
     REQUIRE(server->Call("add_table", nlohmann::json{{"documentId", documentId},
                                                      {"range", "A1:B3"},
                                                      {"name", "TblOne"}})["ok"] == true);
@@ -2996,12 +2992,11 @@ TEST_CASE("X-8: read_range reports a formula's cached result typed like a plain 
     const auto documentId = created["data"]["documentId"].get<std::string>();
     REQUIRE(server->Call("write_cells",
                          nlohmann::json{{"documentId", documentId},
-                                        {"cells", nlohmann::json::array({
-                                            nlohmann::json{{"address", "A1"}, {"value", nlohmann::json{{"formula", "1+1"}}}},
-                                            nlohmann::json{{"address", "A2"}, {"value", 2}},
-                                            nlohmann::json{{"address", "A3"}, {"value", nlohmann::json{{"formula", "1>0"}}}},
-                                            nlohmann::json{{"address", "A4"},
-                                                           {"value", nlohmann::json{{"formula", "\"a\"&\"b\""}}}}})}})
+                                        {"cells", nlohmann::json::array({nlohmann::json{{"address", "A1"}, {"value", nlohmann::json{{"formula", "1+1"}}}},
+                                                                         nlohmann::json{{"address", "A2"}, {"value", 2}},
+                                                                         nlohmann::json{{"address", "A3"}, {"value", nlohmann::json{{"formula", "1>0"}}}},
+                                                                         nlohmann::json{{"address", "A4"},
+                                                                                        {"value", nlohmann::json{{"formula", "\"a\"&\"b\""}}}}})}})
                 ["ok"] == true);
     REQUIRE(server->Call("recalculate", nlohmann::json{{"documentId", documentId}})["ok"] == true);
 

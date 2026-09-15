@@ -157,7 +157,6 @@ public:
         return entry;
     }
 
-
     /// Content types and URI shapes MediaExporter treats as media payloads.
     static bool IsMediaPart(const OpenXmlPackagePart& part)
     {

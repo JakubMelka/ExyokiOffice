@@ -673,7 +673,7 @@ TEST_CASE("W-11c: diff_documents reports part change kinds its schema enumerates
     const auto* tool = server->Registry().Find("diff_documents");
     REQUIRE(tool != nullptr);
     const auto allowed = tool->Definition.OutputSchema["properties"]["data"]["properties"]["partChanges"]["items"]
-                                                     ["properties"]["kind"]["enum"];
+                                                      ["properties"]["kind"]["enum"];
     REQUIRE(allowed.is_array());
     for (const auto& change : diff["data"]["partChanges"])
     {

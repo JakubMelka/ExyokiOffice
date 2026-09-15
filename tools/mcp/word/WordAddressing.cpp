@@ -681,7 +681,7 @@ bool WordAddressing::ApplyContent(ToolContext& context, Word::WordDocumentEditor
                                   const nlohmann::json& arguments, ToolOutcome& failure)
 {
     const WordAddressingHelper::TrailingMarkerRestorer markers(paragraph.GetLowLevelApi(),
-                                                                WordAddressingHelper::ClearParagraphContent(paragraph));
+                                                               WordAddressingHelper::ClearParagraphContent(paragraph));
 
     const auto inlines = arguments.find("inlines");
     if (inlines == arguments.end() || !inlines->is_array())

@@ -837,9 +837,9 @@ private:
             {"chart", 1},
             {"title", "Q3 results"},
             {"series", nlohmann::json::array({nlohmann::json{
-                {"name", "Actuals"},
-                {"values", nlohmann::json::array({12, 18, 9})},
-                {"categories", nlohmann::json::array({"Jul", "Aug", "Sep"})}}})}};
+                           {"name", "Actuals"},
+                           {"values", nlohmann::json::array({12, 18, 9})},
+                           {"categories", nlohmann::json::array({"Jul", "Aug", "Sep"})}}})}};
         definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
         { return UpdateChart(context, arguments); };
         registry.Add(std::move(definition));
@@ -2266,7 +2266,7 @@ private:
                            {"block", 4},
                            {"borders", nlohmann::json{{"style", "single"}, {"color", "#808080"}}},
                            {"cells", nlohmann::json::array({nlohmann::json{
-                               {"row", 1}, {"col", 1}, {"background", "#EFEFEF"}, {"align", "center"}}})}};
+                                         {"row", 1}, {"col", 1}, {"background", "#EFEFEF"}, {"align", "center"}}})}};
         definition.Annotations.Idempotent = true;
         definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
         { return FormatTable(context, arguments); };
@@ -2430,7 +2430,7 @@ private:
                     const auto token = align->get<std::string>();
                     table->SetCellHorizontalAlignment(
                         row - 1, column - 1,
-                        token == "center" ? W::JustificationValues::Center
+                        token == "center"  ? W::JustificationValues::Center
                         : token == "right" ? W::JustificationValues::Right
                         : token == "both"  ? W::JustificationValues::Both
                                            : W::JustificationValues::Left);

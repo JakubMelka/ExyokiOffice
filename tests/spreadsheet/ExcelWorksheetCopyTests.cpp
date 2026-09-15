@@ -41,7 +41,8 @@ public:
     {
         const auto& relationships = part.Relationships();
         return std::any_of(relationships.begin(), relationships.end(),
-                           [&id](const ExyokiOffice::OpenXmlRelationship& relationship) { return relationship.Id == id; });
+                           [&id](const ExyokiOffice::OpenXmlRelationship& relationship)
+                           { return relationship.Id == id; });
     }
 
     /// Every relationship id an XML part refers to (`r:id`, `r:embed`, `r:link`).

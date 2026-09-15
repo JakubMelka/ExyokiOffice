@@ -1983,13 +1983,7 @@ private:
     static const std::vector<std::pair<const char*, Excel::PaperSize>>& PaperSizes()
     {
         static const std::vector<std::pair<const char*, Excel::PaperSize>> sizes{
-            {"letter", Excel::PaperSize::Letter},       {"letter_small", Excel::PaperSize::LetterSmall},
-            {"tabloid", Excel::PaperSize::Tabloid},     {"ledger", Excel::PaperSize::Ledger},
-            {"legal", Excel::PaperSize::Legal},         {"statement", Excel::PaperSize::Statement},
-            {"executive", Excel::PaperSize::Executive}, {"a3", Excel::PaperSize::A3},
-            {"a4", Excel::PaperSize::A4},               {"a4_small", Excel::PaperSize::A4Small},
-            {"a5", Excel::PaperSize::A5},               {"b4", Excel::PaperSize::B4},
-            {"b5", Excel::PaperSize::B5},               {"folio", Excel::PaperSize::Folio}};
+            {"letter", Excel::PaperSize::Letter}, {"letter_small", Excel::PaperSize::LetterSmall}, {"tabloid", Excel::PaperSize::Tabloid}, {"ledger", Excel::PaperSize::Ledger}, {"legal", Excel::PaperSize::Legal}, {"statement", Excel::PaperSize::Statement}, {"executive", Excel::PaperSize::Executive}, {"a3", Excel::PaperSize::A3}, {"a4", Excel::PaperSize::A4}, {"a4_small", Excel::PaperSize::A4Small}, {"a5", Excel::PaperSize::A5}, {"b4", Excel::PaperSize::B4}, {"b5", Excel::PaperSize::B5}, {"folio", Excel::PaperSize::Folio}};
         return sizes;
     }
 
@@ -2171,7 +2165,7 @@ private:
         if (const auto orientation = arguments.find("orientation"); orientation != arguments.end())
         {
             setup.Orientation = orientation->get<std::string>() == "landscape" ? Excel::PageOrientation::Landscape
-                                                                              : Excel::PageOrientation::Portrait;
+                                                                               : Excel::PageOrientation::Portrait;
         }
 
         if (const auto paper = arguments.find("paper_size"); paper != arguments.end())
@@ -5144,7 +5138,7 @@ private:
             }
             definition = type == "aboveAverage"
                              ? Excel::ExcelConditionalFormattingDefinition::AboveAverage(ranges, equalAverage,
-                                                                                        deviation)
+                                                                                         deviation)
                              : Excel::ExcelConditionalFormattingDefinition::BelowAverage(ranges, equalAverage,
                                                                                          deviation);
         }

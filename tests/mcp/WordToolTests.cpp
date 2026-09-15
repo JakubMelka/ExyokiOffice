@@ -1326,7 +1326,7 @@ TEST_CASE("an embedded chart is listed and its series rewritten [mcp-word]")
         nlohmann::json{{"documentId", documentId},
                        {"relationship_id", relationshipId},
                        {"series", nlohmann::json::array({nlohmann::json{
-                           {"name", "Only"}, {"values", nlohmann::json::array({1, 2, 3})}}})}});
+                                      {"name", "Only"}, {"values", nlohmann::json::array({1, 2, 3})}}})}});
     REQUIRE(byId["ok"] == true);
     CHECK(byId["data"]["seriesCount"] == 1);
 
@@ -1357,7 +1357,7 @@ TEST_CASE("update_chart refuses what it cannot plot [mcp-word]")
     const auto none = server->Call(
         "update_chart", nlohmann::json{{"documentId", plainId},
                                        {"series", nlohmann::json::array({nlohmann::json{
-                                           {"name", "A"}, {"values", nlohmann::json::array({1})}}})}});
+                                                      {"name", "A"}, {"values", nlohmann::json::array({1})}}})}});
     CHECK(none["ok"] == false);
     CHECK(none["error"]["code"] == "unsupported");
 
@@ -1398,9 +1398,9 @@ TEST_CASE("update_chart refuses what it cannot plot [mcp-word]")
         nlohmann::json{{"documentId", documentId},
                        {"chart", 1},
                        {"series", nlohmann::json::array({nlohmann::json{
-                           {"name", "A"},
-                           {"values", nlohmann::json::array({1, 2, 3})},
-                           {"categories", nlohmann::json::array({"Jan", "Feb"})}}})}});
+                                      {"name", "A"},
+                                      {"values", nlohmann::json::array({1, 2, 3})},
+                                      {"categories", nlohmann::json::array({"Jan", "Feb"})}}})}});
     CHECK(mismatched["ok"] == false);
     CHECK(mismatched["error"]["code"] == "input_invalid");
 
