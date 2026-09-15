@@ -151,6 +151,38 @@ in [docs/](docs/README.md).
   - `split_document` by paragraphs writes no empty trailing file;
     `define_style` refuses a dangling `based_on` or `next`; `delete_style` of
     a missing style answers ok with `removed: false`.
+- PowerPoint defects the Office COM test found. See [MCP servers](docs/tools/mcp-servers.md#exyoki-mcp-power-point)
+  and the PowerPoint chapters under [docs/powerpoint](docs/powerpoint/).
+  - `PowerPointDocumentEditor::CreateNew()` writes the Office-style default
+    master, "Title and Content" layout and theme with positioned
+    placeholders and text styles; `AddSlide()` places a new slide on the
+    first layout, and `EnsureDefaultLayout()` exposes the design. Decks
+    converted by `exyoki convert` and `convert_document` open in PowerPoint,
+    and slides built from scratch show their title and bullets.
+  - `PresentationSlideLayout::AddPlaceholder` inherits the master's
+    placeholder geometry and PowerPoint's `idx` (body 1, date, footer and
+    slide number 10, 11, 12), slide placeholders repeat the `idx` of the
+    layout placeholder they bind to; `PresentationShape::GetEffectiveTransform()` and
+    `PresentationSlideLayout::FindPlaceholder()` are new, and the notes
+    master and notes page position their placeholders.
+  - Removing the last animation effect removes `p:timing` instead of leaving
+    an empty list PowerPoint refuses.
+  - `ChangeFillColor` is written as PowerPoint's Fill Color emphasis
+    (`presetID` 1, subtype 2); files written with preset 2 are still read.
+  - Interactive animation sequences carry `endSync`, a zero-delay click group
+    and `nextCondLst`, so PowerPoint reports "On Click of" the trigger shape.
+  - `PowerPointDocumentEditor::AddSectionAt()` splits sections the way
+    PowerPoint's Add Section does; MCP `add_section` uses it and returns
+    `sections`.
+  - `SearchDocumentText` and `ReplaceDocumentText` cover PowerPoint table
+    cells, grouped shapes and modern and legacy comments.
+  - MCP `duplicate_slide` places and reports the copy correctly;
+    `set_placeholder_text` refuses a placeholder the layout lacks
+    (`shape_not_found`); `list_comments` with an unknown slide answers
+    `slide_not_found`; `add_chart` refuses a series whose values and
+    categories differ in length; an unknown `animation_id` answers
+    `input_invalid`; `get_slide` reports inherited placeholder geometry and
+    `list_layouts` a layout's own placeholders.
 - MCP `batch` no longer corrupts the undo history when it is already
   `--snapshot-depth` deep; `undo` after a batch restores the step before it.
   See [Sessions, undo, and batches](docs/tools/mcp-servers.md#sessions-undo-and-batches).

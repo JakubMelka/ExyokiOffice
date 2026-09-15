@@ -2098,9 +2098,7 @@ private:
                                           {"preset", Schema::String("Preset geometry that was written.")},
                                           {"connector", Schema::Boolean("True when a connector was added.")}}),
             true);
-        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"slide", 1},   {"preset", "roundRect"},
-                                            {"x", "2cm"},           {"y", "3cm"},   {"width", "6cm"},
-                                            {"height", "2cm"},      {"text", "Start"}};
+        definition.Example = nlohmann::json{{"documentId", "doc-1"}, {"slide", 1}, {"preset", "roundRect"}, {"x", "2cm"}, {"y", "3cm"}, {"width", "6cm"}, {"height", "2cm"}, {"text", "Start"}};
         definition.Handler = [](ToolContext& context, const nlohmann::json& arguments)
         { return AddShape(context, arguments); };
         registry.Add(std::move(definition));

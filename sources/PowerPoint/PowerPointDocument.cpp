@@ -1064,6 +1064,46 @@ public:
     }
 
     /**
+     * @brief The `idx` a layout placeholder created without one should carry.
+     *
+     * PowerPoint binds a slide placeholder to its layout by `idx` before type,
+     * and title and body both default to 0, so a layout body without an index
+     * would catch the slide's title. PowerPoint's own layouts give the body
+     * the master body's index (1) and the date, footer and slide-number
+     * placeholders 10, 11 and 12; titles carry none.
+     */
+    static std::optional<UInt32> LayoutIndex(const std::shared_ptr<OpenXMLElement>& masterRoot,
+                                             Presentation::PlaceholderValues::Value type)
+    {
+        switch (type)
+        {
+            case Presentation::PlaceholderValues::DateAndTime:
+                return UInt32{10};
+            case Presentation::PlaceholderValues::Footer:
+                return UInt32{11};
+            case Presentation::PlaceholderValues::SlideNumber:
+                return UInt32{12};
+            default:
+                break;
+        }
+        if (InheritanceType(type) != Presentation::PlaceholderValues::Body)
+        {
+            return std::nullopt;
+        }
+        for (const auto& placeholder :
+             masterRoot ? masterRoot->Descendants<Presentation::PlaceholderShape>()
+                        : std::vector<Presentation::PlaceholderShape::Ptr>{})
+        {
+            const auto candidate = placeholder->GetType().ValueOr(Presentation::PlaceholderValues::Object).GetValue();
+            if (candidate == Presentation::PlaceholderValues::Body && placeholder->GetIndex().IsDefined())
+            {
+                return placeholder->GetIndex().ValueOr(1);
+            }
+        }
+        return UInt32{1};
+    }
+
+    /**
      * @brief Geometry of one master placeholder in the Office default theme.
      *
      * PowerPoint ships one table for the 4:3 screen and one for the 16:9
@@ -1228,10 +1268,8 @@ private:
             std::string_view FieldText;
         };
         const Entry entries[] = {
-            {Presentation::PlaceholderValues::DateAndTime, 2, "Date Placeholder 3",
-             Presentation::PlaceholderSizeValues::Half, Drawing::TextAlignmentTypeValues::Left, "datetime1", {}},
-            {Presentation::PlaceholderValues::Footer, 3, "Footer Placeholder 4",
-             Presentation::PlaceholderSizeValues::Quarter, Drawing::TextAlignmentTypeValues::Center, nullptr, {}},
+            {Presentation::PlaceholderValues::DateAndTime, 2, "Date Placeholder 3", Presentation::PlaceholderSizeValues::Half, Drawing::TextAlignmentTypeValues::Left, "datetime1", {}},
+            {Presentation::PlaceholderValues::Footer, 3, "Footer Placeholder 4", Presentation::PlaceholderSizeValues::Quarter, Drawing::TextAlignmentTypeValues::Center, nullptr, {}},
             // U+2039 # U+203A is the slide-number field text PowerPoint shows.
             {Presentation::PlaceholderValues::SlideNumber, 4, "Slide Number Placeholder 5",
              Presentation::PlaceholderSizeValues::Quarter, Drawing::TextAlignmentTypeValues::Right, "slidenum",
@@ -8566,9 +8604,15 @@ PresentationPlaceholder::Ptr PresentationSlideLayout::FindPlaceholder(Presentati
 PresentationPlaceholder::Ptr PresentationSlideLayout::AddPlaceholder(Presentation::PlaceholderValues::Value type,
                                                                      std::optional<UInt32> index)
 {
+    auto masterPart = m_part ? m_part->GetSlideMasterPart() : nullptr;
+    if (!index)
+    {
+        index = PresentationDefaultDesignBuilder::LayoutIndex(
+            masterPart ? masterPart->GetTypedRootElement() : nullptr, type);
+    }
     auto placeholder = PresentationHierarchyHelpers::AddPlaceholder(m_part ? m_part->GetTypedRootElement() : nullptr,
                                                                     PlaceholderOrigin::Layout, type, index);
-    PresentationHierarchyHelpers::InheritMasterBox(placeholder, m_part ? m_part->GetSlideMasterPart() : nullptr);
+    PresentationHierarchyHelpers::InheritMasterBox(placeholder, masterPart);
     return placeholder;
 }
 
@@ -8963,6 +9007,18 @@ std::vector<PresentationPlaceholder::Ptr> PresentationSlide::Placeholders(bool i
 PresentationPlaceholder::Ptr PresentationSlide::AddPlaceholder(Presentation::PlaceholderValues::Value type,
                                                                std::optional<UInt32> index)
 {
+    if (!index)
+    {
+        // PowerPoint binds a slide placeholder to its layout by idx before
+        // type, so the slide repeats the index of the layout placeholder it
+        // draws in; without it a body would land on the layout's title box.
+        auto layout = Layout();
+        auto match = layout ? layout->FindPlaceholder(type) : nullptr;
+        if (match)
+        {
+            index = match->Index();
+        }
+    }
     return PresentationHierarchyHelpers::AddPlaceholder(m_part ? m_part->GetTypedRootElement() : nullptr,
                                                         PlaceholderOrigin::Slide, type, index);
 }
@@ -9746,7 +9802,7 @@ bool PowerPointDocumentEditor::AddSection(const PresentationSection& value)
 }
 
 std::optional<PresentationSection> PowerPointDocumentEditor::AddSectionAt(Size slideIndex, std::string name,
-                                                                         std::string id)
+                                                                          std::string id)
 {
     const auto slides = Slides();
     auto sections = Sections();

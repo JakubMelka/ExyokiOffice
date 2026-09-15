@@ -173,6 +173,14 @@ TEST_SUITE("PowerPointOfficeFidelityTests")
         REQUIRE(layout->FindPlaceholder(Presentation::PlaceholderValues::Title));
         REQUIRE(layout->FindPlaceholder(Presentation::PlaceholderValues::Object));
         CHECK(layout->FindPlaceholder(Presentation::PlaceholderValues::Header) == nullptr);
+        // PowerPoint binds slide placeholders by idx before type: the layout
+        // body carries the master body's index and the footer row 10/11/12,
+        // while the title has none.
+        CHECK_FALSE(layout->FindPlaceholder(Presentation::PlaceholderValues::Title)->Index().has_value());
+        CHECK(layout->FindPlaceholder(Presentation::PlaceholderValues::Body)->Index() == 1u);
+        CHECK(layout->FindPlaceholder(Presentation::PlaceholderValues::DateAndTime)->Index() == 10u);
+        CHECK(layout->FindPlaceholder(Presentation::PlaceholderValues::Footer)->Index() == 11u);
+        CHECK(layout->FindPlaceholder(Presentation::PlaceholderValues::SlideNumber)->Index() == 12u);
 
         // A slide placeholder without its own a:xfrm resolves through the layout.
         auto slide = editor->AddSlide(editor->CreateSlideBuilder().SetLayout(layout));
@@ -188,7 +196,12 @@ TEST_SUITE("PowerPointOfficeFidelityTests")
         CHECK(Helpers::WidthOf(titleShape->GetTransform()) == 0.0);
         CHECK(Helpers::WidthOf(titleShape->GetEffectiveTransform()) == 8229600.0);
         CHECK(titleShape->GetEffectiveTransform()->Position.Y.ToEmu().GetValue() == 274638.0);
+        // The slide body repeats the layout body's idx and therefore resolves
+        // to the body box, not to the title box both would share at idx 0.
+        CHECK_FALSE(title->Index().has_value());
+        CHECK(body->Index() == 1u);
         CHECK(Helpers::WidthOf(bodyShape->GetEffectiveTransform()) == 8229600.0);
+        CHECK(bodyShape->GetEffectiveTransform()->Position.Y.ToEmu().GetValue() == 1600200.0);
         CHECK(bodyShape->GetEffectiveTransform()->Size.Height.ToEmu().GetValue() == 4525963.0);
 
         // A content placeholder on a layout that only has a body draws in the body area.

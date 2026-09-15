@@ -3128,7 +3128,8 @@ public:
             differentialFormats.emplace(index, mapped);
             return mapped;
         };
-        const auto remapped = [](UInt32 value) { return value == 0 ? UInt32Value() : UInt32Value(value); };
+        const auto remapped = [](UInt32 value)
+        { return value == 0 ? UInt32Value() : UInt32Value(value); };
 
         for (const auto& cell : root->Descendants<Spreadsheet::Cell>())
         {

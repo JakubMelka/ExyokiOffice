@@ -287,7 +287,8 @@ TEST_SUITE("PackageSemanticRuleTests")
                 CHECK_FALSE(result.IsValid());
                 CHECK(issues.front().Severity == ValidationSeverity::Error);
                 std::string partUri = issues.front().PartUri;
-                std::transform(partUri.begin(), partUri.end(), partUri.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                std::transform(partUri.begin(), partUri.end(), partUri.begin(), [](unsigned char c)
+                               { return static_cast<char>(std::tolower(c)); });
                 CHECK(partUri.find("threadedcomment") != std::string::npos);
                 CHECK(issues.front().Message.find("no person list") != std::string::npos);
                 CHECK(issues.front().Location.ElementName.find("threadedComment") != std::string::npos);
