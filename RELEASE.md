@@ -264,8 +264,12 @@ Like the PDFs, this builds from the branch, so trigger it **after**
 `ExyokiOffice-X.Y.Z-windows-x64-msvc.zip` and
 `ExyokiOffice-X.Y.Z-linux-x64-gcc.zip`, each with a `.sha256` file beside it,
 and — with `build_docker` left on — `ExyokiOffice-X.Y.Z-docker-amd64.tar.gz`
-with its own digest. The run leaves every digest in its summary; keep them, the
-release notes should quote them.
+with its own digest. Each job also uploads `ExyokiOffice-X.Y.Z-mcp-<os>-x64`
+with the `exyokioffice-mcp` wheel and three MCP bundles for its platform, and
+a last job renders the MCP Registry manifests into
+`ExyokiOffice-X.Y.Z-mcp-registry`; see
+[Packages for the MCP servers](docs/tools/mcp-packages.md). The run leaves
+every digest in its summary; keep them, the release notes should quote them.
 
 With `verify_package` left on, both jobs configure and run `tests/install`
 against the staged package before zipping it, which is the same check as step 5
@@ -304,7 +308,12 @@ gh release upload vX.Y.Z ExyokiOffice-manual-X.Y.Z.pdf ExyokiOffice-api-referenc
 gh release upload vX.Y.Z ExyokiOffice-X.Y.Z-windows-x64-msvc.zip ExyokiOffice-X.Y.Z-windows-x64-msvc.zip.sha256
 gh release upload vX.Y.Z ExyokiOffice-X.Y.Z-linux-x64-gcc.zip ExyokiOffice-X.Y.Z-linux-x64-gcc.zip.sha256
 gh release upload vX.Y.Z ExyokiOffice-X.Y.Z-docker-amd64.tar.gz ExyokiOffice-X.Y.Z-docker-amd64.tar.gz.sha256
+gh release upload vX.Y.Z (Get-Item exyoki-mcp-*-X.Y.Z-*.mcpb) (Get-Item exyoki-mcp-*-X.Y.Z-*.mcpb.sha256)
 ```
+
+The six bundles have to be on the release under exactly these names: the
+registry manifests rendered by `create_install` point at
+`releases/download/vX.Y.Z/<name>` and carry each file's digest.
 
 Then push the container image to the GitHub Container Registry, where it shows
 up under the repository's Packages:
@@ -321,7 +330,35 @@ a draft. It builds nothing, so it takes a minute. See
 
 The very first run creates the package as **private**. Open Packages →
 `exyokioffice` → Package settings and change the visibility to public; every
-later release inherits that setting.
+later release inherits that setting. The same run pushes the three
+`X.Y.Z-<family>` tags the registry entries below point at.
+
+### 9.1 Publish the wheel and the registry entries
+
+The MCP Registry verifies each entry against the package index, the container
+registry and the release page, so this comes last, after the release is
+published, the bundles are attached and the image is public. Upload the two
+wheels from the `-mcp-windows-x64` and `-mcp-linux-x64` artifacts to PyPI:
+
+```powershell
+python -m pip install --upgrade twine
+python -m twine upload exyokioffice_mcp-X.Y.Z-py3-none-win_amd64.whl exyokioffice_mcp-X.Y.Z-py3-none-manylinux_2_39_x86_64.whl
+```
+
+Then publish the three manifests from the `-mcp-registry` artifact, one
+directory per server:
+
+```powershell
+mcp-publisher login github
+Get-ChildItem -Directory | ForEach-Object { Push-Location $_; mcp-publisher publish; Pop-Location }
+```
+
+`mcp-publisher` is the registry's own command; [Packages for the MCP
+servers](docs/tools/mcp-packages.md#the-mcp-registry-entries) says where to
+get it and what the manifests contain. The namespace is granted by logging in
+as the `JakubMelka` GitHub account. Rendering the manifests needs no editing
+at release time: `create_install` reads the version from `VERSION.txt` and
+the digests from the bundles it built.
 
 ## 10. Update the vcpkg port
 
@@ -389,8 +426,10 @@ will download.
 [ ] docs-pdf + doxygen-pdf           artifacts named X.Y.Z, logo and version on title page
 [ ] create_install                   windows and linux zips plus the docker image,
                                      all verified, digests kept
-[ ] tag vX.Y.Z + GitHub release      PDFs and both zips attached
+[ ] tag vX.Y.Z + GitHub release      PDFs, both zips and the six .mcpb bundles attached
 [ ] publish_docker                   image pushed to ghcr.io, package public
+[ ] PyPI                             both exyokioffice-mcp wheels uploaded
+[ ] MCP Registry                     three server.json manifests published
 [ ] vcpkg port                       version, SHA512, x-add-version committed
 [ ] vcpkg\Test-Port.ps1              green against the published tarball
 ```

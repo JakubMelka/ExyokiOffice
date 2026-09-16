@@ -15,6 +15,12 @@
 # The Linux job additionally packs the same binaries into a distroless container
 # image and uploads it as ExyokiOffice-<version>-docker-amd64, a gzipped
 # `docker save` tarball. See docs/tools/docker.md.
+#
+# Each job also runs packaging/package.py over the same tree and uploads
+# ExyokiOffice-<version>-mcp-<os>-x64: the exyokioffice-mcp wheel for PyPI and
+# one MCP bundle (.mcpb) per server for Claude Desktop. A last job renders the
+# MCP Registry manifests from the bundles of both platforms into
+# ExyokiOffice-<version>-mcp-registry. See docs/tools/mcp-packages.md.
 
 name: create_install
 
@@ -48,6 +54,10 @@ on:
         description: "Also pack the Linux binaries into a distroless container image"
         type: boolean
         default: true
+      release_tag:
+        description: "Release the MCP bundles will be attached to, named in the registry manifests (default: v<version>)"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -97,6 +107,9 @@ jobs:
           "PACKAGE_DIR=$env:GITHUB_WORKSPACE\build\package\$name"       >> $env:GITHUB_ENV
           "STAGING_DIR=$env:GITHUB_WORKSPACE\build\package"             >> $env:GITHUB_ENV
           "ARTIFACT_DIR=$env:GITHUB_WORKSPACE\build\artifacts"          >> $env:GITHUB_ENV
+          $packages = "ExyokiOffice-$version-mcp-windows-x64"
+          if ($suffix) { $packages = "$packages-$suffix" }
+          "PACKAGES_ARTIFACT=$packages"                                  >> $env:GITHUB_ENV
 
       # Tests and examples are never installed, so building them would only
       # lengthen a packaging run. The tool is the one artifact besides the
@@ -180,6 +193,52 @@ jobs:
           "%PACKAGE_DIR%\bin\exyoki-mcp-excel.exe" --version || exit /b 1
           "%PACKAGE_DIR%\bin\exyoki-mcp-power-point.exe" --version || exit /b 1
 
+      # The same staged tree in the forms an MCP host installs from: the
+      # exyokioffice-mcp wheel for PyPI and one MCP bundle per server for
+      # Claude Desktop. packaging/package.py takes what a server is from
+      # packaging/servers.json and the catalogs under docs/schemas, so nothing
+      # here names one. hatchling goes into a virtual environment of its own
+      # rather than the runner's interpreter. See docs/tools/mcp-packages.md.
+      - name: Build the wheel and the MCP bundles
+        shell: pwsh
+        run: |
+          python -m venv build\packaging-venv
+          build\packaging-venv\Scripts\python -m pip install --quiet --disable-pip-version-check "hatchling>=1.25"
+          if ($LASTEXITCODE -ne 0) { throw "pip install failed with exit code $LASTEXITCODE" }
+          $packages = Join-Path $env:ARTIFACT_DIR 'packages'
+          build\packaging-venv\Scripts\python packaging\package.py wheel --install-dir $env:PACKAGE_DIR --output $packages
+          if ($LASTEXITCODE -ne 0) { throw "package.py wheel failed with exit code $LASTEXITCODE" }
+          build\packaging-venv\Scripts\python packaging\package.py mcpb --install-dir $env:PACKAGE_DIR --output $packages
+          if ($LASTEXITCODE -ne 0) { throw "package.py mcpb failed with exit code $LASTEXITCODE" }
+          "### $env:PACKAGES_ARTIFACT`n" >> $env:GITHUB_STEP_SUMMARY
+          Get-ChildItem $packages -Filter *.sha256 | ForEach-Object {
+            $fields = (Get-Content $_.FullName -TotalCount 1) -split ' +'
+            "- ``$($fields[1])``: sha256 ``$($fields[0])``"
+          } >> $env:GITHUB_STEP_SUMMARY
+
+      # The wheel is proven the way a user meets it: installed into a fresh
+      # environment and started through its console scripts. A bundle's
+      # manifest is checked by the tool the bundle format's authors publish.
+      - name: Verify the wheel and a bundle
+        if: inputs.verify_package
+        shell: pwsh
+        run: |
+          $packages = Join-Path $env:ARTIFACT_DIR 'packages'
+          python -m venv build\wheel-smoke
+          $wheel = Get-Item "$packages\exyokioffice_mcp-*.whl"
+          build\wheel-smoke\Scripts\python -m pip install --quiet --disable-pip-version-check $wheel.FullName
+          if ($LASTEXITCODE -ne 0) { throw "pip install failed with exit code $LASTEXITCODE" }
+          & build\wheel-smoke\Scripts\exyokioffice-mcp word --version
+          if ($LASTEXITCODE -ne 0) { throw "exyokioffice-mcp failed with exit code $LASTEXITCODE" }
+          foreach ($script in 'exyoki-mcp-word', 'exyoki-mcp-excel', 'exyoki-mcp-power-point', 'exyoki') {
+            & "build\wheel-smoke\Scripts\$script" --version
+            if ($LASTEXITCODE -ne 0) { throw "$script failed with exit code $LASTEXITCODE" }
+          }
+          $bundle = Get-Item "$packages\exyoki-mcp-word-*.mcpb"
+          python -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extract('manifest.json', sys.argv[2])" $bundle.FullName build\bundle-smoke
+          npx --yes @anthropic-ai/mcpb validate build\bundle-smoke\manifest.json
+          if ($LASTEXITCODE -ne 0) { throw "mcpb validate failed with exit code $LASTEXITCODE" }
+
       # Zipping from the staging directory keeps the versioned folder as the
       # archive's single root entry, so extracting never scatters files into
       # the current directory.
@@ -209,6 +268,16 @@ jobs:
           path: |
             build/artifacts/${{ env.PACKAGE_NAME }}.zip
             build/artifacts/${{ env.PACKAGE_NAME }}.zip.sha256
+          if-no-files-found: error
+
+      - name: Upload the wheel and the MCP bundles
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.PACKAGES_ARTIFACT }}
+          path: |
+            build/artifacts/packages/*.whl
+            build/artifacts/packages/*.mcpb
+            build/artifacts/packages/*.sha256
           if-no-files-found: error
 
   linux-package:
@@ -265,6 +334,7 @@ jobs:
             echo "ARTIFACT_DIR=$GITHUB_WORKSPACE/build/artifacts"
             echo "DOCKER_ARTIFACT=$docker_artifact"
             echo "IMAGE_TAG=exyokioffice:$version"
+            echo "PACKAGES_ARTIFACT=ExyokiOffice-$version-mcp-linux-x64${suffix:+-$suffix}"
           } >> "$GITHUB_ENV"
 
       - name: Configure
@@ -366,6 +436,37 @@ jobs:
             "$PACKAGE_DIR/bin/exyoki-mcp-$server" --version
           done
 
+      # The Linux twin of the Windows step: wheel and bundles from the tree
+      # just verified. The wheel's manylinux tag is read off this runner's
+      # glibc, which is the glibc the binaries were built against — the reason
+      # the packaging is done here and not in a later job.
+      - name: Build the wheel and the MCP bundles
+        run: |
+          python3 -m venv build/packaging-venv
+          build/packaging-venv/bin/python -m pip install --quiet --disable-pip-version-check "hatchling>=1.25"
+          packages="$ARTIFACT_DIR/packages"
+          build/packaging-venv/bin/python packaging/package.py wheel --install-dir "$PACKAGE_DIR" --output "$packages"
+          build/packaging-venv/bin/python packaging/package.py mcpb --install-dir "$PACKAGE_DIR" --output "$packages"
+          printf '### %s\n\n' "$PACKAGES_ARTIFACT" >> "$GITHUB_STEP_SUMMARY"
+          for digest in "$packages"/*.sha256; do
+            read -r hash name < "$digest"
+            printf -- '- `%s`: sha256 `%s`\n' "$name" "$hash" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Verify the wheel and a bundle
+        if: inputs.verify_package
+        run: |
+          packages="$ARTIFACT_DIR/packages"
+          python3 -m venv build/wheel-smoke
+          build/wheel-smoke/bin/python -m pip install --quiet --disable-pip-version-check "$packages"/exyokioffice_mcp-*.whl
+          build/wheel-smoke/bin/exyokioffice-mcp word --version
+          for script in exyoki-mcp-word exyoki-mcp-excel exyoki-mcp-power-point exyoki; do
+            "build/wheel-smoke/bin/$script" --version
+          done
+          python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extract("manifest.json", sys.argv[2])' \
+            "$packages"/exyoki-mcp-word-*.mcpb build/bundle-smoke
+          npx --yes @anthropic-ai/mcpb validate build/bundle-smoke/manifest.json
+
       # Zipping from the staging directory keeps the versioned folder as the
       # archive's single root entry, so extracting never scatters files into
       # the current directory.
@@ -389,6 +490,16 @@ jobs:
           path: |
             build/artifacts/${{ env.PACKAGE_NAME }}.zip
             build/artifacts/${{ env.PACKAGE_NAME }}.zip.sha256
+          if-no-files-found: error
+
+      - name: Upload the wheel and the MCP bundles
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.PACKAGES_ARTIFACT }}
+          path: |
+            build/artifacts/packages/*.whl
+            build/artifacts/packages/*.mcpb
+            build/artifacts/packages/*.sha256
           if-no-files-found: error
 
       # A distroless image has no shell, so nothing can be arranged inside it
@@ -549,4 +660,60 @@ jobs:
           path: |
             build/artifacts/${{ env.DOCKER_ARTIFACT }}.tar.gz
             build/artifacts/${{ env.DOCKER_ARTIFACT }}.tar.gz.sha256
+          if-no-files-found: error
+
+  # One server.json per server for the MCP Registry, rendered last because a
+  # manifest names every bundle of the release with its digest, and the two
+  # platforms' bundles come from two jobs. Runs when at least one of them
+  # produced bundles, and after both when both ran. Nothing is published:
+  # the manifests are an artifact, and publishing them is a release step
+  # after the bundles are on the release page (RELEASE.md).
+  registry-manifests:
+    name: MCP Registry manifests
+    needs: [windows-package, linux-package]
+    if: ${{ !cancelled() && (needs.windows-package.result == 'success' || needs.linux-package.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download the bundles of both platforms
+        uses: actions/download-artifact@v7
+        with:
+          pattern: ExyokiOffice-*-mcp-*-x64*
+          path: build/packages
+          merge-multiple: true
+
+      # The digests are checked before they are copied into the manifests,
+      # so a bundle damaged in transit cannot become a registry entry that
+      # every client then refuses to install.
+      - name: Render the manifests
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          PACKAGE_SUFFIX: ${{ inputs.package_suffix }}
+        run: |
+          version="$(head -n 1 VERSION.txt | tr -d '[:space:]')"
+          suffix="$(echo "$PACKAGE_SUFFIX" | tr -d '[:space:]')"
+          artifact="ExyokiOffice-$version-mcp-registry${suffix:+-$suffix}"
+          release_tag="$(echo "$RELEASE_TAG" | tr -d '[:space:]')"
+          tag_arguments=()
+          if [ -n "$release_tag" ]; then
+            tag_arguments=(--release-tag "$release_tag")
+          fi
+          (cd build/packages && sha256sum -c -- *.mcpb.sha256)
+          python3 packaging/package.py server-json --output build/registry "${tag_arguments[@]}" build/packages/*.mcpb
+          echo "REGISTRY_ARTIFACT=$artifact" >> "$GITHUB_ENV"
+          printf '### %s\n\n' "$artifact" >> "$GITHUB_STEP_SUMMARY"
+          for manifest in build/registry/*/server.json; do
+            name="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["name"])' "$manifest")"
+            count="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))["packages"]))' "$manifest")"
+            printf -- '- `%s`: %s packages\n' "$name" "$count" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload the manifests
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.REGISTRY_ARTIFACT }}
+          path: build/registry
           if-no-files-found: error

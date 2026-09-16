@@ -58,6 +58,7 @@ ExternalResources.md
 tools/exyoki.md
 tools/conversion-formats.md
 tools/mcp-servers.md
+tools/mcp-packages.md
 tools/docker.md
 
 :: Project policies

@@ -86,6 +86,7 @@ documentation generated from the headers under `include/ExyokiOffice`.
 | [exyoki](tools/exyoki.md) | The command-line utility: inspecting, validating, unpacking and repacking, converting, deduplicating resources, diffing, querying, and editing packages from a shell or a script. |
 | [Conversion formats](tools/conversion-formats.md) | The JSON, XML, Markdown, plain-text, and CSV formats `exyoki convert` and the `Tools` conversion API produce and consume, and the [JSON Schema](tools/conversion-formats.md#json-schema) that makes the JSON envelope checkable. |
 | [MCP servers](tools/mcp-servers.md) | The three Model Context Protocol servers that expose Word, Excel, and PowerPoint documents to AI agents: registration and smoke-testing, the workspace sandbox, worked sessions for each family, task recipes, the tool catalog, the shared result envelope, and troubleshooting. |
+| [Packages for the MCP servers](tools/mcp-packages.md) | The other ways to obtain the servers: the `exyokioffice-mcp` wheel run with `uvx` or installed with `pip`, the MCP bundles Claude Desktop installs from a file, the MCP Registry entries that point at the wheel, the image and the bundles, and how `packaging/package.py` builds all three from an install tree. |
 | [The container image](tools/docker.md) | The distroless image that carries the library, `exyoki` and the three MCP servers: loading it, running the tool, registering the servers with `docker` as the command, the `/work` workspace and file ownership, and building the image yourself. |
 
 ## Project policies

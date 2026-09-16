@@ -233,6 +233,11 @@ The image runs as an unprivileged uid of its own, so `--user` is what makes the
 converted file yours and writable in your own directory. The
 [container guide](docs/tools/docker.md) covers the rest.
 
+The servers are also on PyPI as `exyokioffice-mcp`, so `uvx exyokioffice-mcp
+word --workspace .` starts one with nothing installed, and each release
+carries MCP bundles (`.mcpb`) that Claude Desktop installs from a file; see
+[Packages for the MCP servers](docs/tools/mcp-packages.md).
+
 ## Build and install
 
 ExyokiOffice requires a C++20 compiler and CMake 3.25 or newer. The repository's

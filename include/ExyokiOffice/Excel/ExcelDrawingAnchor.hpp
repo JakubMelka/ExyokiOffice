@@ -75,8 +75,14 @@ struct EXYOKIOFFICE_EXPORT DrawingAnchor
     /** @brief Offset of the bottom-right corner inside @ref To. */
     DrawingAnchorOffset ToOffset;
 
-    /** @brief Exact size; when set, writers that support it use a one-cell anchor. */
-    std::optional<DrawingExtent> Extent;
+    /**
+     * @brief Exact size; when set, writers that support it use a one-cell anchor.
+     *
+     * Empty by default, spelled out because an aggregate initializer that names
+     * only the two-cell members would otherwise be a missing-field-initializer
+     * warning, which this project builds with `-Werror`.
+     */
+    std::optional<DrawingExtent> Extent = std::nullopt;
 };
 
 } // namespace ExyokiOffice::Excel

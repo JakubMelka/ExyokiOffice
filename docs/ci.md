@@ -15,7 +15,7 @@ Linux job, and skips runs whose changes are only documentation.
 | `clang-format` | `.github/workflows/clang-format.yml` | Formats hand-written sources and opens a PR with the fixes. |
 | `docs-pdf` | `.github/workflows/docs-pdf.yml` | Renders `docs/` into a single hyperlinked PDF manual with pandoc and uploads it as the `ExyokiOffice-manual-<version>` artifact. Chapter order and link preprocessing live in `docs/_pdf/`. |
 | `doxygen-pdf` | `.github/workflows/doxygen-pdf.yml` | Renders the Doxygen API reference for the hand-written public headers (the generated DOM is excluded) into a PDF and uploads it as the `ExyokiOffice-api-reference-<version>` artifact. Configuration lives in `docs/_doxygen/Doxyfile`. |
-| `create_install` | `.github/workflows/create_install.yml` | Builds, installs and zips a binary package for Windows and Linux, uploaded as the `ExyokiOffice-<version>-<os>-x64-<compiler>` artifact. The Linux job additionally packs the same binaries into a distroless container image. |
+| `create_install` | `.github/workflows/create_install.yml` | Builds, installs and zips a binary package for Windows and Linux, uploaded as the `ExyokiOffice-<version>-<os>-x64-<compiler>` artifact, plus the `exyokioffice-mcp` wheel and the MCP bundles as `ExyokiOffice-<version>-mcp-<os>-x64`. The Linux job additionally packs the same binaries into a distroless container image, and a final job renders the MCP Registry manifests. |
 | `publish_docker` | `.github/workflows/publish_docker.yml` | Takes the container image a release already carries and pushes it to `ghcr.io`, where it appears under the repository's Packages. Builds nothing. |
 
 ## Running the CI workflow
@@ -244,6 +244,27 @@ validates it with the CLI from the same image.
 
 [The container image](tools/docker.md) documents the result from a user's side.
 
+### MCP packages
+
+After the staged tree is verified, each job runs `packaging/package.py` over
+it twice: `wheel` builds the `exyokioffice-mcp` platform wheel and `mcpb` one
+MCP bundle per server, each with a `.sha256` beside it. With `verify_package`
+on, the wheel is installed into a throwaway virtual environment and its
+console scripts are run, and a bundle's manifest is checked with the `mcpb`
+command-line tool. Wheel and bundles are uploaded together as
+`ExyokiOffice-<version>-mcp-<os>-x64`.
+
+A third job, `registry-manifests`, waits for both, downloads their bundles
+and runs `server-json` over them, which needs every bundle's digest and file
+name. It uploads `ExyokiOffice-<version>-mcp-registry`, one `server.json` per
+server, ready for `mcp-publisher`. The manifests name the bundles by the URL
+they will have on the release, `v<version>` unless the `release_tag` input
+says otherwise. Nothing is published here: PyPI, the registry and the release
+page are release steps in [RELEASE.md](../RELEASE.md).
+
+[Packages for the MCP servers](tools/mcp-packages.md) documents the result
+from a user's side and the script itself.
+
 ### Publishing the image to the registry
 
 `create_install` pushes nothing. Getting an image into the GitHub Container
@@ -284,6 +305,16 @@ Two things the workflow cannot do for you:
 - The token sees published releases only, so publish the release first. Pushing
   the image of a still-draft release would need `contents: write` in the
   workflow, and would advertise an image for something nobody can download yet.
+
+After the release image, the workflow pushes three more tags of it,
+`<version>-word`, `<version>-excel` and `<version>-powerpoint`, that differ
+from it in one label: `io.modelcontextprotocol.server.name`, which is how the
+MCP Registry proves that the publisher of an entry owns the image the entry
+points at. One label holds one name and the image serves three servers, so
+each registry entry needs a tag of its own; the tags share every layer with
+the release image. The names come from `packaging/servers.json`, and the
+workflow checks that the image name it derives from the repository is the one
+that file records.
 
 ## What is not covered yet
 

@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+# The PyPI face of the three MCP servers. The package is a thin launcher: the
+# wheel carries the native executables and the shared library under
+# exyokioffice_mcp/bin, and the console scripts below start them. Nothing here
+# is imported by the servers, and nothing in the servers depends on Python.
+#
+# The wheel is never built from this directory alone. packaging/package.py
+# copies the binaries out of an install tree, sets the platform tag and the
+# version (from VERSION.txt, the repository's only version literal) and only
+# then invokes hatchling; hatch_build.py is where those arrive. Building with
+# `python -m build` directly therefore fails on purpose.
+[project]
+name = "exyokioffice-mcp"
+dynamic = ["version"]
+description = "MCP servers that let AI agents create and edit Word, Excel and PowerPoint documents, confined to one folder"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [{ name = "Jakub Melka" }]
+keywords = ["mcp", "model-context-protocol", "word", "excel", "powerpoint", "docx", "xlsx", "pptx", "openxml"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business :: Office Suites",
+]
+
+[project.urls]
+Homepage = "https://github.com/JakubMelka/ExyokiOffice"
+Documentation = "https://github.com/JakubMelka/ExyokiOffice/blob/master/docs/tools/mcp-servers.md"
+Changelog = "https://github.com/JakubMelka/ExyokiOffice/blob/master/CHANGELOG.md"
+Issues = "https://github.com/JakubMelka/ExyokiOffice/issues"
+
+# `exyokioffice-mcp` is the entry `uvx` runs when it is given the package
+# name; it takes the family as its first argument, the same way the container
+# image's dispatcher does. The three servers and the command-line tool are
+# also reachable under their own names for anyone who installs the package.
+[project.scripts]
+exyokioffice-mcp = "exyokioffice_mcp:main"
+exyoki-mcp-word = "exyokioffice_mcp:word"
+exyoki-mcp-excel = "exyokioffice_mcp:excel"
+exyoki-mcp-power-point = "exyokioffice_mcp:power_point"
+exyoki = "exyokioffice_mcp:exyoki"
+
+[tool.hatch.version]
+source = "env"
+variable = "EXYOKIOFFICE_MCP_VERSION"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/exyokioffice_mcp"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+# A source distribution of a launcher for binaries nobody can build from it
+# would only mislead; the wheel is the only artifact.
+[tool.hatch.build.targets.sdist]
+ignore-vcs = true
+exclude = ["*"]

@@ -7,6 +7,12 @@
 # Manifest-mode vcpkg trees, produced by the CMake preset in vcpkg/test.
 vcpkg_installed/
 
+# Outputs of packaging/package.py when it is pointed at the source tree, and
+# the build directory hatchling creates next to the launcher's pyproject.toml.
+/packaging/python/build/
+/packaging/python/dist/
+/packaging/**/__pycache__/
+
 # User-specific CMake cache
 /CMakeLists.txt.user
 **/CMakeLists.txt.user

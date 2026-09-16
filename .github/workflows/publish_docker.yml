@@ -9,7 +9,10 @@
 #
 # The image name is the repository name in lower case,
 # ghcr.io/<owner>/exyokioffice, and the tag is the version the image's own OCI
-# label reports — never a literal here.
+# label reports — never a literal here. Three more tags, <version>-word,
+# <version>-excel and <version>-powerpoint, follow: the same image with the
+# io.modelcontextprotocol.server.name label the MCP Registry verifies an entry's
+# image by. See docs/tools/mcp-packages.md.
 #
 # A newly created package is private. After the first successful run, open
 # Packages -> exyokioffice -> Package settings and change the visibility to
@@ -54,6 +57,11 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE: ${{ inputs.release }}
     steps:
+      # The checkout is for packaging/servers.json and packaging/package.py,
+      # which name the MCP servers the per-server tags below are labelled for.
+      - name: Checkout
+        uses: actions/checkout@v7
+
       # The version is not an input: it is read off the image later. Here the
       # release is only searched for the one asset that is a container image,
       # and an ambiguous or empty answer stops the run rather than guessing.
@@ -162,3 +170,37 @@ jobs:
           printf '\nPushed:\n\n' >> "$GITHUB_STEP_SUMMARY"
           printf -- '- `%s`\n' $tags >> "$GITHUB_STEP_SUMMARY"
           printf -- '- digest: `%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
+
+      # The MCP Registry proves that the publisher of an entry owns the image
+      # the entry points at by reading an io.modelcontextprotocol.server.name
+      # label off it. One label holds one name and this image serves three
+      # servers, so each gets a tag that differs from the release image in
+      # that label alone: the same layers, one more config. The names are the
+      # ones packaging/servers.json records, which is also where the registry
+      # manifests take them from, and the image name that file records has to
+      # be the one this repository publishes under or the manifests would
+      # point at nothing.
+      - name: Push one labelled tag per MCP server
+        run: |
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          recorded="$(python3 -c 'import json; print(json.load(open("packaging/servers.json"))["ociImage"])')"
+          if [ "$recorded" != "$repository" ]; then
+            echo "packaging/servers.json records the image as $recorded; this repository publishes $repository" >&2
+            exit 1
+          fi
+          printf '\nRegistry tags:\n\n' >> "$GITHUB_STEP_SUMMARY"
+          python3 packaging/package.py names | while read -r short executable name; do
+            tag="$repository:$VERSION-$short"
+            printf 'FROM %s\nLABEL io.modelcontextprotocol.server.name="%s"\n' "$LOADED_IMAGE" "$name" \
+              | docker build --quiet -t "$tag" -
+            label="$(docker image inspect \
+              --format '{{index .Config.Labels "io.modelcontextprotocol.server.name"}}' "$tag")"
+            test "$label" = "$name"
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "dry run; would push $tag"
+              printf -- '- `%s` (dry run, not pushed)\n' "$tag" >> "$GITHUB_STEP_SUMMARY"
+            else
+              docker push "$tag"
+              printf -- '- `%s`\n' "$tag" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done

@@ -13,6 +13,19 @@ in [docs/](docs/README.md).
 
 ### Added
 
+- Three more ways to obtain the MCP servers, all built from the same install
+  tree by `packaging/package.py`. See
+  [Packages for the MCP servers](docs/tools/mcp-packages.md).
+  - The `exyokioffice-mcp` wheel for PyPI, started with `uvx exyokioffice-mcp
+    word --workspace DIR` or installed with `pip`; wheels for Windows x64 and
+    Linux x64.
+  - One MCP bundle (`.mcpb`) per server and platform, which Claude Desktop
+    installs from a file and asks only for the document folder.
+  - MCP Registry manifests, `io.github.JakubMelka/exyoki-mcp-<family>`,
+    pointing at the wheel, the per-family image tags and the bundles;
+    `publish_docker.yml` now pushes those labelled tags.
+  - `create_install.yml` uploads `ExyokiOffice-<version>-mcp-<os>-x64` and
+    `ExyokiOffice-<version>-mcp-registry`, and takes a `release_tag` input.
 - `examples/ExampleWordDemo`, a one-page Word showcase document built with
   `Word::WordDocumentEditor`, enabled by `EXYOKIOFFICE_BUILD_EXAMPLE_WORD_DEMO`.
 - Ten MCP tools, closing the gaps between what the compatibility matrix grades
@@ -94,6 +107,9 @@ in [docs/](docs/README.md).
 
 ### Fixed
 
+- The library builds with GCC again: `Detail::Charts::AxisStyle` moved out of
+  `ChartDomInternal`, and `Excel::DrawingAnchor::Extent` states its empty
+  default.
 - `OpenXmlPackageValidator` reports the package-semantic rules Office enforces
   and `validate_document` no longer passes such files. See the `validate`
   section of [exyoki](docs/tools/exyoki.md).

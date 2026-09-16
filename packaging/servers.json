@@ -1,0 +1,53 @@
+{
+  "$comment": "The one description of how the MCP servers are published outside this repository. packaging/package.py reads it to build the Python wheel, the MCP bundles and the registry manifests; publish_docker.yml reads it to label the per-server image tags. Every name here is one a registry, a package index or a client will look up, so change it only together with docs/tools/mcp-packages.md.",
+  "pypiPackage": "exyokioffice-mcp",
+  "pypiDispatcher": "exyokioffice-mcp",
+  "ociImage": "ghcr.io/jakubmelka/exyokioffice",
+  "registryNamespace": "io.github.JakubMelka",
+  "repository": {
+    "url": "https://github.com/JakubMelka/ExyokiOffice",
+    "source": "github",
+    "id": "1320326862"
+  },
+  "documentation": "https://github.com/JakubMelka/ExyokiOffice/blob/master/docs/tools/mcp-servers.md",
+  "packagesDocumentation": "https://github.com/JakubMelka/ExyokiOffice/blob/master/docs/tools/mcp-packages.md",
+  "support": "https://github.com/JakubMelka/ExyokiOffice/issues",
+  "author": {
+    "name": "Jakub Melka",
+    "url": "https://github.com/JakubMelka"
+  },
+  "license": "MIT",
+  "workspaceDescription": "Folder the server may read and write. Every path in a tool call is resolved inside it and can never leave it.",
+  "servers": [
+    {
+      "short": "word",
+      "executable": "exyoki-mcp-word",
+      "catalog": "docs/schemas/mcp-word-tools.json",
+      "sourceSubfolder": "tools/mcp/word",
+      "displayName": "ExyokiOffice Word",
+      "summary": "Create, read and edit Word .docx documents through typed tools, confined to one folder.",
+      "description": "Create, read and edit Word (.docx) documents: paragraphs, styles, tables, images, hyperlinks, fields, sections, notes, comments, revisions and templates, confined to one folder.",
+      "keywords": ["word", "docx", "openxml", "documents", "office", "exyokioffice"]
+    },
+    {
+      "short": "excel",
+      "executable": "exyoki-mcp-excel",
+      "catalog": "docs/schemas/mcp-excel-tools.json",
+      "sourceSubfolder": "tools/mcp/excel",
+      "displayName": "ExyokiOffice Excel",
+      "summary": "Create, read and edit Excel .xlsx workbooks through typed tools, confined to one folder.",
+      "description": "Create, read and edit Excel (.xlsx) workbooks: cells, formulas, styles, tables, charts, pivot tables, slicers, validation, layout and printing, confined to one folder.",
+      "keywords": ["excel", "xlsx", "openxml", "spreadsheets", "office", "exyokioffice"]
+    },
+    {
+      "short": "powerpoint",
+      "executable": "exyoki-mcp-power-point",
+      "catalog": "docs/schemas/mcp-power-point-tools.json",
+      "sourceSubfolder": "tools/mcp/powerpoint",
+      "displayName": "ExyokiOffice PowerPoint",
+      "summary": "Create, read and edit PowerPoint .pptx presentations through typed tools, confined to one folder.",
+      "description": "Create, read and edit PowerPoint (.pptx) presentations: slides, layouts, shapes, text, pictures, media, charts, transitions, animations, notes and comments, confined to one folder.",
+      "keywords": ["powerpoint", "pptx", "openxml", "presentations", "office", "exyokioffice"]
+    }
+  ]
+}

@@ -246,3 +246,22 @@ if(EXYOKIOFFICE_BUILD_MCP_PYTHON_TESTS AND TARGET exyoki-mcp-word)
         ENVIRONMENT
             "EXYOKI_MCP_WORD_EXE=$<TARGET_FILE:exyoki-mcp-word>;EXYOKI_MCP_EXCEL_EXE=$<TARGET_FILE:exyoki-mcp-excel>;EXYOKI_MCP_POWERPOINT_EXE=$<TARGET_FILE:exyoki-mcp-power-point>")
 endif()
+
+# packaging/package.py turns an install tree into the PyPI wheel, the MCP
+# bundles for Claude Desktop and the MCP Registry manifests; see
+# docs/tools/mcp-packages.md. Its tests run it over a fabricated prefix and
+# need nothing but a Python interpreter, so they are registered with the
+# doctest layers whenever one is found. The wheel test skips itself when
+# hatchling is not importable rather than requiring a Python environment.
+if(EXYOKIOFFICE_BUILD_UNIT_TESTS)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        # -B keeps the interpreter from writing __pycache__ into the source tree.
+        add_test(NAME Packaging.Python
+            COMMAND ${Python3_EXECUTABLE} -B -m unittest discover -s ${PROJECT_SOURCE_DIR}/packaging/tests
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/packaging/tests)
+        set_tests_properties(Packaging.Python PROPERTIES LABELS "mcp;packaging")
+    else()
+        message(STATUS "No Python interpreter found; the Packaging.Python test is not registered")
+    endif()
+endif()

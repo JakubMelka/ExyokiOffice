@@ -213,6 +213,16 @@ build\ninja-clang-debug\gen\OpenXmlGenerator.exe --data data --out-include inclu
   `FROM` line and the `runs-on:` label of `linux-package` are one decision —
   the build's glibc must be no newer than the runtime base's. See
   `docs/tools/docker.md`.
+- `packaging/`: the forms the MCP servers are published in beyond the zip
+  archive and the image — `package.py` turns an install tree into the
+  `exyokioffice-mcp` platform wheel (`python/`, a hatchling launcher project
+  whose binaries arrive through `hatch_build.py`), one MCP bundle (`.mcpb`)
+  per server for Claude Desktop, and the MCP Registry `server.json` manifests.
+  `servers.json` is the one place the servers' public names, descriptions,
+  the PyPI and image names and the registry namespace are written; the tool
+  lists in the bundle manifests come from `docs/schemas/`. `tests/` runs the
+  script over a fabricated prefix as the `Packaging.Python` CTest entry. See
+  `docs/tools/mcp-packages.md`.
 - `sources/pugixml/`, `sources/zip/`, `3rdparty/`: vendored dependencies.
 - `VERSION.txt`: the release number, stored once. The build, the generated
   `Version.hpp`, the Windows resource and both documentation PDFs read it; see
@@ -423,6 +433,18 @@ keep CRLF. Everything under `tests/fuzz/corpus/` and `tests/fuzz/crashes/` is
 marked `-text` and must stay byte-exact — do not trim trailing whitespace or add
 a final newline there, and never stage a content change to those paths that came
 from a renormalization rather than from a deliberate new seed.
+
+Two constructs MSVC accepts and GCC rejects have broken the Linux build more
+than once, and both are invisible on Windows. A class nested in another class
+cannot be the type of a default argument of an enclosing-class member when it
+has default member initializers: GCC parses the default argument first and
+reports that the initializers are "required before the end of its enclosing
+class". Define such a helper struct at namespace scope instead. And an
+aggregate initializer that leaves a trailing member to its default is
+`-Wmissing-field-initializers`, which this project builds as an error; give the
+member a default member initializer in its declaration rather than spelling
+`{}` out at every call site. Run `.\WinBuild.ps1` and then the Linux smoke
+workflow, or a GCC build of your own, before calling a change done.
 
 The MSVC build does not pass `/utf-8`. Without a byte order mark MSVC therefore
 reads sources in the system ANSI code page, so a narrow string literal holding

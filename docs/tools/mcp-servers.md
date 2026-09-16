@@ -102,6 +102,13 @@ output needs no network, and denying it one puts a second boundary under the
 workspace sandbox described below. See [The container image](docker.md) and
 [Closing the network](docker.md#closing-the-network).
 
+Two more forms need no archive at all. The `exyokioffice-mcp` package on PyPI
+starts a server with `uvx` as the command — `"args": ["exyokioffice-mcp",
+"word", "--workspace", "..."]` — and the MCP bundles (`.mcpb`) on the release
+page install a server into Claude Desktop from a file, asking only for the
+document folder. Both, and the MCP Registry entries that point at them, are
+described in [Packages for the MCP servers](mcp-packages.md).
+
 To try a server by hand, the reference inspector speaks the same protocol:
 
 ```powershell

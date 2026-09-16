@@ -18,6 +18,26 @@ namespace ExyokiOffice::Detail::Charts
 namespace C = ExyokiOffice::DocumentFormat::OpenXml::Drawing::Charts;
 namespace A = ExyokiOffice::DocumentFormat::OpenXml::Drawing;
 
+/**
+ * How an axis is written. The primary pair crosses at zero and is drawn; a
+ * secondary pair is written the way Excel writes it, with its value axis
+ * crossing at the maximum so it stands on the opposite side and its
+ * category axis deleted, because the categories are already labelled once.
+ *
+ * At namespace scope rather than inside ChartDomInternal, where it is only
+ * used: BuildCategoryAxis defaults its parameter to an empty one, and GCC
+ * parses that default argument before the default member initializers of a
+ * class nested in the same class, so neither `{}` nor `AxisStyle{}` compiles
+ * there.
+ */
+struct AxisStyle
+{
+    bool deleted = false;
+    /// `crosses` value, or null to write none, as Excel does on a deleted category axis.
+    const char* crosses = "autoZero";
+    bool gridLines = false;
+};
+
 /** Non-public helpers backing ChartDom's static methods; not part of the public chart API. */
 class ChartDomInternal
 {
@@ -142,20 +162,6 @@ public:
             }
         }
     }
-
-    /**
-     * How an axis is written. The primary pair crosses at zero and is drawn; a
-     * secondary pair is written the way Excel writes it, with its value axis
-     * crossing at the maximum so it stands on the opposite side and its
-     * category axis deleted, because the categories are already labelled once.
-     */
-    struct AxisStyle
-    {
-        bool deleted = false;
-        /// `crosses` value, or null to write none, as Excel does on a deleted category axis.
-        const char* crosses = "autoZero";
-        bool gridLines = false;
-    };
 
     static void BuildCategoryAxis(const ChartDom::Element& plot, const char* id, const char* position,
                                   const char* cross, const std::string& title, const AxisStyle& style = {})
@@ -880,7 +886,6 @@ void ChartDom::BuildChartSpace(const Element& chartSpace, const ChartLayout& lay
                                                { return plan.secondary; });
     if (axisKind != ChartPlotKind::Pie && axisKind != ChartPlotKind::Unknown)
     {
-        using AxisStyle = ChartDomInternal::AxisStyle;
         const AxisStyle primary{false, "autoZero", layout.showGridLines};
         const AxisStyle secondaryValue{false, "max", false};
         const AxisStyle secondaryCategory{true, nullptr, false};
