@@ -5190,8 +5190,14 @@ std::optional<PresentationShapeTransform> PresentationShape::GetEffectiveTransfo
     }
     const auto& placeholder = placeholders.front();
     const auto type = placeholder->GetType().ValueOr(Presentation::PlaceholderValues::Object).GetValue();
-    const auto index = placeholder->GetIndex().IsDefined() ? std::optional<UInt32>(placeholder->GetIndex().ValueOr(0))
-                                                           : std::nullopt;
+    // Assigned in a branch rather than through `cond ? optional(x) : nullopt`:
+    // GCC 13 reports -Wmaybe-uninitialized on the ternary's payload once
+    // InheritedBox is inlined, and this project builds with -Werror.
+    std::optional<UInt32> index;
+    if (placeholder->GetIndex().IsDefined())
+    {
+        index = placeholder->GetIndex().ValueOr(0);
+    }
     auto layoutPart = m_slidePart->GetSlideLayoutPart();
     auto masterPart = layoutPart ? layoutPart->GetSlideMasterPart() : nullptr;
     const std::shared_ptr<OpenXMLElement> roots[] = {

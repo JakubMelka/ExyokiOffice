@@ -351,23 +351,27 @@ public:
             return 0;
         }
 
-        std::optional<Real> width = dimension ? dimension->Width : std::nullopt;
-        if (!width)
+        // Resolved straight into pixels rather than through a std::optional<Real>
+        // width: GCC 13 reports -Wmaybe-uninitialized on the optional's payload
+        // once ColumnPixels is inlined, and this project builds with -Werror.
+        Real pixels = DefaultColumnPixels;
+        if (dimension && dimension->Width)
+        {
+            pixels = ColumnPixels(*dimension->Width);
+        }
+        else
         {
             const auto format = root->GetFirstChildOfType<Spreadsheet::SheetFormatProperties>();
             if (format && format->GetDefaultColumnWidth().IsDefined())
             {
-                width = format->GetDefaultColumnWidth().Value();
+                pixels = ColumnPixels(format->GetDefaultColumnWidth().Value());
             }
             else if (format && format->GetBaseColumnWidth().IsDefined())
             {
                 // baseColWidth counts characters without the cell padding.
-                const auto pixels = static_cast<Real>(format->GetBaseColumnWidth().Value()) * MaximumDigitWidthPixels + 5.0;
-                return static_cast<Int64>(pixels) * EmuPerPixel;
+                pixels = static_cast<Real>(format->GetBaseColumnWidth().Value()) * MaximumDigitWidthPixels + 5.0;
             }
         }
-
-        const auto pixels = width ? ColumnPixels(*width) : DefaultColumnPixels;
         return static_cast<Int64>(pixels) * EmuPerPixel;
     }
 

@@ -434,8 +434,8 @@ marked `-text` and must stay byte-exact — do not trim trailing whitespace or a
 a final newline there, and never stage a content change to those paths that came
 from a renormalization rather than from a deliberate new seed.
 
-Two constructs MSVC accepts and GCC rejects have broken the Linux build more
-than once, and both are invisible on Windows. A class nested in another class
+Three constructs MSVC accepts and GCC rejects have broken the Linux build more
+than once, and all are invisible on Windows. A class nested in another class
 cannot be the type of a default argument of an enclosing-class member when it
 has default member initializers: GCC parses the default argument first and
 reports that the initializers are "required before the end of its enclosing
@@ -443,8 +443,14 @@ class". Define such a helper struct at namespace scope instead. And an
 aggregate initializer that leaves a trailing member to its default is
 `-Wmissing-field-initializers`, which this project builds as an error; give the
 member a default member initializer in its declaration rather than spelling
-`{}` out at every call site. Run `.\WinBuild.ps1` and then the Linux smoke
-workflow, or a GCC build of your own, before calling a change done.
+`{}` out at every call site. Finally, GCC 13 — the compiler of the smoke
+workflow's `ubuntu-24.04` runner — reports `-Wmaybe-uninitialized` on the
+payload of a `std::optional` of a scalar built with `cond ? std::optional(x) :
+std::nullopt` and then read in an inlined helper; newer GCC does not, so a
+local GCC 15 build misses it. Assign such an optional in an `if` branch, or
+resolve the value without an optional. Run `.\WinBuild.ps1` and then the Linux
+smoke workflow, or a build in an `ubuntu:24.04` container with its stock `g++`,
+before calling a change done.
 
 The MSVC build does not pass `/utf-8`. Without a byte order mark MSVC therefore
 reads sources in the system ANSI code page, so a narrow string literal holding

@@ -107,9 +107,10 @@ in [docs/](docs/README.md).
 
 ### Fixed
 
-- The library builds with GCC again: `Detail::Charts::AxisStyle` moved out of
-  `ChartDomInternal`, and `Excel::DrawingAnchor::Extent` states its empty
-  default.
+- The library builds with GCC again, including GCC 13 with
+  `EXYOKIOFFICE_WARNINGS_AS_ERRORS`: `Detail::Charts::AxisStyle` moved out of
+  `ChartDomInternal`, `Excel::DrawingAnchor::Extent` states its empty default,
+  and two `std::optional` locals no longer trip `-Wmaybe-uninitialized`.
 - `OpenXmlPackageValidator` reports the package-semantic rules Office enforces
   and `validate_document` no longer passes such files. See the `validate`
   section of [exyoki](docs/tools/exyoki.md).
